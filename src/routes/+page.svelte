@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { PUBLIC_API_URL } from '$env/static/public';
+
   let status: string = $state('loading...');
 
   async function checkHealth() {
     try {
-      const response = await fetch('https://call-to-arms-api.fly.dev/health');
+      const response = await fetch(`${PUBLIC_API_URL}/health`);
       const data = await response.json();
       status = data.status;
     } catch (error) {
