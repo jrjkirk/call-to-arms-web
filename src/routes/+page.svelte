@@ -19,3 +19,5 @@
 <h1>Call to Arms</h1>
 <p>Backend status: <strong>{status}</strong></p>
 <p><a href="/players">View all players</a></p>
+<p><a href="/players">View all players</a></p>
+<p><a href="/league">Old World League rankings</a></p>
