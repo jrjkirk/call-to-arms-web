@@ -36,16 +36,16 @@
         </a>
 
         <a class="sidebar-link" href="https://discord.gg/tnwUCRYH" target="_blank" rel="noopener">
-            <img src="/brand/discord.png" alt="Discord" class="discord-img" />
+            <img src="/brand/discord.png" alt="Discord" />
         </a>
     </aside>
 
     <main class="container">
         <header class="banner">
             <div class="logos">
-                <img src="/logos/tow.png" alt="Warhammer: The Old World" class="logo logo-tow" />
-                <img src="/logos/hh.png" alt="Warhammer: The Horus Heresy" class="logo logo-hh" />
-                <img src="/logos/kt.png" alt="Warhammer: Kill Team" class="logo logo-kt" />
+                <img src="/logos/tow.png" alt="Warhammer: The Old World" class="logo" />
+                <img src="/logos/hh.png" alt="Warhammer: The Horus Heresy" class="logo" />
+                <img src="/logos/kt.png" alt="Warhammer: Kill Team" class="logo" />
             </div>
             <h1 class="call-to-arms-title">CALL TO ARMS</h1>
         </header>
@@ -140,25 +140,22 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 2rem;
+        gap: 3rem;
         flex-wrap: wrap;
-        margin-bottom: 0.25rem;
     }
 
     .logo {
+        height: 90px;
+        max-width: 220px;
         object-fit: contain;
     }
 
-    .logo-tow { height: 80px; }
-    .logo-hh { height: 58px; }
-    .logo-kt { height: 54px; }
-
     .call-to-arms-title {
-        font-size: 2.6rem;
+        font-size: 2.4rem;
         font-weight: 700;
         letter-spacing: 0.08em;
         color: var(--color-text-bright);
-        margin: 0.5rem 0 0;
+        margin: 0;
     }
 
     .nav-tabs {
@@ -222,10 +219,11 @@
         .container {
             padding: 1rem;
         }
-        .logo-tow { height: 44px; }
-        .logo-hh { height: 32px; }
-        .logo-kt { height: 30px; }
-        .logos { gap: 1rem; }
+        .logo {
+            height: 50px;
+            max-width: 130px;
+        }
+        .logos { gap: 1.25rem; }
         .call-to-arms-title { font-size: 1.5rem; }
         .nav-tabs {
             gap: 0.8rem;
