@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+@theme {
+    --color-bg-base: #141414;
+    --color-bg-deep: #0c0c0c;
+    --color-surface: rgba(30, 30, 40, 0.92);
+    --color-surface-dark: rgba(20, 20, 30, 0.95);
+    --color-surface-hover: rgba(201, 161, 74, 0.06);
+
+    --color-text-base: #f0e8d8;
+    --color-text-bright: #f4e9c8;
+    --color-text-muted: #d4c8a0;
+    --color-text-dim: #b8a878;
+    --color-text-faint: #8a8270;
+
+    --color-accent: #c9a14a;
+    --color-accent-soft: #c8a35f;
+    --color-accent-border: rgba(180, 150, 90, 0.35);
+    --color-accent-border-soft: rgba(180, 150, 90, 0.18);
+    --color-accent-glow: rgba(201, 161, 74, 0.4);
+
+    --color-win: #4ade80;
+    --color-loss: #f87171;
+    --color-draw: #94a3b8;
+
+    --color-tnt: #d97a2a;
+
+    --font-display: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', sans-serif;
+}
+
+body {
+    background: var(--color-bg-deep);
+    color: var(--color-text-base);
+    font-family: var(--font-display);
+    min-height: 100vh;
+}
+
+a { color: inherit; }
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--color-text-bright);
+    margin: 0;
+}
+
+/* ===== Reusable building blocks ===== */
+
+.card {
+    background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+    border: 1px solid var(--color-accent-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.section-title {
+    color: var(--color-accent);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+    margin-top: 1.5rem;
+}
+
+.section-title:first-child { margin-top: 0; }
+
+/* Stat cards row used on Call to Arms tab and player profile */
+.stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.9rem;
+    margin: 0.5rem 0 1rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+    border: 1px solid var(--color-accent-border);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.stat-label {
+    color: var(--color-accent);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 0.4rem;
+}
+
+.stat-value {
+    color: var(--color-text-bright);
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+/* Form-ish input control look */
+.field {
+    margin-bottom: 1rem;
+}
+
+.field-label {
+    display: block;
+    color: var(--color-text-base);
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+}
+
+.field-input,
+.field-select {
+    width: 100%;
+    background: rgba(20, 20, 30, 0.8);
+    border: 1px solid var(--color-accent-border);
+    border-radius: 8px;
+    color: var(--color-text-base);
+    padding: 0.6rem 0.75rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+.field-input:focus,
+.field-select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+/* Result-coloured outcome labels (Win/Loss/Draw) */
+.outcome-win { color: var(--color-win); font-weight: 700; }
+.outcome-loss { color: var(--color-loss); font-weight: 700; }
+.outcome-draw { color: var(--color-draw); font-weight: 700; }

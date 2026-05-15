@@ -1,101 +1,176 @@
 <script lang="ts">
     let { data } = $props();
 
-    function recordString(r: { wins: number; losses: number; draws: number }): string {
-        const parts = [`${r.wins}W`, `${r.losses}L`];
-        if (r.draws > 0) parts.push(`${r.draws}D`);
-        return parts.join(' ');
+    function factionToSlug(name: string | null): string | null {
+        if (!name) return null;
+        return name
+            .toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '');
     }
 
-    function rankClass(rank: number): string {
-        if (rank === 1) return 'rank-gold';
-        if (rank === 2) return 'rank-silver';
-        if (rank === 3) return 'rank-bronze';
+    function factionIconUrl(name: string | null): string | null {
+        const slug = factionToSlug(name);
+        return slug ? `/icons/TOW/${slug}.png` : null;
+    }
+
+    function wdl(row: { wins: number; draws: number; losses: number }): string {
+        return `${row.wins}/${row.draws}/${row.losses}`;
+    }
+
+    function medal(rank: number): string {
+        if (rank === 1) return '🥇';
+        if (rank === 2) return '🥈';
+        if (rank === 3) return '🥉';
         return '';
     }
 </script>
 
-<h1>Old World League</h1>
+<h2 class="page-heading">League Rankings</h2>
 
-<table>
-    <thead>
-        <tr>
-            <th class="rank-col">#</th>
-            <th>Player</th>
-            <th class="rating-col">Rating</th>
-            <th class="record-col">Record</th>
-            <th class="games-col">Games</th>
-        </tr>
-    </thead>
-    <tbody>
-        {#each data.rankings as row}
-            <tr class={rankClass(row.rank)}>
-                <td class="rank-col">{row.rank}</td>
-                <td>
-                    <a href="/players/{row.player_id}">{row.name}</a>
-                    {#if row.default_faction}
-                        <span class="faction">— {row.default_faction}</span>
-                    {/if}
-                </td>
-                <td class="rating-col">{row.rating.toFixed(0)}</td>
-                <td class="record-col">{recordString(row)}</td>
-                <td class="games-col">{row.total_games}</td>
+<div class="table-wrap">
+    <table class="league-table">
+        <thead>
+            <tr>
+                <th class="center rank-col">Rank</th>
+                <th class="center elo-col">ELO</th>
+                <th>Name</th>
+                <th>Most Played Faction</th>
+                <th class="center wdl-col">W/D/L</th>
+                <th class="center games-col">Games</th>
             </tr>
-        {/each}
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            {#each data.rankings as row}
+                <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`}>
+                    <td class="center rank-col">
+                        {#if medal(row.rank)}
+                            <span class="medal">{medal(row.rank)}</span>
+                        {:else}
+                            {row.rank}
+                        {/if}
+                    </td>
+                    <td class="center elo-col">{row.rating.toFixed(0)}</td>
+                    <td>
+                        <a href="/players/{row.player_id}" class="name-link">{row.name}</a>
+                    </td>
+                    <td>
+                        {#if row.most_played_faction}
+                            <span class="faction-cell">
+                                {#if factionIconUrl(row.most_played_faction)}
+                                    <img src={factionIconUrl(row.most_played_faction)} alt="" class="faction-icon" />
+                                {/if}
+                                <em class="faction-name">{row.most_played_faction}</em>
+                            </span>
+                        {:else}
+                            <span class="faction-empty">—</span>
+                        {/if}
+                    </td>
+                    <td class="center wdl-col">{wdl(row)}</td>
+                    <td class="center games-col">{row.total_games}</td>
+                </tr>
+            {/each}
+        </tbody>
+    </table>
+</div>
 
 <style>
-    table {
+    .page-heading {
+        font-size: 1.5rem;
+        margin: 0 0 1rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+
+    .league-table {
         width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
+        border-collapse: separate;
+        border-spacing: 0;
+        color: var(--color-text-base);
     }
 
-    th, td {
-        text-align: left;
-        padding: 0.6rem 0.5rem;
-        border-bottom: 1px solid #eee;
-    }
-
-    th {
-        font-size: 0.8rem;
+    .league-table thead th {
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--color-accent);
+        font-size: 0.75rem;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #666;
-        font-weight: 600;
+        letter-spacing: 0.8px;
+        font-weight: 700;
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--color-accent-border);
     }
 
-    .rank-col {
+    .league-table thead th.center {
         text-align: center;
-        width: 3rem;
     }
 
-    .rating-col,
-    .record-col,
-    .games-col {
-        text-align: right;
-        width: 6rem;
-        font-variant-numeric: tabular-nums;
+    .league-table tbody td {
+        padding: 10px 12px;
+        border-bottom: 1px dashed var(--color-accent-border-soft);
+        font-size: 0.95rem;
+        vertical-align: middle;
     }
 
-    a {
+    .league-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .league-table tbody tr:hover {
+        background: var(--color-surface-hover);
+    }
+
+    .center { text-align: center; }
+    .rank-col { width: 64px; font-weight: 700; color: var(--color-text-bright); }
+    .elo-col  { width: 78px; font-weight: 700; color: var(--color-text-bright); }
+    .wdl-col  { width: 96px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+    .games-col { width: 80px; color: var(--color-text-muted); }
+
+    .medal {
+        font-size: 1.3rem;
+        line-height: 1;
+    }
+
+    .name-link {
+        color: var(--color-text-bright);
+        font-weight: 600;
         text-decoration: none;
-        color: inherit;
-        font-weight: 500;
     }
 
-    a:hover {
+    .name-link:hover {
         text-decoration: underline;
     }
 
-    .faction {
-        color: #888;
-        font-weight: normal;
-        font-size: 0.9em;
+    .faction-cell {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
     }
 
-    .rank-gold td.rank-col { color: #d4a017; font-weight: bold; font-size: 1.1em; }
-    .rank-silver td.rank-col { color: #999; font-weight: bold; }
-    .rank-bronze td.rank-col { color: #b87333; font-weight: bold; }
+    .faction-icon {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+    }
+
+    .faction-name {
+        color: var(--color-text-muted);
+        font-style: italic;
+    }
+
+    .faction-empty {
+        color: var(--color-text-faint);
+    }
+
+    .row-rank-1 td { background: linear-gradient(90deg, rgba(255, 215, 0, 0.10), transparent 60%); }
+    .row-rank-2 td { background: linear-gradient(90deg, rgba(192, 192, 192, 0.10), transparent 60%); }
+    .row-rank-3 td { background: linear-gradient(90deg, rgba(205, 127, 50, 0.10), transparent 60%); }
 </style>

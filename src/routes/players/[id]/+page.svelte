@@ -5,21 +5,24 @@
     const league = $derived(data.league);
     const hasLeagueGames = $derived(league.total_games > 0);
 
-    function formatResult(r: any): string {
+    function formatOutcome(r: any): string {
         if (r.result === 'Draw') return 'Draw';
-        const playerWasOne = r.player_1_id === player.id;
-        const playerWon =
-            (r.result === 'Player 1 Victory' && playerWasOne) ||
-            (r.result === 'Player 2 Victory' && !playerWasOne);
-        return playerWon ? 'Win' : 'Loss';
+        const isP1 = r.player_1_id === player.id;
+        const won = (r.result === 'Player 1 Victory' && isP1) || (r.result === 'Player 2 Victory' && !isP1);
+        return won ? 'Win' : 'Loss';
     }
 
-    function opponentName(r: any): string {
-        return r.player_1_id === player.id ? r.player_2_name : r.player_1_name;
+    function outcomeClass(r: any): string {
+        const o = formatOutcome(r);
+        return o === 'Win' ? 'outcome-win' : o === 'Loss' ? 'outcome-loss' : 'outcome-draw';
     }
 
-    function opponentFaction(r: any): string | null {
-        return r.player_1_id === player.id ? r.player_2_faction : r.player_1_faction;
+    function opponent(r: any): { name: string; faction: string | null } {
+        const isP1 = r.player_1_id === player.id;
+        return {
+            name: isP1 ? r.player_2_name : r.player_1_name,
+            faction: isP1 ? r.player_2_faction : r.player_1_faction
+        };
     }
 
     function playerFaction(r: any): string | null {
@@ -27,130 +30,130 @@
     }
 </script>
 
-<p><a href="/players">← All players</a></p>
+<p class="back-link"><a href="/players">← All players</a></p>
 
-<h1>{player.name}</h1>
-
-{#if player.default_faction}
-    <p class="default-faction">Default faction: {player.default_faction}</p>
-{/if}
+<div class="name-banner card">
+    <h1>{player.name}</h1>
+    {#if player.default_faction}
+        <p class="default-faction">{player.default_faction}</p>
+    {/if}
+</div>
 
 {#if hasLeagueGames}
-    <section class="league">
-        <h2>Old World League</h2>
+    <div class="section-title">The Old World League</div>
 
-        <div class="stats">
-            <div class="stat">
-                <div class="value">{league.rating?.toFixed(0) ?? '—'}</div>
-                <div class="label">Rating</div>
-            </div>
-            <div class="stat">
-                <div class="value">{league.wins}</div>
-                <div class="label">Wins</div>
-            </div>
-            <div class="stat">
-                <div class="value">{league.losses}</div>
-                <div class="label">Losses</div>
-            </div>
-            <div class="stat">
-                <div class="value">{league.draws}</div>
-                <div class="label">Draws</div>
-            </div>
-            <div class="stat">
-                <div class="value">{league.total_games}</div>
-                <div class="label">Games</div>
-            </div>
+    <div class="stat-row">
+        <div class="stat-card">
+            <div class="stat-label">ELO</div>
+            <div class="stat-value">{league.rating.toFixed(0)}</div>
         </div>
+        <div class="stat-card">
+            <div class="stat-label">Rank</div>
+            <div class="stat-value">#{league.rank}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">W / D / L</div>
+            <div class="stat-value">{league.wins}/{league.draws}/{league.losses}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">League Games</div>
+            <div class="stat-value">{league.total_games}</div>
+        </div>
+    </div>
 
-        <h3>Recent results</h3>
-        <ul class="results">
-            {#each league.recent_results as r}
-                <li class={`result result-${formatResult(r).toLowerCase()}`}>
-                    <span class="outcome">{formatResult(r)}</span>
-                    <span class="opponent">vs {opponentName(r)}</span>
-                    {#if playerFaction(r) || opponentFaction(r)}
-                        <span class="factions">
-                            ({playerFaction(r) ?? '?'} vs {opponentFaction(r) ?? '?'})
-                        </span>
-                    {/if}
-                    <span class="date">{r.result_date}</span>
-                </li>
-            {/each}
-        </ul>
-    </section>
+    <div class="section-title">Recent League Results</div>
+
+    <ul class="results">
+        {#each league.recent_results as r}
+            {@const opp = opponent(r)}
+            <li class="result">
+                <span class="result-date">{r.result_date}</span>
+                <span class={outcomeClass(r)}>{formatOutcome(r).toUpperCase()}</span>
+                <span class="result-detail">
+                    <em>{playerFaction(r) ?? '?'}</em>
+                    vs
+                    <strong>{opp.name}</strong>
+                    ({opp.faction ?? '?'})
+                </span>
+            </li>
+        {/each}
+    </ul>
 {:else}
     <p class="empty">No Old World League games yet.</p>
 {/if}
 
 <style>
+    .back-link {
+        margin: 0 0 1rem;
+        color: var(--color-text-dim);
+    }
+
+    .back-link a {
+        text-decoration: none;
+    }
+
+    .back-link a:hover {
+        color: var(--color-text-bright);
+    }
+
+    .name-banner {
+        padding: 1.1rem 1.4rem;
+        margin-bottom: 1rem;
+    }
+
+    .name-banner h1 {
+        font-size: 1.7rem;
+        margin: 0;
+    }
+
     .default-faction {
-        color: #666;
-        margin-top: -0.5rem;
-    }
-
-    .league {
-        margin-top: 2rem;
-    }
-
-    .stats {
-        display: flex;
-        gap: 1.5rem;
-        flex-wrap: wrap;
-        margin: 1rem 0 2rem;
-    }
-
-    .stat {
-        text-align: center;
-    }
-
-    .stat .value {
-        font-size: 1.75rem;
-        font-weight: bold;
-    }
-
-    .stat .label {
-        color: #666;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        color: var(--color-text-dim);
+        font-style: italic;
+        margin: 0.25rem 0 0;
     }
 
     .results {
         list-style: none;
         padding: 0;
+        margin: 0;
     }
 
     .result {
         display: flex;
-        gap: 0.75rem;
         align-items: baseline;
-        padding: 0.4rem 0;
-        border-bottom: 1px solid #eee;
+        gap: 1rem;
+        padding: 0.55rem 0.25rem;
+        border-bottom: 1px dashed var(--color-accent-border-soft);
         font-size: 0.95rem;
+        flex-wrap: wrap;
     }
 
-    .outcome {
-        font-weight: bold;
-        min-width: 3rem;
+    .result:last-child {
+        border-bottom: none;
     }
 
-    .result-win .outcome { color: #1a7f37; }
-    .result-loss .outcome { color: #cf222e; }
-    .result-draw .outcome { color: #666; }
-
-    .factions {
-        color: #888;
-        font-size: 0.85rem;
+    .result-date {
+        color: var(--color-text-dim);
+        font-variant-numeric: tabular-nums;
+        min-width: 6rem;
     }
 
-    .date {
-        margin-left: auto;
-        color: #999;
-        font-size: 0.85rem;
+    .result-detail {
+        color: var(--color-text-muted);
+    }
+
+    .result-detail em {
+        color: var(--color-text-bright);
+        font-style: italic;
+    }
+
+    .result-detail strong {
+        color: var(--color-text-bright);
+        font-weight: 600;
     }
 
     .empty {
-        color: #666;
+        color: var(--color-text-dim);
         font-style: italic;
     }
 </style>
