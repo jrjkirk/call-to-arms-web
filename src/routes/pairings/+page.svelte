@@ -7,6 +7,11 @@
     let system = $state(data.system);
     let week = $state(data.week);
 
+    $effect(() => {
+        system = data.system;
+        week = data.week;
+    });
+
     const systems = ['The Old World', 'The Horus Heresy', 'Kill Team'];
 
     function applyFilters() {
@@ -67,7 +72,6 @@
     <div class="matchups">
         {#each data.matchups as m}
             <div class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}>
-                <!-- Player A -->
                 <div class="player-row player-a">
                     {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
                         <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system))} alt="" />
@@ -80,14 +84,12 @@
                     </div>
                 </div>
 
-                <!-- VS divider -->
                 <div class="vs-divider">
                     <span class="vs-line"></span>
                     <span class="vs-label">VS</span>
                     <span class="vs-line"></span>
                 </div>
 
-                <!-- Player B -->
                 <div class="player-row player-b">
                     {#if m.player_b_name && factionIconUrl(m.player_b_faction, systemFolder(data.system))}
                         <img class="matchup-icon" src={factionIconUrl(m.player_b_faction, systemFolder(data.system))} alt="" />
@@ -160,13 +162,7 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
-    /* Default (mobile-first): stacked vertical layout */
-    .player-row {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-    }
-
+    .player-row { display: flex; align-items: center; gap: 14px; }
     .player-row.player-a { justify-content: flex-start; }
     .player-row.player-b { justify-content: flex-start; }
 
@@ -205,11 +201,7 @@
         margin: 12px 0;
     }
 
-    .vs-line {
-        flex: 1;
-        height: 1px;
-        background: rgba(180, 150, 90, 0.35);
-    }
+    .vs-line { flex: 1; height: 1px; background: rgba(180, 150, 90, 0.35); }
 
     .vs-label {
         font-size: 1rem;
@@ -254,7 +246,6 @@
     .accent-escalation { border-left: 4px solid #c9a14a; }
     .accent-standard { border-left: 4px solid #9c8bd1; }
 
-    /* Desktop: revert to side-by-side layout */
     @media (min-width: 768px) {
         .matchup-card {
             display: grid;

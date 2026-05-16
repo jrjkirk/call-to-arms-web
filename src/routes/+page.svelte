@@ -1,11 +1,17 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import { page } from '$app/state';
 
     let { data } = $props();
 
     let system = $state(data.system);
     let week = $state(data.week);
+
+    // If the SSR'd data changes (e.g. user navigates from one /?system=... URL to another),
+    // resync the local form state. The previous version stored only the *initial* values.
+    $effect(() => {
+        system = data.system;
+        week = data.week;
+    });
 
     const systems = ['The Old World', 'The Horus Heresy', 'Kill Team'];
 
@@ -71,15 +77,10 @@
     }
 
     @media (max-width: 600px) {
-        .filter-row {
-            grid-template-columns: 1fr;
-        }
+        .filter-row { grid-template-columns: 1fr; }
     }
 
-    .placeholder {
-        padding: 1.25rem 1.5rem;
-        margin-top: 1rem;
-    }
+    .placeholder { padding: 1.25rem 1.5rem; margin-top: 1rem; }
 
     .placeholder-title {
         margin: 0 0 0.4rem;

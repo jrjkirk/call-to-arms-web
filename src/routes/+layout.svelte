@@ -1,6 +1,7 @@
 <script lang="ts">
     import '../app.css';
-    import { page, navigating } from '$app/state';
+    import { page } from '$app/state';
+    import { navigating } from '$app/stores';
 
     let { children } = $props();
 
@@ -21,8 +22,7 @@
     <title>Call to Arms</title>
 </svelte:head>
 
-<!-- Top progress bar shown during navigation -->
-{#if navigating.from}
+{#if $navigating}
     <div class="nav-progress"></div>
 {/if}
 
@@ -57,14 +57,7 @@
 
         <nav class="nav-tabs">
             {#each navItems as item}
-                
-                    href={item.href}
-                    class="nav-tab"
-                    class:active={isActive(item.href)}
-                    data-sveltekit-preload-data="hover"
-                >
-                    {item.label}
-                </a>
+                <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
             {/each}
         </nav>
 
@@ -75,7 +68,6 @@
 </div>
 
 <style>
-    /* Top-of-page navigation progress bar */
     .nav-progress {
         position: fixed;
         top: 0;
@@ -186,7 +178,6 @@
         margin: 0;
     }
 
-    /* Nav tabs with a single sliding underline */
     .nav-tabs {
         display: flex;
         gap: 1.5rem;
@@ -214,7 +205,6 @@
         border-bottom-color: var(--color-accent-soft);
     }
 
-    /* Subtle 'pop' on the active underline when it changes */
     .nav-tab.active::after {
         content: '';
         position: absolute;
