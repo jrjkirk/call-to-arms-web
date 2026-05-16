@@ -1,10 +1,50 @@
 <script lang="ts">
     import '../app.css';
+    import { onMount } from 'svelte';
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
 
-    let { data, children } = $props();
+    let { children } = $props();
+
+    type AuthState = {
+        authenticated: boolean;
+        user?: { id: number; discord_name: string; avatar_url: string | null; player_id: number | null };
+        player?: { id: number; name: string } | null;
+        claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
+    };
+
+    let auth = $state<AuthState>({ authenticated: false });
+    let authLoaded = $state(false);
+
+    async function refreshAuth() {
+        try {
+            const response = await fetch(`${PUBLIC_API_URL}/auth/me`, {
+                credentials: 'include'
+            });
+            if (response.ok) {
+                auth = await response.json();
+            } else {
+                auth = { authenticated: false };
+            }
+        } catch (_) {
+            auth = { authenticated: false };
+        } finally {
+            authLoaded = true;
+        }
+    }
+
+    onMount(() => {
+        refreshAuth();
+    });
+
+    // Expose refreshAuth on the window so the claim-profile page can trigger
+    // a refresh after a successful claim, without a full page reload.
+    $effect(() => {
+        if (typeof window !== 'undefined') {
+            (window as any).__refreshAuth = refreshAuth;
+        }
+    });
 
     const navItems = [
         { href: '/', label: 'Call to Arms' },
@@ -18,9 +58,8 @@
         return page.url.pathname.startsWith(href);
     }
 
-    const auth = $derived(data.auth);
-    const isAuthed = $derived(auth?.authenticated === true);
-    const needsClaim = $derived(isAuthed && auth?.user?.player_id == null);
+    const isAuthed = $derived(auth.authenticated === true);
+    const needsClaim = $derived(isAuthed && auth.user?.player_id == null);
 
     function loginUrl(): string {
         return `${PUBLIC_API_URL}/auth/discord/login`;
@@ -31,6 +70,7 @@
             method: 'POST',
             credentials: 'include'
         });
+        await refreshAuth();
         window.location.href = '/';
     }
 </script>
@@ -47,7 +87,9 @@
     <aside class="sidebar">
         <div class="sidebar-block">
             <h2 class="sidebar-heading">Access</h2>
-            {#if isAuthed}
+            {#if !authLoaded}
+                <p class="sidebar-note">…</p>
+            {:else if isAuthed && auth.user}
                 <div class="user-pill">
                     {#if auth.user.avatar_url}
                         <img class="user-avatar" src={auth.user.avatar_url} alt="" />
@@ -99,7 +141,7 @@
         </nav>
 
         <div class="page-content">
-            {#if needsClaim && page.url.pathname !== '/claim'}
+            {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
                 <div class="claim-banner">
                     <strong>Welcome, {auth.user.discord_name}.</strong>
                     Before you can use the app, please
