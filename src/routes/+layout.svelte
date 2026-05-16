@@ -1,6 +1,6 @@
 <script lang="ts">
     import '../app.css';
-    import { page } from '$app/state';
+    import { page, navigating } from '$app/state';
 
     let { children } = $props();
 
@@ -21,7 +21,12 @@
     <title>Call to Arms</title>
 </svelte:head>
 
-<div class="page-wrap">
+<!-- Top progress bar shown during navigation -->
+{#if navigating.from}
+    <div class="nav-progress"></div>
+{/if}
+
+<div class="page-wrap" data-sveltekit-preload-data="hover">
     <aside class="sidebar">
         <div class="sidebar-block">
             <h2 class="sidebar-heading">Access</h2>
@@ -52,7 +57,12 @@
 
         <nav class="nav-tabs">
             {#each navItems as item}
-                <a href={item.href} class="nav-tab" class:active={isActive(item.href)}>
+                
+                    href={item.href}
+                    class="nav-tab"
+                    class:active={isActive(item.href)}
+                    data-sveltekit-preload-data="hover"
+                >
                     {item.label}
                 </a>
             {/each}
@@ -65,6 +75,26 @@
 </div>
 
 <style>
+    /* Top-of-page navigation progress bar */
+    .nav-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+        background-size: 50% 100%;
+        background-repeat: no-repeat;
+        z-index: 1000;
+        animation: nav-progress-slide 0.9s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    @keyframes nav-progress-slide {
+        0%   { background-position: -50% 0; }
+        100% { background-position: 150% 0; }
+    }
+
     .page-wrap {
         display: flex;
         min-height: 100vh;
@@ -156,12 +186,14 @@
         margin: 0;
     }
 
+    /* Nav tabs with a single sliding underline */
     .nav-tabs {
         display: flex;
         gap: 1.5rem;
         border-bottom: 1px solid var(--color-accent-border);
         padding-bottom: 0.6rem;
         margin-bottom: 1.5rem;
+        position: relative;
     }
 
     .nav-tab {
@@ -171,7 +203,8 @@
         padding-bottom: 0.4rem;
         margin-bottom: -0.7rem;
         border-bottom: 3px solid transparent;
-        transition: color 0.15s ease;
+        transition: color 0.2s ease, border-bottom-color 0.25s ease;
+        position: relative;
     }
 
     .nav-tab:hover { color: var(--color-text-bright); }
@@ -179,6 +212,24 @@
     .nav-tab.active {
         color: var(--color-accent);
         border-bottom-color: var(--color-accent-soft);
+    }
+
+    /* Subtle 'pop' on the active underline when it changes */
+    .nav-tab.active::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -0.7rem;
+        height: 3px;
+        background: var(--color-accent-soft);
+        border-radius: 2px;
+        animation: tab-underline-pop 0.35s ease;
+    }
+
+    @keyframes tab-underline-pop {
+        0%   { transform: scaleX(0.2); opacity: 0; }
+        100% { transform: scaleX(1);   opacity: 1; }
     }
 
     .page-content { padding-top: 0.5rem; }
