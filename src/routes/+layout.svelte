@@ -93,9 +93,7 @@
         margin: 0;
     }
 
-    .sidebar-block {
-        padding: 0.25rem 0.25rem 0.5rem;
-    }
+    .sidebar-block { padding: 0.25rem 0.25rem 0.5rem; }
 
     .sidebar-divider {
         height: 1px;
@@ -133,7 +131,7 @@
 
     .banner {
         text-align: center;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
     }
 
     .logos {
@@ -176,24 +174,17 @@
         transition: color 0.15s ease;
     }
 
-    .nav-tab:hover {
-        color: var(--color-text-bright);
-    }
+    .nav-tab:hover { color: var(--color-text-bright); }
 
     .nav-tab.active {
         color: var(--color-accent);
         border-bottom-color: var(--color-accent-soft);
     }
 
-    .page-content {
-        padding-top: 0.5rem;
-    }
+    .page-content { padding-top: 0.5rem; }
 
     @media (max-width: 768px) {
-        .page-wrap {
-            flex-direction: column;
-            padding: 0.5rem;
-        }
+        .page-wrap { flex-direction: column; padding: 0.5rem; }
         .sidebar {
             flex: none;
             flex-direction: row;
@@ -202,27 +193,12 @@
             padding: 0.25rem 0.5rem;
             gap: 0.5rem;
         }
-        .sidebar-block {
-            padding: 0;
-        }
-        .sidebar-divider {
-            display: none;
-        }
-        .sidebar-link {
-            flex-direction: row;
-            font-size: 0.7rem;
-            padding: 0;
-        }
-        .sidebar-link img {
-            max-height: 28px;
-        }
-        .container {
-            padding: 1rem;
-        }
-        .logo {
-            height: 50px;
-            max-width: 130px;
-        }
+        .sidebar-block { padding: 0; }
+        .sidebar-divider { display: none; }
+        .sidebar-link { flex-direction: row; font-size: 0.7rem; padding: 0; }
+        .sidebar-link img { max-height: 28px; }
+        .container { padding: 1rem; }
+        .logo { height: 50px; max-width: 130px; }
         .logos { gap: 1.25rem; }
         .call-to-arms-title { font-size: 1.5rem; }
         .nav-tabs {
