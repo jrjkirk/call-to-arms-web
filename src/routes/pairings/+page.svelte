@@ -14,7 +14,7 @@
         goto(`/pairings?${params}`, { invalidateAll: true });
     }
 
-    function accentClass(gt: string | null): string {
+    function accentClass(gt: string | null | undefined): string {
         if (!gt) return '';
         const k = gt.toLowerCase();
         if (k === 'intro') return 'accent-intro';
@@ -183,7 +183,7 @@
     .matchup-icon-empty { width: 56px; height: 56px; flex: 0 0 auto; }
 
     .matchup-name {
-        font-size: 1.15rem;
+        font-size: 1.1rem;
         font-weight: 600;
         color: #f4e9c8;
         letter-spacing: 0.2px;
@@ -234,7 +234,6 @@
         font-weight: 400;
     }
 
-    /* Game type accents on left border */
     .accent-casual { border-left: 4px solid #6eb46e; }
     .accent-competitive { border-left: 4px solid #d25050; }
     .accent-intro { border-left: 4px solid #5a9bd4; }
@@ -242,12 +241,12 @@
     .accent-standard { border-left: 4px solid #9c8bd1; }
 
     @media (max-width: 600px) {
-        .matchup-card { padding: 14px 12px; }
-        .matchup-grid { gap: 8px; }
-        .matchup-icon, .matchup-icon-empty { width: 40px; height: 40px; }
-        .matchup-name { font-size: 1rem; }
-        .matchup-faction { font-size: 0.82rem; }
-        .matchup-vs { font-size: 1.2rem; padding: 0 2px; }
-        .matchup-meta { gap: 14px; font-size: 0.8rem; }
+        .matchup-card { padding: 12px 10px; }
+        .matchup-grid { gap: 6px; }
+        .matchup-icon, .matchup-icon-empty { width: 36px; height: 36px; }
+        .matchup-name { font-size: 0.95rem; }
+        .matchup-faction { font-size: 0.78rem; }
+        .matchup-vs { font-size: 1.1rem; padding: 0 2px; }
+        .matchup-meta { gap: 12px; font-size: 0.78rem; }
     }
 </style>

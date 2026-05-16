@@ -139,7 +139,7 @@
         align-items: center;
         justify-content: center;
         gap: 3rem;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
     }
 
     .logo {
@@ -198,9 +198,9 @@
         .sidebar-link { flex-direction: row; font-size: 0.7rem; padding: 0; }
         .sidebar-link img { max-height: 28px; }
         .container { padding: 1rem; }
-        .logo { height: 50px; max-width: 130px; }
-        .logos { gap: 1.25rem; }
-        .call-to-arms-title { font-size: 1.5rem; }
+        .logo { height: 38px; max-width: 95px; }
+        .logos { gap: 0.6rem; }
+        .call-to-arms-title { font-size: 1.4rem; }
         .nav-tabs {
             gap: 0.8rem;
             font-size: 0.85rem;
