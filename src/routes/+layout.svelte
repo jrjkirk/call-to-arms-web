@@ -198,9 +198,9 @@
         .sidebar-link { flex-direction: row; font-size: 0.7rem; padding: 0; }
         .sidebar-link img { max-height: 28px; }
         .container { padding: 1rem; }
-        .logo { height: 38px; max-width: 95px; }
+        .logo { height: 42px; max-width: 105px; }
         .logos { gap: 0.6rem; }
-        .call-to-arms-title { font-size: 1.4rem; }
+        .call-to-arms-title { font-size: 2.2rem; letter-spacing: 0.06em; }
         .nav-tabs {
             gap: 0.8rem;
             font-size: 0.85rem;

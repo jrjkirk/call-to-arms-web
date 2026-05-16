@@ -67,34 +67,37 @@
     <div class="matchups">
         {#each data.matchups as m}
             <div class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}>
-                <div class="matchup-grid">
-                    <div class="matchup-side left">
-                        {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
-                            <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system))} alt="" />
-                        {:else}
-                            <div class="matchup-icon-empty"></div>
-                        {/if}
-                        <div class="matchup-text">
-                            <div class="matchup-name">{m.player_a_name}</div>
-                            <div class="matchup-faction">{m.player_a_faction ?? '—'}</div>
-                        </div>
+                <!-- Player A -->
+                <div class="player-row player-a">
+                    {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
+                        <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system))} alt="" />
+                    {:else}
+                        <div class="matchup-icon-empty"></div>
+                    {/if}
+                    <div class="player-text">
+                        <div class="player-name">{m.player_a_name}</div>
+                        <div class="player-faction">{m.player_a_faction ?? '—'}</div>
                     </div>
+                </div>
 
-                    <div class="matchup-vs">VS</div>
+                <!-- VS divider -->
+                <div class="vs-divider">
+                    <span class="vs-line"></span>
+                    <span class="vs-label">VS</span>
+                    <span class="vs-line"></span>
+                </div>
 
-                    <div class="matchup-side right">
-                        <div class="matchup-text">
-                            <div class="matchup-name">{m.player_b_name ?? 'BYE / Standby'}</div>
-                            {#if m.player_b_name}
-                                <div class="matchup-faction">{m.player_b_faction ?? '—'}</div>
-                            {/if}
-                        </div>
+                <!-- Player B -->
+                <div class="player-row player-b">
+                    {#if m.player_b_name && factionIconUrl(m.player_b_faction, systemFolder(data.system))}
+                        <img class="matchup-icon" src={factionIconUrl(m.player_b_faction, systemFolder(data.system))} alt="" />
+                    {:else}
+                        <div class="matchup-icon-empty"></div>
+                    {/if}
+                    <div class="player-text">
+                        <div class="player-name">{m.player_b_name ?? 'BYE / Standby'}</div>
                         {#if m.player_b_name}
-                            {#if factionIconUrl(m.player_b_faction, systemFolder(data.system))}
-                                <img class="matchup-icon" src={factionIconUrl(m.player_b_faction, systemFolder(data.system))} alt="" />
-                            {:else}
-                                <div class="matchup-icon-empty"></div>
-                            {/if}
+                            <div class="player-faction">{m.player_b_faction ?? '—'}</div>
                         {/if}
                     </div>
                 </div>
@@ -157,52 +160,63 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
-    .matchup-grid {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        gap: 16px;
+    /* Default (mobile-first): stacked vertical layout */
+    .player-row {
+        display: flex;
         align-items: center;
+        gap: 14px;
     }
 
-    .matchup-side { display: flex; align-items: center; gap: 14px; }
-    .matchup-side.left { justify-content: space-between; text-align: right; }
-    .matchup-side.right { justify-content: space-between; text-align: left; }
-    .matchup-side.left .matchup-text { margin-left: auto; }
-    .matchup-side.right .matchup-text { margin-right: auto; }
+    .player-row.player-a { justify-content: flex-start; }
+    .player-row.player-b { justify-content: flex-start; }
 
-    .matchup-text { display: flex; flex-direction: column; }
+    .player-text { display: flex; flex-direction: column; align-items: flex-start; flex: 1; }
+
+    .player-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #f4e9c8;
+        letter-spacing: 0.2px;
+        margin-bottom: 4px;
+        text-align: left;
+    }
+
+    .player-faction {
+        font-size: 0.95rem;
+        color: #b8a878;
+        font-style: italic;
+        text-align: left;
+    }
 
     .matchup-icon {
-        width: 56px;
-        height: 56px;
+        width: 48px;
+        height: 48px;
         object-fit: contain;
         flex: 0 0 auto;
         filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
     }
 
-    .matchup-icon-empty { width: 56px; height: 56px; flex: 0 0 auto; }
+    .matchup-icon-empty { width: 48px; height: 48px; flex: 0 0 auto; }
 
-    .matchup-name {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #f4e9c8;
-        letter-spacing: 0.2px;
-        margin-bottom: 4px;
+    .vs-divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 12px 0;
     }
 
-    .matchup-faction {
-        font-size: 0.92rem;
-        color: #b8a878;
-        font-style: italic;
+    .vs-line {
+        flex: 1;
+        height: 1px;
+        background: rgba(180, 150, 90, 0.35);
     }
 
-    .matchup-vs {
-        font-size: 1.5rem;
+    .vs-label {
+        font-size: 1rem;
         font-weight: 800;
         color: var(--color-accent);
         text-shadow: 0 0 8px var(--color-accent-glow);
         letter-spacing: 1px;
-        padding: 0 6px;
     }
 
     .matchup-meta {
@@ -228,7 +242,7 @@
 
     .matchup-meta-value { font-weight: 600; color: #f0e4bc; }
 
-    .matchup-bye .matchup-side.right .matchup-name {
+    .matchup-bye .player-row.player-b .player-name {
         color: var(--color-text-faint);
         font-style: italic;
         font-weight: 400;
@@ -240,13 +254,53 @@
     .accent-escalation { border-left: 4px solid #c9a14a; }
     .accent-standard { border-left: 4px solid #9c8bd1; }
 
-    @media (max-width: 600px) {
-        .matchup-card { padding: 12px 10px; }
-        .matchup-grid { gap: 6px; }
-        .matchup-icon, .matchup-icon-empty { width: 36px; height: 36px; }
-        .matchup-name { font-size: 0.95rem; }
-        .matchup-faction { font-size: 0.78rem; }
-        .matchup-vs { font-size: 1.1rem; padding: 0 2px; }
-        .matchup-meta { gap: 12px; font-size: 0.78rem; }
+    /* Desktop: revert to side-by-side layout */
+    @media (min-width: 768px) {
+        .matchup-card {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            grid-template-rows: auto auto;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .player-row.player-a {
+            grid-column: 1;
+            grid-row: 1;
+            justify-content: flex-end;
+            flex-direction: row-reverse;
+            text-align: right;
+        }
+
+        .player-row.player-a .player-text { align-items: flex-end; }
+        .player-row.player-a .player-name,
+        .player-row.player-a .player-faction { text-align: right; }
+
+        .player-row.player-b {
+            grid-column: 3;
+            grid-row: 1;
+            justify-content: flex-start;
+        }
+
+        .vs-divider {
+            grid-column: 2;
+            grid-row: 1;
+            flex-direction: column;
+            margin: 0;
+            gap: 0;
+        }
+
+        .vs-divider .vs-line { display: none; }
+
+        .vs-label { font-size: 1.5rem; padding: 0 6px; }
+
+        .matchup-meta {
+            grid-column: 1 / -1;
+            grid-row: 2;
+        }
+
+        .matchup-icon, .matchup-icon-empty { width: 56px; height: 56px; }
+        .player-name { font-size: 1.15rem; font-weight: 600; }
+        .player-faction { font-size: 0.92rem; }
     }
 </style>
