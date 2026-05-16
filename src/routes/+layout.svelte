@@ -2,8 +2,9 @@
     import '../app.css';
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
+    import { PUBLIC_API_URL } from '$env/static/public';
 
-    let { children } = $props();
+    let { data, children } = $props();
 
     const navItems = [
         { href: '/', label: 'Call to Arms' },
@@ -15,6 +16,22 @@
     function isActive(href: string): boolean {
         if (href === '/') return page.url.pathname === '/';
         return page.url.pathname.startsWith(href);
+    }
+
+    const auth = $derived(data.auth);
+    const isAuthed = $derived(auth?.authenticated === true);
+    const needsClaim = $derived(isAuthed && auth?.user?.player_id == null);
+
+    function loginUrl(): string {
+        return `${PUBLIC_API_URL}/auth/discord/login`;
+    }
+
+    async function logout() {
+        await fetch(`${PUBLIC_API_URL}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        window.location.href = '/';
     }
 </script>
 
@@ -30,7 +47,27 @@
     <aside class="sidebar">
         <div class="sidebar-block">
             <h2 class="sidebar-heading">Access</h2>
-            <p class="sidebar-note">Admin tools coming soon.</p>
+            {#if isAuthed}
+                <div class="user-pill">
+                    {#if auth.user.avatar_url}
+                        <img class="user-avatar" src={auth.user.avatar_url} alt="" />
+                    {/if}
+                    <div class="user-meta">
+                        <div class="user-name">{auth.user.discord_name}</div>
+                        {#if auth.player}
+                            <div class="user-sub">{auth.player.name}</div>
+                        {:else}
+                            <div class="user-sub user-sub-warn">No profile linked</div>
+                        {/if}
+                    </div>
+                </div>
+                <button class="sidebar-button" onclick={logout} type="button">Sign out</button>
+            {:else}
+                <p class="sidebar-note">Sign in to submit results and sign up for sessions.</p>
+                <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>
+                    Sign in with Discord
+                </a>
+            {/if}
         </div>
 
         <div class="sidebar-divider"></div>
@@ -62,6 +99,13 @@
         </nav>
 
         <div class="page-content">
+            {#if needsClaim && page.url.pathname !== '/claim'}
+                <div class="claim-banner">
+                    <strong>Welcome, {auth.user.discord_name}.</strong>
+                    Before you can use the app, please
+                    <a href="/claim">link your existing player profile</a>.
+                </div>
+            {/if}
             {@render children()}
         </div>
     </main>
@@ -95,7 +139,7 @@
     }
 
     .sidebar {
-        flex: 0 0 180px;
+        flex: 0 0 200px;
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -106,13 +150,14 @@
         font-size: 1.1rem;
         font-weight: 700;
         color: var(--color-text-base);
-        margin: 0 0 0.3rem;
+        margin: 0 0 0.5rem;
     }
 
     .sidebar-note {
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         color: var(--color-text-dim);
-        margin: 0;
+        margin: 0 0 0.5rem;
+        line-height: 1.4;
     }
 
     .sidebar-block { padding: 0.25rem 0.25rem 0.5rem; }
@@ -122,6 +167,72 @@
         background: var(--color-accent-border-soft);
         margin: 0.25rem 0;
     }
+
+    .sidebar-button {
+        display: block;
+        width: 100%;
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid var(--color-accent-border-soft);
+        color: var(--color-text-base);
+        padding: 0.5rem 0.6rem;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-family: inherit;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.1s ease, border-color 0.1s ease;
+    }
+
+    .sidebar-button:hover {
+        background: rgba(201, 161, 74, 0.10);
+        border-color: rgba(201, 161, 74, 0.55);
+    }
+
+    .sidebar-button-primary {
+        background: rgba(201, 161, 74, 0.18);
+        border-color: rgba(201, 161, 74, 0.55);
+        color: var(--color-text-bright);
+        font-weight: 600;
+    }
+
+    .user-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1px solid var(--color-accent-border-soft);
+        flex: 0 0 auto;
+    }
+
+    .user-meta { flex: 1; min-width: 0; }
+
+    .user-name {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--color-text-bright);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-sub {
+        font-size: 0.72rem;
+        color: var(--color-text-dim);
+        font-style: italic;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-sub-warn { color: var(--color-tnt); font-style: normal; }
 
     .sidebar-link {
         display: flex;
@@ -151,10 +262,7 @@
         background: var(--color-bg-base);
     }
 
-    .banner {
-        text-align: center;
-        margin-bottom: 0.75rem;
-    }
+    .banner { text-align: center; margin-bottom: 0.75rem; }
 
     .logos {
         display: flex;
@@ -164,11 +272,7 @@
         flex-wrap: nowrap;
     }
 
-    .logo {
-        height: 90px;
-        max-width: 220px;
-        object-fit: contain;
-    }
+    .logo { height: 90px; max-width: 220px; object-fit: contain; }
 
     .call-to-arms-title {
         font-size: 2.4rem;
@@ -224,6 +328,22 @@
 
     .page-content { padding-top: 0.5rem; }
 
+    .claim-banner {
+        background: rgba(217, 122, 42, 0.10);
+        border: 1px solid rgba(217, 122, 42, 0.45);
+        color: var(--color-text-bright);
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .claim-banner a {
+        color: var(--color-accent);
+        text-decoration: underline;
+        font-weight: 600;
+    }
+
     @media (max-width: 768px) {
         .page-wrap { flex-direction: column; padding: 0.5rem; }
         .sidebar {
@@ -233,11 +353,14 @@
             align-items: center;
             padding: 0.25rem 0.5rem;
             gap: 0.5rem;
+            flex-wrap: wrap;
         }
-        .sidebar-block { padding: 0; }
+        .sidebar-block { padding: 0; min-width: 0; flex: 1; }
         .sidebar-divider { display: none; }
         .sidebar-link { flex-direction: row; font-size: 0.7rem; padding: 0; }
         .sidebar-link img { max-height: 28px; }
+        .sidebar-button { width: auto; padding: 0.35rem 0.65rem; font-size: 0.78rem; }
+        .user-pill { margin-bottom: 0.3rem; }
         .container { padding: 1rem; }
         .logo { height: 42px; max-width: 105px; }
         .logos { gap: 0.6rem; }
