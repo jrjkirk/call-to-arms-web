@@ -124,19 +124,27 @@
                 <p class="sidebar-note">…</p>
             {:else if isAuthed && auth.user}
                 <h2 class="sidebar-heading">Access</h2>
-                <div class="user-pill">
-                    {#if auth.user.avatar_url}
-                        <img class="user-avatar" src={auth.user.avatar_url} alt="" />
-                    {/if}
-                    <div class="user-meta">
-                        <div class="user-name">{auth.user.discord_name}</div>
-                        {#if auth.player}
-                            <div class="user-sub">{auth.player.name}</div>
-                        {:else}
-                            <div class="user-sub user-sub-warn">No profile linked</div>
+                {#if auth.player}
+                    <a class="user-pill user-pill-link" href={`/players/${auth.player.id}`} onclick={closeDrawer}>
+                        {#if auth.user.avatar_url}
+                            <img class="user-avatar" src={auth.user.avatar_url} alt="" />
                         {/if}
+                        <div class="user-meta">
+                            <div class="user-name">{auth.user.discord_name}</div>
+                            <div class="user-sub">{auth.player.name}</div>
+                        </div>
+                    </a>
+                {:else}
+                    <div class="user-pill">
+                        {#if auth.user.avatar_url}
+                            <img class="user-avatar" src={auth.user.avatar_url} alt="" />
+                        {/if}
+                        <div class="user-meta">
+                            <div class="user-name">{auth.user.discord_name}</div>
+                            <div class="user-sub user-sub-warn">No profile linked</div>
+                        </div>
                     </div>
-                </div>
+                {/if}
                 <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
             {:else}
                 <h2 class="sidebar-heading">Access</h2>
@@ -324,6 +332,18 @@
         flex: 0 0 auto;
     }
 
+    .user-pill-link {
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: background 0.1s ease;
+    }
+
+    .user-pill-link:hover {
+        background: rgba(201, 161, 74, 0.08);
+    }
+
     .user-meta { flex: 1; min-width: 0; }
 
     .user-name {
@@ -365,13 +385,11 @@
         object-fit: contain;
     }
 
-    .container {
+.container {
         flex: 1;
         min-width: 0;
-        border: 1px solid var(--color-accent-border);
-        border-radius: 14px;
         padding: 1.8rem 2rem 1.5rem;
-        background: var(--color-bg-base);
+        background: var(--color-bg-deep);
     }
 
     .banner { text-align: center; margin-bottom: 0.75rem; }
@@ -504,7 +522,7 @@
             z-index: 950;
             width: 78vw;
             max-width: 300px;
-            background: var(--color-bg-base);
+            background: var(--color-sidebar-bg);
             border-right: 1px solid var(--color-accent-border);
             padding: 1rem;
             overflow-y: auto;

@@ -3,6 +3,7 @@
 @theme {
     --color-bg-base: #141414;
     --color-bg-deep: #0c0c0c;
+    --color-sidebar-bg: #2b2b33;
     --color-surface: rgba(30, 30, 40, 0.92);
     --color-surface-dark: rgba(20, 20, 30, 0.95);
     --color-surface-hover: rgba(201, 161, 74, 0.06);
