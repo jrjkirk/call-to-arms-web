@@ -14,21 +14,26 @@
         claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
     };
 
+    type AdminState = {
+        is_super_admin: boolean;
+        scopes: string[];
+    };
+
     let auth = $state<AuthState>({ authenticated: false });
+    let adminState = $state<AdminState | null>(null);
     let authLoaded = $state(false);
 
     async function refreshAuth() {
         try {
-            const response = await fetch(`${PUBLIC_API_URL}/auth/me`, {
-                credentials: 'include'
-            });
-            if (response.ok) {
-                auth = await response.json();
-            } else {
-                auth = { authenticated: false };
-            }
+            const [authResp, adminResp] = await Promise.all([
+                fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' }),
+                fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' }),
+            ]);
+            auth = authResp.ok ? await authResp.json() : { authenticated: false };
+            adminState = adminResp.ok ? await adminResp.json() : null;
         } catch (_) {
             auth = { authenticated: false };
+            adminState = null;
         } finally {
             authLoaded = true;
         }
@@ -60,6 +65,9 @@
 
     const isAuthed = $derived(auth.authenticated === true);
     const needsClaim = $derived(isAuthed && auth.user?.player_id == null);
+    const hasAdminAccess = $derived(
+        authLoaded && adminState !== null && (adminState.is_super_admin || adminState.scopes.length > 0)
+    );
 
     function loginUrl(): string {
         return `${PUBLIC_API_URL}/auth/discord/login`;
@@ -138,6 +146,9 @@
             {#each navItems as item}
                 <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
             {/each}
+            {#if hasAdminAccess}
+                <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
+            {/if}
         </nav>
 
         <div class="page-content">
