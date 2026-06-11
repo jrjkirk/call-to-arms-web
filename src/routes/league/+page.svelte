@@ -1,4 +1,9 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { invalidateAll } from '$app/navigation';
+    import { PUBLIC_API_URL } from '$env/static/public';
+    import { TOW_FACTIONS } from '$lib/signupOptions';
+
     let { data } = $props();
 
     function factionToSlug(name: string | null): string | null {
@@ -24,6 +29,94 @@
         if (rank === 2) return '🥈';
         if (rank === 3) return '🥉';
         return '';
+    }
+
+    /* ---------- auth ---------- */
+    type AuthState = {
+        authenticated: boolean;
+        user?: { discord_name: string; player_id: number | null };
+        player?: { id: number; name: string } | null;
+    };
+    let auth = $state<AuthState>({ authenticated: false });
+    let authLoaded = $state(false);
+
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
+            if (r.ok) auth = await r.json();
+        } catch (_) {}
+        authLoaded = true;
+    });
+
+    /* ---------- players sorted for form dropdowns ---------- */
+    const sortedPlayers = $derived(
+        [...data.players].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+    );
+
+    /* ---------- submission form ---------- */
+    let p1IdStr = $state('');
+    let p2IdStr = $state('');
+    let p1Faction = $state('— None —');
+    let p2Faction = $state('— None —');
+    let p1Painting = $state('— None —');
+    let p2Painting = $state('— None —');
+    let gameType = $state('Competitive');
+    let resultValue = $state('Player 1 Victory');
+
+    let submitting = $state(false);
+    let submitSuccess = $state<{ duplicate: boolean; result?: any } | null>(null);
+    let submitError = $state<string | null>(null);
+
+    // Default Player 1 to the logged-in user's own player, once auth resolves.
+    $effect(() => {
+        if (auth.player && p1IdStr === '') {
+            p1IdStr = String(auth.player.id);
+        }
+    });
+
+    const canSubmit = $derived(
+        p1IdStr !== '' && p2IdStr !== '' && p1IdStr !== p2IdStr && !submitting
+    );
+
+    function signedDelta(before: number | null, after: number | null): string {
+        const d = Math.round(after ?? 0) - Math.round(before ?? 0);
+        return d >= 0 ? `+${d}` : String(d);
+    }
+
+    async function submitLeagueResult() {
+        if (!canSubmit) return;
+        submitting = true;
+        submitSuccess = null;
+        submitError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/league/results`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    player_1_id: Number(p1IdStr),
+                    player_2_id: Number(p2IdStr),
+                    player_1_faction: p1Faction === '— None —' ? null : p1Faction,
+                    player_2_faction: p2Faction === '— None —' ? null : p2Faction,
+                    player_1_painting_bonus: p1Painting === '— None —' ? null : p1Painting,
+                    player_2_painting_bonus: p2Painting === '— None —' ? null : p2Painting,
+                    game_type: gameType,
+                    result: resultValue,
+                }),
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                submitError = body.detail || 'Could not submit the result.';
+            } else {
+                submitSuccess = body;
+                if (!body.duplicate) {
+                    await invalidateAll();
+                }
+            }
+        } catch (_) {
+            submitError = 'Network error. Please try again.';
+        }
+        submitting = false;
     }
 </script>
 
@@ -74,6 +167,129 @@
         </tbody>
     </table>
 </div>
+
+<details class="submit-section">
+    <summary class="submit-toggle">⚔️ Results Submission</summary>
+    <div class="submit-body">
+        {#if !authLoaded}
+            <p class="muted">Loading…</p>
+        {:else if !auth.authenticated || !auth.player}
+            <p class="sign-in-prompt">
+                <a href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in with Discord</a> to submit a league result.
+            </p>
+        {:else}
+            {#if submitSuccess}
+                {#if submitSuccess.duplicate}
+                    <div class="result-msg result-msg--info">
+                        This exact league result has already been submitted, so a duplicate was not created.
+                    </div>
+                {:else}
+                    <div class="result-msg result-msg--success">
+                        <strong>Result submitted!</strong><br />
+                        {#if submitSuccess.result}
+                            {submitSuccess.result.player_1_name}: {signedDelta(submitSuccess.result.player_1_rating_before, submitSuccess.result.player_1_rating_after)} → {Math.round(submitSuccess.result.player_1_rating_after ?? 0)}<br />
+                            {submitSuccess.result.player_2_name}: {signedDelta(submitSuccess.result.player_2_rating_before, submitSuccess.result.player_2_rating_after)} → {Math.round(submitSuccess.result.player_2_rating_after ?? 0)}
+                        {/if}
+                    </div>
+                {/if}
+            {/if}
+
+            {#if submitError}
+                <div class="result-msg result-msg--error">{submitError}</div>
+            {/if}
+
+            <form class="submit-form" onsubmit={(e) => { e.preventDefault(); submitLeagueResult(); }}>
+                <div class="form-row">
+                    <div class="field">
+                        <label class="field-label" for="lr-p1">Player 1</label>
+                        <select id="lr-p1" class="field-select" bind:value={p1IdStr}>
+                            <option value="">— None —</option>
+                            {#each sortedPlayers as p}
+                                <option value={String(p.id)}>#{p.id} — {p.name}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="lr-p2">Player 2</label>
+                        <select id="lr-p2" class="field-select" bind:value={p2IdStr}>
+                            <option value="">— None —</option>
+                            {#each sortedPlayers as p}
+                                <option value={String(p.id)}>#{p.id} — {p.name}</option>
+                            {/each}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="field">
+                        <label class="field-label" for="lr-p1-faction">Player 1 Faction</label>
+                        <select id="lr-p1-faction" class="field-select" bind:value={p1Faction}>
+                            <option>— None —</option>
+                            {#each TOW_FACTIONS as f}
+                                <option>{f}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="lr-p2-faction">Player 2 Faction</label>
+                        <select id="lr-p2-faction" class="field-select" bind:value={p2Faction}>
+                            <option>— None —</option>
+                            {#each TOW_FACTIONS as f}
+                                <option>{f}</option>
+                            {/each}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="field">
+                        <label class="field-label" for="lr-p1-paint">Player 1 Painting Bonus</label>
+                        <select id="lr-p1-paint" class="field-select" bind:value={p1Painting}>
+                            <option>— None —</option>
+                            <option>Partially Painted</option>
+                            <option>Fully Painted</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="lr-p2-paint">Player 2 Painting Bonus</label>
+                        <select id="lr-p2-paint" class="field-select" bind:value={p2Painting}>
+                            <option>— None —</option>
+                            <option>Partially Painted</option>
+                            <option>Fully Painted</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="field">
+                        <label class="field-label" for="lr-game-type">Game Type</label>
+                        <select id="lr-game-type" class="field-select" bind:value={gameType}>
+                            <option>Competitive</option>
+                            <option>Casual</option>
+                        </select>
+                        <p class="field-caption">Casual uses K=10, Competitive uses K=40.</p>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="lr-result">Result</label>
+                        <select id="lr-result" class="field-select" bind:value={resultValue}>
+                            <option>Player 1 Victory</option>
+                            <option>Player 2 Victory</option>
+                            <option>Draw</option>
+                        </select>
+                    </div>
+                </div>
+
+                {#if p1IdStr && p2IdStr && p1IdStr === p2IdStr}
+                    <p class="field-error">Player 1 and Player 2 must be different.</p>
+                {/if}
+
+                <button type="submit" class="primary-button" disabled={!canSubmit}>
+                    {submitting ? 'Submitting…' : 'Submit Result'}
+                </button>
+            </form>
+        {/if}
+    </div>
+</details>
 
 <style>
     .page-heading {
@@ -173,4 +389,178 @@
     .row-rank-1 td { background: linear-gradient(90deg, rgba(255, 215, 0, 0.10), transparent 60%); }
     .row-rank-2 td { background: linear-gradient(90deg, rgba(192, 192, 192, 0.10), transparent 60%); }
     .row-rank-3 td { background: linear-gradient(90deg, rgba(205, 127, 50, 0.10), transparent 60%); }
+
+    /* ---------- submission section ---------- */
+
+    .submit-section {
+        margin-top: 2rem;
+        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+    }
+
+    .submit-toggle {
+        padding: 14px 16px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--color-accent);
+        background: rgba(0, 0, 0, 0.25);
+        border-bottom: 1px solid transparent;
+        user-select: none;
+        list-style: none;
+    }
+
+    .submit-section[open] .submit-toggle {
+        border-bottom-color: var(--color-accent-border);
+    }
+
+    .submit-toggle::-webkit-details-marker { display: none; }
+    .submit-toggle::before {
+        content: '▶ ';
+        font-size: 0.65rem;
+        vertical-align: middle;
+        transition: transform 0.15s;
+        display: inline-block;
+    }
+    .submit-section[open] .submit-toggle::before {
+        transform: rotate(90deg);
+    }
+
+    .submit-body {
+        padding: 1.25rem 1rem;
+    }
+
+    .muted {
+        color: var(--color-text-muted);
+        font-style: italic;
+    }
+
+    .sign-in-prompt {
+        color: var(--color-text-muted);
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .sign-in-prompt a {
+        color: var(--color-accent);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .sign-in-prompt a:hover {
+        text-decoration: underline;
+    }
+
+    .submit-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    @media (max-width: 560px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+
+    .field-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--color-accent);
+    }
+
+    .field-select {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 6px;
+        color: var(--color-text-base);
+        padding: 7px 10px;
+        font-size: 0.9rem;
+        width: 100%;
+        cursor: pointer;
+    }
+
+    .field-select:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    .field-caption {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        margin: 0;
+    }
+
+    .field-error {
+        font-size: 0.8rem;
+        color: #f87171;
+        margin: 0;
+    }
+
+    .primary-button {
+        align-self: flex-start;
+        background: var(--color-accent);
+        color: #111;
+        border: none;
+        border-radius: 8px;
+        padding: 9px 20px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        transition: opacity 0.15s;
+    }
+
+    .primary-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .primary-button:not(:disabled):hover {
+        opacity: 0.85;
+    }
+
+    .result-msg {
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .result-msg--success {
+        background: rgba(74, 222, 128, 0.12);
+        border: 1px solid rgba(74, 222, 128, 0.35);
+        color: #86efac;
+    }
+
+    .result-msg--info {
+        background: rgba(148, 163, 184, 0.1);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        color: var(--color-text-muted);
+    }
+
+    .result-msg--error {
+        background: rgba(248, 113, 113, 0.12);
+        border: 1px solid rgba(248, 113, 113, 0.35);
+        color: #fca5a5;
+    }
 </style>

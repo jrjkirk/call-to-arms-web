@@ -7,6 +7,7 @@ interface RankingRow {
     player_id: number;
     name: string;
     default_faction: string | null;
+    most_played_faction: string | null;
     rating: number;
     wins: number;
     losses: number;
@@ -14,11 +15,23 @@ interface RankingRow {
     total_games: number;
 }
 
+interface Player {
+    id: number;
+    name: string;
+}
+
 export const load: PageServerLoad = async ({ fetch }) => {
-    const response = await fetch(`${PUBLIC_API_URL}/league/rankings`);
-    if (!response.ok) {
-        throw error(response.status, 'Failed to load league rankings');
+    const [rankingsResp, playersResp] = await Promise.all([
+        fetch(`${PUBLIC_API_URL}/league/rankings`),
+        fetch(`${PUBLIC_API_URL}/players`),
+    ]);
+
+    if (!rankingsResp.ok) {
+        throw error(rankingsResp.status, 'Failed to load league rankings');
     }
-    const rankings: RankingRow[] = await response.json();
-    return { rankings };
+
+    const rankings: RankingRow[] = await rankingsResp.json();
+    const players: Player[] = playersResp.ok ? await playersResp.json() : [];
+
+    return { rankings, players };
 };
