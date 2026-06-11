@@ -22,6 +22,7 @@
     let auth = $state<AuthState>({ authenticated: false });
     let adminState = $state<AdminState | null>(null);
     let authLoaded = $state(false);
+    let drawerOpen = $state(false);
 
     async function refreshAuth() {
         try {
@@ -81,6 +82,14 @@
         await refreshAuth();
         window.location.href = '/';
     }
+
+    function closeDrawer() {
+        drawerOpen = false;
+    }
+
+    function toggleDrawer() {
+        drawerOpen = !drawerOpen;
+    }
 </script>
 
 <svelte:head>
@@ -91,13 +100,30 @@
     <div class="nav-progress"></div>
 {/if}
 
+<!-- Mobile-only top bar with hamburger toggle -->
+<div class="mobile-topbar">
+    <button class="hamburger" onclick={toggleDrawer} type="button" aria-label="Open menu">
+        {#if drawerOpen}
+            <span class="hamburger-icon">✕</span>
+        {:else}
+            <span class="hamburger-icon">☰</span>
+        {/if}
+    </button>
+</div>
+
+<!-- Mobile-only dimmed overlay, shown when the drawer is open -->
+{#if drawerOpen}
+    <div class="drawer-overlay" onclick={closeDrawer}></div>
+{/if}
+
 <div class="page-wrap" data-sveltekit-preload-data="hover">
-    <aside class="sidebar">
+    <aside class="sidebar" class:drawer-open={drawerOpen}>
         <div class="sidebar-block">
-            <h2 class="sidebar-heading">Access</h2>
             {#if !authLoaded}
+                <h2 class="sidebar-heading">Access</h2>
                 <p class="sidebar-note">…</p>
             {:else if isAuthed && auth.user}
+                <h2 class="sidebar-heading">Access</h2>
                 <div class="user-pill">
                     {#if auth.user.avatar_url}
                         <img class="user-avatar" src={auth.user.avatar_url} alt="" />
@@ -111,10 +137,11 @@
                         {/if}
                     </div>
                 </div>
-                <button class="sidebar-button" onclick={logout} type="button">Sign out</button>
+                <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
             {:else}
+                <h2 class="sidebar-heading">Access</h2>
                 <p class="sidebar-note">Sign in to submit results and sign up for sessions.</p>
-                <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>
+                <a class="sidebar-button sidebar-button-primary" href={loginUrl()} onclick={closeDrawer}>
                     Sign in with Discord
                 </a>
             {/if}
@@ -122,12 +149,12 @@
 
         <div class="sidebar-divider"></div>
 
-        <a class="sidebar-link" href="https://elementgames.co.uk" target="_blank" rel="noopener">
+        <a class="sidebar-link" href="https://elementgames.co.uk" target="_blank" rel="noopener" onclick={closeDrawer}>
             <img src="/brand/element_games.png" alt="Element Games" />
             <span class="sidebar-label">Venue Partner</span>
         </a>
 
-        <a class="sidebar-link" href="https://discord.gg/tnwUCRYH" target="_blank" rel="noopener">
+        <a class="sidebar-link" href="https://discord.gg/tnwUCRYH" target="_blank" rel="noopener" onclick={closeDrawer}>
             <img src="/brand/discord.png" alt="Discord" />
         </a>
     </aside>
@@ -142,13 +169,16 @@
             <h1 class="call-to-arms-title">CALL TO ARMS</h1>
         </header>
 
-        <nav class="nav-tabs">
-            {#each navItems as item}
-                <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
-            {/each}
-            {#if hasAdminAccess}
-                <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
-            {/if}
+        <nav class="nav-tabs-wrap">
+            <div class="nav-tabs">
+                {#each navItems as item}
+                    <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
+                {/each}
+                {#if hasAdminAccess}
+                    <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
+                {/if}
+            </div>
+            <div class="nav-tabs-fade"></div>
         </nav>
 
         <div class="page-content">
@@ -182,6 +212,35 @@
     @keyframes nav-progress-slide {
         0%   { background-position: -50% 0; }
         100% { background-position: 150% 0; }
+    }
+
+    /* Mobile-only top bar; hidden entirely on desktop */
+    .mobile-topbar {
+        display: none;
+    }
+
+    .hamburger {
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid var(--color-accent-border-soft);
+        color: var(--color-text-bright);
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        font-size: 1.2rem;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
+    .hamburger-icon {
+        display: block;
+    }
+
+    /* Dimmed backdrop behind the open drawer; mobile-only */
+    .drawer-overlay {
+        display: none;
     }
 
     .page-wrap {
@@ -335,12 +394,17 @@
         margin: 0;
     }
 
+    /* Wrapper around the scrollable tab row, needed for the fade overlay */
+    .nav-tabs-wrap {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
     .nav-tabs {
         display: flex;
         gap: 1.5rem;
         border-bottom: 1px solid var(--color-accent-border);
         padding-bottom: 0.6rem;
-        margin-bottom: 1.5rem;
         position: relative;
     }
 
@@ -379,6 +443,11 @@
         100% { transform: scaleX(1);   opacity: 1; }
     }
 
+    /* Right-edge fade hinting the tab row scrolls; invisible unless overflowing */
+    .nav-tabs-fade {
+        display: none;
+    }
+
     .page-content { padding-top: 0.5rem; }
 
     .claim-banner {
@@ -398,32 +467,88 @@
     }
 
     @media (max-width: 768px) {
-        .page-wrap { flex-direction: column; padding: 0.5rem; }
-        .sidebar {
-            flex: none;
-            flex-direction: row;
-            justify-content: space-between;
+        /* Show the hamburger bar on mobile */
+        .mobile-topbar {
+            display: flex;
             align-items: center;
-            padding: 0.25rem 0.5rem;
-            gap: 0.5rem;
-            flex-wrap: wrap;
+            padding: 0.5rem;
         }
-        .sidebar-block { padding: 0; min-width: 0; flex: 1; }
-        .sidebar-divider { display: none; }
-        .sidebar-link { flex-direction: row; font-size: 0.7rem; padding: 0; }
-        .sidebar-link img { max-height: 28px; }
-        .sidebar-button { width: auto; padding: 0.35rem 0.65rem; font-size: 0.78rem; }
-        .user-pill { margin-bottom: 0.3rem; }
+
+        /* Dim the page behind the open drawer */
+        .drawer-overlay {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 900;
+        }
+
+        .page-wrap {
+            flex-direction: column;
+            padding: 0.5rem;
+            padding-top: 0;
+        }
+
+        /* The sidebar becomes a left slide-out drawer, hidden by default */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 950;
+            width: 78vw;
+            max-width: 300px;
+            background: var(--color-bg-base);
+            border-right: 1px solid var(--color-accent-border);
+            padding: 1rem;
+            overflow-y: auto;
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+            flex: none;
+        }
+
+        .sidebar.drawer-open {
+            transform: translateX(0);
+        }
+
+        .sidebar-block { padding: 0; }
+        .sidebar-divider { margin: 0.75rem 0; }
+
+        .sidebar-link {
+            flex-direction: row;
+            justify-content: flex-start;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            padding: 0.5rem 0;
+        }
+        .sidebar-link img { max-height: 32px; }
+
+        .sidebar-button { font-size: 0.85rem; padding: 0.6rem; }
+
         .container { padding: 1rem; }
         .logo { height: 42px; max-width: 105px; }
         .logos { gap: 0.6rem; }
         .call-to-arms-title { font-size: 2.2rem; letter-spacing: 0.06em; }
+
         .nav-tabs {
             gap: 0.8rem;
             font-size: 0.85rem;
             overflow-x: auto;
             white-space: nowrap;
             -webkit-overflow-scrolling: touch;
+        }
+
+        /* Right-edge fade so a partially-hidden "Admin" tab reads as
+           scrollable rather than clipped */
+        .nav-tabs-fade {
+            display: block;
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0.6rem;
+            width: 28px;
+            background: linear-gradient(to right, transparent, var(--color-bg-base));
+            pointer-events: none;
         }
     }
 </style>
