@@ -12,6 +12,7 @@ Browser → Vercel (SvelteKit, this repo) → Fly.io (FastAPI, ~/projects/call-t
 - **Backend:** FastAPI at https://call-to-arms-api.fly.dev (separate repo `~/projects/call-to-arms-api`)
   - **Never modify the backend from this repo.** The backend is always healthy; assume it works.
   - Key endpoints: `/health` `/auth/me` `/auth/discord/login` `/players` `/league/rankings` `/pairings` `/signups/stats` `/signups` `/signups/mine`
+  - Admin pairings endpoints: `/admin/pairings/preview` `/admin/pairings/generate` `/admin/pairings` `/admin/pairings/publish` `/admin/pairings/save` `/admin/pairings/post-discord` `/admin/pairings/signup-list`
   - Interactive docs: https://call-to-arms-api.fly.dev/docs
 - **Auth:** Discord OAuth on the backend, `cta_session` cookie. Claim-profile flow links a Discord user to a `players` row.
 
