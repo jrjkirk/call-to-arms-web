@@ -533,13 +533,19 @@
             transform: translateX(-100%);
             transition: transform 0.25s ease;
             flex: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar .sidebar-divider {
+            margin-top: auto;
         }
 
         .sidebar.drawer-open {
             transform: translateX(0);
         }
 
-        .sidebar-block { padding: 0; }
+        .sidebar-block { padding-top: 2.75rem; }
         .sidebar-divider { margin: 0.75rem 0; }
 
         .brand-stack {
