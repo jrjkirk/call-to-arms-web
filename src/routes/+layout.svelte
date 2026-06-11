@@ -469,8 +469,14 @@
     @media (max-width: 768px) {
         /* Show the hamburger bar on mobile */
         .mobile-topbar {
-            display: flex;
-            align-items: center;
+            display: block;
+            position: fixed;
+            top: 0.6rem;
+            left: 0.6rem;
+            z-index: 960;
+        }
+
+        .page-wrap {
             padding: 0.5rem;
         }
 
