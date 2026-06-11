@@ -316,10 +316,10 @@
         {/if}
 
         {#if errorMsg}
-            <div class="error">{errorMsg}</div>
+            <div class="error fade-in">{errorMsg}</div>
         {/if}
         {#if successMsg}
-            <div class="success">{successMsg}</div>
+            <div class="success fade-in">{successMsg}</div>
         {/if}
 
         <div class="actions">
@@ -431,7 +431,7 @@
 
     .actions { margin-top: 1rem; }
 
-    .primary-button {
+   .primary-button {
         display: inline-block;
         background: rgba(201, 161, 74, 0.18);
         border: 1px solid rgba(201, 161, 74, 0.55);
@@ -443,12 +443,16 @@
         font-family: inherit;
         text-decoration: none;
         cursor: pointer;
-        transition: background 0.1s ease, border-color 0.1s ease;
+        transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease, opacity 0.15s ease;
     }
 
     .primary-button:hover:not(:disabled) {
         background: rgba(201, 161, 74, 0.30);
         border-color: var(--color-accent);
+    }
+
+    .primary-button:active:not(:disabled) {
+        transform: scale(0.98);
     }
 
     .primary-button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -463,9 +467,10 @@
         font-weight: 600;
         font-family: inherit;
         cursor: pointer;
-        transition: background 0.1s ease;
+        transition: background 0.15s ease, transform 0.08s ease;
     }
 
     .drop-button:hover:not(:disabled) { background: rgba(210, 80, 80, 0.25); }
+    .drop-button:active:not(:disabled) { transform: scale(0.98); }
     .drop-button:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
