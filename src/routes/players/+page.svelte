@@ -21,13 +21,15 @@
     }
 
     const filtered = $derived(
-        data.players.filter((p: { name: string; systems_played?: string[] }) => {
-            const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
-            const matchesSystem =
-                activeSystems.length === 0 ||
-                (p.systems_played ?? []).some((s) => activeSystems.includes(s));
-            return matchesQuery && matchesSystem;
-        })
+        activeSystems.length === 0
+            ? []
+            : data.players.filter((p: { name: string; systems_played?: string[] }) => {
+                  const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
+                  const matchesSystem = (p.systems_played ?? []).some((s) =>
+                      activeSystems.includes(s)
+                  );
+                  return matchesQuery && matchesSystem;
+              })
     );
 </script>
 
@@ -68,7 +70,9 @@
             </a>
         </li>
     {/each}
-    {#if filtered.length === 0}
+    {#if activeSystems.length === 0}
+        <li class="empty">Select a system above to see its players.</li>
+    {:else if filtered.length === 0}
         <li class="empty">No players match.</li>
     {/if}
 </ul>
