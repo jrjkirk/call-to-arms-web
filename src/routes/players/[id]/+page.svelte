@@ -23,20 +23,14 @@
         systemsInOrder.filter((s) => s in factionUsage)
     );
 
-    function outcomeFor(r: any): { label: string; cls: string } {
-        if (r.result === 'Draw') return { label: 'DRAW', cls: 'outcome-draw' };
-        const isP1 = r.player_1_id === player.id;
-        const won = (r.result === 'Player 1 Victory' && isP1) || (r.result === 'Player 2 Victory' && !isP1);
-        return won ? { label: 'WIN', cls: 'outcome-win' } : { label: 'LOSS', cls: 'outcome-loss' };
-    }
+    const discord = $derived(data.discord ?? null);
+    const recentGamesBySystem = $derived(data.recent_games_by_system ?? {});
 
-    function opponentOf(r: any) {
-        const isP1 = r.player_1_id === player.id;
-        return {
-            name: isP1 ? r.player_2_name : r.player_1_name,
-            faction: isP1 ? r.player_2_faction : r.player_1_faction,
-            myFaction: isP1 ? r.player_1_faction : r.player_2_faction
-        };
+    function outcomeClass(result: string | null): string {
+        if (result === 'Win') return 'outcome-win';
+        if (result === 'Loss') return 'outcome-loss';
+        if (result === 'Draw') return 'outcome-draw';
+        return '';
     }
 
     function factionUsageRows(facs: Record<string, number>) {
@@ -57,6 +51,14 @@
 <p class="back-link"><a href="/players">← All players</a></p>
 
 <div class="profile-card">
+    {#if discord}
+        <div class="profile-discord">
+            {#if discord.avatar_url}
+                <img class="profile-discord-avatar" src={discord.avatar_url} alt="" />
+            {/if}
+            <span class="profile-discord-name">{discord.discord_name}</span>
+        </div>
+    {/if}
     <div class="profile-name">{player.name}</div>
     {#if titles.length > 0}
         <div class="profile-titles">
@@ -205,26 +207,34 @@
         </div>
     {/if}
 
-    {#if league.recent_results && league.recent_results.length > 0}
-        <div class="section-title">Recent League Results</div>
+{/if}
+
+{#each systemsInOrder as sysName}
+    {@const games = recentGamesBySystem[sysName] ?? []}
+    {#if games.length > 0}
+        <div class="section-title">Recent {sysName} Games</div>
         <div class="results">
-            {#each league.recent_results as r}
-                {@const outcome = outcomeFor(r)}
-                {@const opp = opponentOf(r)}
+            {#each games as g}
                 <div class="result-row">
-                    <span class="result-date">{r.result_date}</span>
-                    <span class={outcome.cls + ' result-outcome'}>{outcome.label}</span>
+                    <span class="result-date">{g.week}</span>
+                    {#if g.result}
+                        <span class={outcomeClass(g.result) + ' result-outcome'}>{g.result.toUpperCase()}</span>
+                    {/if}
                     <span class="result-detail">
-                        <em>{opp.myFaction ?? '?'}</em>
-                        <span class="result-vs">vs</span>
-                        <strong>{opp.name}</strong>
-                        (<em>{opp.faction ?? '?'}</em>)
+                        <em>{g.your_faction ?? '?'}</em>
+                        {#if g.opponent_name}
+                            <span class="result-vs">vs</span>
+                            <strong>{g.opponent_name}</strong>
+                            (<em>{g.opponent_faction ?? '?'}</em>)
+                        {:else}
+                            <span class="result-vs result-bye">— BYE</span>
+                        {/if}
                     </span>
                 </div>
             {/each}
         </div>
     {/if}
-{/if}
+{/each}
 
 <style>
     .back-link { margin: 0 0 1rem; color: var(--color-text-dim); }
@@ -232,12 +242,33 @@
     .back-link a:hover { color: var(--color-text-bright); }
 
     .profile-card {
-        background: linear-gradient(135deg, rgba(30, 30, 40, 0.92), rgba(20, 20, 30, 0.95));
+        background: var(--color-sidebar-bg);
         border: 1px solid var(--color-accent-border);
         border-radius: 12px;
         padding: 18px 22px;
         margin-bottom: 14px;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+
+    .profile-discord {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 8px;
+    }
+
+    .profile-discord-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1px solid var(--color-accent-border-soft);
+    }
+
+    .profile-discord-name {
+        font-size: 0.85rem;
+        color: var(--color-text-dim);
+        font-style: italic;
     }
 
     .profile-name {
@@ -402,4 +433,5 @@
     .result-detail em { color: var(--color-text-bright); font-style: italic; }
     .result-detail strong { color: var(--color-text-bright); font-weight: 600; }
     .result-vs { color: var(--color-accent); font-weight: 700; padding: 0 2px; }
+    .result-bye { color: var(--color-text-dim); font-style: italic; font-weight: 400; }
 </style>
