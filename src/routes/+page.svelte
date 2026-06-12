@@ -18,15 +18,25 @@
 
     const cfg = $derived(formConfig(data.system));
 
-    function changeSystem() {
+    function selectSystem(s: string) {
+        if (s === system) return;
+        system = s;
         // Drop the week param so the server recomputes the right default
         // (Wednesday vs Friday vs fortnightly Friday) for the new system.
-        goto(`/?${new URLSearchParams({ system })}`, { invalidateAll: true });
+        goto(`/?${new URLSearchParams({ system: s })}`, { invalidateAll: true });
     }
 
     function changeWeek() {
         goto(`/?${new URLSearchParams({ system, week })}`, { invalidateAll: true });
     }
+
+    let showWeekField = $state(false);
+
+    const SYSTEM_LOGOS: Record<string, string> = {
+        'The Old World': '/logos/tow.png',
+        'The Horus Heresy': '/logos/hh.png',
+        'Kill Team': '/logos/kt.png'
+    };
 
     /* ---------- auth ---------- */
     type AuthState = {
@@ -186,21 +196,32 @@
 
 <h2 class="page-heading">Select a System</h2>
 
-<div class="filter-row">
-    <div class="field">
-        <label class="field-label" for="system">System</label>
-        <select id="system" class="field-select" bind:value={system} onchange={changeSystem}>
-            {#each SYSTEMS as s}
-                <option value={s}>{s}</option>
-            {/each}
-        </select>
-    </div>
+<div class="system-grid">
+    {#each SYSTEMS as s}
+        <button
+            type="button"
+            class="system-card"
+            class:active={system === s}
+            onclick={() => selectSystem(s)}
+        >
+            <img src={SYSTEM_LOGOS[s]} alt={s} />
+        </button>
+    {/each}
+</div>
 
-    <div class="field">
+<div class="next-session-row">
+    <span>Next session: <strong>{data.week}</strong></span>
+    <button type="button" class="link-button" onclick={() => (showWeekField = !showWeekField)}>
+        {showWeekField ? 'Cancel' : 'Change week'}
+    </button>
+</div>
+
+{#if showWeekField}
+    <div class="field week-field">
         <label class="field-label" for="week">Week (DD/MM/YYYY)</label>
         <input id="week" class="field-input" type="text" bind:value={week} onblur={changeWeek} />
     </div>
-</div>
+{/if}
 
 <div class="stat-row">
     <div class="stat-card">
@@ -348,15 +369,65 @@
 <style>
     .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
 
-    .filter-row {
+    .system-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .system-card {
+        background: var(--color-sidebar-bg);
+        border: 2px solid transparent;
+        border-radius: 10px;
+        padding: 0.75rem 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: border-color 0.15s ease, transform 0.08s ease;
+    }
+
+    .system-card:hover {
+        border-color: var(--color-accent-border-soft);
+    }
+
+    .system-card:active {
+        transform: scale(0.98);
+    }
+
+    .system-card.active {
+        border-color: var(--color-accent);
+    }
+
+    .system-card img {
+        max-width: 100%;
+        max-height: 60px;
+        object-fit: contain;
+    }
+
+    .next-session-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.9rem;
+        color: var(--color-text-base);
         margin-bottom: 1rem;
     }
 
-    @media (max-width: 600px) {
-        .filter-row { grid-template-columns: 1fr; }
+    .link-button {
+        background: none;
+        border: none;
+        color: var(--color-accent);
+        font-family: inherit;
+        font-size: 0.85rem;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .week-field {
+        margin-bottom: 1rem;
     }
 
     .signup-card { padding: 1.25rem 1.5rem; margin-bottom: 0.5rem; }
