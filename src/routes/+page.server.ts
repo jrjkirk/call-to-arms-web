@@ -16,7 +16,10 @@ function pyWeekday(d: Date): number {
 function weekIdWed(today: Date): string {
     const d = new Date(today);
     let w = pyWeekday(d);
-    if (w >= 5) {
+    // Thu/Fri/Sat/Sun: this week's Wednesday has passed (or, for Thu/Fri,
+    // is too close/past to be the "next" session) — roll to next Monday
+    // and compute that week's Wednesday instead.
+    if (w >= 3) {
         d.setDate(d.getDate() + (7 - w)); // jump to next Monday
         w = 0;
     }
