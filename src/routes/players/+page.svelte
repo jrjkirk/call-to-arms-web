@@ -2,15 +2,49 @@
     let { data } = $props();
 
     let query = $state('');
+    let activeSystems = $state<string[]>([]);
+
+    const SYSTEM_LOGOS: Record<string, string> = {
+        'The Old World': '/logos/tow.png',
+        'The Horus Heresy': '/logos/hh.png',
+        'Kill Team': '/logos/kt.png'
+    };
+
+    const SYSTEMS = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+
+    function toggleSystem(s: string) {
+        if (activeSystems.includes(s)) {
+            activeSystems = activeSystems.filter((x) => x !== s);
+        } else {
+            activeSystems = [...activeSystems, s];
+        }
+    }
 
     const filtered = $derived(
-        data.players.filter((p: { name: string }) =>
-            p.name.toLowerCase().includes(query.toLowerCase())
-        )
+        data.players.filter((p: { name: string; systems_played?: string[] }) => {
+            const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
+            const matchesSystem =
+                activeSystems.length === 0 ||
+                (p.systems_played ?? []).some((s) => activeSystems.includes(s));
+            return matchesQuery && matchesSystem;
+        })
     );
 </script>
 
 <h2 class="page-heading">Player Profiles</h2>
+
+<div class="system-grid">
+    {#each SYSTEMS as s}
+        <button
+            type="button"
+            class="system-card"
+            class:active={activeSystems.includes(s)}
+            onclick={() => toggleSystem(s)}
+        >
+            <img src={SYSTEM_LOGOS[s]} alt={s} />
+        </button>
+    {/each}
+</div>
 
 <div class="field">
     <label class="field-label" for="filter">Filter players</label>
@@ -45,11 +79,52 @@
         margin: 0 0 1rem;
     }
 
+    .system-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .system-card {
+        background: var(--color-sidebar-bg);
+        border: 2px solid transparent;
+        border-radius: 10px;
+        padding: 0.75rem 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: border-color 0.15s ease, transform 0.08s ease;
+    }
+
+    .system-card:hover {
+        border-color: var(--color-accent-border-soft);
+    }
+
+    .system-card:active {
+        transform: scale(0.98);
+    }
+
+    .system-card.active {
+        border-color: var(--color-accent);
+    }
+
+    .system-card img {
+        max-width: 100%;
+        max-height: 60px;
+        object-fit: contain;
+    }
+
+    .field {
+        margin-bottom: 1rem;
+    }
+
     .player-list {
         list-style: none;
         padding: 0;
         margin: 1rem 0 0;
-        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+        background: var(--color-sidebar-bg);
         border: 1px solid var(--color-accent-border);
         border-radius: 12px;
         overflow: hidden;
