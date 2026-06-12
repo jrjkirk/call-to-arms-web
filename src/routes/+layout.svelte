@@ -550,13 +550,19 @@
 
         .brand-stack {
             flex-direction: column;
-            align-items: flex-start;
-            gap: 0.6rem;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
         }
         .sidebar-link {
-            justify-content: flex-start;
+            justify-content: center;
+            width: 100%;
         }
-        .sidebar-link img { max-height: 32px; }
+        .sidebar-link img {
+            max-height: 60px;
+            width: 100%;
+            object-fit: contain;
+        }
 
         .sidebar-button { font-size: 0.85rem; padding: 0.6rem; }
 
