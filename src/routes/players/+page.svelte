@@ -21,13 +21,13 @@
     }
 
     const filtered = $derived(
-        activeSystems.length === 0
+        activeSystems.length === 0 && query.trim() === ''
             ? []
             : data.players.filter((p: { name: string; systems_played?: string[] }) => {
                   const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
-                  const matchesSystem = (p.systems_played ?? []).some((s) =>
-                      activeSystems.includes(s)
-                  );
+                  const matchesSystem =
+                      activeSystems.length === 0 ||
+                      (p.systems_played ?? []).some((s) => activeSystems.includes(s));
                   return matchesQuery && matchesSystem;
               })
     );
@@ -70,8 +70,8 @@
             </a>
         </li>
     {/each}
-    {#if activeSystems.length === 0}
-        <li class="empty">Select a system above to see its players.</li>
+    {#if activeSystems.length === 0 && query.trim() === ''}
+        <li class="empty">Select a system or search for a player.</li>
     {:else if filtered.length === 0}
         <li class="empty">No players match.</li>
     {/if}
