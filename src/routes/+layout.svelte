@@ -169,15 +169,6 @@
     </aside>
 
     <main class="container">
-        <header class="banner">
-            <div class="logos">
-                <img src="/logos/tow.png" alt="Warhammer: The Old World" class="logo" />
-                <img src="/logos/hh.png" alt="Warhammer: The Horus Heresy" class="logo" />
-                <img src="/logos/kt.png" alt="Warhammer: Kill Team" class="logo" />
-            </div>
-            <h1 class="call-to-arms-title">CALL TO ARMS</h1>
-        </header>
-
         <nav class="nav-tabs-wrap">
             <div class="nav-tabs">
                 {#each navItems as item}
@@ -396,26 +387,6 @@
         background: var(--color-bg-deep);
     }
 
-    .banner { text-align: center; margin-bottom: 0.75rem; }
-
-    .logos {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 3rem;
-        flex-wrap: nowrap;
-    }
-
-    .logo { height: 90px; max-width: 220px; object-fit: contain; }
-
-    .call-to-arms-title {
-        font-size: 2.4rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        color: var(--color-text-bright);
-        margin: 0;
-    }
-
     /* Wrapper around the scrollable tab row, needed for the fade overlay */
     .nav-tabs-wrap {
         position: relative;
@@ -567,9 +538,6 @@
         .sidebar-button { font-size: 0.85rem; padding: 0.6rem; }
 
         .container { padding: 1rem; }
-        .logo { height: 42px; max-width: 105px; }
-        .logos { gap: 0.6rem; }
-        .call-to-arms-title { font-size: 2.2rem; letter-spacing: 0.06em; }
 
         .nav-tabs {
             gap: 0.8rem;
