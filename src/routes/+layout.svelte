@@ -545,6 +545,7 @@
             overflow-x: auto;
             white-space: nowrap;
             -webkit-overflow-scrolling: touch;
+            padding-left: 3rem;
         }
 
         /* Right-edge fade so a partially-hidden "Admin" tab reads as
