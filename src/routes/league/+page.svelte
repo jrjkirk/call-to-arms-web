@@ -40,6 +40,15 @@
     let auth = $state<AuthState>({ authenticated: false });
     let authLoaded = $state(false);
 
+    let mobileFactionLabel = $state('Most Played Faction');
+
+    if (typeof window !== 'undefined') {
+        const mq = window.matchMedia('(max-width: 600px)');
+        const update = () => (mobileFactionLabel = mq.matches ? 'Faction' : 'Most Played Faction');
+        update();
+        mq.addEventListener('change', update);
+    }
+
     onMount(async () => {
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
@@ -129,7 +138,7 @@
                 <th class="center rank-col">Rank</th>
                 <th class="center elo-col">ELO</th>
                 <th>Name</th>
-                <th>Most Played Faction</th>
+                <th class="center faction-col">{mobileFactionLabel}</th>
                 <th class="center wdl-col">W/D/L</th>
                 <th class="center games-col">Games</th>
             </tr>
@@ -148,11 +157,11 @@
                     <td>
                         <a href="/players/{row.player_id}" class="name-link">{row.name}</a>
                     </td>
-                    <td>
+                    <td class="center faction-col">
                         {#if row.most_played_faction}
                             <span class="faction-cell">
                                 {#if factionIconUrl(row.most_played_faction)}
-                                    <img src={factionIconUrl(row.most_played_faction)} alt="" class="faction-icon" />
+                                    <img src={factionIconUrl(row.most_played_faction)} alt={row.most_played_faction} class="faction-icon" />
                                 {/if}
                                 <em class="faction-name">{row.most_played_faction}</em>
                             </span>
@@ -299,7 +308,7 @@
 
     .table-wrap {
         overflow-x: auto;
-        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+        background: var(--color-sidebar-bg);
         border: 1px solid var(--color-accent-border);
         border-radius: 12px;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -386,9 +395,36 @@
         color: var(--color-text-faint);
     }
 
-    .row-rank-1 td { background: linear-gradient(90deg, rgba(255, 215, 0, 0.10), transparent 60%); }
-    .row-rank-2 td { background: linear-gradient(90deg, rgba(192, 192, 192, 0.10), transparent 60%); }
-    .row-rank-3 td { background: linear-gradient(90deg, rgba(205, 127, 50, 0.10), transparent 60%); }
+    .row-rank-1 td { background: rgba(255, 215, 0, 0.06); }
+    .row-rank-2 td { background: rgba(192, 192, 192, 0.06); }
+    .row-rank-3 td { background: rgba(205, 127, 50, 0.06); }
+
+    @media (max-width: 600px) {
+        .league-table thead th,
+        .league-table tbody td {
+            padding: 8px 6px;
+            font-size: 0.85rem;
+        }
+
+        .games-col { display: none; }
+
+        .faction-col { width: 44px; }
+
+        .faction-cell {
+            justify-content: center;
+        }
+
+        .faction-name {
+            display: none;
+        }
+
+        .faction-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .medal { font-size: 1.1rem; }
+    }
 
     /* ---------- submission section ---------- */
 
