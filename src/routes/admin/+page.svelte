@@ -1435,6 +1435,7 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         align-items: center;
+        min-height: 2.4rem;
     }
 
     .preview-banner {
