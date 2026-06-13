@@ -1379,6 +1379,8 @@
         color: var(--color-text-muted);
         white-space: nowrap;
         flex: 0 0 auto;
+        min-width: 5.5rem;
+        font-variant-numeric: tabular-nums;
     }
 
     .history-matchup {
