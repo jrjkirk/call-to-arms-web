@@ -1257,8 +1257,8 @@
         color: #111;
         border: none;
         border-radius: 8px;
-        padding: 8px 18px;
-        font-size: 0.9rem;
+        padding: 7px 14px;
+        font-size: 0.85rem;
         font-weight: 700;
         cursor: pointer;
         transition: opacity 0.15s;
@@ -1330,7 +1330,7 @@
     }
 
     .scope-card {
-        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+        background: var(--color-sidebar-bg);
         border: 1px solid var(--color-accent-border);
         border-radius: 12px;
         padding: 1.2rem 1.4rem;
