@@ -192,6 +192,112 @@
         }
         dropping = false;
     }
+
+    /* ---------- pre-arranged game ---------- */
+    type PlayerOption = { id: number; name: string };
+    let players = $state<PlayerOption[]>([]);
+
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/players`);
+            if (r.ok) players = await r.json();
+        } catch (_) {}
+    });
+
+    // The prearranged form's vibe options differ from the main signup form's:
+    // Kill Team gets a real Standard/Intro choice here (the main form fixes
+    // it to "Standard"), matching the original's prearranged-form behaviour.
+    const PREARRANGED_VIBE_OPTIONS: Record<string, string[]> = {
+        'The Old World': ['Casual', 'Competitive', 'Escalation', 'Intro', 'Either'],
+        'The Horus Heresy': ['Standard', 'Intro'],
+        'Kill Team': ['Standard', 'Intro']
+    };
+
+    let preA = $state<number | ''>('');
+    let preAFaction = $state(NONE_FACTION);
+    let preB = $state<number | ''>('');
+    let preBFaction = $state(NONE_FACTION);
+    let prePoints = $state(2000);
+    let preEta = $state('18:30');
+    let preVibe = $state('Casual');
+
+    let preSubmitting = $state(false);
+    let preSuccess = $state<string | null>(null);
+    let preError = $state<string | null>(null);
+
+    const preVibeOptions = $derived(PREARRANGED_VIBE_OPTIONS[data.system] ?? ['Casual']);
+    // Army Points only appears for The Old World here (the original's
+    // prearranged form omits it for HH and KT, unlike the main signup form).
+    const preShowPoints = $derived(data.system === 'The Old World');
+    const prePlayerFactionLabel = $derived(cfg.factionLabel.replace('Your ', ''));
+
+    // Reset the prearranged form's per-system fields when the system changes.
+    $effect(() => {
+        preVibe = PREARRANGED_VIBE_OPTIONS[data.system]?.[0] ?? 'Casual';
+        preAFaction = NONE_FACTION;
+        preBFaction = NONE_FACTION;
+        preA = '';
+        preB = '';
+        prePoints = cfg.defaultPoints;
+        preSuccess = null;
+        preError = null;
+    });
+
+    async function submitPrearranged() {
+        if (preSubmitting) return;
+        preError = null;
+        preSuccess = null;
+
+        if (preA === '' || preB === '') {
+            preError = 'Please select both players.';
+            return;
+        }
+        if (preA === preB) {
+            preError = 'Player A and Player B must be different.';
+            return;
+        }
+        if (preAFaction === NONE_FACTION || preBFaction === NONE_FACTION) {
+            preError = 'Please pick a faction for both players.';
+            return;
+        }
+
+        preSubmitting = true;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/signups/prearranged`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system: data.system,
+                    week: data.week,
+                    player_a_id: preA,
+                    player_b_id: preB,
+                    faction_a: preAFaction,
+                    faction_b: preBFaction,
+                    eta: preEta,
+                    vibe: preVibe,
+                    points: preShowPoints ? prePoints : null
+                })
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                preError = body.detail || 'Could not submit the pre-arranged game.';
+            } else {
+                const aName = players.find((p) => p.id === preA)?.name ?? 'Player A';
+                const bName = players.find((p) => p.id === preB)?.name ?? 'Player B';
+                preSuccess = `Pre-arranged game submitted: ${aName} vs ${bName}.`;
+                preA = '';
+                preB = '';
+                preAFaction = NONE_FACTION;
+                preBFaction = NONE_FACTION;
+                await invalidateAll();
+                if (isClaimed) await loadMine();
+            }
+        } catch (_) {
+            preError = 'Network error. Please try again.';
+        }
+        preSubmitting = false;
+    }
 </script>
 
 <h2 class="page-heading">Select a System</h2>
@@ -350,7 +456,7 @@
         </div>
     </div>
 
-    {#if current}
+{#if current}
         <div class="section-title">Need to Drop Out?</div>
         <div class="signup-card card">
             <label class="check-row">
@@ -364,6 +470,99 @@
             </div>
         </div>
     {/if}
+
+    <div class="section-title">Pre-Arranged Game</div>
+    <details class="card prearranged-card">
+        <summary>Set up a pre-arranged game</summary>
+        <p class="prompt-body small">
+            Use this if you've already arranged a game with someone outside the regular
+            signup process. Both players need an existing profile, and neither can already
+            be signed up for {data.week} — drop first using the form above if needed. If one
+            player later drops out, the other remains in the weekly pairings pool.
+        </p>
+
+        {#if players.length < 2}
+            <p class="muted">Pre-arranged games need at least two active players in the system.</p>
+        {:else}
+            <div class="form-grid">
+                <div class="field">
+                    <label class="field-label" for="pre-a">Player A</label>
+                    <select id="pre-a" class="field-select" bind:value={preA}>
+                        <option value="">— Select —</option>
+                        {#each players as p}
+                            <option value={p.id}>{p.name}</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="pre-a-fac">Player A's {prePlayerFactionLabel}</label>
+                    <select id="pre-a-fac" class="field-select" bind:value={preAFaction}>
+                        <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                        {#each cfg.factions as f}
+                            <option value={f}>{f}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="pre-b">Player B</label>
+                    <select id="pre-b" class="field-select" bind:value={preB}>
+                        <option value="">— Select —</option>
+                        {#each players as p}
+                            <option value={p.id}>{p.name}</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="pre-b-fac">Player B's {prePlayerFactionLabel}</label>
+                    <select id="pre-b-fac" class="field-select" bind:value={preBFaction}>
+                        <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                        {#each cfg.factions as f}
+                            <option value={f}>{f}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                {#if preShowPoints}
+                    <div class="field">
+                        <label class="field-label" for="pre-pts">Army Points</label>
+                        <input id="pre-pts" class="field-input" type="number" min="0" max="10000" step="50" bind:value={prePoints} />
+                    </div>
+                {/if}
+
+                <div class="field">
+                    <label class="field-label" for="pre-eta">Estimated Time of Arrival</label>
+                    <select id="pre-eta" class="field-select" bind:value={preEta}>
+                        {#each ETA_OPTIONS as t}
+                            <option value={t}>{t}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="pre-vibe">Type of Game</label>
+                    <select id="pre-vibe" class="field-select" bind:value={preVibe}>
+                        {#each preVibeOptions as v}
+                            <option value={v}>{v}</option>
+                        {/each}
+                    </select>
+                </div>
+            </div>
+
+            {#if preError}
+                <div class="error fade-in">{preError}</div>
+            {/if}
+            {#if preSuccess}
+                <div class="success fade-in">{preSuccess}</div>
+            {/if}
+
+            <div class="actions">
+                <button class="primary-button" onclick={submitPrearranged} disabled={preSubmitting} type="button">
+                    {preSubmitting ? 'Submitting…' : 'Submit'}
+                </button>
+            </div>
+        {/if}
+    </details>
 {/if}
 
 <style>
@@ -544,4 +743,32 @@
     .drop-button:hover:not(:disabled) { background: rgba(210, 80, 80, 0.25); }
     .drop-button:active:not(:disabled) { transform: scale(0.98); }
     .drop-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .prearranged-card {
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .prearranged-card summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--color-text-bright);
+        list-style: none;
+    }
+
+    .prearranged-card summary::-webkit-details-marker { display: none; }
+
+    .prearranged-card summary::before {
+        content: '▸ ';
+        color: var(--color-accent);
+    }
+
+    .prearranged-card[open] summary::before {
+        content: '▾ ';
+    }
+
+    .prompt-body.small {
+        font-size: 0.85rem;
+        margin-top: 0.75rem;
+    }
 </style>
