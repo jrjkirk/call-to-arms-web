@@ -1432,9 +1432,9 @@
 
     .pairing-controls {
         display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 0.75rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.6rem;
         margin-bottom: 0.75rem;
     }
 
