@@ -724,7 +724,7 @@
                                         <label class="field-label" for="week-{scope}">Week</label>
                                         <input
                                             id="week-{scope}"
-                                            class="field-input"
+                                            class="field-input week-input"
                                             type="text"
                                             placeholder="DD/MM/YYYY"
                                             bind:value={ps.week}
@@ -1430,12 +1430,18 @@
         margin-bottom: 0.75rem;
     }
 
+    /* Match the action buttons' exact padding/font-size so the input and
+       button row share the same height, making flex-end alignment exact. */
+    .week-input {
+        padding: 7px 14px;
+        font-size: 0.85rem;
+    }
+
     .pairing-btn-row {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
         align-items: center;
-        min-height: 2.4rem;
     }
 
     .preview-banner {
