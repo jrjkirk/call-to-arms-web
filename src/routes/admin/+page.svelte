@@ -1257,7 +1257,9 @@
         color: #111;
         border: none;
         border-radius: 8px;
-        padding: 7px 14px;
+        padding: 0 14px;
+        height: 2.2rem;
+        box-sizing: border-box;
         font-size: 0.85rem;
         font-weight: 700;
         cursor: pointer;
@@ -1279,7 +1281,9 @@
         color: var(--color-accent);
         border: 1px solid var(--color-accent-border);
         border-radius: 8px;
-        padding: 7px 14px;
+        padding: 0 14px;
+        height: 2.2rem;
+        box-sizing: border-box;
         font-size: 0.85rem;
         font-weight: 600;
         cursor: pointer;
@@ -1299,7 +1303,9 @@
     .publish-btn {
         border: none;
         border-radius: 8px;
-        padding: 7px 14px;
+        padding: 0 14px;
+        height: 2.2rem;
+        box-sizing: border-box;
         font-size: 0.85rem;
         font-weight: 700;
         cursor: pointer;
@@ -1432,10 +1438,13 @@
         margin-bottom: 0.75rem;
     }
 
-    /* Match the action buttons' exact padding/font-size so the input and
-       button row share the same height, making flex-end alignment exact. */
+    /* Force the same explicit height as the action buttons — <input> and
+       <button> have different intrinsic height behaviour even with identical
+       padding/font/border, so matching those properties alone isn't enough. */
     .week-input {
-        padding: 7px 14px;
+        padding: 0 14px;
+        height: 2.2rem;
+        box-sizing: border-box;
         font-size: 0.85rem;
     }
 
