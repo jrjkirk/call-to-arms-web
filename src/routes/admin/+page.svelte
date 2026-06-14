@@ -1271,13 +1271,13 @@
     }
 
     .pub-on {
-        background: #166534;
-        color: #bbf7d0;
+        background: #7f1d1d;
+        color: #fca5a5;
     }
 
     .pub-off {
-        background: #7f1d1d;
-        color: #fca5a5;
+        background: #166534;
+        color: #bbf7d0;
     }
 
     .publish-btn:hover {
