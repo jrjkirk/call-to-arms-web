@@ -929,7 +929,7 @@
                                 {:else if leagueResults.length === 0}
                                     <p class="muted small">No results recorded yet.</p>
                                 {:else}
-                                    <div class="grid-wrap">
+                                    <div class="grid-wrap league-results-wrap">
                                         <table class="pairing-grid league-results-grid">
                                             <thead>
                                                 <tr>
@@ -2147,6 +2147,18 @@
 
     .league-results-grid {
         min-width: 1300px;
+    }
+
+    .league-results-wrap {
+        max-height: 320px;
+        overflow-y: auto;
+    }
+
+    .league-results-grid thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--color-sidebar-bg);
     }
 
     .cell-delete {
