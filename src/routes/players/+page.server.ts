@@ -9,8 +9,11 @@ interface Player {
     active: boolean;
 }
 
-export const load: PageServerLoad = async ({ fetch }) => {
-    const response = await fetch(`${PUBLIC_API_URL}/players`);
+export const load: PageServerLoad = async ({ fetch, cookies }) => {
+    const sessionCookie = cookies.get('cta_session');
+    const headers: HeadersInit = sessionCookie ? { cookie: `cta_session=${sessionCookie}` } : {};
+
+    const response = await fetch(`${PUBLIC_API_URL}/players`, { headers });
     if (!response.ok) {
         throw error(response.status, 'Failed to load players');
     }

@@ -185,11 +185,11 @@
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
-            {:else if !isAuthed}
+            {:else if !isAuthed && !page.url.pathname.startsWith('/pairings')}
                 <div class="auth-gate">
                     <h1 class="auth-gate-title">Call to Arms</h1>
                     <p class="auth-gate-text">
-                        Sign in with Discord to view pairings, league standings, and player profiles.
+                        Sign in with Discord to view league standings and player profiles.
                     </p>
                     <a class="auth-gate-button" href={loginUrl()}>Sign in with Discord</a>
                 </div>

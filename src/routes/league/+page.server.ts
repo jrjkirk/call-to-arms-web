@@ -20,10 +20,13 @@ interface Player {
     name: string;
 }
 
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ fetch, cookies }) => {
+    const sessionCookie = cookies.get('cta_session');
+    const headers: HeadersInit = sessionCookie ? { cookie: `cta_session=${sessionCookie}` } : {};
+
     const [rankingsResp, playersResp] = await Promise.all([
-        fetch(`${PUBLIC_API_URL}/league/rankings`),
-        fetch(`${PUBLIC_API_URL}/players`),
+        fetch(`${PUBLIC_API_URL}/league/rankings`, { headers }),
+        fetch(`${PUBLIC_API_URL}/players`, { headers }),
     ]);
 
     if (!rankingsResp.ok) {
