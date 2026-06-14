@@ -152,6 +152,12 @@
                         {:else}
                             {row.rank}
                         {/if}
+                        {#if row.previous_rank != null && row.previous_rank !== row.rank}
+                            {@const delta = row.previous_rank - row.rank}
+                            <span class="rank-change {delta > 0 ? 'rank-up' : 'rank-down'}">
+                                {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
+                            </span>
+                        {/if}
                     </td>
                     <td class="center elo-col">{row.rating.toFixed(0)}</td>
                     <td>
@@ -398,6 +404,14 @@
     .row-rank-1 td { background: rgba(255, 215, 0, 0.06); }
     .row-rank-2 td { background: rgba(192, 192, 192, 0.06); }
     .row-rank-3 td { background: rgba(205, 127, 50, 0.06); }
+    .rank-change {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 4px;
+    }
+    .rank-up { color: rgb(110, 180, 110); }
+    .rank-down { color: rgb(210, 80, 80); }
 
     @media (max-width: 600px) {
         .league-table thead th,
