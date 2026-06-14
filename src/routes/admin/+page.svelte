@@ -5,6 +5,7 @@
         NONE_FACTION,
         TOW_FACTIONS, HH_FACTIONS, KT_FACTIONS,
         ETA_OPTIONS,
+        EXPERIENCE_OPTIONS,
     } from '$lib/signupOptions';
 
     const VALID_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team', 'League'];
@@ -40,6 +41,42 @@
         prearranged: boolean;
     };
     type SignupItem = { id: number; name: string; faction: string | null; vibe: string | null };
+    type AdminSignupRow = {
+        id: number;
+        player_id: number;
+        player_name: string;
+        faction: string | null;
+        points: number | null | undefined;
+        eta: string | null;
+        experience: string | null;
+        vibe: string | null;
+        standby_ok: boolean;
+        scenario: string | null;
+        can_demo: boolean;
+    };
+    type SignupConfig = {
+        show_points: boolean;
+        default_points: number | null;
+        show_scenario: boolean;
+        show_standby: boolean;
+        show_can_demo: boolean;
+        vibe_options: string[];
+        vibe_fixed: string | null;
+    };
+    type AddSignupForm = {
+        open: boolean;
+        playerId: string;
+        faction: string;
+        points: number | null | undefined;
+        eta: string;
+        experience: string;
+        vibe: string;
+        standbyOk: boolean;
+        scenario: string;
+        canDemo: boolean;
+        submitting: boolean;
+        error: string | null;
+    };
     type PairingsState = {
         week: string;
         rows: DisplayRow[];
@@ -52,6 +89,11 @@
         dirty: boolean;
         error: string | null;
         message: string | null;
+        signupRows: AdminSignupRow[];
+        signupConfig: SignupConfig | null;
+        signupsLoading: boolean;
+        signupsError: string | null;
+        addSignup: AddSignupForm;
     };
     type EditRow = {
         id: number | null;
@@ -139,6 +181,23 @@
         };
     }
 
+    function defaultAddSignupForm(): AddSignupForm {
+        return {
+            open: false,
+            playerId: '',
+            faction: NONE_FACTION,
+            points: null,
+            eta: '',
+            experience: 'New',
+            vibe: '',
+            standbyOk: false,
+            scenario: '',
+            canDemo: false,
+            submitting: false,
+            error: null,
+        };
+    }
+
     function initPairingsState(scope: string): PairingsState {
         return {
             week: defaultWeekFor(scope),
@@ -152,6 +211,11 @@
             dirty: false,
             error: null,
             message: null,
+            signupRows: [],
+            signupConfig: null,
+            signupsLoading: false,
+            signupsError: null,
+            addSignup: defaultAddSignupForm(),
         };
     }
 
@@ -173,6 +237,7 @@
             ps.error = 'Failed to load pairings.';
         }
         await loadSignups(scope);
+        await loadAdminSignups(scope);
         ps.loading = false;
     }
 
@@ -182,6 +247,130 @@
         const params = new URLSearchParams({ system: scope, week: ps.week });
         const r = await fetch(`${PUBLIC_API_URL}/admin/pairings/signup-list?${params}`, { credentials: 'include' });
         if (r.ok) ps.signups = await r.json();
+    }
+
+    async function loadAdminSignups(scope: string) {
+        const ps = pairings[scope];
+        if (!ps) return;
+        ps.signupsLoading = true;
+        ps.signupsError = null;
+        const params = new URLSearchParams({ system: scope, week: ps.week });
+        const r = await fetch(`${PUBLIC_API_URL}/admin/signups?${params}`, { credentials: 'include' });
+        if (r.ok) {
+            const data = await r.json();
+            const config: SignupConfig = data.config;
+            ps.signupConfig = config;
+            ps.signupRows = (data.signups ?? []).map((su: AdminSignupRow) => ({
+                ...su,
+                faction: su.faction ?? NONE_FACTION,
+                eta: su.eta ?? '',
+                vibe: su.vibe ?? config.vibe_fixed ?? config.vibe_options[0] ?? '',
+                scenario: su.scenario ?? '',
+            }));
+            ps.addSignup.points = config.default_points;
+            ps.addSignup.vibe = config.vibe_fixed ?? config.vibe_options[0] ?? '';
+        } else {
+            ps.signupsError = 'Failed to load signups.';
+        }
+        ps.signupsLoading = false;
+    }
+
+    async function patchSignup(scope: string, su: AdminSignupRow, field: keyof AdminSignupRow, value: any) {
+        const ps = pairings[scope];
+        if (!ps) return;
+        let v = value;
+        if (typeof v === 'number' && isNaN(v)) v = null;
+        if (v === undefined) v = null;
+        if (field === 'scenario' && v === '') v = null;
+        if (field === 'eta' && v === '') v = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/signups/${su.id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: v }),
+        });
+        if (r.ok) {
+            const updated = await r.json();
+            su.faction = updated.faction ?? NONE_FACTION;
+            su.points = updated.points;
+            su.eta = updated.eta ?? '';
+            su.experience = updated.experience;
+            su.vibe = updated.vibe ?? '';
+            su.standby_ok = updated.standby_ok;
+            su.scenario = updated.scenario ?? '';
+            su.can_demo = updated.can_demo;
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ps.signupsError = body.detail || 'Failed to update signup.';
+        }
+    }
+
+    async function forceDropSignup(scope: string, signupId: number) {
+        const ps = pairings[scope];
+        if (!ps) return;
+        if (!confirm('Force drop this signup? This cannot be undone.')) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/signups/${signupId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            ps.signupRows = ps.signupRows.filter((su) => su.id !== signupId);
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ps.signupsError = body.detail || 'Failed to drop signup.';
+        }
+    }
+
+    async function submitAddSignup(scope: string) {
+        const ps = pairings[scope];
+        if (!ps) return;
+        const form = ps.addSignup;
+        if (!form.playerId) {
+            form.error = 'Select a player.';
+            return;
+        }
+        form.submitting = true;
+        form.error = null;
+        const body: Record<string, any> = {
+            system: scope,
+            week: ps.week,
+            player_id: Number(form.playerId),
+            faction: form.faction === NONE_FACTION ? null : form.faction,
+            eta: form.eta || null,
+            experience: form.experience,
+            standby_ok: form.standbyOk,
+            can_demo: form.canDemo,
+        };
+        if (ps.signupConfig?.show_points) body.points = form.points;
+        if (!ps.signupConfig?.vibe_fixed) body.vibe = form.vibe;
+        if (ps.signupConfig?.show_scenario) body.scenario = form.scenario || null;
+
+        const r = await fetch(`${PUBLIC_API_URL}/admin/signups`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (r.ok) {
+            const created: AdminSignupRow = await r.json();
+            ps.signupRows = [
+                ...ps.signupRows,
+                {
+                    ...created,
+                    faction: created.faction ?? NONE_FACTION,
+                    eta: created.eta ?? '',
+                    vibe: created.vibe ?? '',
+                    scenario: created.scenario ?? '',
+                },
+            ].sort((a, b) => a.player_name.localeCompare(b.player_name));
+            ps.addSignup = defaultAddSignupForm();
+            ps.addSignup.points = ps.signupConfig?.default_points ?? null;
+            ps.addSignup.vibe = ps.signupConfig?.vibe_fixed ?? ps.signupConfig?.vibe_options[0] ?? '';
+        } else {
+            const body2 = await r.json().catch(() => ({}));
+            form.error = body2.detail || 'Failed to add signup.';
+        }
+        form.submitting = false;
     }
 
     async function generatePairings(scope: string) {
@@ -678,6 +867,231 @@
                         <!-- Weekly Pairings (system scopes only) -->
                         {#if SYSTEM_SCOPES.includes(scope) && pairings[scope]}
                             {@const ps = pairings[scope]}
+
+                            <!-- This Week's Signups -->
+                            <div class="sub-section">
+                                <h4 class="sub-heading">This Week's Signups</h4>
+
+                                {#if ps.signupsError}
+                                    <p class="field-error">{ps.signupsError}</p>
+                                {/if}
+
+                                {#if ps.signupsLoading}
+                                    <p class="muted small">Loading…</p>
+                                {:else if ps.signupRows.length === 0}
+                                    <p class="muted small">No signups for this week yet.</p>
+                                {:else}
+                                    <div class="grid-wrap">
+                                        <table class="pairing-grid">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Faction</th>
+                                                    {#if ps.signupConfig?.show_points}<th>Pts</th>{/if}
+                                                    <th>ETA</th>
+                                                    <th>Exp</th>
+                                                    <th>Vibe</th>
+                                                    {#if ps.signupConfig?.show_standby}<th>Standby</th>{/if}
+                                                    {#if ps.signupConfig?.show_scenario}<th>Scenario</th>{/if}
+                                                    {#if ps.signupConfig?.show_can_demo}<th>Demo</th>{/if}
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {#each ps.signupRows as su (su.id)}
+                                                    <tr>
+                                                        <td><span class="cell-text">{su.player_name}</span></td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                bind:value={su.faction}
+                                                                onchange={() => patchSignup(scope, su, 'faction', su.faction)}
+                                                            >
+                                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                {#each factionsFor(scope) as f}
+                                                                    <option>{f}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        {#if ps.signupConfig?.show_points}
+                                                            <td>
+                                                                <input
+                                                                    class="cell-input-num"
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="10000"
+                                                                    step="250"
+                                                                    bind:value={su.points}
+                                                                    onchange={() => patchSignup(scope, su, 'points', su.points)}
+                                                                />
+                                                            </td>
+                                                        {/if}
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                bind:value={su.eta}
+                                                                onchange={() => patchSignup(scope, su, 'eta', su.eta)}
+                                                            >
+                                                                <option value="">—</option>
+                                                                {#each ETA_OPTIONS as t}
+                                                                    <option>{t}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                bind:value={su.experience}
+                                                                onchange={() => patchSignup(scope, su, 'experience', su.experience)}
+                                                            >
+                                                                {#each EXPERIENCE_OPTIONS as e}
+                                                                    <option>{e}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            {#if ps.signupConfig?.vibe_fixed}
+                                                                <span class="cell-text">{ps.signupConfig.vibe_fixed}</span>
+                                                            {:else}
+                                                                <select
+                                                                    class="cell-select"
+                                                                    bind:value={su.vibe}
+                                                                    onchange={() => patchSignup(scope, su, 'vibe', su.vibe)}
+                                                                >
+                                                                    {#each ps.signupConfig?.vibe_options ?? [] as v}
+                                                                        <option>{v}</option>
+                                                                    {/each}
+                                                                </select>
+                                                            {/if}
+                                                        </td>
+                                                        {#if ps.signupConfig?.show_standby}
+                                                            <td class="cell-check">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    bind:checked={su.standby_ok}
+                                                                    onchange={() => patchSignup(scope, su, 'standby_ok', su.standby_ok)}
+                                                                />
+                                                            </td>
+                                                        {/if}
+                                                        {#if ps.signupConfig?.show_scenario}
+                                                            <td>
+                                                                <input
+                                                                    class="cell-input"
+                                                                    type="text"
+                                                                    bind:value={su.scenario}
+                                                                    onchange={() => patchSignup(scope, su, 'scenario', su.scenario)}
+                                                                />
+                                                            </td>
+                                                        {/if}
+                                                        {#if ps.signupConfig?.show_can_demo}
+                                                            <td class="cell-check">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    bind:checked={su.can_demo}
+                                                                    onchange={() => patchSignup(scope, su, 'can_demo', su.can_demo)}
+                                                                />
+                                                            </td>
+                                                        {/if}
+                                                        <td class="cell-delete">
+                                                            <button
+                                                                class="remove-btn"
+                                                                type="button"
+                                                                title="Force drop this signup"
+                                                                onclick={() => forceDropSignup(scope, su.id)}
+                                                            >×</button>
+                                                        </td>
+                                                    </tr>
+                                                {/each}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {/if}
+
+                                <details class="add-signup-details" bind:open={ps.addSignup.open}>
+                                    <summary>+ Add signup</summary>
+                                    <div class="add-signup-form">
+                                        <div class="field">
+                                            <label class="field-label" for="add-player-{scope}">Player</label>
+                                            <select id="add-player-{scope}" class="field-select" bind:value={ps.addSignup.playerId}>
+                                                <option value="">— Select —</option>
+                                                {#each blockPlayers as p}
+                                                    <option value={String(p.id)}>{p.name}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="add-faction-{scope}">Faction</label>
+                                            <select id="add-faction-{scope}" class="field-select" bind:value={ps.addSignup.faction}>
+                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                {#each factionsFor(scope) as f}
+                                                    <option>{f}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        {#if ps.signupConfig?.show_points}
+                                            <div class="field">
+                                                <label class="field-label" for="add-points-{scope}">Points</label>
+                                                <input id="add-points-{scope}" class="field-input" type="number" min="0" max="10000" step="250" bind:value={ps.addSignup.points} />
+                                            </div>
+                                        {/if}
+                                        <div class="field">
+                                            <label class="field-label" for="add-eta-{scope}">ETA</label>
+                                            <select id="add-eta-{scope}" class="field-select" bind:value={ps.addSignup.eta}>
+                                                <option value="">—</option>
+                                                {#each ETA_OPTIONS as t}
+                                                    <option>{t}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="add-exp-{scope}">Experience</label>
+                                            <select id="add-exp-{scope}" class="field-select" bind:value={ps.addSignup.experience}>
+                                                {#each EXPERIENCE_OPTIONS as e}
+                                                    <option>{e}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        {#if !ps.signupConfig?.vibe_fixed}
+                                            <div class="field">
+                                                <label class="field-label" for="add-vibe-{scope}">Vibe</label>
+                                                <select id="add-vibe-{scope}" class="field-select" bind:value={ps.addSignup.vibe}>
+                                                    {#each ps.signupConfig?.vibe_options ?? [] as v}
+                                                        <option>{v}</option>
+                                                    {/each}
+                                                </select>
+                                            </div>
+                                        {/if}
+                                        {#if ps.signupConfig?.show_standby}
+                                            <label class="check-row">
+                                                <input type="checkbox" bind:checked={ps.addSignup.standbyOk} />
+                                                <span>Standby</span>
+                                            </label>
+                                        {/if}
+                                        {#if ps.signupConfig?.show_scenario}
+                                            <div class="field">
+                                                <label class="field-label" for="add-scenario-{scope}">Scenario</label>
+                                                <input id="add-scenario-{scope}" class="field-input" type="text" bind:value={ps.addSignup.scenario} />
+                                            </div>
+                                        {/if}
+                                        {#if ps.signupConfig?.show_can_demo}
+                                            <label class="check-row">
+                                                <input type="checkbox" bind:checked={ps.addSignup.canDemo} />
+                                                <span>Can demo</span>
+                                            </label>
+                                        {/if}
+                                    </div>
+                                    {#if ps.addSignup.error}
+                                        <p class="field-error">{ps.addSignup.error}</p>
+                                    {/if}
+                                    <button
+                                        class="primary-button"
+                                        type="button"
+                                        disabled={ps.addSignup.submitting}
+                                        onclick={() => submitAddSignup(scope)}
+                                    >{ps.addSignup.submitting ? 'Adding…' : 'Add signup'}</button>
+                                </details>
+                            </div>
+
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">
                                     Weekly Pairings
@@ -1507,6 +1921,61 @@
     .cell-delete {
         width: 28px;
         text-align: center;
+    }
+
+    .cell-check {
+        width: 50px;
+        text-align: center;
+    }
+
+    .cell-input {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-accent-border-soft);
+        border-radius: 4px;
+        color: var(--color-text-base);
+        padding: 3px 6px;
+        font-size: 0.75rem;
+        width: 100%;
+        max-width: 140px;
+        font-family: inherit;
+    }
+
+    .cell-input:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    .add-signup-details {
+        margin-top: 0.5rem;
+    }
+
+    .add-signup-details summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--color-accent);
+        font-size: 0.85rem;
+        list-style: none;
+    }
+
+    .add-signup-details summary::-webkit-details-marker { display: none; }
+
+    .add-signup-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin: 0.75rem 0;
+    }
+
+    .add-signup-form .field {
+        min-width: 140px;
+    }
+
+    .check-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: var(--color-text-base);
     }
 
     .save-row {
