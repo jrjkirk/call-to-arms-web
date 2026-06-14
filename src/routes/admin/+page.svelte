@@ -77,6 +77,25 @@
         submitting: boolean;
         error: string | null;
     };
+    type LeagueResultRow = {
+        id: number;
+        result_date: string;
+        player_1_id: number;
+        player_1_name: string;
+        player_1_faction: string | null;
+        player_1_painting_bonus: string | null;
+        player_1_rating_before: number;
+        player_1_rating_after: number;
+        player_2_id: number;
+        player_2_name: string;
+        player_2_faction: string | null;
+        player_2_painting_bonus: string | null;
+        player_2_rating_before: number;
+        player_2_rating_after: number;
+        game_type: string;
+        result: string;
+        k_factor_used: number;
+    };
     type PairingsState = {
         week: string;
         rows: DisplayRow[];
@@ -119,6 +138,12 @@
     let blocksLoading = $state(false);
     let blockPlayers = $state<BlockPlayer[]>([]);
     let historyByScope = $state<Record<string, any[]>>({});
+    let leagueResults = $state<LeagueResultRow[]>([]);
+    let leagueResultsLoading = $state(false);
+    let leagueResultsError = $state<string | null>(null);
+
+    const PAINTING_OPTIONS = ['Partially Painted', 'Fully Painted'];
+    const GAME_TYPE_OPTIONS = ['Casual', 'Competitive'];
     let historyLoading = $state<Record<string, boolean>>({});
 
     // Per-scope pairings state
@@ -514,6 +539,64 @@
         if (r.ok) blockPlayers = await r.json();
     }
 
+    async function loadLeagueResults() {
+        leagueResultsLoading = true;
+        leagueResultsError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results`, { credentials: 'include' });
+        if (r.ok) {
+            const data: LeagueResultRow[] = await r.json();
+            leagueResults = data.map((row) => ({
+                ...row,
+                player_1_faction: row.player_1_faction ?? '',
+                player_2_faction: row.player_2_faction ?? '',
+                player_1_painting_bonus: row.player_1_painting_bonus ?? NONE_FACTION,
+                player_2_painting_bonus: row.player_2_painting_bonus ?? NONE_FACTION,
+            }));
+        } else {
+            leagueResultsError = 'Failed to load league results.';
+        }
+        leagueResultsLoading = false;
+    }
+
+    async function patchLeagueResult(resultId: number, field: string, rawValue: any) {
+        leagueResultsError = null;
+        let v: any = rawValue;
+        if (field === 'player_1_id' || field === 'player_2_id') {
+            v = Number(v);
+        } else if (field === 'player_1_faction' || field === 'player_2_faction') {
+            v = v === '' ? null : v;
+        } else if (field === 'player_1_painting_bonus' || field === 'player_2_painting_bonus') {
+            v = v === NONE_FACTION ? null : v;
+        }
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results/${resultId}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: v }),
+        });
+        if (r.ok) {
+            await loadLeagueResults();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            leagueResultsError = body.detail || 'Failed to update result.';
+        }
+    }
+
+    async function deleteLeagueResult(resultId: number) {
+        if (!confirm('Delete this result? This recalculates ELO ratings for all players.')) return;
+        leagueResultsError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results/${resultId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            await loadLeagueResults();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            leagueResultsError = body.detail || 'Failed to delete result.';
+        }
+    }
+
     async function loadHistory(scope: string) {
         historyLoading[scope] = true;
         const r = await fetch(
@@ -532,10 +615,17 @@
         }
         const tasks: Promise<void>[] = [loadBlocks()];
         if (adminMe.is_super_admin) {
-            tasks.push(loadRoles(), loadGrantableUsers(), loadBlockPlayers());
+            tasks.push(loadRoles(), loadGrantableUsers());
+        }
+        if (adminMe.is_super_admin || adminMe.scopes.includes('League')) {
+            tasks.push(loadBlockPlayers());
         }
         for (const scope of adminMe.scopes) {
-            tasks.push(loadHistory(scope));
+            if (scope === 'League') {
+                tasks.push(loadLeagueResults());
+            } else {
+                tasks.push(loadHistory(scope));
+            }
             if (SYSTEM_SCOPES.includes(scope)) {
                 pairings[scope] = initPairingsState(scope);
                 tasks.push(loadPairings(scope));
@@ -825,44 +915,175 @@
                     <div class="scope-card">
                         <div class="scope-card-title">{scope}</div>
 
-                        <!-- Recent Games -->
-                        <div class="sub-section">
-                            <h4 class="sub-heading">Recent Games</h4>
-                            {#if historyLoading[scope]}
-                                <p class="muted small">Loading…</p>
-                            {:else if !(historyByScope[scope]?.length)}
-                                <p class="muted small">No games recorded yet.</p>
-                            {:else if scope === 'League'}
-                                <ul class="history-list">
-                                    {#each historyByScope[scope] as entry}
-                                        <li class="history-row">
-                                            <span class="history-date">{entry.date}</span>
-                                            <span class="history-matchup">
-                                                {entry.p1_name} ({fmt(entry.p1_faction)}) vs {entry.p2_name} ({fmt(entry.p2_faction)})
-                                            </span>
-                                            <span class="history-result">{entry.result}</span>
-                                        </li>
-                                    {/each}
-                                </ul>
-                            {:else}
-                                <ul class="history-list">
-                                    {#each historyByScope[scope] as entry}
-                                        <li class="history-row">
-                                            <span class="history-date">{entry.week}</span>
-                                            {#if entry.player_b_name}
-                                                <span class="history-matchup">
-                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) vs {entry.player_b_name} ({fmt(entry.player_b_faction)})
-                                                </span>
-                                            {:else}
-                                                <span class="history-matchup">
-                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) — bye
-                                                </span>
-                                            {/if}
-                                        </li>
-                                    {/each}
-                                </ul>
-                            {/if}
-                        </div>
+                        {#if scope === 'League'}
+                            <!-- League Results (read-write — editing/deleting recalculates ELO) -->
+                            <div class="sub-section">
+                                <h4 class="sub-heading">League Results</h4>
+
+                                {#if leagueResultsError}
+                                    <p class="field-error">{leagueResultsError}</p>
+                                {/if}
+
+                                {#if leagueResultsLoading}
+                                    <p class="muted small">Loading…</p>
+                                {:else if leagueResults.length === 0}
+                                    <p class="muted small">No results recorded yet.</p>
+                                {:else}
+                                    <div class="grid-wrap">
+                                        <table class="pairing-grid league-results-grid">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Player 1</th>
+                                                    <th>P1 Faction</th>
+                                                    <th>P1 Painting</th>
+                                                    <th>P1 Before</th>
+                                                    <th>P1 After</th>
+                                                    <th>Result</th>
+                                                    <th>Type</th>
+                                                    <th>Player 2</th>
+                                                    <th>P2 Faction</th>
+                                                    <th>P2 Painting</th>
+                                                    <th>P2 Before</th>
+                                                    <th>P2 After</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {#each leagueResults as r (r.id)}
+                                                    <tr>
+                                                        <td><span class="cell-text">{r.result_date}</span></td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                value={String(r.player_1_id)}
+                                                                onchange={(e) => patchLeagueResult(r.id, 'player_1_id', (e.target as HTMLSelectElement).value)}
+                                                            >
+                                                                {#each blockPlayers as p}
+                                                                    <option value={String(p.id)}>{p.name}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                class="cell-input"
+                                                                type="text"
+                                                                bind:value={r.player_1_faction}
+                                                                onchange={() => patchLeagueResult(r.id, 'player_1_faction', r.player_1_faction)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                bind:value={r.player_1_painting_bonus}
+                                                                onchange={() => patchLeagueResult(r.id, 'player_1_painting_bonus', r.player_1_painting_bonus)}
+                                                            >
+                                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                {#each PAINTING_OPTIONS as opt}
+                                                                    <option>{opt}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        <td><span class="cell-readonly">{Math.round(r.player_1_rating_before)}</span></td>
+                                                        <td><span class="cell-readonly">{Math.round(r.player_1_rating_after)}</span></td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                bind:value={r.result}
+                                                                onchange={() => patchLeagueResult(r.id, 'result', r.result)}
+                                                            >
+                                                                <option value="Player 1 Victory">{r.player_1_name} Victory</option>
+                                                                <option value="Draw">Draw</option>
+                                                                <option value="Player 2 Victory">{r.player_2_name} Victory</option>
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                bind:value={r.game_type}
+                                                                onchange={() => patchLeagueResult(r.id, 'game_type', r.game_type)}
+                                                            >
+                                                                {#each GAME_TYPE_OPTIONS as opt}
+                                                                    <option>{opt}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                value={String(r.player_2_id)}
+                                                                onchange={(e) => patchLeagueResult(r.id, 'player_2_id', (e.target as HTMLSelectElement).value)}
+                                                            >
+                                                                {#each blockPlayers as p}
+                                                                    <option value={String(p.id)}>{p.name}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <input
+                                                                class="cell-input"
+                                                                type="text"
+                                                                bind:value={r.player_2_faction}
+                                                                onchange={() => patchLeagueResult(r.id, 'player_2_faction', r.player_2_faction)}
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                class="cell-select"
+                                                                bind:value={r.player_2_painting_bonus}
+                                                                onchange={() => patchLeagueResult(r.id, 'player_2_painting_bonus', r.player_2_painting_bonus)}
+                                                            >
+                                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                {#each PAINTING_OPTIONS as opt}
+                                                                    <option>{opt}</option>
+                                                                {/each}
+                                                            </select>
+                                                        </td>
+                                                        <td><span class="cell-readonly">{Math.round(r.player_2_rating_before)}</span></td>
+                                                        <td><span class="cell-readonly">{Math.round(r.player_2_rating_after)}</span></td>
+                                                        <td class="cell-delete">
+                                                            <button
+                                                                class="remove-btn"
+                                                                type="button"
+                                                                title="Delete this result"
+                                                                onclick={() => deleteLeagueResult(r.id)}
+                                                            >×</button>
+                                                        </td>
+                                                    </tr>
+                                                {/each}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {/if}
+                            </div>
+                        {:else}
+                            <!-- Recent Games -->
+                            <div class="sub-section">
+                                <h4 class="sub-heading">Recent Games</h4>
+                                {#if historyLoading[scope]}
+                                    <p class="muted small">Loading…</p>
+                                {:else if !(historyByScope[scope]?.length)}
+                                    <p class="muted small">No games recorded yet.</p>
+                                {:else}
+                                    <ul class="history-list">
+                                        {#each historyByScope[scope] as entry}
+                                            <li class="history-row">
+                                                <span class="history-date">{entry.week}</span>
+                                                {#if entry.player_b_name}
+                                                    <span class="history-matchup">
+                                                        {entry.player_a_name} ({fmt(entry.player_a_faction)}) vs {entry.player_b_name} ({fmt(entry.player_b_faction)})
+                                                    </span>
+                                                {:else}
+                                                    <span class="history-matchup">
+                                                        {entry.player_a_name} ({fmt(entry.player_a_faction)}) — bye
+                                                    </span>
+                                                {/if}
+                                            </li>
+                                        {/each}
+                                    </ul>
+                                {/if}
+                            </div>
+                        {/if}
 
                         <!-- Weekly Pairings (system scopes only) -->
                         {#if SYSTEM_SCOPES.includes(scope) && pairings[scope]}
@@ -1916,6 +2137,16 @@
     .cell-text {
         font-size: 0.78rem;
         color: var(--color-text-base);
+    }
+
+    .cell-readonly {
+        font-size: 0.78rem;
+        color: var(--color-text-muted);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .league-results-grid {
+        min-width: 1300px;
     }
 
     .cell-delete {
