@@ -136,6 +136,7 @@
         <thead>
             <tr>
                 <th class="center rank-col">Rank</th>
+                <th class="rank-change-col"></th>
                 <th class="center elo-col">ELO</th>
                 <th>Name</th>
                 <th class="center faction-col">{mobileFactionLabel}</th>
@@ -152,6 +153,8 @@
                         {:else}
                             {row.rank}
                         {/if}
+                    </td>
+                    <td class="rank-change-col">
                         {#if row.previous_rank != null && row.previous_rank !== row.rank}
                             {@const delta = row.previous_rank - row.rank}
                             <span class="rank-change {delta > 0 ? 'rank-up' : 'rank-down'}">
@@ -405,13 +408,19 @@
     .row-rank-2 td { background: rgba(192, 192, 192, 0.06); }
     .row-rank-3 td { background: rgba(205, 127, 50, 0.06); }
     .rank-change {
-        display: inline-block;
         font-size: 0.7rem;
         font-weight: 600;
-        margin-left: 4px;
+        white-space: nowrap;
     }
     .rank-up { color: rgb(110, 180, 110); }
     .rank-down { color: rgb(210, 80, 80); }
+
+    .league-table thead tr th.rank-change-col,
+    .league-table tbody tr td.rank-change-col {
+        width: 28px;
+        padding: 0 2px;
+        text-align: center;
+    }
 
     @media (max-width: 600px) {
         .league-table thead th,
