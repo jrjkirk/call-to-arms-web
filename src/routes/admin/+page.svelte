@@ -45,7 +45,6 @@
         rows: DisplayRow[];
         editRows: EditRow[];
         published: boolean;
-        isPreview: boolean;
         signups: SignupItem[];
         loading: boolean;
         saving: boolean;
@@ -146,7 +145,6 @@
             rows: [],
             editRows: [],
             published: false,
-            isPreview: false,
             signups: [],
             loading: false,
             saving: false,
@@ -170,7 +168,6 @@
             ps.rows = data.rows ?? [];
             ps.editRows = ps.rows.map(displayRowToEdit);
             ps.published = data.published ?? false;
-            ps.isPreview = false;
             ps.dirty = false;
         } else {
             ps.error = 'Failed to load pairings.';
@@ -185,32 +182,6 @@
         const params = new URLSearchParams({ system: scope, week: ps.week });
         const r = await fetch(`${PUBLIC_API_URL}/admin/pairings/signup-list?${params}`, { credentials: 'include' });
         if (r.ok) ps.signups = await r.json();
-    }
-
-    async function previewPairings(scope: string) {
-        const ps = pairings[scope];
-        if (!ps) return;
-        ps.loading = true;
-        ps.error = null;
-        ps.message = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/pairings/preview`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ system: scope, week: ps.week }),
-        });
-        if (r.ok) {
-            const data = await r.json();
-            ps.rows = data.rows ?? [];
-            ps.editRows = ps.rows.map(displayRowToEdit);
-            ps.isPreview = true;
-            ps.dirty = false;
-            ps.message = 'Preview only — no changes saved to the database.';
-        } else {
-            const body = await r.json().catch(() => ({}));
-            ps.error = body.detail || 'Preview failed.';
-        }
-        ps.loading = false;
     }
 
     async function generatePairings(scope: string) {
@@ -229,7 +200,6 @@
             const data = await r.json();
             ps.rows = data.rows ?? [];
             ps.editRows = ps.rows.map(displayRowToEdit);
-            ps.isPreview = false;
             ps.dirty = false;
             ps.message = `Generated ${ps.rows.length} pairing(s).`;
         } else {
@@ -241,7 +211,7 @@
 
     async function savePairings(scope: string) {
         const ps = pairings[scope];
-        if (!ps || ps.isPreview) return;
+        if (!ps) return;
         ps.saving = true;
         ps.error = null;
         ps.message = null;
@@ -733,13 +703,6 @@
                                     </div>
                                     <div class="pairing-btn-row">
                                         <button
-                                            class="secondary-button"
-                                            type="button"
-                                            disabled={ps.loading}
-                                            onclick={() => previewPairings(scope)}
-                                            title="Compute proposed pairings without saving"
-                                        >Preview (dry run)</button>
-                                        <button
                                             class="primary-button"
                                             type="button"
                                             disabled={ps.loading}
@@ -766,10 +729,6 @@
                                     <p class="pairing-message">{ps.message}</p>
                                 {/if}
 
-                                {#if ps.isPreview}
-                                    <p class="preview-banner">DRY RUN — proposed board, not saved. Click Generate to commit.</p>
-                                {/if}
-
                                 {#if ps.editRows.length === 0 && !ps.loading}
                                     <p class="muted small">No pairings for this week. Generate to create them.</p>
                                 {:else if ps.editRows.length > 0}
@@ -791,7 +750,7 @@
                                             </thead>
                                             <tbody>
                                                 {#each ps.editRows as er, idx}
-                                                    <tr class:prearranged-row={er.prearranged} class:preview-row={er.id === null}>
+                                                    <tr class:prearranged-row={er.prearranged}>
                                                         <!-- A signup -->
                                                         <td>
                                                             {#if er.id === null}
@@ -968,19 +927,17 @@
                                         </table>
                                     </div>
 
-                                    {#if !ps.isPreview}
-                                        <div class="save-row">
-                                            {#if ps.dirty}
-                                                <span class="dirty-indicator">Unsaved changes</span>
-                                            {/if}
-                                            <button
-                                                class="primary-button"
-                                                type="button"
-                                                disabled={ps.saving || ps.isPreview || !ps.dirty}
-                                                onclick={() => savePairings(scope)}
-                                            >{ps.saving ? 'Saving…' : 'Save Pairing Changes'}</button>
-                                        </div>
-                                    {/if}
+                                    <div class="save-row">
+                                        {#if ps.dirty}
+                                            <span class="dirty-indicator">Unsaved changes</span>
+                                        {/if}
+                                        <button
+                                            class="primary-button"
+                                            type="button"
+                                            disabled={ps.saving || !ps.dirty}
+                                            onclick={() => savePairings(scope)}
+                                        >{ps.saving ? 'Saving…' : 'Save Pairing Changes'}</button>
+                                    </div>
                                 {/if}
                             </div>
                         {/if}
@@ -1455,14 +1412,8 @@
         align-items: center;
     }
 
-    .preview-banner {
-        font-size: 0.8rem;
-        color: #fbbf24;
-        background: rgba(251, 191, 36, 0.08);
-        border: 1px solid rgba(251, 191, 36, 0.3);
-        border-radius: 6px;
-        padding: 6px 12px;
-        margin: 0 0 0.75rem;
+    .preview-row td {
+        opacity: 0.75;
     }
 
     .pairing-message {
