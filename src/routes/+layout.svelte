@@ -4,6 +4,7 @@
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import { fly } from 'svelte/transition';
 
     let { children } = $props();
 
@@ -189,7 +190,11 @@
                     <a href="/claim">link your existing player profile</a>.
                 </div>
             {/if}
-            {@render children()}
+            {#key page.url.pathname}
+                <div class="page-transition" in:fly={{ y: 10, duration: 220 }}>
+                    {@render children()}
+                </div>
+            {/key}
         </div>
     </main>
 </div>
