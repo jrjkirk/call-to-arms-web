@@ -1,5 +1,17 @@
 <script lang="ts">
-    let { data } = $props();
+    import { onMount } from 'svelte';
+    import { PUBLIC_API_URL } from '$env/static/public';
+
+    type PlayerRow = { id: number; name: string; default_faction: string | null; systems_played?: string[] };
+
+    let players = $state<PlayerRow[]>([]);
+
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' });
+            if (r.ok) players = await r.json();
+        } catch (_) {}
+    });
 
     let query = $state('');
     let activeSystems = $state<string[]>([]);
@@ -23,7 +35,7 @@
     const filtered = $derived(
         activeSystems.length === 0 && query.trim() === ''
             ? []
-            : data.players.filter((p: { name: string; systems_played?: string[] }) => {
+            : players.filter((p: PlayerRow) => {
                   const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
                   const matchesSystem =
                       activeSystems.length === 0 ||

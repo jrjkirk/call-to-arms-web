@@ -199,7 +199,7 @@
 
     onMount(async () => {
         try {
-            const r = await fetch(`${PUBLIC_API_URL}/players`);
+            const r = await fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' });
             if (r.ok) players = await r.json();
         } catch (_) {}
     });

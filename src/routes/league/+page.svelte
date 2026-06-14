@@ -1,10 +1,21 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { invalidateAll } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { TOW_FACTIONS } from '$lib/signupOptions';
 
-    let { data } = $props();
+    let rankings = $state<any[]>([]);
+    let allPlayers = $state<{ id: number; name: string }[]>([]);
+
+    async function loadRankings() {
+        try {
+            const [rankingsResp, playersResp] = await Promise.all([
+                fetch(`${PUBLIC_API_URL}/league/rankings`, { credentials: 'include' }),
+                fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' }),
+            ]);
+            if (rankingsResp.ok) rankings = await rankingsResp.json();
+            if (playersResp.ok) allPlayers = await playersResp.json();
+        } catch (_) {}
+    }
 
     function factionToSlug(name: string | null): string | null {
         if (!name) return null;
@@ -55,11 +66,12 @@
             if (r.ok) auth = await r.json();
         } catch (_) {}
         authLoaded = true;
+        await loadRankings();
     });
 
     /* ---------- players sorted for form dropdowns ---------- */
     const sortedPlayers = $derived(
-        [...data.players].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+        [...allPlayers].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
     );
 
     /* ---------- submission form ---------- */
@@ -119,7 +131,7 @@
             } else {
                 submitSuccess = body;
                 if (!body.duplicate) {
-                    await invalidateAll();
+                    await loadRankings();
                 }
             }
         } catch (_) {
@@ -145,7 +157,7 @@
             </tr>
         </thead>
         <tbody>
-            {#each data.rankings as row}
+            {#each rankings as row}
                 <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`}>
                     <td class="center rank-col">
                         {#if medal(row.rank)}

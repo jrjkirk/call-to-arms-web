@@ -1,14 +1,36 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { page } from '$app/state';
+    import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
 
-    let { data } = $props();
+    let apiData = $state<any>(null);
+    let pageLoading = $state(true);
+    let notFound = $state(false);
+    let loadError = $state<string | null>(null);
 
-    const player = $derived(data.player);
-    const titles = $derived(data.titles ?? []);
-    const achievements = $derived(data.achievements ?? []);
-    const signupCounts = $derived(data.signup_counts ?? {});
-    const factionUsage = $derived(data.faction_usage ?? {});
-    const league = $derived(data.league ?? {});
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/players/${page.params.id}`, { credentials: 'include' });
+            if (r.status === 404) {
+                notFound = true;
+            } else if (!r.ok) {
+                loadError = 'Failed to load player.';
+            } else {
+                apiData = await r.json();
+            }
+        } catch (_) {
+            loadError = 'Network error.';
+        }
+        pageLoading = false;
+    });
+
+    const player = $derived(apiData?.player ?? { name: '' });
+    const titles = $derived(apiData?.titles ?? []);
+    const achievements = $derived(apiData?.achievements ?? []);
+    const signupCounts = $derived(apiData?.signup_counts ?? {});
+    const factionUsage = $derived(apiData?.faction_usage ?? {});
+    const league = $derived(apiData?.league ?? {});
     const hasLeagueGames = $derived((league.total_games ?? 0) > 0);
 
     let expandedAchievement = $state<string | null>(null);
@@ -23,8 +45,8 @@
         systemsInOrder.filter((s) => s in factionUsage)
     );
 
-    const discord = $derived(data.discord ?? null);
-    const recentGamesBySystem = $derived(data.recent_games_by_system ?? {});
+    const discord = $derived(apiData?.discord ?? null);
+    const recentGamesBySystem = $derived(apiData?.recent_games_by_system ?? {});
 
     function outcomeClass(result: string | null): string {
         if (result === 'Win') return 'outcome-win';
@@ -49,6 +71,14 @@
 </script>
 
 <p class="back-link"><a href="/players">← All players</a></p>
+
+{#if pageLoading}
+    <p style="color: var(--color-text-dim); font-style: italic;">Loading…</p>
+{:else if notFound}
+    <p style="color: var(--color-text-dim); font-style: italic;">Player not found.</p>
+{:else if loadError}
+    <p style="color: #fca5a5;">{loadError}</p>
+{:else}
 
 <div class="profile-card">
     {#if discord}
@@ -235,6 +265,7 @@
         </div>
     {/if}
 {/each}
+{/if}
 
 <style>
     .back-link { margin: 0 0 1rem; color: var(--color-text-dim); }
