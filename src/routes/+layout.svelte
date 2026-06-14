@@ -183,18 +183,30 @@
         </nav>
 
         <div class="page-content">
-            {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
-                <div class="claim-banner">
-                    <strong>Welcome, {auth.user.discord_name}.</strong>
-                    Before you can use the app, please
-                    <a href="/claim">link your existing player profile</a>.
+            {#if !authLoaded}
+                <div class="auth-gate"></div>
+            {:else if !isAuthed}
+                <div class="auth-gate">
+                    <h1 class="auth-gate-title">Call to Arms</h1>
+                    <p class="auth-gate-text">
+                        Sign in with Discord to view pairings, league standings, and player profiles.
+                    </p>
+                    <a class="auth-gate-button" href={loginUrl()}>Sign in with Discord</a>
                 </div>
+            {:else}
+                {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
+                    <div class="claim-banner">
+                        <strong>Welcome, {auth.user.discord_name}.</strong>
+                        Before you can use the app, please
+                        <a href="/claim">link your existing player profile</a>.
+                    </div>
+                {/if}
+                {#key page.url.pathname}
+                    <div class="page-transition" in:fly={{ y: 10, duration: 220 }}>
+                        {@render children()}
+                    </div>
+                {/key}
             {/if}
-            {#key page.url.pathname}
-                <div class="page-transition" in:fly={{ y: 10, duration: 220 }}>
-                    {@render children()}
-                </div>
-            {/key}
         </div>
     </main>
 </div>
@@ -462,6 +474,51 @@
         color: var(--color-accent);
         text-decoration: underline;
         font-weight: 600;
+    }
+
+    .auth-gate {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-height: 50vh;
+        gap: 1rem;
+        padding: 2rem 1rem;
+    }
+
+    .auth-gate-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--color-text-bright);
+        margin: 0;
+    }
+
+    .auth-gate-text {
+        font-size: 0.92rem;
+        color: var(--color-text-dim);
+        max-width: 360px;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    .auth-gate-button {
+        display: inline-block;
+        background: rgba(201, 161, 74, 0.18);
+        border: 1px solid rgba(201, 161, 74, 0.55);
+        color: var(--color-text-bright);
+        font-weight: 600;
+        padding: 0.65rem 1.6rem;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        text-decoration: none;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.1s ease, border-color 0.1s ease;
+    }
+
+    .auth-gate-button:hover {
+        background: rgba(201, 161, 74, 0.28);
     }
 
     @media (max-width: 768px) {
