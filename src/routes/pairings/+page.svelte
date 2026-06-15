@@ -1,8 +1,23 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
+    import { fly, scale } from 'svelte/transition';
     import { factionIconUrl, systemFolder } from '$lib/factions';
 
     let { data } = $props();
+
+    let showMatchups = $state(false);
+    onMount(() => {
+        showMatchups = true;
+    });
+
+    function matchKey(m: { player_a_name: string; player_b_name?: string | null }): string {
+        return `${m.player_a_name}|${m.player_b_name ?? 'BYE'}`;
+    }
+
+    function cascadeDelay(i: number): number {
+        return Math.min(i, 10) * 90;
+    }
 
     let system = $state(data.system);
     let week = $state(data.week);
@@ -94,9 +109,13 @@
         </div>
     </div>
 
+    {#if showMatchups}
     <div class="matchups">
-        {#each data.matchups as m}
-            <div class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}>
+        {#each data.matchups as m, i (matchKey(m))}
+            <div
+                class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
+                in:fly={{ y: 16, duration: 380, delay: cascadeDelay(i) }}
+            >
                 <div class="player-row player-a">
                     {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
                         <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system))} alt="" />
@@ -111,7 +130,7 @@
 
                 <div class="vs-divider">
                     <span class="vs-line"></span>
-                    <span class="vs-label">VS</span>
+                    <span class="vs-label" in:scale={{ start: 0.4, duration: 250, delay: cascadeDelay(i) + 280 }}>VS</span>
                     <span class="vs-line"></span>
                 </div>
 
@@ -154,6 +173,7 @@
             </div>
         {/each}
     </div>
+    {/if}
 {/if}
 
 <style>
