@@ -1,15 +1,9 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { fly, scale } from 'svelte/transition';
     import { factionIconUrl, systemFolder } from '$lib/factions';
 
     let { data } = $props();
-
-    let showMatchups = $state(false);
-    onMount(() => {
-        setTimeout(() => { showMatchups = true; }, 150);
-    });
 
     function matchKey(m: { player_a_name: string; player_b_name?: string | null }): string {
         return `${m.player_a_name}|${m.player_b_name ?? 'BYE'}`;
@@ -109,14 +103,11 @@
         </div>
     </div>
 
-    {#if showMatchups}
     <div class="matchups">
         {#each data.matchups as m, i (matchKey(m))}
             <div
                 class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
-                in:fly={{ y: 40, duration: 500, delay: cascadeDelay(i) }}
-                onintrostart={() => console.log('intro start', i)}
-                onintroend={() => console.log('intro end', i)}
+                in:fly={{ y: 24, duration: 420, delay: cascadeDelay(i) }}
             >
                 <div class="player-row player-a">
                     {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
@@ -175,7 +166,6 @@
             </div>
         {/each}
     </div>
-    {/if}
 {/if}
 
 <style>
