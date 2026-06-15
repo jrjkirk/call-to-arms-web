@@ -183,6 +183,18 @@
     let achievementMessage = $state<string | null>(null);
     let achievementError = $state<string | null>(null);
 
+    // Edit Player Profile state
+    type PlayerListItem = { id: number; name: string; titles: string[]; active: boolean; admin_notes: string | null };
+    let editPlayerList = $state<PlayerListItem[]>([]);
+    let editPlayerIdStr = $state('');
+    let editPlayerName = $state('');
+    let editPlayerTitlesText = $state('');
+    let editPlayerActive = $state(true);
+    let editPlayerAdminNotes = $state('');
+    let editPlayerSaving = $state(false);
+    let editPlayerMessage = $state<string | null>(null);
+    let editPlayerError = $state<string | null>(null);
+
     function defaultWeekFor(system: string): string {
         const target = system === 'The Old World' ? 3 : 5;
         const d = new Date();
@@ -580,6 +592,54 @@
         }
     }
 
+    async function loadEditPlayerList() {
+        const r = await fetch(`${PUBLIC_API_URL}/admin/players`, { credentials: 'include' });
+        if (r.ok) editPlayerList = await r.json();
+    }
+
+    function onEditPlayerChange() {
+        editPlayerMessage = null;
+        editPlayerError = null;
+        const player = editPlayerList.find(p => String(p.id) === editPlayerIdStr);
+        if (!player) return;
+        editPlayerName = player.name;
+        editPlayerTitlesText = (player.titles ?? []).join('\n');
+        editPlayerActive = player.active ?? true;
+        editPlayerAdminNotes = player.admin_notes ?? '';
+    }
+
+    async function saveEditPlayer() {
+        if (!editPlayerIdStr) return;
+        editPlayerSaving = true;
+        editPlayerMessage = null;
+        editPlayerError = null;
+        const titles = editPlayerTitlesText.split('\n').map(t => t.trim()).filter(Boolean);
+        const r = await fetch(`${PUBLIC_API_URL}/admin/players/${editPlayerIdStr}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: editPlayerName,
+                titles,
+                active: editPlayerActive,
+                admin_notes: editPlayerAdminNotes.trim() || null,
+            }),
+        });
+        if (r.ok) {
+            const updated = await r.json();
+            editPlayerMessage = 'Saved.';
+            editPlayerList = editPlayerList.map(p =>
+                p.id === updated.id
+                    ? { ...p, name: updated.name, titles: updated.titles, active: updated.active, admin_notes: updated.admin_notes }
+                    : p
+            );
+        } else {
+            const body = await r.json().catch(() => ({}));
+            editPlayerError = body.detail || 'Save failed.';
+        }
+        editPlayerSaving = false;
+    }
+
     async function postAchievementToDiscord() {
         achievementPosting = true;
         achievementMessage = null;
@@ -704,7 +764,7 @@
         }
         const tasks: Promise<void>[] = [loadBlocks()];
         if (adminMe.is_super_admin) {
-            tasks.push(loadRoles(), loadGrantableUsers(), loadAchievementOptions());
+            tasks.push(loadRoles(), loadGrantableUsers(), loadAchievementOptions(), loadEditPlayerList());
         }
         if (adminMe.is_super_admin || adminMe.scopes.includes('League')) {
             tasks.push(loadBlockPlayers());
@@ -943,6 +1003,72 @@
                     {achievementPosting ? 'Posting…' : 'Post'}
                 </button>
             </form>
+        </section>
+    {/if}
+
+    {#if adminMe.is_super_admin}
+        <!-- ── Edit Player Profile ───────────────────────────────────────────── -->
+        <section class="admin-section">
+            <h3 class="section-heading">Edit Player Profile</h3>
+            <div class="player-edit-form">
+                <div class="field">
+                    <label class="field-label" for="edit-player-picker">Choose a Player to Edit</label>
+                    <select
+                        id="edit-player-picker"
+                        class="field-select"
+                        bind:value={editPlayerIdStr}
+                        onchange={onEditPlayerChange}
+                    >
+                        <option value="">— Select player —</option>
+                        {#each editPlayerList as p}
+                            <option value={String(p.id)}>{p.name} (#{p.id})</option>
+                        {/each}
+                    </select>
+                </div>
+
+                {#if editPlayerIdStr}
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="edit-player-name">Display Name</label>
+                        <input id="edit-player-name" class="field-input" type="text" bind:value={editPlayerName} />
+                    </div>
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="edit-player-titles">Titles (one per line)</label>
+                        <textarea
+                            id="edit-player-titles"
+                            class="field-input field-textarea"
+                            rows="3"
+                            bind:value={editPlayerTitlesText}
+                        ></textarea>
+                    </div>
+                    <label class="check-row">
+                        <input type="checkbox" bind:checked={editPlayerActive} />
+                        <span>Show this player publicly</span>
+                    </label>
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="edit-player-notes">
+                            Admin Notes <span class="field-label-hint">(private — not shown publicly)</span>
+                        </label>
+                        <textarea
+                            id="edit-player-notes"
+                            class="field-input field-textarea"
+                            rows="3"
+                            bind:value={editPlayerAdminNotes}
+                        ></textarea>
+                    </div>
+                    {#if editPlayerError}
+                        <p class="field-error">{editPlayerError}</p>
+                    {/if}
+                    {#if editPlayerMessage}
+                        <p class="pairing-message">{editPlayerMessage}</p>
+                    {/if}
+                    <button
+                        class="primary-button"
+                        type="button"
+                        disabled={editPlayerSaving}
+                        onclick={saveEditPlayer}
+                    >{editPlayerSaving ? 'Saving…' : 'Save'}</button>
+                {/if}
+            </div>
         </section>
     {/if}
 
@@ -2429,5 +2555,33 @@
 
     .ap-last-ran {
         padding-bottom: 6px;
+    }
+
+    /* ── Edit Player Profile ────────────────────────────────────────────── */
+
+    .player-edit-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        max-width: 480px;
+    }
+
+    .player-edit-wide {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .field-textarea {
+        resize: vertical;
+        min-height: 4rem;
+        line-height: 1.5;
+    }
+
+    .field-label-hint {
+        font-size: 0.65rem;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--color-text-faint);
     }
 </style>
