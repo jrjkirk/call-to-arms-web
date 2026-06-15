@@ -1637,10 +1637,6 @@
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">Auto-Pairings</h4>
                                 <div class="auto-pairings-form">
-                                    <label class="check-row ap-toggle">
-                                        <input type="checkbox" bind:checked={aps.enabled} />
-                                        <span>Enabled</span>
-                                    </label>
                                     <div class="field field-narrow">
                                         <label class="field-label" for="ap-day-{scope}">Day</label>
                                         <select id="ap-day-{scope}" class="field-select" bind:value={aps.day}>
@@ -1653,13 +1649,16 @@
                                         <label class="field-label" for="ap-time-{scope}">Time</label>
                                         <input id="ap-time-{scope}" class="field-input" type="time" bind:value={aps.time} />
                                     </div>
-                                    <div class="ap-last-ran">
-                                        {#if aps.last_week}
+                                    <div class="ap-row-break"></div>
+                                    <label class="check-row ap-toggle">
+                                        <input type="checkbox" bind:checked={aps.enabled} />
+                                        <span>Enabled</span>
+                                    </label>
+                                    {#if aps.enabled && aps.last_week}
+                                        <div class="ap-last-ran">
                                             <span class="muted small">Last ran for: {aps.last_week}</span>
-                                        {:else}
-                                            <span class="muted small">Never run yet</span>
-                                        {/if}
-                                    </div>
+                                        </div>
+                                    {/if}
                                 </div>
                                 {#if aps.error}
                                     <p class="field-error">{aps.error}</p>
@@ -2338,9 +2337,14 @@
     .auto-pairings-form {
         display: flex;
         flex-wrap: wrap;
-        align-items: flex-end;
+        align-items: center;
         gap: 0.75rem;
         margin-bottom: 0.75rem;
+    }
+
+    .ap-row-break {
+        flex-basis: 100%;
+        height: 0;
     }
 
     .ap-toggle {
