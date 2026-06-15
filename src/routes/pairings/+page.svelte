@@ -115,6 +115,8 @@
             <div
                 class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
                 in:fly={{ y: 40, duration: 500, delay: cascadeDelay(i) }}
+                onintrostart={() => console.log('intro start', i)}
+                onintroend={() => console.log('intro end', i)}
             >
                 <div class="player-row player-a">
                     {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
