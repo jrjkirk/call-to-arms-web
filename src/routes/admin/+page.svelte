@@ -972,14 +972,13 @@
             <h3 class="section-heading">Post Achievement to Discord</h3>
             <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); postAchievementToDiscord(); }}>
                 <div class="field">
-                    <label class="field-label" for="ach-player">Player Name</label>
-                    <input
-                        id="ach-player"
-                        class="field-input"
-                        type="text"
-                        bind:value={achievementPlayerName}
-                        placeholder="Player name…"
-                    />
+                    <label class="field-label" for="ach-player">Player</label>
+                    <select id="ach-player" class="field-select" bind:value={achievementPlayerName}>
+                        <option value="">— Select player —</option>
+                        {#each editPlayerList as p}
+                            <option value={p.name}>{p.name}</option>
+                        {/each}
+                    </select>
                 </div>
                 <div class="field">
                     <label class="field-label" for="ach-select">Achievement</label>
