@@ -1,4 +1,3 @@
-import { PUBLIC_API_URL } from '$env/static/public';
 import type { PageServerLoad } from './$types';
 
 function ukDateStr(d: Date): string {
@@ -57,17 +56,8 @@ function weekIdForSystem(system: string): string {
     return weekIdWed(today);
 }
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
+export const load: PageServerLoad = async ({ url }) => {
     const system = url.searchParams.get('system') || 'The Old World';
     const week = url.searchParams.get('week') || weekIdForSystem(system);
-
-    const params = new URLSearchParams({ system, week });
-    const response = await fetch(`${PUBLIC_API_URL}/signups/stats?${params}`);
-
-    let stats = { signed_up: 0, newcomers: 0, veterans: 0 };
-    if (response.ok) {
-        stats = await response.json();
-    }
-
-    return { system, week, stats };
+    return { system, week };
 };

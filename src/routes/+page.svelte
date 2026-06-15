@@ -11,9 +11,20 @@
     let system = $state(data.system);
     let week = $state(data.week);
 
+    let stats = $state({ signed_up: 0, newcomers: 0, veterans: 0 });
+
+    async function loadStats(sys: string, wk: string) {
+        try {
+            const params = new URLSearchParams({ system: sys, week: wk });
+            const r = await fetch(`${PUBLIC_API_URL}/signups/stats?${params}`, { credentials: 'include' });
+            if (r.ok) stats = await r.json();
+        } catch (_) {}
+    }
+
     $effect(() => {
         system = data.system;
         week = data.week;
+        loadStats(data.system, data.week);
     });
 
     const cfg = $derived(formConfig(data.system));
@@ -332,15 +343,15 @@
 <div class="stat-row">
     <div class="stat-card">
         <div class="stat-label">Signed Up</div>
-        <div class="stat-value">{data.stats.signed_up}</div>
+        <div class="stat-value">{stats.signed_up}</div>
     </div>
     <div class="stat-card">
         <div class="stat-label">Newcomers</div>
-        <div class="stat-value">{data.stats.newcomers}</div>
+        <div class="stat-value">{stats.newcomers}</div>
     </div>
     <div class="stat-card">
         <div class="stat-label">Veterans</div>
-        <div class="stat-value">{data.stats.veterans}</div>
+        <div class="stat-value">{stats.veterans}</div>
     </div>
 </div>
 
