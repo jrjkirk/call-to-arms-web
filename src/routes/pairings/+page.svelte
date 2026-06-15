@@ -8,7 +8,7 @@
 
     let showMatchups = $state(false);
     onMount(() => {
-        showMatchups = true;
+        setTimeout(() => { showMatchups = true; }, 150);
     });
 
     function matchKey(m: { player_a_name: string; player_b_name?: string | null }): string {
@@ -114,7 +114,7 @@
         {#each data.matchups as m, i (matchKey(m))}
             <div
                 class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
-                in:fly={{ y: 16, duration: 380, delay: cascadeDelay(i) }}
+                in:fly={{ y: 40, duration: 500, delay: cascadeDelay(i) }}
             >
                 <div class="player-row player-a">
                     {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
