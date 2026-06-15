@@ -10,6 +10,7 @@
 
     const VALID_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team', 'League'];
     const SYSTEM_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
     type AdminMe = { is_super_admin: boolean; scopes: string[] };
     type RoleEntry = { user_id: number; discord_name: string; player_name: string | null; scope: string };
@@ -127,6 +128,15 @@
         points: string;
         prearranged: boolean;
     };
+    type AutoPairingsSettings = {
+        enabled: boolean;
+        day: string;
+        time: string;
+        last_week: string | null;
+        saving: boolean;
+        error: string | null;
+        message: string | null;
+    };
 
     let adminMe = $state<AdminMe | null>(null);
     let rolesData = $state<RolesData | null>(null);
@@ -148,6 +158,9 @@
 
     // Per-scope pairings state
     let pairings = $state<Record<string, PairingsState>>({});
+
+    // Per-scope auto-pairings settings
+    let autoPairingsSettings = $state<Record<string, AutoPairingsSettings>>({});
 
     // Appoint form state
     let grantUserIdStr = $state('');
@@ -510,6 +523,46 @@
         }
     }
 
+    async function loadAutoPairingsSettings(scope: string) {
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/auto-pairings-settings?system=${encodeURIComponent(scope)}`,
+            { credentials: 'include' }
+        );
+        if (r.ok) {
+            const data = await r.json();
+            autoPairingsSettings[scope] = {
+                enabled: data.enabled,
+                day: data.day,
+                time: data.time,
+                last_week: data.last_week,
+                saving: false,
+                error: null,
+                message: null,
+            };
+        }
+    }
+
+    async function saveAutoPairingsSettings(scope: string) {
+        const s = autoPairingsSettings[scope];
+        if (!s) return;
+        s.saving = true;
+        s.error = null;
+        s.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/auto-pairings-settings`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, enabled: s.enabled, day: s.day, time: s.time }),
+        });
+        if (r.ok) {
+            s.message = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            s.error = body.detail || 'Save failed.';
+        }
+        s.saving = false;
+    }
+
     async function loadAdminMe() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
         adminMe = r.ok ? await r.json() : null;
@@ -629,6 +682,7 @@
             if (SYSTEM_SCOPES.includes(scope)) {
                 pairings[scope] = initPairingsState(scope);
                 tasks.push(loadPairings(scope));
+                tasks.push(loadAutoPairingsSettings(scope));
             }
         }
         await Promise.all(tasks);
@@ -1577,6 +1631,51 @@
                             </div>
                         {/if}
 
+                        <!-- Auto-Pairings settings (system scopes only) -->
+                        {#if SYSTEM_SCOPES.includes(scope) && autoPairingsSettings[scope]}
+                            {@const aps = autoPairingsSettings[scope]}
+                            <div class="sub-section pairings-section">
+                                <h4 class="sub-heading">Auto-Pairings</h4>
+                                <div class="auto-pairings-form">
+                                    <label class="check-row ap-toggle">
+                                        <input type="checkbox" bind:checked={aps.enabled} />
+                                        <span>Enabled</span>
+                                    </label>
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="ap-day-{scope}">Day</label>
+                                        <select id="ap-day-{scope}" class="field-select" bind:value={aps.day}>
+                                            {#each DAYS as d}
+                                                <option>{d}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="ap-time-{scope}">Time</label>
+                                        <input id="ap-time-{scope}" class="field-input" type="time" bind:value={aps.time} />
+                                    </div>
+                                    <div class="ap-last-ran">
+                                        {#if aps.last_week}
+                                            <span class="muted small">Last ran for: {aps.last_week}</span>
+                                        {:else}
+                                            <span class="muted small">Never run yet</span>
+                                        {/if}
+                                    </div>
+                                </div>
+                                {#if aps.error}
+                                    <p class="field-error">{aps.error}</p>
+                                {/if}
+                                {#if aps.message}
+                                    <p class="pairing-message">{aps.message}</p>
+                                {/if}
+                                <button
+                                    class="primary-button"
+                                    type="button"
+                                    disabled={aps.saving}
+                                    onclick={() => saveAutoPairingsSettings(scope)}
+                                >{aps.saving ? 'Saving…' : 'Save'}</button>
+                            </div>
+                        {/if}
+
                     </div>
                 {/each}
             </div>
@@ -2232,5 +2331,23 @@
         font-size: 0.78rem;
         color: #fbbf24;
         font-style: italic;
+    }
+
+    /* ── Auto-Pairings settings ─────────────────────────────────────────── */
+
+    .auto-pairings-form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .ap-toggle {
+        padding-bottom: 6px;
+    }
+
+    .ap-last-ran {
+        padding-bottom: 6px;
     }
 </style>
