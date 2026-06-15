@@ -175,6 +175,14 @@
     let addingBlock = $state(false);
     let addBlockError = $state<string | null>(null);
 
+    // Post Achievement to Discord state
+    let achievementOptions = $state<string[]>([]);
+    let achievementPlayerName = $state('');
+    let achievementSelected = $state('');
+    let achievementPosting = $state(false);
+    let achievementMessage = $state<string | null>(null);
+    let achievementError = $state<string | null>(null);
+
     function defaultWeekFor(system: string): string {
         const target = system === 'The Old World' ? 3 : 5;
         const d = new Date();
@@ -563,6 +571,34 @@
         s.saving = false;
     }
 
+    async function loadAchievementOptions() {
+        const r = await fetch(`${PUBLIC_API_URL}/admin/achievements/options`, { credentials: 'include' });
+        if (r.ok) {
+            const data = await r.json();
+            achievementOptions = data.achievements ?? [];
+            achievementSelected = achievementOptions[0] ?? '';
+        }
+    }
+
+    async function postAchievementToDiscord() {
+        achievementPosting = true;
+        achievementMessage = null;
+        achievementError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/achievements/post-discord`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ player_name: achievementPlayerName, achievement: achievementSelected }),
+        });
+        if (r.ok) {
+            achievementMessage = 'Posted to Discord.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            achievementError = body.detail || 'Post failed.';
+        }
+        achievementPosting = false;
+    }
+
     async function loadAdminMe() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
         adminMe = r.ok ? await r.json() : null;
@@ -668,7 +704,7 @@
         }
         const tasks: Promise<void>[] = [loadBlocks()];
         if (adminMe.is_super_admin) {
-            tasks.push(loadRoles(), loadGrantableUsers());
+            tasks.push(loadRoles(), loadGrantableUsers(), loadAchievementOptions());
         }
         if (adminMe.is_super_admin || adminMe.scopes.includes('League')) {
             tasks.push(loadBlockPlayers());
@@ -867,6 +903,46 @@
                     </button>
                 </form>
             </div>
+        </section>
+    {/if}
+
+    {#if adminMe.is_super_admin}
+        <!-- ── Post Achievement to Discord ───────────────────────────────────── -->
+        <section class="admin-section">
+            <h3 class="section-heading">Post Achievement to Discord</h3>
+            <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); postAchievementToDiscord(); }}>
+                <div class="field">
+                    <label class="field-label" for="ach-player">Player Name</label>
+                    <input
+                        id="ach-player"
+                        class="field-input"
+                        type="text"
+                        bind:value={achievementPlayerName}
+                        placeholder="Player name…"
+                    />
+                </div>
+                <div class="field">
+                    <label class="field-label" for="ach-select">Achievement</label>
+                    <select id="ach-select" class="field-select" bind:value={achievementSelected}>
+                        {#each achievementOptions as opt}
+                            <option>{opt}</option>
+                        {/each}
+                    </select>
+                </div>
+                {#if achievementError}
+                    <p class="field-error">{achievementError}</p>
+                {/if}
+                {#if achievementMessage}
+                    <p class="pairing-message">{achievementMessage}</p>
+                {/if}
+                <button
+                    type="submit"
+                    class="primary-button"
+                    disabled={!achievementPlayerName.trim() || !achievementSelected || achievementPosting}
+                >
+                    {achievementPosting ? 'Posting…' : 'Post'}
+                </button>
+            </form>
         </section>
     {/if}
 
