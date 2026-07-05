@@ -250,10 +250,10 @@
                     <th>Name</th>
                     <th class="center wdl-col">W/D/L</th>
                     <th class="center winrate-col">
-                        Win Rate
+                        BAYESIAN WIN RATE
                         <span
                             class="info-tooltip"
-                            title="Bayesian-adjusted win rate. Players with fewer games are weighted toward 50% until they've played enough to establish a real record."
+                            title="Bayesian-adjusted win rate — draws count as half a win. Players with fewer games are weighted toward 50% to account for small samples. After around 10 games your record speaks for itself. Formula: (wins + 0.5 × draws + 1.5) / (games + 3)"
                         >ⓘ</span>
                     </th>
                     <th class="center games-col">Games</th>
