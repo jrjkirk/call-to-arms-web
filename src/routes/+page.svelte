@@ -589,7 +589,7 @@
     {/if}
 
     {#if pairingsPublished && myPairing}
-        <div class="section-title">Arrange a Game</div>
+        <div class="section-title">Re-arrange your game</div>
         <div class="signup-card card">
             <p class="muted" style="margin: 0 0 0.75rem;">
                 {#if myOpponentName}
@@ -600,7 +600,7 @@
             </p>
             {#if otherPlayers.length > 0}
                 <div class="field">
-                    <label class="field-label" for="swap-target">Arrange game with</label>
+                    <label class="field-label" for="swap-target">Re-arrange with</label>
                     <select id="swap-target" class="field-select" bind:value={swapTarget}>
                         <option value="">— Select player —</option>
                         {#each otherPlayers as p}
@@ -624,9 +624,9 @@
                         {#if swapSubmitting}
                             Arranging…
                         {:else if swapTarget !== ''}
-                            Arrange game with {otherPlayers.find((p) => p.player_id === swapTarget)?.player_name}
+                            Re-arrange with {otherPlayers.find((p) => p.player_id === swapTarget)?.player_name}
                         {:else}
-                            Arrange a Game
+                            Re-arrange your game
                         {/if}
                     </button>
                 </div>

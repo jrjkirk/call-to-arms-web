@@ -207,7 +207,7 @@
     {#if loggedIn && unpaired.length > 0}
         <div class="unpaired-section">
             <p class="unpaired-notice">⚠️ Looking for a game: {unpaired.map((p) => p.player_name).join(', ')}</p>
-            <p class="unpaired-note">Head to the home page to arrange a game with them.</p>
+            <p class="unpaired-note">Head to the home page and use the Re-arrange your game form.</p>
         </div>
     {/if}
 {/if}
