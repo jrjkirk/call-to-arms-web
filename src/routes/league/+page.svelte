@@ -6,6 +6,12 @@
     let rankings = $state<any[]>([]);
     let allPlayers = $state<{ id: number; name: string }[]>([]);
 
+    /* ---------- faction filter ---------- */
+    let factions = $state<string[]>([]);
+    let selectedFaction = $state<string | null>(null);
+    let factionStats = $state<{ player_id: number; player_name: string; wins: number; draws: number; losses: number; total_games: number; win_rate: number }[] | null>(null);
+    let factionStatsLoading = $state(false);
+
     async function loadRankings() {
         try {
             const [rankingsResp, playersResp] = await Promise.all([
@@ -15,6 +21,29 @@
             if (rankingsResp.ok) rankings = await rankingsResp.json();
             if (playersResp.ok) allPlayers = await playersResp.json();
         } catch (_) {}
+    }
+
+    async function loadFactionStats(faction: string) {
+        factionStatsLoading = true;
+        factionStats = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/league/faction-stats?faction=${encodeURIComponent(faction)}`, { credentials: 'include' });
+            if (r.ok) {
+                const data = await r.json();
+                factionStats = data.players;
+            }
+        } catch (_) {}
+        factionStatsLoading = false;
+    }
+
+    function onFactionChange(e: Event) {
+        const val = (e.target as HTMLSelectElement).value;
+        selectedFaction = val === '' ? null : val;
+        if (selectedFaction) {
+            loadFactionStats(selectedFaction);
+        } else {
+            factionStats = null;
+        }
     }
 
     function factionToSlug(name: string | null): string | null {
@@ -66,7 +95,10 @@
             if (r.ok) auth = await r.json();
         } catch (_) {}
         authLoaded = true;
-        await loadRankings();
+        await Promise.all([
+            loadRankings(),
+            fetch(`${PUBLIC_API_URL}/league/factions`).then(r => r.ok ? r.json() : { factions: [] }).then(d => { factions = d.factions; }).catch(() => {}),
+        ]);
     });
 
     /* ---------- players sorted for form dropdowns ---------- */
@@ -143,60 +175,113 @@
 
 <h2 class="page-heading">League Rankings</h2>
 
-<div class="table-wrap">
-    <table class="league-table">
-        <thead>
-            <tr>
-                <th class="center rank-col">Rank</th>
-                <th class="rank-change-col"></th>
-                <th class="center elo-col">ELO</th>
-                <th>Name</th>
-                <th class="center faction-col">{mobileFactionLabel}</th>
-                <th class="center wdl-col">W/D/L</th>
-                <th class="center games-col">Games</th>
-            </tr>
-        </thead>
-        <tbody>
-            {#each rankings as row}
-                <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`}>
-                    <td class="center rank-col">
-                        {#if medal(row.rank)}
-                            <span class="medal">{medal(row.rank)}</span>
-                        {:else}
-                            {row.rank}
-                        {/if}
-                    </td>
-                    <td class="rank-change-col">
-                        {#if row.previous_rank != null && row.previous_rank !== row.rank}
-                            {@const delta = row.previous_rank - row.rank}
-                            <span class="rank-change {delta > 0 ? 'rank-up' : 'rank-down'}">
-                                {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
-                            </span>
-                        {/if}
-                    </td>
-                    <td class="center elo-col">{row.rating.toFixed(0)}</td>
-                    <td>
-                        <a href="/players/{row.player_id}" class="name-link">{row.name}</a>
-                    </td>
-                    <td class="center faction-col">
-                        {#if row.most_played_faction}
-                            <span class="faction-cell">
-                                {#if factionIconUrl(row.most_played_faction)}
-                                    <img src={factionIconUrl(row.most_played_faction)} alt={row.most_played_faction} class="faction-icon" />
-                                {/if}
-                                <em class="faction-name">{row.most_played_faction}</em>
-                            </span>
-                        {:else}
-                            <span class="faction-empty">—</span>
-                        {/if}
-                    </td>
-                    <td class="center wdl-col">{wdl(row)}</td>
-                    <td class="center games-col">{row.total_games}</td>
-                </tr>
-            {/each}
-        </tbody>
-    </table>
+<div class="faction-filter-row">
+    <label class="faction-filter-label" for="faction-filter">Filter by faction</label>
+    <select id="faction-filter" class="field-select faction-filter-select" onchange={onFactionChange}>
+        <option value="">All factions</option>
+        {#each factions as f}
+            <option value={f}>{f}</option>
+        {/each}
+    </select>
 </div>
+
+{#if !selectedFaction}
+    <div class="table-wrap">
+        <table class="league-table">
+            <thead>
+                <tr>
+                    <th class="center rank-col">Rank</th>
+                    <th class="rank-change-col"></th>
+                    <th class="center elo-col">ELO</th>
+                    <th>Name</th>
+                    <th class="center faction-col">{mobileFactionLabel}</th>
+                    <th class="center wdl-col">W/D/L</th>
+                    <th class="center games-col">Games</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#each rankings as row}
+                    <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`}>
+                        <td class="center rank-col">
+                            {#if medal(row.rank)}
+                                <span class="medal">{medal(row.rank)}</span>
+                            {:else}
+                                {row.rank}
+                            {/if}
+                        </td>
+                        <td class="rank-change-col">
+                            {#if row.previous_rank != null && row.previous_rank !== row.rank}
+                                {@const delta = row.previous_rank - row.rank}
+                                <span class="rank-change {delta > 0 ? 'rank-up' : 'rank-down'}">
+                                    {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
+                                </span>
+                            {/if}
+                        </td>
+                        <td class="center elo-col">{row.rating.toFixed(0)}</td>
+                        <td>
+                            <a href="/players/{row.player_id}" class="name-link">{row.name}</a>
+                        </td>
+                        <td class="center faction-col">
+                            {#if row.most_played_faction}
+                                <span class="faction-cell">
+                                    {#if factionIconUrl(row.most_played_faction)}
+                                        <img src={factionIconUrl(row.most_played_faction)} alt={row.most_played_faction} class="faction-icon" />
+                                    {/if}
+                                    <em class="faction-name">{row.most_played_faction}</em>
+                                </span>
+                            {:else}
+                                <span class="faction-empty">—</span>
+                            {/if}
+                        </td>
+                        <td class="center wdl-col">{wdl(row)}</td>
+                        <td class="center games-col">{row.total_games}</td>
+                    </tr>
+                {/each}
+            </tbody>
+        </table>
+    </div>
+{:else}
+    <p class="faction-filter-label faction-showing-label">Showing results for {selectedFaction}</p>
+    <div class="table-wrap">
+        <table class="league-table">
+            <thead>
+                <tr>
+                    <th class="center rank-col">Rank</th>
+                    <th>Name</th>
+                    <th class="center wdl-col">W/D/L</th>
+                    <th class="center winrate-col">Win Rate</th>
+                    <th class="center games-col">Games</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#if factionStatsLoading}
+                    <tr><td colspan="5" class="center loading-cell">Loading…</td></tr>
+                {:else if factionStats !== null && factionStats.length === 0}
+                    <tr><td colspan="5" class="center empty-cell">No league games recorded with this faction yet.</td></tr>
+                {:else if factionStats !== null}
+                    {#each factionStats as row, i}
+                        {@const rank = i + 1}
+                        <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`}>
+                            <td class="center rank-col">
+                                {#if medal(rank)}
+                                    <span class="medal">{medal(rank)}</span>
+                                {:else}
+                                    {rank}
+                                {/if}
+                            </td>
+                            <td>
+                                <a href="/players/{row.player_id}" class="name-link">{row.player_name}</a>
+                            </td>
+                            <td class="center wdl-col">{wdl(row)}</td>
+                            <td class="center winrate-col">{Math.round(row.win_rate * 100)}%</td>
+                            <td class="center games-col">{row.total_games}</td>
+                        </tr>
+                    {/each}
+                {/if}
+            </tbody>
+        </table>
+    </div>
+{/if}
 
 <details class="submit-section">
     <summary class="submit-toggle">⚔️ Results Submission</summary>
@@ -459,6 +544,42 @@
         }
 
         .medal { font-size: 1.1rem; }
+    }
+
+    /* ---------- faction filter ---------- */
+
+    .faction-filter-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .faction-filter-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--color-accent);
+        white-space: nowrap;
+    }
+
+    .faction-filter-select {
+        max-width: 260px;
+    }
+
+    .faction-showing-label {
+        margin: 0 0 0.6rem;
+    }
+
+    .winrate-col { width: 96px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+
+    .loading-cell,
+    .empty-cell {
+        padding: 18px 12px;
+        color: var(--color-text-muted);
+        font-style: italic;
+        font-size: 0.9rem;
     }
 
     /* ---------- submission section ---------- */
