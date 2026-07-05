@@ -1,7 +1,9 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { fly, scale } from 'svelte/transition';
     import { factionIconUrl, systemFolder } from '$lib/factions';
+    import { PUBLIC_API_URL } from '$env/static/public';
 
     let { data } = $props();
 
@@ -41,6 +43,41 @@
         'The Horus Heresy': '/logos/hh.png',
         'Kill Team': '/logos/kt.png'
     };
+
+    /* ---------- auth + unpaired ---------- */
+    type UnpairedPlayer = { player_id: number; player_name: string; signup_id: number };
+    let loggedIn = $state(false);
+    let unpaired = $state<UnpairedPlayer[]>([]);
+
+    async function loadUnpaired(sys: string, wk: string) {
+        try {
+            const params = new URLSearchParams({ system: sys, week: wk });
+            const r = await fetch(`${PUBLIC_API_URL}/signups/unpaired?${params}`, { credentials: 'include' });
+            unpaired = r.ok ? await r.json() : [];
+        } catch (_) {
+            unpaired = [];
+        }
+    }
+
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
+            if (r.ok) {
+                const me = await r.json();
+                loggedIn = me.authenticated === true;
+            }
+        } catch (_) {}
+    });
+
+    $effect(() => {
+        const _sys = data.system;
+        const _wk = data.week;
+        if (loggedIn) {
+            loadUnpaired(_sys, _wk);
+        } else {
+            unpaired = [];
+        }
+    });
 
     function accentClass(gt: string | null | undefined): string {
         if (!gt) return '';
@@ -166,6 +203,13 @@
             </div>
         {/each}
     </div>
+
+    {#if loggedIn && unpaired.length > 0}
+        <div class="unpaired-section">
+            <p class="unpaired-notice">⚠️ Looking for a game: {unpaired.map((p) => p.player_name).join(', ')}</p>
+            <p class="unpaired-note">Head to the home page to arrange a game with them.</p>
+        </div>
+    {/if}
 {/if}
 
 <style>
@@ -332,6 +376,27 @@
     .accent-intro { border-left: 4px solid #5a9bd4; }
     .accent-escalation { border-left: 4px solid #c9a14a; }
     .accent-standard { border-left: 4px solid #9c8bd1; }
+
+    .unpaired-section {
+        margin-top: 1.25rem;
+        padding: 0.75rem 1rem;
+        background: rgba(210, 165, 50, 0.07);
+        border: 1px solid rgba(210, 165, 50, 0.22);
+        border-radius: 10px;
+    }
+
+    .unpaired-notice {
+        margin: 0 0 0.25rem;
+        color: var(--color-text-base);
+        font-size: 0.9rem;
+    }
+
+    .unpaired-note {
+        margin: 0;
+        color: var(--color-text-dim);
+        font-size: 0.82rem;
+        font-style: italic;
+    }
 
     @media (min-width: 768px) {
         .matchup-card {

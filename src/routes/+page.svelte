@@ -195,6 +195,7 @@
                 dropConfirm = false;
                 await invalidateAll();
                 await loadMine();
+                await loadPairings(data.system, data.week);
             } else {
                 errorMsg = 'No signup found for you this week to drop.';
             }
@@ -202,6 +203,111 @@
             errorMsg = 'Network error. Please try again.';
         }
         dropping = false;
+    }
+
+    /* ---------- pairings / swap ---------- */
+    type MatchupWithIds = {
+        player_a_name: string;
+        player_a_id: number | null;
+        player_b_name: string | null;
+        player_b_id: number | null;
+        is_bye: boolean;
+    };
+
+    let pairingsPublished = $state(false);
+    let myPairing = $state<MatchupWithIds | null>(null);
+    let otherPlayers = $state<{ player_id: number; player_name: string }[]>([]);
+
+    let swapTarget = $state<number | ''>('');
+    let swapSubmitting = $state(false);
+    let swapSuccess = $state<string | null>(null);
+    let swapError = $state<string | null>(null);
+
+    async function loadPairings(sys: string, wk: string) {
+        const myPlayerId = auth.user?.player_id;
+        if (!myPlayerId) return;
+        try {
+            const params = new URLSearchParams({ system: sys, week: wk });
+            const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
+            if (!r.ok) { pairingsPublished = false; myPairing = null; otherPlayers = []; return; }
+            const d = await r.json();
+            if (!d.published) { pairingsPublished = false; myPairing = null; otherPlayers = []; return; }
+            pairingsPublished = true;
+            myPairing = (d.matchups as MatchupWithIds[]).find(
+                (m) => m.player_a_id === myPlayerId || m.player_b_id === myPlayerId
+            ) ?? null;
+            const seen = new Set<number>();
+            const others: { player_id: number; player_name: string }[] = [];
+            for (const m of d.matchups as MatchupWithIds[]) {
+                if (m.player_a_id && m.player_a_id !== myPlayerId && !seen.has(m.player_a_id)) {
+                    seen.add(m.player_a_id);
+                    others.push({ player_id: m.player_a_id, player_name: m.player_a_name });
+                }
+                if (m.player_b_id && m.player_b_id !== myPlayerId && !seen.has(m.player_b_id)) {
+                    seen.add(m.player_b_id);
+                    others.push({ player_id: m.player_b_id, player_name: m.player_b_name! });
+                }
+            }
+            otherPlayers = others;
+        } catch (_) {
+            pairingsPublished = false;
+            myPairing = null;
+            otherPlayers = [];
+        }
+    }
+
+    $effect(() => {
+        const _sys = data.system;
+        const _wk = data.week;
+        if (authLoaded && isClaimed) {
+            swapSuccess = null;
+            swapError = null;
+            swapTarget = '';
+            loadPairings(_sys, _wk);
+        } else {
+            pairingsPublished = false;
+            myPairing = null;
+            otherPlayers = [];
+        }
+    });
+
+    const myOpponentName = $derived(
+        myPairing && !myPairing.is_bye
+            ? (myPairing.player_a_id === auth.user?.player_id
+                ? myPairing.player_b_name
+                : myPairing.player_a_name)
+            : null
+    );
+
+    async function submitSwap() {
+        if (swapSubmitting || swapTarget === '') return;
+        swapSubmitting = true;
+        swapSuccess = null;
+        swapError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/signups/swap`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system: data.system,
+                    week: data.week,
+                    opponent_player_id: swapTarget,
+                })
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                swapError = body.detail || 'Could not arrange the game.';
+            } else {
+                swapSuccess = 'Done! Check Discord for the update.';
+                swapTarget = '';
+                await invalidateAll();
+                await loadPairings(data.system, data.week);
+            }
+        } catch (_) {
+            swapError = 'Network error. Please try again.';
+        }
+        swapSubmitting = false;
     }
 
     /* ---------- pre-arranged game ---------- */
@@ -479,6 +585,54 @@
                     {dropping ? 'Dropping…' : 'Drop My Signup'}
                 </button>
             </div>
+        </div>
+    {/if}
+
+    {#if pairingsPublished && myPairing}
+        <div class="section-title">Arrange a Game</div>
+        <div class="signup-card card">
+            <p class="muted" style="margin: 0 0 0.75rem;">
+                {#if myOpponentName}
+                    Your current pairing: vs <strong>{myOpponentName}</strong>
+                {:else}
+                    You currently have no opponent.
+                {/if}
+            </p>
+            {#if otherPlayers.length > 0}
+                <div class="field">
+                    <label class="field-label" for="swap-target">Arrange game with</label>
+                    <select id="swap-target" class="field-select" bind:value={swapTarget}>
+                        <option value="">— Select player —</option>
+                        {#each otherPlayers as p}
+                            <option value={p.player_id}>{p.player_name}</option>
+                        {/each}
+                    </select>
+                </div>
+                {#if swapError}
+                    <div class="error fade-in">{swapError}</div>
+                {/if}
+                {#if swapSuccess}
+                    <div class="success fade-in">{swapSuccess}</div>
+                {/if}
+                <div class="actions">
+                    <button
+                        class="primary-button"
+                        onclick={submitSwap}
+                        disabled={swapSubmitting || swapTarget === ''}
+                        type="button"
+                    >
+                        {#if swapSubmitting}
+                            Arranging…
+                        {:else if swapTarget !== ''}
+                            Arrange game with {otherPlayers.find((p) => p.player_id === swapTarget)?.player_name}
+                        {:else}
+                            Arrange a Game
+                        {/if}
+                    </button>
+                </div>
+            {:else}
+                <p class="muted">No other players in this week's pairings.</p>
+            {/if}
         </div>
     {/if}
 
