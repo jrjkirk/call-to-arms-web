@@ -97,6 +97,13 @@
         result: string;
         k_factor_used: number;
     };
+    type RearrangeForm = {
+        player1Id: string;
+        player2Id: string;
+        submitting: boolean;
+        error: string | null;
+        message: string | null;
+    };
     type PairingsState = {
         week: string;
         rows: DisplayRow[];
@@ -114,6 +121,7 @@
         signupsLoading: boolean;
         signupsError: string | null;
         addSignup: AddSignupForm;
+        rearrange: RearrangeForm;
     };
     type EditRow = {
         id: number | null;
@@ -274,6 +282,7 @@
             signupsLoading: false,
             signupsError: null,
             addSignup: defaultAddSignupForm(),
+            rearrange: { player1Id: '', player2Id: '', submitting: false, error: null, message: null },
         };
     }
 
@@ -541,6 +550,44 @@
             const body = await r.json().catch(() => ({}));
             ps.error = body.detail || 'Delete failed.';
         }
+    }
+
+    async function rearrangeGame(scope: string) {
+        const ps = pairings[scope];
+        if (!ps) return;
+        const form = ps.rearrange;
+        if (!form.player1Id || !form.player2Id) {
+            form.error = 'Select both players.';
+            return;
+        }
+        if (form.player1Id === form.player2Id) {
+            form.error = 'Players must be different.';
+            return;
+        }
+        form.submitting = true;
+        form.error = null;
+        form.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/signups/swap`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system: scope,
+                week: ps.week,
+                player_1_id: Number(form.player1Id),
+                opponent_player_id: Number(form.player2Id),
+            }),
+        });
+        if (r.ok) {
+            form.message = 'Re-arranged! Check Discord for the announcement.';
+            form.player1Id = '';
+            form.player2Id = '';
+            await loadPairings(scope);
+        } else {
+            const body = await r.json().catch(() => ({}));
+            form.error = body.detail || 'Re-arrange failed.';
+        }
+        form.submitting = false;
     }
 
     async function loadAutoPairingsSettings(scope: string) {
@@ -1830,6 +1877,47 @@
                                     </div>
                                 {/if}
                             </div>
+
+                            {#if ps.published}
+                                <div class="sub-section pairings-section">
+                                    <h4 class="sub-heading">Re-arrange a Game</h4>
+                                    <p class="section-intro">Select the two players to pair together. Their current opponents will receive a bye.</p>
+                                    <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); rearrangeGame(scope); }}>
+                                        <div class="field">
+                                            <label class="field-label" for="rearrange-p1-{scope}">Player 1</label>
+                                            <select id="rearrange-p1-{scope}" class="field-select" bind:value={ps.rearrange.player1Id}>
+                                                <option value="">— Select —</option>
+                                                {#each ps.signupRows as su}
+                                                    <option value={String(su.player_id)}>{su.player_name}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="rearrange-p2-{scope}">Player 2</label>
+                                            <select id="rearrange-p2-{scope}" class="field-select" bind:value={ps.rearrange.player2Id}>
+                                                <option value="">— Select —</option>
+                                                {#each ps.signupRows as su}
+                                                    <option value={String(su.player_id)}>{su.player_name}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        {#if ps.rearrange.player1Id && ps.rearrange.player2Id && ps.rearrange.player1Id === ps.rearrange.player2Id}
+                                            <p class="field-error">Players must be different.</p>
+                                        {/if}
+                                        {#if ps.rearrange.error}
+                                            <p class="field-error">{ps.rearrange.error}</p>
+                                        {/if}
+                                        {#if ps.rearrange.message}
+                                            <p class="pairing-message">{ps.rearrange.message}</p>
+                                        {/if}
+                                        <button
+                                            type="submit"
+                                            class="primary-button"
+                                            disabled={!ps.rearrange.player1Id || !ps.rearrange.player2Id || ps.rearrange.player1Id === ps.rearrange.player2Id || ps.rearrange.submitting}
+                                        >{ps.rearrange.submitting ? 'Re-arranging…' : 'Re-arrange'}</button>
+                                    </form>
+                                </div>
+                            {/if}
                         {/if}
 
                         <!-- Auto-Pairings settings (system scopes only) -->
