@@ -253,7 +253,7 @@
                         BAYESIAN WIN RATE
                         <span
                             class="info-tooltip"
-                            title="Bayesian-adjusted win rate — draws count as half a win. Players with fewer games are weighted toward 50% to account for small samples. After around 10 games your record speaks for itself. Formula: (wins + 0.5 × draws + 1.5) / (games + 3)"
+                            title="Bayesian-adjusted win rate — draws count as half a win. Players with fewer games are weighted toward 50% to account for small samples. After around 10 games your record speaks for itself. Formula: (wins + 0.5 × draws + 2.5) / (games + 5)"
                         >ⓘ</span>
                     </th>
                     <th class="center games-col">Games</th>
