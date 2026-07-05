@@ -9,7 +9,7 @@
     /* ---------- faction filter ---------- */
     let factions = $state<string[]>([]);
     let selectedFaction = $state<string | null>(null);
-    let factionStats = $state<{ player_id: number; player_name: string; wins: number; draws: number; losses: number; total_games: number; win_rate: number }[] | null>(null);
+    let factionStats = $state<{ player_id: number; player_name: string; wins: number; draws: number; losses: number; total_games: number; adjusted_win_rate: number }[] | null>(null);
     let factionStatsLoading = $state(false);
 
     async function loadRankings() {
@@ -249,7 +249,13 @@
                     <th class="center rank-col">Rank</th>
                     <th>Name</th>
                     <th class="center wdl-col">W/D/L</th>
-                    <th class="center winrate-col">Win Rate</th>
+                    <th class="center winrate-col">
+                        Win Rate
+                        <span
+                            class="info-tooltip"
+                            title="Bayesian-adjusted win rate. Players with fewer games are weighted toward 50% until they've played enough to establish a real record."
+                        >ⓘ</span>
+                    </th>
                     <th class="center games-col">Games</th>
                 </tr>
             </thead>
@@ -273,7 +279,7 @@
                                 <a href="/players/{row.player_id}" class="name-link">{row.player_name}</a>
                             </td>
                             <td class="center wdl-col">{wdl(row)}</td>
-                            <td class="center winrate-col">{Math.round(row.win_rate * 100)}%</td>
+                            <td class="center winrate-col">{Math.round(row.adjusted_win_rate * 100)}%</td>
                             <td class="center games-col">{row.total_games}</td>
                         </tr>
                     {/each}
@@ -573,6 +579,18 @@
     }
 
     .winrate-col { width: 96px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+
+    .info-tooltip {
+        display: inline-block;
+        margin-left: 3px;
+        cursor: help;
+        opacity: 0.75;
+        font-size: 0.85em;
+    }
+
+    .info-tooltip:hover {
+        opacity: 1;
+    }
 
     .loading-cell,
     .empty-cell {
