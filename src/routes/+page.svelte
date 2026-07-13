@@ -5,8 +5,16 @@
     import {
         SYSTEMS, NONE_FACTION, EXPERIENCE_OPTIONS, ETA_OPTIONS, formConfig
     } from '$lib/signupOptions';
+    import {
+        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
+    } from '$lib/systemsConfig';
 
     let { data } = $props();
+
+    let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
+    onMount(() => {
+        getSystemsConfig().then((c) => (systemsConfig = c));
+    });
 
     let system = $state(data.system);
     let week = $state(data.week);
@@ -27,7 +35,7 @@
         loadStats(data.system, data.week);
     });
 
-    const cfg = $derived(formConfig(data.system));
+    const cfg = $derived(formConfig(data.system, systemsConfig));
 
     function selectSystem(s: string) {
         if (s === system) return;
@@ -95,14 +103,14 @@
     let dropping = $state(false);
 
     function applyPrefill(src: SignupRow | null) {
-        const c = formConfig(data.system);
+        const c = formConfig(data.system, systemsConfig);
         faction = src?.faction && [NONE_FACTION, ...c.factions].includes(src.faction) ? src.faction : NONE_FACTION;
         points = src?.points != null && src.points > 0 ? src.points : c.defaultPoints;
         eta = src?.eta && ETA_OPTIONS.includes(src.eta) ? src.eta : '18:30';
         experience = src?.experience && EXPERIENCE_OPTIONS.includes(src.experience) ? src.experience : 'New';
         vibe = src?.vibe && c.vibeOptions?.includes(src.vibe) ? src.vibe : c.defaultVibe;
         standby = !!src?.standby_ok;
-        scenario = src?.scenario && ['Open Battle', 'Weekly Scenario'].includes(src.scenario) ? src.scenario : 'Open Battle';
+        scenario = src?.scenario && c.scenarioOptions.includes(src.scenario) ? src.scenario : c.defaultScenario;
         canDemo = !!src?.can_demo;
     }
 
@@ -321,15 +329,6 @@
         } catch (_) {}
     });
 
-    // The prearranged form's vibe options differ from the main signup form's:
-    // Kill Team gets a real Standard/Intro choice here (the main form fixes
-    // it to "Standard"), matching the original's prearranged-form behaviour.
-    const PREARRANGED_VIBE_OPTIONS: Record<string, string[]> = {
-        'The Old World': ['Casual', 'Competitive', 'Escalation', 'Intro', 'Either'],
-        'The Horus Heresy': ['Standard', 'Intro'],
-        'Kill Team': ['Standard', 'Intro']
-    };
-
     let preA = $state<number | ''>('');
     let preAFaction = $state(NONE_FACTION);
     let preB = $state<number | ''>('');
@@ -342,15 +341,21 @@
     let preSuccess = $state<string | null>(null);
     let preError = $state<string | null>(null);
 
-    const preVibeOptions = $derived(PREARRANGED_VIBE_OPTIONS[data.system] ?? ['Casual']);
-    // Army Points only appears for The Old World here (the original's
-    // prearranged form omits it for HH and KT, unlike the main signup form).
-    const preShowPoints = $derived(data.system === 'The Old World');
+    // The prearranged form's vibe options differ from the main signup form's:
+    // TOW shows "Escalation" here (the main form filters it out — see the
+    // comment in signupOptions.ts's formConfig). This reads the backend's
+    // vibe_options unfiltered on purpose, just sorted for display.
+    const preVibeOptions = $derived(sortVibeOptions(configFor(systemsConfig, data.system).vibe_options));
+    const preShowPoints = $derived(configFor(systemsConfig, data.system).uses_points);
     const prePlayerFactionLabel = $derived(cfg.factionLabel.replace('Your ', ''));
 
     // Reset the prearranged form's per-system fields when the system changes.
+    // Use the backend's default_vibe rather than preVibeOptions[0] — option
+    // order isn't guaranteed by the backend (observed alphabetical), so
+    // indexing into it picked the wrong default for HH ("Intro" before
+    // "Standard") when tested against live data.
     $effect(() => {
-        preVibe = PREARRANGED_VIBE_OPTIONS[data.system]?.[0] ?? 'Casual';
+        preVibe = configFor(systemsConfig, data.system).default_vibe || preVibeOptions[0] || 'Casual';
         preAFaction = NONE_FACTION;
         preBFaction = NONE_FACTION;
         preA = '';
@@ -500,7 +505,7 @@
             {#if cfg.showPoints}
                 <div class="field">
                     <label class="field-label" for="su-points">Army Points</label>
-                    <input id="su-points" class="field-input" type="number" min="0" max="10000" step="50" bind:value={points} />
+                    <input id="su-points" class="field-input" type="number" min="0" max={cfg.maxPoints} step="50" bind:value={points} />
                     {#if cfg.pointsCaption}
                         <p class="field-caption">{cfg.pointsCaption}</p>
                     {/if}
@@ -540,8 +545,9 @@
                 <div class="field">
                     <label class="field-label" for="su-scen">Scenario Preference</label>
                     <select id="su-scen" class="field-select" bind:value={scenario}>
-                        <option value="Open Battle">Open Battle</option>
-                        <option value="Weekly Scenario">Weekly Scenario</option>
+                        {#each cfg.scenarioOptions as s}
+                            <option value={s}>{s}</option>
+                        {/each}
                     </select>
                 </div>
             {/if}
@@ -691,7 +697,7 @@
                 {#if preShowPoints}
                     <div class="field">
                         <label class="field-label" for="pre-pts">Army Points</label>
-                        <input id="pre-pts" class="field-input" type="number" min="0" max="10000" step="50" bind:value={prePoints} />
+                        <input id="pre-pts" class="field-input" type="number" min="0" max={cfg.maxPoints} step="50" bind:value={prePoints} />
                     </div>
                 {/if}
 

@@ -7,6 +7,14 @@
         ETA_OPTIONS,
         EXPERIENCE_OPTIONS,
     } from '$lib/signupOptions';
+    import {
+        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
+    } from '$lib/systemsConfig';
+
+    let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
+    onMount(() => {
+        getSystemsConfig().then((c) => (systemsConfig = c));
+    });
 
     const VALID_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team', 'League'];
     const SYSTEM_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team'];
@@ -221,14 +229,25 @@
         return TOW_FACTIONS;
     }
 
+    // Vibe options offered in the pairings-grid "Type" dropdowns. TOW excludes
+    // "Escalation" (matching the main signup form's formConfig). Kill Team
+    // additionally excludes "Intro" here — unlike the main signup form (fixed
+    // to "Standard", no selector) and the pre-arranged sub-form (offers
+    // Standard + Intro), this grid has historically only offered "Standard"
+    // for KT pairings. Preserved exactly rather than guessed at; flag before
+    // unifying it with the other two KT vibe behaviors.
+    const GRID_VIBE_EXCLUSIONS: Record<string, string[]> = {
+        'The Old World': ['Escalation'],
+        'Kill Team': ['Intro']
+    };
+
     function vibeOptionsFor(system: string): string[] {
-        if (system === 'Kill Team') return ['Standard'];
-        if (system === 'The Horus Heresy') return ['Standard', 'Intro'];
-        return ['Casual', 'Competitive', 'Intro', 'Either'];
+        const excluded = GRID_VIBE_EXCLUSIONS[system] ?? [];
+        return sortVibeOptions(configFor(systemsConfig, system).vibe_options.filter((v) => !excluded.includes(v)));
     }
 
     function showPoints(system: string): boolean {
-        return system !== 'Kill Team';
+        return configFor(systemsConfig, system).uses_points;
     }
 
     function displayRowToEdit(r: DisplayRow): EditRow {

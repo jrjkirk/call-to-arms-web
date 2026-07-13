@@ -1,5 +1,7 @@
 /** Signup form options, ported verbatim from the original Streamlit app. */
 
+import { configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from './systemsConfig';
+
 export const SYSTEMS = ['The Old World', 'The Horus Heresy', 'Kill Team'] as const;
 
 export const NONE_FACTION = '— None —';
@@ -71,53 +73,76 @@ export type SignupFormConfig = {
     factions: string[];
     showPoints: boolean;
     defaultPoints: number;
+    maxPoints: number;
     pointsCaption: string | null;
     vibeOptions: string[] | null; // null => vibe is fixed, no selector shown
     fixedVibe: string | null;
     defaultVibe: string;
     showScenario: boolean;
+    scenarioOptions: string[];
+    defaultScenario: string;
     showCanDemo: boolean;
 };
 
-export function formConfig(system: string): SignupFormConfig {
+/**
+ * `systemsConfig` should come from getSystemsConfig() in systemsConfig.ts;
+ * defaults to the hardcoded fallback so callers that haven't fetched yet
+ * still get correct today's-values behavior.
+ */
+export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLBACK_SYSTEMS_CONFIG): SignupFormConfig {
+    const entry = configFor(systemsConfig, system);
+
     if (system === 'The Horus Heresy') {
         return {
             factionLabel: 'Your Faction',
             factions: HH_FACTIONS,
-            showPoints: true,
-            defaultPoints: 3000,
+            showPoints: entry.uses_points,
+            defaultPoints: entry.default_points,
+            maxPoints: entry.max_points,
             pointsCaption: null,
-            vibeOptions: ['Standard', 'Intro'],
+            vibeOptions: sortVibeOptions(entry.vibe_options),
             fixedVibe: null,
-            defaultVibe: 'Standard',
-            showScenario: false,
-            showCanDemo: true
+            defaultVibe: entry.default_vibe,
+            showScenario: entry.uses_scenarios,
+            scenarioOptions: entry.scenario_options,
+            defaultScenario: entry.default_scenario,
+            showCanDemo: entry.allows_demo
         };
     }
     if (system === 'Kill Team') {
         return {
             factionLabel: 'Your Kill Team',
             factions: KT_FACTIONS,
-            showPoints: false,
-            defaultPoints: 0,
+            showPoints: entry.uses_points,
+            defaultPoints: entry.default_points,
+            maxPoints: entry.max_points,
             pointsCaption: null,
             vibeOptions: null,
-            fixedVibe: 'Standard',
-            defaultVibe: 'Standard',
-            showScenario: false,
-            showCanDemo: false
+            fixedVibe: entry.default_vibe,
+            defaultVibe: entry.default_vibe,
+            showScenario: entry.uses_scenarios,
+            scenarioOptions: entry.scenario_options,
+            defaultScenario: entry.default_scenario,
+            showCanDemo: entry.allows_demo
         };
     }
+    // The Old World — this form deliberately excludes "Escalation" from the
+    // vibe list (the pre-arranged sub-form on the signup page shows the full
+    // backend list including it — see PREARRANGED_VIBE_OPTIONS in
+    // +page.svelte). Don't remove this filter to "sync" the two forms.
     return {
         factionLabel: 'Your Faction',
         factions: TOW_FACTIONS,
-        showPoints: true,
-        defaultPoints: 2000,
+        showPoints: entry.uses_points,
+        defaultPoints: entry.default_points,
+        maxPoints: entry.max_points,
         pointsCaption: null,
-        vibeOptions: ['Casual', 'Competitive', 'Intro', 'Either'],
+        vibeOptions: sortVibeOptions(entry.vibe_options.filter((v) => v !== 'Escalation')),
         fixedVibe: null,
-        defaultVibe: 'Casual',
-        showScenario: true,
-        showCanDemo: true
+        defaultVibe: entry.default_vibe,
+        showScenario: entry.uses_scenarios,
+        scenarioOptions: entry.scenario_options,
+        defaultScenario: entry.default_scenario,
+        showCanDemo: entry.allows_demo
     };
 }
