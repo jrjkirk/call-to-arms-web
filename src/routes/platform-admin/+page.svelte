@@ -1,0 +1,773 @@
+<script lang="ts">
+    import { onMount } from 'svelte';
+    import { PUBLIC_API_URL } from '$env/static/public';
+
+    type AdminMe = { is_super_admin: boolean; is_platform_admin: boolean; scopes: string[] };
+    type PlatformClub = {
+        id: number;
+        name: string;
+        slug: string;
+        active: boolean;
+        leagues_enabled: boolean;
+        timezone: string;
+        contact_email: string | null;
+        enabled_system_count: number;
+        has_super_admin: boolean;
+    };
+    type ClubSystemRow = {
+        system_id: number;
+        system_name: string;
+        enabled: boolean;
+        session_day: string;
+        session_cadence: string;
+        cadence_anchor: string | null;
+    };
+    type SystemCatalogueEntry = { id: number; name: string; legacy_system_name: string };
+    type SuperAdminEntry = { user_id: number; discord_name: string; player_name: string | null };
+    type GrantableUser = { id: number; discord_name: string; player_name: string };
+
+    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const CADENCES = ['weekly', 'fortnightly'];
+
+    let adminMe = $state<AdminMe | null>(null);
+    let pageLoading = $state(true);
+
+    let clubs = $state<PlatformClub[]>([]);
+    let clubsLoading = $state(false);
+    let clubsError = $state<string | null>(null);
+
+    let systemsCatalogue = $state<SystemCatalogueEntry[]>([]);
+
+    // Create-club form
+    let createName = $state('');
+    let createSlug = $state('');
+    let createTimezone = $state('Europe/London');
+    let createContactEmail = $state('');
+    let createLeaguesEnabled = $state(true);
+    let createActive = $state(false);
+    let creating = $state(false);
+    let createError = $state<string | null>(null);
+    let createMessage = $state<string | null>(null);
+
+    // Selected club detail
+    let selectedClubId = $state<number | null>(null);
+    let clubSystems = $state<ClubSystemRow[]>([]);
+    let clubSuperAdmins = $state<SuperAdminEntry[]>([]);
+    let clubGrantableUsers = $state<GrantableUser[]>([]);
+    let detailLoading = $state(false);
+    let detailError = $state<string | null>(null);
+
+    const selectedClub = $derived(clubs.find((c) => c.id === selectedClubId) ?? null);
+
+    // Add/edit system form
+    let systemSelectId = $state('');
+    let systemSessionDay = $state('Wednesday');
+    let systemSessionCadence = $state('weekly');
+    let systemCadenceAnchor = $state('');
+    let systemEnabled = $state(true);
+    let systemSaving = $state(false);
+    let systemError = $state<string | null>(null);
+    let systemMessage = $state<string | null>(null);
+
+    // Appoint super-admin form
+    let appointUserIdStr = $state('');
+    let appointing = $state(false);
+    let appointError = $state<string | null>(null);
+
+    let activeToggling = $state(false);
+    let activeError = $state<string | null>(null);
+
+    async function loadAdminMe() {
+        const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
+        adminMe = r.ok ? await r.json() : null;
+    }
+
+    async function loadClubs() {
+        clubsLoading = true;
+        clubsError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs`, { credentials: 'include' });
+        if (r.ok) {
+            clubs = await r.json();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubsError = body.detail || 'Failed to load clubs.';
+        }
+        clubsLoading = false;
+    }
+
+    async function loadSystemsCatalogue() {
+        const r = await fetch(`${PUBLIC_API_URL}/systems`);
+        if (r.ok) systemsCatalogue = await r.json();
+    }
+
+    onMount(async () => {
+        await loadAdminMe();
+        if (adminMe?.is_platform_admin) {
+            await Promise.all([loadClubs(), loadSystemsCatalogue()]);
+        }
+        pageLoading = false;
+    });
+
+    async function createClub() {
+        creating = true;
+        createError = null;
+        createMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: createName.trim(),
+                slug: createSlug.trim(),
+                timezone: createTimezone.trim() || 'Europe/London',
+                contact_email: createContactEmail.trim() || null,
+                leagues_enabled: createLeaguesEnabled,
+                active: createActive,
+            }),
+        });
+        if (r.ok) {
+            createMessage = `Created "${createName}".`;
+            createName = '';
+            createSlug = '';
+            createTimezone = 'Europe/London';
+            createContactEmail = '';
+            createLeaguesEnabled = true;
+            createActive = false;
+            await loadClubs();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            createError = body.detail || 'Failed to create club.';
+        }
+        creating = false;
+    }
+
+    async function selectClub(clubId: number) {
+        selectedClubId = clubId;
+        detailLoading = true;
+        detailError = null;
+        systemError = null;
+        systemMessage = null;
+        appointError = null;
+        activeError = null;
+        resetSystemForm();
+
+        const [systemsResp, superAdminsResp, grantableResp] = await Promise.all([
+            fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${clubId}/systems`, { credentials: 'include' }),
+            fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${clubId}/super-admins`, { credentials: 'include' }),
+            fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${clubId}/grantable-users`, { credentials: 'include' }),
+        ]);
+
+        if (systemsResp.ok && superAdminsResp.ok && grantableResp.ok) {
+            clubSystems = await systemsResp.json();
+            clubSuperAdmins = await superAdminsResp.json();
+            clubGrantableUsers = await grantableResp.json();
+        } else {
+            detailError = 'Failed to load club detail.';
+        }
+        detailLoading = false;
+    }
+
+    function resetSystemForm() {
+        systemSelectId = '';
+        systemSessionDay = 'Wednesday';
+        systemSessionCadence = 'weekly';
+        systemCadenceAnchor = '';
+        systemEnabled = true;
+    }
+
+    function onSystemPick() {
+        const existing = clubSystems.find((s) => String(s.system_id) === systemSelectId);
+        if (existing) {
+            systemSessionDay = existing.session_day;
+            systemSessionCadence = existing.session_cadence;
+            systemCadenceAnchor = existing.cadence_anchor ?? '';
+            systemEnabled = existing.enabled;
+        } else {
+            systemSessionDay = 'Wednesday';
+            systemSessionCadence = 'weekly';
+            systemCadenceAnchor = '';
+            systemEnabled = true;
+        }
+    }
+
+    async function saveClubSystem() {
+        if (!selectedClubId || !systemSelectId) return;
+        systemSaving = true;
+        systemError = null;
+        systemMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClubId}/systems`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_id: Number(systemSelectId),
+                enabled: systemEnabled,
+                session_day: systemSessionDay,
+                session_cadence: systemSessionCadence,
+                cadence_anchor: systemSessionCadence === 'fortnightly' ? (systemCadenceAnchor || null) : null,
+            }),
+        });
+        if (r.ok) {
+            systemMessage = 'Saved.';
+            await selectClub(selectedClubId);
+            await loadClubs();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            systemError = body.detail || 'Failed to save system.';
+        }
+        systemSaving = false;
+    }
+
+    async function appointSuperAdmin() {
+        if (!selectedClubId || !appointUserIdStr) return;
+        appointing = true;
+        appointError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClubId}/super-admins`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: Number(appointUserIdStr) }),
+        });
+        if (r.ok) {
+            appointUserIdStr = '';
+            await selectClub(selectedClubId);
+            await loadClubs();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            appointError = body.detail || 'Failed to appoint super-admin.';
+        }
+        appointing = false;
+    }
+
+    async function removeSuperAdmin(userId: number) {
+        if (!selectedClubId) return;
+        if (!confirm('Remove this super-admin? They will lose all admin access for this club.')) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClubId}/super-admins/${userId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            await selectClub(selectedClubId);
+            await loadClubs();
+        }
+    }
+
+    async function toggleActive() {
+        if (!selectedClub) return;
+        const next = !selectedClub.active;
+        const verb = next ? 'activate' : 'deactivate';
+        if (!confirm(`Really ${verb} "${selectedClub.name}"? ${next ? 'It will immediately become visible on the public club picker and start receiving real traffic.' : 'It will immediately disappear from the public club picker.'}`)) {
+            return;
+        }
+        activeToggling = true;
+        activeError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClub.id}/active`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: next }),
+        });
+        if (r.ok) {
+            await loadClubs();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            activeError = body.detail || 'Failed to update active state.';
+        }
+        activeToggling = false;
+    }
+</script>
+
+<h2 class="page-heading">Platform Admin</h2>
+
+{#if pageLoading}
+    <p class="muted">Loading…</p>
+{:else if !adminMe?.is_platform_admin}
+    <p class="muted">You don't have platform admin access.</p>
+{:else}
+    <p class="section-intro platform-banner">
+        Cross-club management — creating clubs, configuring their systems, appointing their
+        delegates, and toggling which clubs are live. Separate from, and more powerful than, a
+        club's own <a href="/admin">Admin</a> tools.
+    </p>
+
+    <section class="admin-section">
+        <h3 class="section-heading">Clubs</h3>
+        {#if clubsLoading}
+            <p class="muted">Loading…</p>
+        {:else if clubsError}
+            <p class="field-error">{clubsError}</p>
+        {:else}
+            <div class="table-wrap">
+                <table class="clubs-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Slug</th>
+                            <th>Status</th>
+                            <th>Systems</th>
+                            <th>Super-admin</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each clubs as club (club.id)}
+                            <tr class:selected-row={club.id === selectedClubId}>
+                                <td>{club.name}</td>
+                                <td class="muted">{club.slug}</td>
+                                <td>
+                                    <span class="status-badge" class:status-active={club.active} class:status-inactive={!club.active}>
+                                        {club.active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td>{club.enabled_system_count}</td>
+                                <td>
+                                    <span class="status-badge" class:status-active={club.has_super_admin} class:status-inactive={!club.has_super_admin}>
+                                        {club.has_super_admin ? 'Yes' : 'No'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="primary-button" type="button" onclick={() => selectClub(club.id)}>
+                                        Manage
+                                    </button>
+                                </td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+            </div>
+        {/if}
+    </section>
+
+    <section class="admin-section">
+        <h3 class="section-heading">Create Club</h3>
+        <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); createClub(); }}>
+            <div class="field">
+                <label class="field-label" for="cc-name">Name</label>
+                <input id="cc-name" class="field-input" type="text" bind:value={createName} required />
+            </div>
+            <div class="field">
+                <label class="field-label" for="cc-slug">Slug</label>
+                <input id="cc-slug" class="field-input" type="text" bind:value={createSlug} required />
+            </div>
+            <div class="field">
+                <label class="field-label" for="cc-timezone">Timezone</label>
+                <input id="cc-timezone" class="field-input" type="text" bind:value={createTimezone} />
+            </div>
+            <div class="field">
+                <label class="field-label" for="cc-email">Contact Email</label>
+                <input id="cc-email" class="field-input" type="email" bind:value={createContactEmail} />
+            </div>
+            <div class="field-row-break"></div>
+            <label class="check-row">
+                <input type="checkbox" bind:checked={createLeaguesEnabled} />
+                <span>Leagues enabled</span>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" bind:checked={createActive} />
+                <span>Active immediately</span>
+            </label>
+            {#if createError}
+                <p class="field-error">{createError}</p>
+            {/if}
+            {#if createMessage}
+                <p class="pairing-message">{createMessage}</p>
+            {/if}
+            <button type="submit" class="primary-button" disabled={!createName.trim() || !createSlug.trim() || creating}>
+                {creating ? 'Creating…' : 'Create Club'}
+            </button>
+        </form>
+    </section>
+
+    {#if selectedClub}
+        <section class="admin-section">
+            <h3 class="section-heading">Managing: {selectedClub.name}</h3>
+
+            <div class="sub-section">
+                <h4 class="sub-heading">Active status</h4>
+                <p class="section-intro">
+                    Currently
+                    <span class="status-badge" class:status-active={selectedClub.active} class:status-inactive={!selectedClub.active}>
+                        {selectedClub.active ? 'Active' : 'Inactive'}
+                    </span>
+                    {selectedClub.active ? '— visible on the public club picker.' : '— hidden from the public club picker.'}
+                </p>
+                {#if activeError}
+                    <p class="field-error">{activeError}</p>
+                {/if}
+                <button class="primary-button" type="button" disabled={activeToggling} onclick={toggleActive}>
+                    {activeToggling ? 'Saving…' : selectedClub.active ? 'Deactivate' : 'Activate'}
+                </button>
+            </div>
+
+            {#if detailLoading}
+                <p class="muted">Loading…</p>
+            {:else if detailError}
+                <p class="field-error">{detailError}</p>
+            {:else}
+                <div class="sub-section">
+                    <h4 class="sub-heading">Systems</h4>
+                    <ul class="block-list">
+                        {#each clubSystems as row (row.system_id)}
+                            <li class="block-row">
+                                <span class="block-names"><strong>{row.system_name}</strong></span>
+                                <span class="block-note">
+                                    {row.enabled ? 'Enabled' : 'Disabled'} — {row.session_cadence} {row.session_day}
+                                    {#if row.cadence_anchor}(anchor {row.cadence_anchor}){/if}
+                                </span>
+                            </li>
+                        {/each}
+                        {#if clubSystems.length === 0}
+                            <p class="muted">No systems configured yet.</p>
+                        {/if}
+                    </ul>
+
+                    <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveClubSystem(); }}>
+                        <div class="field">
+                            <label class="field-label" for="sys-select">System</label>
+                            <select id="sys-select" class="field-select" bind:value={systemSelectId} onchange={onSystemPick}>
+                                <option value="">— Select system —</option>
+                                {#each systemsCatalogue as s}
+                                    <option value={String(s.id)}>
+                                        {s.legacy_system_name}
+                                        {clubSystems.some((cs) => cs.system_id === s.id) ? ' (edit)' : ' (add)'}
+                                    </option>
+                                {/each}
+                            </select>
+                        </div>
+                        <div class="field field-narrow">
+                            <label class="field-label" for="sys-day">Day</label>
+                            <select id="sys-day" class="field-select" bind:value={systemSessionDay}>
+                                {#each DAYS as d}
+                                    <option>{d}</option>
+                                {/each}
+                            </select>
+                        </div>
+                        <div class="field field-narrow">
+                            <label class="field-label" for="sys-cadence">Cadence</label>
+                            <select id="sys-cadence" class="field-select" bind:value={systemSessionCadence}>
+                                {#each CADENCES as c}
+                                    <option>{c}</option>
+                                {/each}
+                            </select>
+                        </div>
+                        {#if systemSessionCadence === 'fortnightly'}
+                            <div class="field field-narrow">
+                                <label class="field-label" for="sys-anchor">Anchor date</label>
+                                <input id="sys-anchor" class="field-input" type="date" bind:value={systemCadenceAnchor} />
+                            </div>
+                        {/if}
+                        <div class="field-row-break"></div>
+                        <label class="check-row">
+                            <input type="checkbox" bind:checked={systemEnabled} />
+                            <span>Enabled</span>
+                        </label>
+                        {#if systemError}
+                            <p class="field-error">{systemError}</p>
+                        {/if}
+                        {#if systemMessage}
+                            <p class="pairing-message">{systemMessage}</p>
+                        {/if}
+                        <button type="submit" class="primary-button" disabled={!systemSelectId || systemSaving}>
+                            {systemSaving ? 'Saving…' : 'Save System'}
+                        </button>
+                    </form>
+                </div>
+
+                <div class="sub-section">
+                    <h4 class="sub-heading">Super-admins</h4>
+                    <ul class="block-list">
+                        {#each clubSuperAdmins as sa (sa.user_id)}
+                            <li class="block-row">
+                                <span class="block-names">
+                                    <strong>{sa.player_name ?? sa.discord_name}</strong>
+                                    {#if sa.player_name}<span class="block-note">({sa.discord_name})</span>{/if}
+                                </span>
+                                <button class="remove-btn" type="button" title="Remove super-admin" onclick={() => removeSuperAdmin(sa.user_id)}>×</button>
+                            </li>
+                        {/each}
+                        {#if clubSuperAdmins.length === 0}
+                            <p class="muted">No super-admin appointed yet.</p>
+                        {/if}
+                    </ul>
+
+                    <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); appointSuperAdmin(); }}>
+                        <div class="field">
+                            <label class="field-label" for="appoint-user">User</label>
+                            <select id="appoint-user" class="field-select" bind:value={appointUserIdStr}>
+                                <option value="">— Select user —</option>
+                                {#each clubGrantableUsers as u}
+                                    <option value={String(u.id)}>{u.player_name} ({u.discord_name})</option>
+                                {/each}
+                            </select>
+                        </div>
+                        {#if appointError}
+                            <p class="field-error">{appointError}</p>
+                        {/if}
+                        <button type="submit" class="primary-button" disabled={!appointUserIdStr || appointing}>
+                            {appointing ? 'Appointing…' : 'Appoint Super-admin'}
+                        </button>
+                    </form>
+                </div>
+            {/if}
+        </section>
+    {/if}
+{/if}
+
+<style>
+    .page-heading {
+        font-size: 1.5rem;
+        margin: 0 0 1.5rem;
+    }
+
+    .muted {
+        color: var(--color-text-muted);
+        font-style: italic;
+    }
+
+    .platform-banner {
+        padding: 10px 14px;
+        background: rgba(180, 90, 60, 0.08);
+        border: 1px solid rgba(180, 90, 60, 0.3);
+        border-radius: 8px;
+    }
+
+    .platform-banner a {
+        color: var(--color-accent);
+    }
+
+    .admin-section {
+        margin-bottom: 2rem;
+    }
+
+    .section-heading {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0 0.75rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--color-accent-border);
+    }
+
+    .section-intro {
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin: 0 0 1rem;
+    }
+
+    .sub-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .sub-heading {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--color-text-muted);
+        margin: 0 0 0.6rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .clubs-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        color: var(--color-text-base);
+    }
+
+    .clubs-table thead th {
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--color-accent);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        font-weight: 700;
+        padding: 8px 10px;
+        text-align: left;
+    }
+
+    .clubs-table td {
+        padding: 8px 10px;
+        font-size: 0.9rem;
+        border-top: 1px solid var(--color-accent-border-soft);
+    }
+
+    .selected-row {
+        background: var(--color-surface-hover);
+    }
+
+    .status-badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+    }
+
+    .status-active {
+        background: rgba(110, 180, 110, 0.15);
+        color: var(--color-win);
+        border: 1px solid rgba(110, 180, 110, 0.4);
+    }
+
+    .status-inactive {
+        background: rgba(148, 163, 184, 0.1);
+        color: var(--color-text-faint);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .block-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .block-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.15);
+        border: 1px solid var(--color-accent-border-soft);
+        border-radius: 7px;
+        font-size: 0.88rem;
+        flex-wrap: wrap;
+    }
+
+    .block-names {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .block-note {
+        font-size: 0.78rem;
+        color: var(--color-text-dim);
+        font-style: italic;
+    }
+
+    .remove-btn {
+        background: none;
+        border: none;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0;
+        transition: color 0.15s;
+    }
+
+    .remove-btn:hover {
+        color: #f87171;
+    }
+
+    .appoint-form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.75rem;
+    }
+
+    .system-form {
+        margin-top: 0.5rem;
+    }
+
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 160px;
+    }
+
+    .field-narrow {
+        min-width: 130px;
+        max-width: 160px;
+    }
+
+    .field-row-break {
+        flex-basis: 100%;
+        height: 0;
+    }
+
+    .field-select {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 6px;
+        color: var(--color-text-base);
+        padding: 7px 10px;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .field-select:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    .field-input {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 6px;
+        color: var(--color-text-base);
+        padding: 7px 10px;
+        font-size: 0.9rem;
+        font-family: inherit;
+    }
+
+    .field-input:focus {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    .check-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: var(--color-text-base);
+    }
+
+    .field-error {
+        font-size: 0.8rem;
+        color: #f87171;
+        margin: 0.25rem 0 0;
+        width: 100%;
+    }
+
+    .pairing-message {
+        font-size: 0.8rem;
+        color: var(--color-win);
+        margin: 0.25rem 0 0;
+        width: 100%;
+    }
+
+    .primary-button {
+        background: var(--color-accent);
+        color: #111;
+        border: none;
+        border-radius: 8px;
+        padding: 0 14px;
+        height: 2.2rem;
+        box-sizing: border-box;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: opacity 0.15s;
+        white-space: nowrap;
+    }
+
+    .primary-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+</style>

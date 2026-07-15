@@ -17,6 +17,7 @@
 
     type AdminState = {
         is_super_admin: boolean;
+        is_platform_admin: boolean;
         scopes: string[];
     };
 
@@ -69,6 +70,9 @@
     const needsClaim = $derived(isAuthed && auth.user?.player_id == null);
     const hasAdminAccess = $derived(
         authLoaded && adminState !== null && (adminState.is_super_admin || adminState.scopes.length > 0)
+    );
+    const hasPlatformAdminAccess = $derived(
+        authLoaded && adminState !== null && adminState.is_platform_admin === true
     );
 
     function loginUrl(): string {
@@ -177,6 +181,9 @@
                 {/each}
                 {#if hasAdminAccess}
                     <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
+                {/if}
+                {#if hasPlatformAdminAccess}
+                    <a href="/platform-admin" class="nav-tab" class:active={isActive('/platform-admin')} data-sveltekit-preload-data="hover">Platform Admin</a>
                 {/if}
             </div>
             <div class="nav-tabs-fade"></div>
