@@ -185,7 +185,7 @@
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
-            {:else if !isAuthed && !page.url.pathname.startsWith('/pairings')}
+            {:else if !isAuthed && !page.url.pathname.startsWith('/pairings') && page.url.pathname !== '/join'}
                 <div class="auth-gate">
                     <h1 class="auth-gate-title">Call to Arms</h1>
                     <p class="auth-gate-text">
