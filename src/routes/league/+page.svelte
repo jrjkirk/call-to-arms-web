@@ -99,7 +99,7 @@
         const club = getClubSlugFromHostname(window.location.hostname);
         await Promise.all([
             loadRankings(),
-            fetch(`${PUBLIC_API_URL}/league/factions?club=${encodeURIComponent(club)}`).then(r => r.ok ? r.json() : { factions: [] }).then(d => { factions = d.factions; }).catch(() => {}),
+            fetch(`${PUBLIC_API_URL}/league/factions?club=${encodeURIComponent(club)}`, { credentials: 'include' }).then(r => r.ok ? r.json() : { factions: [] }).then(d => { factions = d.factions; }).catch(() => {}),
         ]);
     });
 

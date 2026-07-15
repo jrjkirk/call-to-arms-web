@@ -5,6 +5,7 @@
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
+    import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     let { data } = $props();
 
@@ -24,6 +25,54 @@
         week = data.week;
     });
 
+    // Pairings content is fetched client-side (never SSR) so the request
+    // carries the caller's session cookie via credentials:'include'. The
+    // backend scopes to the authenticated user's own club and ignores the
+    // hostname-derived `club` slug — closing the cross-club leak where a
+    // logged-in member of one club was served another club's pairings. For a
+    // genuinely anonymous visitor there's no session, so the `club` slug (from
+    // the hostname / subdomain) resolves the shared-link club exactly as before.
+    type Matchup = {
+        player_a_name: string;
+        player_a_faction: string | null;
+        player_b_name: string | null;
+        player_b_faction: string | null;
+        is_bye: boolean;
+        game_type: string | null;
+        eta: string | null;
+        points: number | null;
+    };
+    type PairingsData = {
+        published: boolean;
+        matchups: Matchup[];
+        total_players: number;
+        total_matchups: number;
+        byes: number;
+    };
+    const EMPTY_PAIRINGS: PairingsData = {
+        published: false, matchups: [], total_players: 0, total_matchups: 0, byes: 0
+    };
+    let pdata = $state<PairingsData>(EMPTY_PAIRINGS);
+    let pairingsLoaded = $state(false);
+
+    async function loadPairings(sys: string, wk: string) {
+        pairingsLoaded = false;
+        try {
+            const club = getClubSlugFromHostname(window.location.hostname);
+            const params = new URLSearchParams({ system: sys, week: wk, club });
+            const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
+            pdata = r.ok ? await r.json() : EMPTY_PAIRINGS;
+        } catch (_) {
+            pdata = EMPTY_PAIRINGS;
+        }
+        pairingsLoaded = true;
+    }
+
+    // Re-fetch whenever the resolved system/week changes (initial mount too).
+    $effect(() => {
+        loadPairings(data.system, data.week);
+    });
+
     const systems = ['The Old World', 'The Horus Heresy', 'Kill Team'];
 
     // The caller's own club's actually-enabled systems (GET /systems/mine,
@@ -35,6 +84,17 @@
     // published pairings still works.
     let mySystems = $state<string[] | null>(null);
     const tabSystems = $derived(mySystems ?? systems);
+
+    // Once the club's real system list resolves, if the SSR default system
+    // ("The Old World") isn't one this club runs, switch to the first one it
+    // does — so a Kill-Team-only club doesn't land on an Old World tab it has
+    // no data for. Mirrors the homepage. Never fires for anonymous visitors
+    // (mySystems stays null), so a direct shared link to any system still works.
+    $effect(() => {
+        if (mySystems && mySystems.length > 0 && !mySystems.includes(system)) {
+            selectSystem(mySystems[0]);
+        }
+    });
 
     function selectSystem(s: string) {
         if (s === system) return;
@@ -134,28 +194,30 @@
     </div>
 {/if}
 
-{#if !data.published}
+{#if !pairingsLoaded}
+    <div class="empty-state">Loading…</div>
+{:else if !pdata.published}
     <div class="empty-state">No pairings published yet for this week/system.</div>
-{:else if data.matchups.length === 0}
+{:else if pdata.matchups.length === 0}
     <div class="empty-state">No pairings yet.</div>
 {:else}
     <div class="stat-row">
         <div class="stat-card">
             <div class="stat-label">Players</div>
-            <div class="stat-value">{data.total_players}</div>
+            <div class="stat-value">{pdata.total_players}</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">Matchups</div>
-            <div class="stat-value">{data.total_matchups}</div>
+            <div class="stat-value">{pdata.total_matchups}</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">On Standby</div>
-            <div class="stat-value">{data.byes}</div>
+            <div class="stat-value">{pdata.byes}</div>
         </div>
     </div>
 
     <div class="matchups">
-        {#each data.matchups as m, i (matchKey(m))}
+        {#each pdata.matchups as m, i (matchKey(m))}
             <div
                 class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
                 in:fly={{ y: 24, duration: 420, delay: cascadeDelay(i) }}

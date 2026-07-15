@@ -1,16 +1,26 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import { fetchMySystems } from '$lib/mySystems';
 
     type PlayerRow = { id: number; name: string; default_faction: string | null; systems_played?: string[] };
 
     let players = $state<PlayerRow[]>([]);
+
+    // The caller's own club's enabled systems (GET /systems/mine,
+    // authenticated). null until resolved or if the call fails — falls back to
+    // the full ALL_SYSTEMS list. Scopes the system-filter buttons to the club,
+    // matching the homepage and pairings tabs; without this the buttons showed
+    // every system regardless of club (e.g. a Kill-Team-only club still saw
+    // Old World / Horus Heresy buttons).
+    let mySystems = $state<string[] | null>(null);
 
     onMount(async () => {
         try {
             const r = await fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' });
             if (r.ok) players = await r.json();
         } catch (_) {}
+        mySystems = await fetchMySystems();
     });
 
     let query = $state('');
@@ -22,7 +32,8 @@
         'Kill Team': '/logos/kt.png'
     };
 
-    const SYSTEMS = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+    const ALL_SYSTEMS = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+    const SYSTEMS = $derived(mySystems ?? ALL_SYSTEMS);
 
     function toggleSystem(s: string) {
         if (activeSystems.includes(s)) {
