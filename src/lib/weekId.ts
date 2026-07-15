@@ -12,9 +12,15 @@ export function todayUkDateStr(): string {
     return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
-export async function fetchWeekId(system: string, fetchFn: typeof fetch = fetch): Promise<string> {
+export async function fetchWeekId(
+    system: string,
+    fetchFn: typeof fetch = fetch,
+    clubSlug?: string
+): Promise<string> {
     try {
-        const response = await fetchFn(`${PUBLIC_API_URL}/week-id?system=${encodeURIComponent(system)}`);
+        const params = new URLSearchParams({ system });
+        if (clubSlug) params.set('club', clubSlug);
+        const response = await fetchFn(`${PUBLIC_API_URL}/week-id?${params}`);
         if (!response.ok) {
             console.warn(`GET /week-id failed (${response.status}) for system "${system}", falling back to today`);
             return todayUkDateStr();

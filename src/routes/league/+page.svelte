@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { TOW_FACTIONS } from '$lib/signupOptions';
+    import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     let rankings = $state<any[]>([]);
     let allPlayers = $state<{ id: number; name: string }[]>([]);
@@ -95,9 +96,10 @@
             if (r.ok) auth = await r.json();
         } catch (_) {}
         authLoaded = true;
+        const club = getClubSlugFromHostname(window.location.hostname);
         await Promise.all([
             loadRankings(),
-            fetch(`${PUBLIC_API_URL}/league/factions`).then(r => r.ok ? r.json() : { factions: [] }).then(d => { factions = d.factions; }).catch(() => {}),
+            fetch(`${PUBLIC_API_URL}/league/factions?club=${encodeURIComponent(club)}`).then(r => r.ok ? r.json() : { factions: [] }).then(d => { factions = d.factions; }).catch(() => {}),
         ]);
     });
 

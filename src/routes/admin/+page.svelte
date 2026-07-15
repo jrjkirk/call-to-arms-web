@@ -156,6 +156,7 @@
     };
 
     let adminMe = $state<AdminMe | null>(null);
+    let adminClubSlug = $state<string | undefined>(undefined);
     let rolesData = $state<RolesData | null>(null);
     let grantableUsers = $state<GrantableUser[]>([]);
     let pageLoading = $state(true);
@@ -811,6 +812,25 @@
         adminMe = r.ok ? await r.json() : null;
     }
 
+    // GET /admin/me exposes no club identity at all (just is_super_admin +
+    // scopes), so the admin's own club is looked up via GET /auth/me's
+    // user.club_id, resolved to a slug against GET /clubs. Left undefined
+    // on any failure (including an inactive club_id not present in
+    // /clubs) so fetchWeekId falls back to today's existing behaviour.
+    async function loadAdminClubSlug() {
+        try {
+            const meResp = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
+            if (!meResp.ok) return;
+            const me = await meResp.json();
+            const clubId = me?.user?.club_id;
+            if (clubId == null) return;
+            const clubsResp = await fetch(`${PUBLIC_API_URL}/clubs`);
+            if (!clubsResp.ok) return;
+            const clubs: { id: number; slug: string }[] = await clubsResp.json();
+            adminClubSlug = clubs.find((c) => c.id === clubId)?.slug;
+        } catch (_) {}
+    }
+
     async function loadRoles() {
         rolesLoading = true;
         const r = await fetch(`${PUBLIC_API_URL}/admin/roles`, { credentials: 'include' });
@@ -894,7 +914,7 @@
     }
 
     async function initSystemScope(scope: string) {
-        const week = await fetchWeekId(scope);
+        const week = await fetchWeekId(scope, fetch, adminClubSlug);
         pairings[scope] = initPairingsState(scope, week);
         await Promise.all([loadPairings(scope), loadAutoPairingsSettings(scope)]);
     }
@@ -910,7 +930,7 @@
     }
 
     onMount(async () => {
-        await loadAdminMe();
+        await Promise.all([loadAdminMe(), loadAdminClubSlug()]);
         if (!adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)) {
             pageLoading = false;
             return;
