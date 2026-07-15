@@ -211,6 +211,34 @@
     let editPlayerMessage = $state<string | null>(null);
     let editPlayerError = $state<string | null>(null);
 
+    // Discord Webhooks state
+    type WebhookRow = {
+        webhook_type: string;
+        system_id: number | null;
+        system_name: string | null;
+        configured: boolean;
+        last_four?: string;
+    };
+    const WEBHOOK_TYPE_LABELS: Record<string, string> = {
+        signup: 'Signup notifications',
+        pairings: 'Pairings image',
+        call_to_arms: 'Weekly reminder',
+        league_result: 'League result',
+        league_rankings: 'League rankings image',
+        achievement: 'Achievement announcements',
+    };
+    const PER_SYSTEM_WEBHOOK_TYPES = ['signup', 'pairings', 'call_to_arms'];
+    const CLUB_LEVEL_WEBHOOK_TYPES = ['league_result', 'achievement', 'league_rankings'];
+    function webhookKey(webhookType: string, systemId: number | null): string {
+        return `${webhookType}:${systemId ?? 'null'}`;
+    }
+    let webhookRows = $state<WebhookRow[]>([]);
+    let webhookListError = $state<string | null>(null);
+    let webhookInputs = $state<Record<string, string>>({});
+    let webhookSaving = $state<Record<string, boolean>>({});
+    let webhookError = $state<Record<string, string | null>>({});
+    let webhookMessage = $state<Record<string, string | null>>({});
+
     function defaultWeekFor(system: string): string {
         const target = system === 'The Old World' ? 3 : 5;
         const d = new Date();
@@ -706,6 +734,70 @@
         editPlayerSaving = false;
     }
 
+    async function loadClubWebhooks() {
+        webhookListError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/webhooks`, { credentials: 'include' });
+        if (r.ok) {
+            webhookRows = await r.json();
+        } else {
+            webhookListError = 'Failed to load webhooks.';
+        }
+    }
+
+    async function saveClubWebhook(webhookType: string, systemId: number | null) {
+        const key = webhookKey(webhookType, systemId);
+        const url = (webhookInputs[key] ?? '').trim();
+        if (!url) return;
+        webhookSaving[key] = true;
+        webhookError[key] = null;
+        webhookMessage[key] = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/webhooks`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ webhook_type: webhookType, system_id: systemId, url }),
+        });
+        if (r.ok) {
+            const updated = await r.json();
+            webhookRows = webhookRows.map((row) =>
+                row.webhook_type === webhookType && row.system_id === systemId
+                    ? { ...row, configured: updated.configured, last_four: updated.last_four }
+                    : row
+            );
+            webhookInputs[key] = '';
+            webhookMessage[key] = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            webhookError[key] = body.detail || 'Save failed.';
+        }
+        webhookSaving[key] = false;
+    }
+
+    async function removeClubWebhook(webhookType: string, systemId: number | null) {
+        const key = webhookKey(webhookType, systemId);
+        webhookSaving[key] = true;
+        webhookError[key] = null;
+        webhookMessage[key] = null;
+        const params = new URLSearchParams({ webhook_type: webhookType });
+        if (systemId !== null) params.set('system_id', String(systemId));
+        const r = await fetch(`${PUBLIC_API_URL}/admin/webhooks?${params}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            webhookRows = webhookRows.map((row) =>
+                row.webhook_type === webhookType && row.system_id === systemId
+                    ? { ...row, configured: false, last_four: undefined }
+                    : row
+            );
+            webhookMessage[key] = 'Removed.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            webhookError[key] = body.detail || 'Remove failed.';
+        }
+        webhookSaving[key] = false;
+    }
+
     async function postAchievementToDiscord() {
         achievementPosting = true;
         achievementMessage = null;
@@ -830,7 +922,7 @@
         }
         const tasks: Promise<void>[] = [loadBlocks()];
         if (adminMe.is_super_admin) {
-            tasks.push(loadRoles(), loadGrantableUsers(), loadAchievementOptions(), loadEditPlayerList());
+            tasks.push(loadRoles(), loadGrantableUsers(), loadAchievementOptions(), loadEditPlayerList(), loadClubWebhooks());
         }
         if (adminMe.is_super_admin || adminMe.scopes.includes('League')) {
             tasks.push(loadBlockPlayers());
@@ -1134,6 +1226,117 @@
                     >{editPlayerSaving ? 'Saving…' : 'Save'}</button>
                 {/if}
             </div>
+        </section>
+    {/if}
+
+    {#if adminMe.is_super_admin}
+        <!-- ── Discord Webhooks ───────────────────────────────────────────────── -->
+        <section class="admin-section">
+            <h3 class="section-heading">Discord Webhooks</h3>
+            <p class="section-intro">
+                Configure this club's Discord webhook URLs. Once saved, a URL is never shown again —
+                only the last 4 characters, so you can confirm you saved the right one.
+            </p>
+
+            {#if webhookListError}
+                <p class="field-error">{webhookListError}</p>
+            {:else if webhookRows.length === 0}
+                <p class="muted">Loading…</p>
+            {:else}
+                {#each PER_SYSTEM_WEBHOOK_TYPES as webhookType}
+                    <div class="sub-section">
+                        <h4 class="sub-heading">
+                            {WEBHOOK_TYPE_LABELS[webhookType]}
+                            {#if webhookType === 'call_to_arms'}
+                                <span class="badge">saving here does not yet change behavior for this webhook type</span>
+                            {/if}
+                        </h4>
+                        <ul class="block-list">
+                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row (row.system_id)}
+                                {@const key = webhookKey(row.webhook_type, row.system_id)}
+                                <li class="block-row">
+                                    <span class="block-names">
+                                        <strong>{row.system_name}</strong>
+                                    </span>
+                                    <span class="block-note">
+                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
+                                    </span>
+                                    <input
+                                        class="field-input"
+                                        type="url"
+                                        placeholder="https://discord.com/api/webhooks/…"
+                                        bind:value={webhookInputs[key]}
+                                    />
+                                    <button
+                                        class="primary-button"
+                                        type="button"
+                                        disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
+                                        onclick={() => saveClubWebhook(row.webhook_type, row.system_id)}
+                                    >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
+                                    {#if row.configured}
+                                        <button
+                                            class="remove-btn block-remove"
+                                            type="button"
+                                            title="Remove webhook"
+                                            disabled={webhookSaving[key]}
+                                            onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
+                                        >×</button>
+                                    {/if}
+                                    {#if webhookError[key]}
+                                        <p class="field-error">{webhookError[key]}</p>
+                                    {/if}
+                                    {#if webhookMessage[key]}
+                                        <p class="pairing-message">{webhookMessage[key]}</p>
+                                    {/if}
+                                </li>
+                            {/each}
+                        </ul>
+                    </div>
+                {/each}
+
+                {#each CLUB_LEVEL_WEBHOOK_TYPES as webhookType}
+                    <div class="sub-section">
+                        <h4 class="sub-heading">{WEBHOOK_TYPE_LABELS[webhookType]}</h4>
+                        <ul class="block-list">
+                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row}
+                                {@const key = webhookKey(row.webhook_type, null)}
+                                <li class="block-row">
+                                    <span class="block-note">
+                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
+                                    </span>
+                                    <input
+                                        class="field-input"
+                                        type="url"
+                                        placeholder="https://discord.com/api/webhooks/…"
+                                        bind:value={webhookInputs[key]}
+                                    />
+                                    <button
+                                        class="primary-button"
+                                        type="button"
+                                        disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
+                                        onclick={() => saveClubWebhook(row.webhook_type, null)}
+                                    >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
+                                    {#if row.configured}
+                                        <button
+                                            class="remove-btn block-remove"
+                                            type="button"
+                                            title="Remove webhook"
+                                            disabled={webhookSaving[key]}
+                                            onclick={() => removeClubWebhook(row.webhook_type, null)}
+                                        >×</button>
+                                    {/if}
+                                    {#if webhookError[key]}
+                                        <p class="field-error">{webhookError[key]}</p>
+                                    {/if}
+                                    {#if webhookMessage[key]}
+                                        <p class="pairing-message">{webhookMessage[key]}</p>
+                                    {/if}
+                                </li>
+                            {/each}
+                        </ul>
+                    </div>
+                {/each}
+            {/if}
         </section>
     {/if}
 
