@@ -8,6 +8,7 @@
     import {
         getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
     } from '$lib/systemsConfig';
+    import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     let { data } = $props();
 
@@ -235,7 +236,8 @@
         const myPlayerId = auth.user?.player_id;
         if (!myPlayerId) return;
         try {
-            const params = new URLSearchParams({ system: sys, week: wk });
+            const club = getClubSlugFromHostname(window.location.hostname);
+            const params = new URLSearchParams({ system: sys, week: wk, club });
             const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
             if (!r.ok) { pairingsPublished = false; myPairing = null; otherPlayers = []; return; }
             const d = await r.json();
