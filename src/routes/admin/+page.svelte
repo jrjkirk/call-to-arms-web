@@ -1254,39 +1254,41 @@
                         <ul class="block-list">
                             {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row (row.system_id)}
                                 {@const key = webhookKey(row.webhook_type, row.system_id)}
-                                <li class="block-row">
+                                <li class="block-row webhook-row">
                                     <span class="block-names">
                                         <strong>{row.system_name}</strong>
                                     </span>
                                     <span class="block-note">
                                         {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
                                     </span>
-                                    <input
-                                        class="field-input"
-                                        type="url"
-                                        placeholder="https://discord.com/api/webhooks/…"
-                                        bind:value={webhookInputs[key]}
-                                    />
-                                    <button
-                                        class="primary-button"
-                                        type="button"
-                                        disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
-                                        onclick={() => saveClubWebhook(row.webhook_type, row.system_id)}
-                                    >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
-                                    {#if row.configured}
+                                    <span class="webhook-actions">
+                                        <input
+                                            class="field-input"
+                                            type="url"
+                                            placeholder="https://discord.com/api/webhooks/…"
+                                            bind:value={webhookInputs[key]}
+                                        />
                                         <button
-                                            class="remove-btn block-remove"
+                                            class="primary-button"
                                             type="button"
-                                            title="Remove webhook"
-                                            disabled={webhookSaving[key]}
-                                            onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
-                                        >×</button>
-                                    {/if}
+                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
+                                            onclick={() => saveClubWebhook(row.webhook_type, row.system_id)}
+                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
+                                        {#if row.configured}
+                                            <button
+                                                class="remove-btn"
+                                                type="button"
+                                                title="Remove webhook"
+                                                disabled={webhookSaving[key]}
+                                                onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
+                                            >×</button>
+                                        {/if}
+                                    </span>
                                     {#if webhookError[key]}
                                         <p class="field-error">{webhookError[key]}</p>
                                     {/if}
                                     {#if webhookMessage[key]}
-                                        <p class="pairing-message">{webhookMessage[key]}</p>
+                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
                                     {/if}
                                 </li>
                             {/each}
@@ -1300,36 +1302,38 @@
                         <ul class="block-list">
                             {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row}
                                 {@const key = webhookKey(row.webhook_type, null)}
-                                <li class="block-row">
+                                <li class="block-row webhook-row">
                                     <span class="block-note">
                                         {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
                                     </span>
-                                    <input
-                                        class="field-input"
-                                        type="url"
-                                        placeholder="https://discord.com/api/webhooks/…"
-                                        bind:value={webhookInputs[key]}
-                                    />
-                                    <button
-                                        class="primary-button"
-                                        type="button"
-                                        disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
-                                        onclick={() => saveClubWebhook(row.webhook_type, null)}
-                                    >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
-                                    {#if row.configured}
+                                    <span class="webhook-actions">
+                                        <input
+                                            class="field-input"
+                                            type="url"
+                                            placeholder="https://discord.com/api/webhooks/…"
+                                            bind:value={webhookInputs[key]}
+                                        />
                                         <button
-                                            class="remove-btn block-remove"
+                                            class="primary-button"
                                             type="button"
-                                            title="Remove webhook"
-                                            disabled={webhookSaving[key]}
-                                            onclick={() => removeClubWebhook(row.webhook_type, null)}
-                                        >×</button>
-                                    {/if}
+                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
+                                            onclick={() => saveClubWebhook(row.webhook_type, null)}
+                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
+                                        {#if row.configured}
+                                            <button
+                                                class="remove-btn"
+                                                type="button"
+                                                title="Remove webhook"
+                                                disabled={webhookSaving[key]}
+                                                onclick={() => removeClubWebhook(row.webhook_type, null)}
+                                            >×</button>
+                                        {/if}
+                                    </span>
                                     {#if webhookError[key]}
                                         <p class="field-error">{webhookError[key]}</p>
                                     {/if}
                                     {#if webhookMessage[key]}
-                                        <p class="pairing-message">{webhookMessage[key]}</p>
+                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
                                     {/if}
                                 </li>
                             {/each}
@@ -2381,6 +2385,29 @@
     .block-remove {
         margin-left: auto;
         flex: 0 0 auto;
+    }
+
+    /* ── Discord Webhooks ─────────────────────────────────────────────────
+       .field-input is globally width:100% (app.css), which assumes it's
+       wrapped in a .field div. Here it sits directly in a flex row, so
+       override to a bounded, flexible width — otherwise it fills the
+       whole row and pushes Save/Remove onto a disconnected trailing line. */
+    .webhook-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1 1 320px;
+    }
+
+    .webhook-actions .field-input {
+        width: auto;
+        flex: 1 1 240px;
+        min-width: 180px;
+    }
+
+    .webhook-message {
+        width: 100%;
+        margin-left: 0;
     }
 
     /* ── Forms ─────────────────────────────────────────────────────────── */
