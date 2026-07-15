@@ -9,6 +9,7 @@
         getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
     } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
+    import { fetchMySystems } from '$lib/mySystems';
 
     let { data } = $props();
 
@@ -67,12 +68,33 @@
     let auth = $state<AuthState>({ authenticated: false });
     let authLoaded = $state(false);
 
+    // The caller's own club's actually-enabled systems (GET /systems/mine,
+    // authenticated). null until resolved or if unauthenticated/failed —
+    // callers fall back to the full SYSTEMS list so an anonymous visitor
+    // still sees every tab, same as before this change.
+    let mySystems = $state<string[] | null>(null);
+    const tabSystems = $derived(mySystems ?? SYSTEMS);
+
     onMount(async () => {
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
             if (r.ok) auth = await r.json();
         } catch (_) {}
         authLoaded = true;
+        if (auth.authenticated) {
+            mySystems = await fetchMySystems();
+        }
+    });
+
+    // Once the club's real system list resolves, if the currently-selected
+    // system isn't actually enabled for this club (e.g. the server-side
+    // default of "The Old World" isn't one this club runs), switch to the
+    // first system that is — the homepage's purpose is signing up for a
+    // real session, so it shouldn't strand the user on an unusable tab.
+    $effect(() => {
+        if (mySystems && mySystems.length > 0 && !mySystems.includes(system)) {
+            selectSystem(mySystems[0]);
+        }
     });
 
     const isClaimed = $derived(auth.authenticated && auth.user?.player_id != null);
@@ -427,7 +449,7 @@
 <h2 class="page-heading">Select a System</h2>
 
 <div class="system-grid">
-    {#each SYSTEMS as s}
+    {#each tabSystems as s}
         <button
             type="button"
             class="system-card"

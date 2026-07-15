@@ -240,6 +240,31 @@
     let webhookError = $state<Record<string, string | null>>({});
     let webhookMessage = $state<Record<string, string | null>>({});
 
+    // Club self-service Systems state
+    type ClubSystemMineRow = {
+        system_id: number;
+        system_name: string;
+        enabled: boolean;
+        session_day: string;
+        session_cadence: string;
+        cadence_anchor: string | null;
+    };
+    type CatalogueSystem = { id: number; name: string; legacy_system_name: string };
+    const CADENCES = ['weekly', 'fortnightly'];
+
+    let clubSystemsMine = $state<ClubSystemMineRow[]>([]);
+    let clubSystemsMineError = $state<string | null>(null);
+    let fullCatalogue = $state<CatalogueSystem[]>([]);
+
+    let csSelectId = $state('');
+    let csSessionDay = $state('Wednesday');
+    let csSessionCadence = $state('weekly');
+    let csCadenceAnchor = $state('');
+    let csEnabled = $state(true);
+    let csSaving = $state(false);
+    let csError = $state<string | null>(null);
+    let csMessage = $state<string | null>(null);
+
     function factionsFor(system: string): string[] {
         if (system === 'The Horus Heresy') return HH_FACTIONS;
         if (system === 'Kill Team') return KT_FACTIONS;
@@ -787,6 +812,90 @@
         webhookSaving[key] = false;
     }
 
+    async function loadClubSystemsMine() {
+        clubSystemsMineError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club-systems`, { credentials: 'include' });
+        if (r.ok) {
+            clubSystemsMine = await r.json();
+        } else {
+            clubSystemsMineError = 'Failed to load systems.';
+        }
+    }
+
+    async function loadFullCatalogue() {
+        const r = await fetch(`${PUBLIC_API_URL}/systems`);
+        if (r.ok) fullCatalogue = await r.json();
+    }
+
+    function onClubSystemPick(e?: Event) {
+        csError = null;
+        csMessage = null;
+        // See onGameSystemPick's comment in platform-admin/+page.svelte for
+        // why this reads the id off the event rather than csSelectId.
+        const id = e ? (e.target as HTMLSelectElement).value : csSelectId;
+        const existing = clubSystemsMine.find((s) => String(s.system_id) === id);
+        if (existing) {
+            csSessionDay = existing.session_day;
+            csSessionCadence = existing.session_cadence;
+            csCadenceAnchor = existing.cadence_anchor ?? '';
+            csEnabled = existing.enabled;
+        } else {
+            csSessionDay = 'Wednesday';
+            csSessionCadence = 'weekly';
+            csCadenceAnchor = '';
+            csEnabled = true;
+        }
+    }
+
+    async function saveClubSystemMine() {
+        if (!csSelectId) return;
+        csSaving = true;
+        csError = null;
+        csMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club-systems`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_id: Number(csSelectId),
+                enabled: csEnabled,
+                session_day: csSessionDay,
+                session_cadence: csSessionCadence,
+                cadence_anchor: csSessionCadence === 'fortnightly' ? csCadenceAnchor || null : null
+            })
+        });
+        if (r.ok) {
+            csMessage = 'Saved.';
+            await loadClubSystemsMine();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            csError = body.detail || 'Failed to save.';
+        }
+        csSaving = false;
+    }
+
+    async function toggleClubSystemMine(row: ClubSystemMineRow) {
+        clubSystemsMineError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club-systems`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_id: row.system_id,
+                enabled: !row.enabled,
+                session_day: row.session_day,
+                session_cadence: row.session_cadence,
+                cadence_anchor: row.cadence_anchor
+            })
+        });
+        if (r.ok) {
+            await loadClubSystemsMine();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubSystemsMineError = body.detail || 'Failed to update.';
+        }
+    }
+
     async function postAchievementToDiscord() {
         achievementPosting = true;
         achievementMessage = null;
@@ -936,7 +1045,15 @@
         }
         const tasks: Promise<void>[] = [loadBlocks()];
         if (adminMe.is_super_admin) {
-            tasks.push(loadRoles(), loadGrantableUsers(), loadAchievementOptions(), loadEditPlayerList(), loadClubWebhooks());
+            tasks.push(
+                loadRoles(),
+                loadGrantableUsers(),
+                loadAchievementOptions(),
+                loadEditPlayerList(),
+                loadClubWebhooks(),
+                loadClubSystemsMine(),
+                loadFullCatalogue()
+            );
         }
         if (adminMe.is_super_admin || adminMe.scopes.includes('League')) {
             tasks.push(loadBlockPlayers());
@@ -1354,6 +1471,94 @@
                     </div>
                 {/each}
             {/if}
+        </section>
+    {/if}
+
+    {#if adminMe.is_super_admin}
+        <!-- ── Systems ─────────────────────────────────────────────────────── -->
+        <section class="admin-section">
+            <h3 class="section-heading">Systems</h3>
+            <p class="section-intro">
+                Enable or disable which systems your club runs. Disabling a system stops new
+                signups and pairing generation for it, and hides it from league standings —
+                it does not touch any existing signups, pairings, or results.
+            </p>
+
+            {#if clubSystemsMineError}
+                <p class="field-error">{clubSystemsMineError}</p>
+            {/if}
+
+            <ul class="block-list">
+                {#each clubSystemsMine as row (row.system_id)}
+                    <li class="block-row">
+                        <span class="block-names"><strong>{row.system_name}</strong></span>
+                        <span class="block-note">
+                            {row.session_cadence} {row.session_day}
+                            {#if row.cadence_anchor}(anchor {row.cadence_anchor}){/if}
+                        </span>
+                        <span class="status-badge" class:status-active={row.enabled} class:status-inactive={!row.enabled}>
+                            {row.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <button class="primary-button" type="button" onclick={() => toggleClubSystemMine(row)}>
+                            {row.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                    </li>
+                {/each}
+                {#if clubSystemsMine.length === 0}
+                    <p class="muted">No systems configured yet — add one below.</p>
+                {/if}
+            </ul>
+
+            <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveClubSystemMine(); }}>
+                <div class="field">
+                    <label class="field-label" for="cs-select">System</label>
+                    <select id="cs-select" class="field-select" bind:value={csSelectId} onchange={onClubSystemPick}>
+                        <option value="">— Select system —</option>
+                        {#each fullCatalogue as s}
+                            <option value={String(s.id)}>
+                                {s.legacy_system_name}
+                                {clubSystemsMine.some((cs) => cs.system_id === s.id) ? ' (configured)' : ' (add)'}
+                            </option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="field field-narrow">
+                    <label class="field-label" for="cs-day">Day</label>
+                    <select id="cs-day" class="field-select" bind:value={csSessionDay}>
+                        {#each DAYS as d}
+                            <option>{d}</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="field field-narrow">
+                    <label class="field-label" for="cs-cadence">Cadence</label>
+                    <select id="cs-cadence" class="field-select" bind:value={csSessionCadence}>
+                        {#each CADENCES as c}
+                            <option>{c}</option>
+                        {/each}
+                    </select>
+                </div>
+                {#if csSessionCadence === 'fortnightly'}
+                    <div class="field field-narrow">
+                        <label class="field-label" for="cs-anchor">Anchor date</label>
+                        <input id="cs-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
+                    </div>
+                {/if}
+                <div class="field-row-break"></div>
+                <label class="check-row">
+                    <input type="checkbox" bind:checked={csEnabled} />
+                    <span>Enabled</span>
+                </label>
+                {#if csError}
+                    <p class="field-error">{csError}</p>
+                {/if}
+                {#if csMessage}
+                    <p class="pairing-message">{csMessage}</p>
+                {/if}
+                <button type="submit" class="primary-button" disabled={!csSelectId || csSaving}>
+                    {csSaving ? 'Saving…' : 'Save System'}
+                </button>
+            </form>
         </section>
     {/if}
 
@@ -2442,6 +2647,35 @@
     .field-narrow {
         min-width: 130px;
         max-width: 160px;
+    }
+
+    .field-row-break {
+        flex-basis: 100%;
+        height: 0;
+    }
+
+    .system-form {
+        margin-top: 0.5rem;
+    }
+
+    .status-badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+    }
+
+    .status-active {
+        background: rgba(110, 180, 110, 0.15);
+        color: var(--color-win);
+        border: 1px solid rgba(110, 180, 110, 0.4);
+    }
+
+    .status-inactive {
+        background: rgba(148, 163, 184, 0.1);
+        color: var(--color-text-faint);
+        border: 1px solid rgba(148, 163, 184, 0.25);
     }
 
     .field-label {

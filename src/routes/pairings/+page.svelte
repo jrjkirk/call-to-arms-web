@@ -4,6 +4,7 @@
     import { fly, scale } from 'svelte/transition';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import { fetchMySystems } from '$lib/mySystems';
 
     let { data } = $props();
 
@@ -24,6 +25,16 @@
     });
 
     const systems = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+
+    // The caller's own club's actually-enabled systems (GET /systems/mine,
+    // authenticated). null until resolved or if unauthenticated/failed —
+    // falls back to the full `systems` list so anonymous browsing (e.g. a
+    // shared pairings link) is unaffected. Only restricts which tabs are
+    // offered — never force-navigates away from whatever `system` the URL
+    // already requested, so a direct link to a since-disabled system's
+    // published pairings still works.
+    let mySystems = $state<string[] | null>(null);
+    const tabSystems = $derived(mySystems ?? systems);
 
     function selectSystem(s: string) {
         if (s === system) return;
@@ -67,6 +78,9 @@
                 loggedIn = me.authenticated === true;
             }
         } catch (_) {}
+        if (loggedIn) {
+            mySystems = await fetchMySystems();
+        }
     });
 
     $effect(() => {
@@ -94,7 +108,7 @@
 <h2 class="page-heading">Weekly Pairings</h2>
 
 <div class="system-grid">
-    {#each systems as s}
+    {#each tabSystems as s}
         <button
             type="button"
             class="system-card"

@@ -23,6 +23,28 @@
         cadence_anchor: string | null;
     };
     type SystemCatalogueEntry = { id: number; name: string; legacy_system_name: string };
+    type PlatformSystemFull = {
+        id: number;
+        name: string;
+        slug: string;
+        legacy_system_name: string;
+        uses_points: boolean;
+        default_points: number | null;
+        max_points: number | null;
+        vibe_options: string[];
+        default_vibe: string | null;
+        uses_scenarios: boolean;
+        scenario_options: string[] | null;
+        default_scenario: string | null;
+        allows_demo: boolean;
+        has_intro_prepass: boolean;
+        recent_weeks: number;
+        extended_weeks: number;
+        escalation_priority: boolean;
+        faction_list: string[] | null;
+        icon_folder: string | null;
+        active: boolean;
+    };
     type SuperAdminEntry = { user_id: number; discord_name: string; player_name: string | null };
     type GrantableUser = { id: number; discord_name: string; player_name: string };
 
@@ -37,6 +59,60 @@
     let clubsError = $state<string | null>(null);
 
     let systemsCatalogue = $state<SystemCatalogueEntry[]>([]);
+
+    // Game Systems catalogue management (full CRUD, including inactive systems
+    // — distinct from systemsCatalogue above, which is the lightweight
+    // active-only GET /systems used to populate the per-club systems picker)
+    let gameSystems = $state<PlatformSystemFull[]>([]);
+    let gameSystemsLoading = $state(false);
+    let gameSystemsError = $state<string | null>(null);
+
+    let gsSelectId = $state('');
+    let gsName = $state('');
+    let gsSlug = $state('');
+    let gsLegacyName = $state('');
+    let gsUsesPoints = $state(false);
+    let gsDefaultPoints = $state<number | ''>('');
+    let gsMaxPoints = $state<number | ''>('');
+    let gsVibeOptionsStr = $state('');
+    let gsDefaultVibe = $state('');
+    let gsUsesScenarios = $state(false);
+    let gsScenarioOptionsStr = $state('');
+    let gsDefaultScenario = $state('');
+    let gsAllowsDemo = $state(false);
+    let gsHasIntroPrepass = $state(false);
+    let gsRecentWeeks = $state(3);
+    let gsExtendedWeeks = $state(6);
+    let gsEscalationPriority = $state(false);
+    let gsIconFolder = $state('');
+    let gsActive = $state(true);
+    let gsSaving = $state(false);
+    let gsError = $state<string | null>(null);
+    let gsMessage = $state<string | null>(null);
+
+    const gsIsEditing = $derived(gsSelectId !== '');
+    const gsVibeOptionsArr = $derived(
+        gsVibeOptionsStr.split(',').map((s) => s.trim()).filter(Boolean)
+    );
+    const gsScenarioOptionsArr = $derived(
+        gsScenarioOptionsStr.split(',').map((s) => s.trim()).filter(Boolean)
+    );
+
+    $effect(() => {
+        if (gsVibeOptionsArr.length === 0) {
+            gsDefaultVibe = '';
+        } else if (!gsVibeOptionsArr.includes(gsDefaultVibe)) {
+            gsDefaultVibe = gsVibeOptionsArr[0];
+        }
+    });
+
+    $effect(() => {
+        if (!gsUsesScenarios || gsScenarioOptionsArr.length === 0) {
+            gsDefaultScenario = '';
+        } else if (!gsScenarioOptionsArr.includes(gsDefaultScenario)) {
+            gsDefaultScenario = gsScenarioOptionsArr[0];
+        }
+    });
 
     // Create-club form
     let createName = $state('');
@@ -100,10 +176,23 @@
         if (r.ok) systemsCatalogue = await r.json();
     }
 
+    async function loadGameSystems() {
+        gameSystemsLoading = true;
+        gameSystemsError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/systems`, { credentials: 'include' });
+        if (r.ok) {
+            gameSystems = await r.json();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            gameSystemsError = body.detail || 'Failed to load systems.';
+        }
+        gameSystemsLoading = false;
+    }
+
     onMount(async () => {
         await loadAdminMe();
         if (adminMe?.is_platform_admin) {
-            await Promise.all([loadClubs(), loadSystemsCatalogue()]);
+            await Promise.all([loadClubs(), loadSystemsCatalogue(), loadGameSystems()]);
         }
         pageLoading = false;
     });
@@ -216,6 +305,120 @@
             systemError = body.detail || 'Failed to save system.';
         }
         systemSaving = false;
+    }
+
+    function resetGameSystemForm() {
+        gsSelectId = '';
+        gsName = '';
+        gsSlug = '';
+        gsLegacyName = '';
+        gsUsesPoints = false;
+        gsDefaultPoints = '';
+        gsMaxPoints = '';
+        gsVibeOptionsStr = '';
+        gsUsesScenarios = false;
+        gsScenarioOptionsStr = '';
+        gsAllowsDemo = false;
+        gsHasIntroPrepass = false;
+        gsRecentWeeks = 3;
+        gsExtendedWeeks = 6;
+        gsEscalationPriority = false;
+        gsIconFolder = '';
+        gsActive = true;
+        gsError = null;
+        gsMessage = null;
+    }
+
+    function onGameSystemPick(e?: Event) {
+        gsError = null;
+        gsMessage = null;
+        // Read the id straight off the event target rather than trusting
+        // gsSelectId here: Svelte fires this onchange handler and its own
+        // bind:value sync off the same native 'change' event, and the two
+        // aren't guaranteed to run in a fixed order — reading gsSelectId
+        // can observe its pre-change value. The manual call site (the
+        // table's "Edit" button) has no event and assigns gsSelectId
+        // synchronously just before calling this, so it's race-free.
+        const id = e ? (e.target as HTMLSelectElement).value : gsSelectId;
+        if (id === '') {
+            resetGameSystemForm();
+            return;
+        }
+        const existing = gameSystems.find((s) => String(s.id) === id);
+        if (!existing) return;
+        gsName = existing.name;
+        gsSlug = existing.slug;
+        gsLegacyName = existing.legacy_system_name;
+        gsUsesPoints = existing.uses_points;
+        gsDefaultPoints = existing.default_points ?? '';
+        gsMaxPoints = existing.max_points ?? '';
+        gsVibeOptionsStr = (existing.vibe_options ?? []).join(', ');
+        gsUsesScenarios = existing.uses_scenarios;
+        gsScenarioOptionsStr = (existing.scenario_options ?? []).join(', ');
+        gsAllowsDemo = existing.allows_demo;
+        gsHasIntroPrepass = existing.has_intro_prepass;
+        gsRecentWeeks = existing.recent_weeks;
+        gsExtendedWeeks = existing.extended_weeks;
+        gsEscalationPriority = existing.escalation_priority;
+        gsIconFolder = existing.icon_folder ?? '';
+        gsActive = existing.active;
+    }
+
+    async function saveGameSystem() {
+        gsSaving = true;
+        gsError = null;
+        gsMessage = null;
+
+        const body: Record<string, unknown> = {
+            name: gsName.trim(),
+            legacy_system_name: gsLegacyName.trim(),
+            uses_points: gsUsesPoints,
+            default_points: gsUsesPoints && gsDefaultPoints !== '' ? Number(gsDefaultPoints) : null,
+            max_points: gsUsesPoints && gsMaxPoints !== '' ? Number(gsMaxPoints) : null,
+            vibe_options: gsVibeOptionsArr,
+            default_vibe: gsDefaultVibe || null,
+            uses_scenarios: gsUsesScenarios,
+            scenario_options: gsUsesScenarios ? gsScenarioOptionsArr : null,
+            default_scenario: gsUsesScenarios ? gsDefaultScenario || null : null,
+            allows_demo: gsAllowsDemo,
+            has_intro_prepass: gsHasIntroPrepass,
+            recent_weeks: gsRecentWeeks,
+            extended_weeks: gsExtendedWeeks,
+            escalation_priority: gsEscalationPriority,
+            faction_list: null,
+            icon_folder: gsIconFolder.trim() || null,
+            active: gsActive
+        };
+
+        let url = `${PUBLIC_API_URL}/admin/platform/systems`;
+        if (gsIsEditing) {
+            url = `${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}`;
+        } else {
+            body.slug = gsSlug.trim();
+        }
+
+        const wasEditing = gsIsEditing;
+        const idAtSaveTime = gsSelectId;
+        const r = await fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (r.ok) {
+            gsMessage = wasEditing ? 'Updated.' : 'Created.';
+            await loadGameSystems();
+            await loadSystemsCatalogue();
+            // Only clear the form if the admin hasn't since picked a
+            // different system to edit while these reloads were in
+            // flight — otherwise this would silently wipe out whatever
+            // they'd started typing for their next edit.
+            if (!wasEditing && gsSelectId === idAtSaveTime) resetGameSystemForm();
+        } else {
+            const errBody = await r.json().catch(() => ({}));
+            gsError = errBody.detail || 'Failed to save system.';
+        }
+        gsSaving = false;
     }
 
     async function appointSuperAdmin() {
@@ -374,6 +577,192 @@
             {/if}
             <button type="submit" class="primary-button" disabled={!createName.trim() || !createSlug.trim() || creating}>
                 {creating ? 'Creating…' : 'Create Club'}
+            </button>
+        </form>
+    </section>
+
+    <section class="admin-section">
+        <h3 class="section-heading">Game Systems</h3>
+        <p class="section-intro">
+            The global catalogue of systems any club can enable for itself. Deactivating a
+            system here is a platform-wide kill switch — no club can self-service-enable it
+            while inactive.
+        </p>
+        {#if gameSystemsLoading}
+            <p class="muted">Loading…</p>
+        {:else if gameSystemsError}
+            <p class="field-error">{gameSystemsError}</p>
+        {:else}
+            <div class="table-wrap">
+                <table class="clubs-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Slug</th>
+                            <th>Status</th>
+                            <th>Points</th>
+                            <th>Scenarios</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each gameSystems as s (s.id)}
+                            <tr class:selected-row={String(s.id) === gsSelectId}>
+                                <td>{s.name}</td>
+                                <td class="muted">{s.slug}</td>
+                                <td>
+                                    <span class="status-badge" class:status-active={s.active} class:status-inactive={!s.active}>
+                                        {s.active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td>{s.uses_points ? 'Yes' : 'No'}</td>
+                                <td>{s.uses_scenarios ? 'Yes' : 'No'}</td>
+                                <td>
+                                    <button
+                                        class="primary-button"
+                                        type="button"
+                                        onclick={() => { gsSelectId = String(s.id); onGameSystemPick(); }}
+                                    >
+                                        Edit
+                                    </button>
+                                </td>
+                            </tr>
+                        {/each}
+                        {#if gameSystems.length === 0}
+                            <tr><td colspan="6" class="muted">No systems yet.</td></tr>
+                        {/if}
+                    </tbody>
+                </table>
+            </div>
+        {/if}
+
+        <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveGameSystem(); }}>
+            <div class="field">
+                <label class="field-label" for="gs-select">System</label>
+                <select id="gs-select" class="field-select" bind:value={gsSelectId} onchange={onGameSystemPick}>
+                    <option value="">— New system —</option>
+                    {#each gameSystems as s}
+                        <option value={String(s.id)}>{s.name}</option>
+                    {/each}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field-label" for="gs-name">Name</label>
+                <input id="gs-name" class="field-input" type="text" bind:value={gsName} required />
+            </div>
+            <div class="field">
+                <label class="field-label" for="gs-slug">Slug</label>
+                <input
+                    id="gs-slug"
+                    class="field-input"
+                    type="text"
+                    bind:value={gsSlug}
+                    required
+                    disabled={gsIsEditing}
+                    title={gsIsEditing ? 'Slug is immutable after creation.' : ''}
+                />
+            </div>
+            <div class="field">
+                <label class="field-label" for="gs-legacy">Legacy system name</label>
+                <input id="gs-legacy" class="field-input" type="text" bind:value={gsLegacyName} required />
+            </div>
+            <div class="field-row-break"></div>
+
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsUsesPoints} />
+                <span>Uses points</span>
+            </label>
+            {#if gsUsesPoints}
+                <div class="field field-narrow">
+                    <label class="field-label" for="gs-default-points">Default points</label>
+                    <input id="gs-default-points" class="field-input" type="number" min="0" bind:value={gsDefaultPoints} />
+                </div>
+                <div class="field field-narrow">
+                    <label class="field-label" for="gs-max-points">Max points</label>
+                    <input id="gs-max-points" class="field-input" type="number" min="0" bind:value={gsMaxPoints} />
+                </div>
+            {/if}
+            <div class="field-row-break"></div>
+
+            <div class="field">
+                <label class="field-label" for="gs-vibes">Vibe options (comma-separated)</label>
+                <input id="gs-vibes" class="field-input" type="text" bind:value={gsVibeOptionsStr} placeholder="Casual, Competitive, Intro" />
+            </div>
+            <div class="field field-narrow">
+                <label class="field-label" for="gs-default-vibe">Default vibe</label>
+                <select id="gs-default-vibe" class="field-select" bind:value={gsDefaultVibe}>
+                    {#each gsVibeOptionsArr as v}
+                        <option value={v}>{v}</option>
+                    {/each}
+                </select>
+            </div>
+            <div class="field-row-break"></div>
+
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsUsesScenarios} />
+                <span>Uses scenarios</span>
+            </label>
+            {#if gsUsesScenarios}
+                <div class="field">
+                    <label class="field-label" for="gs-scenarios">Scenario options (comma-separated)</label>
+                    <input id="gs-scenarios" class="field-input" type="text" bind:value={gsScenarioOptionsStr} placeholder="Open Battle, Weekly Scenario" />
+                </div>
+                <div class="field field-narrow">
+                    <label class="field-label" for="gs-default-scenario">Default scenario</label>
+                    <select id="gs-default-scenario" class="field-select" bind:value={gsDefaultScenario}>
+                        {#each gsScenarioOptionsArr as sc}
+                            <option value={sc}>{sc}</option>
+                        {/each}
+                    </select>
+                </div>
+            {/if}
+            <div class="field-row-break"></div>
+
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsAllowsDemo} />
+                <span>Allows demo</span>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsHasIntroPrepass} />
+                <span>Has intro pre-pass</span>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsEscalationPriority} />
+                <span>Escalation priority</span>
+            </label>
+            <div class="field-row-break"></div>
+
+            <div class="field field-narrow">
+                <label class="field-label" for="gs-recent-weeks">Recent weeks</label>
+                <input id="gs-recent-weeks" class="field-input" type="number" min="1" bind:value={gsRecentWeeks} />
+            </div>
+            <div class="field field-narrow">
+                <label class="field-label" for="gs-extended-weeks">Extended weeks</label>
+                <input id="gs-extended-weeks" class="field-input" type="number" min="1" bind:value={gsExtendedWeeks} />
+            </div>
+            <div class="field">
+                <label class="field-label" for="gs-icon-folder">Icon folder</label>
+                <input id="gs-icon-folder" class="field-input" type="text" bind:value={gsIconFolder} />
+            </div>
+            <div class="field-row-break"></div>
+
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsActive} />
+                <span>Active</span>
+            </label>
+
+            {#if gsError}
+                <p class="field-error">{gsError}</p>
+            {/if}
+            {#if gsMessage}
+                <p class="pairing-message">{gsMessage}</p>
+            {/if}
+            <button
+                type="submit"
+                class="primary-button"
+                disabled={!gsName.trim() || !gsSlug.trim() || !gsLegacyName.trim() || gsSaving}
+            >
+                {gsSaving ? 'Saving…' : gsIsEditing ? 'Update System' : 'Create System'}
             </button>
         </form>
     </section>
