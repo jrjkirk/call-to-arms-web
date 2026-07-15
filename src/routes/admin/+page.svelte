@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import { fetchWeekId } from '$lib/weekId';
     import {
         NONE_FACTION,
         TOW_FACTIONS, HH_FACTIONS, KT_FACTIONS,
@@ -239,18 +240,6 @@
     let webhookError = $state<Record<string, string | null>>({});
     let webhookMessage = $state<Record<string, string | null>>({});
 
-    function defaultWeekFor(system: string): string {
-        const target = system === 'The Old World' ? 3 : 5;
-        const d = new Date();
-        const day = d.getDay();
-        const daysAhead = (target - day + 7) % 7;
-        d.setDate(d.getDate() + (daysAhead === 0 ? 7 : daysAhead));
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const yyyy = d.getFullYear();
-        return `${dd}/${mm}/${yyyy}`;
-    }
-
     function factionsFor(system: string): string[] {
         if (system === 'The Horus Heresy') return HH_FACTIONS;
         if (system === 'Kill Team') return KT_FACTIONS;
@@ -311,9 +300,9 @@
         };
     }
 
-    function initPairingsState(scope: string): PairingsState {
+    function initPairingsState(scope: string, week: string): PairingsState {
         return {
-            week: defaultWeekFor(scope),
+            week,
             rows: [],
             editRows: [],
             published: false,
@@ -904,6 +893,12 @@
         }
     }
 
+    async function initSystemScope(scope: string) {
+        const week = await fetchWeekId(scope);
+        pairings[scope] = initPairingsState(scope, week);
+        await Promise.all([loadPairings(scope), loadAutoPairingsSettings(scope)]);
+    }
+
     async function loadHistory(scope: string) {
         historyLoading[scope] = true;
         const r = await fetch(
@@ -934,9 +929,7 @@
                 tasks.push(loadHistory(scope));
             }
             if (SYSTEM_SCOPES.includes(scope)) {
-                pairings[scope] = initPairingsState(scope);
-                tasks.push(loadPairings(scope));
-                tasks.push(loadAutoPairingsSettings(scope));
+                tasks.push(initSystemScope(scope));
             }
         }
         await Promise.all(tasks);
