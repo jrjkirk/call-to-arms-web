@@ -17,7 +17,6 @@
         getSystemsConfig().then((c) => (systemsConfig = c));
     });
 
-    const VALID_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team', 'League'];
     const SYSTEM_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team'];
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -182,7 +181,7 @@
 
     // Appoint form state
     let grantUserIdStr = $state('');
-    let grantScope = $state(VALID_SCOPES[0]);
+    let grantScope = $state('');
     let granting = $state(false);
     let grantError = $state<string | null>(null);
 
@@ -1117,7 +1116,8 @@
                     <div class="field">
                         <label class="field-label" for="grant-scope">Scope</label>
                         <select id="grant-scope" class="field-select" bind:value={grantScope}>
-                            {#each VALID_SCOPES as s}
+                            <option value="">— Select scope —</option>
+                            {#each adminMe.scopes as s}
                                 <option>{s}</option>
                             {/each}
                         </select>
@@ -1128,7 +1128,7 @@
                     <button
                         type="submit"
                         class="primary-button"
-                        disabled={!grantUserIdStr || granting}
+                        disabled={!grantUserIdStr || !grantScope || granting}
                     >
                         {granting ? 'Appointing…' : 'Appoint'}
                     </button>
