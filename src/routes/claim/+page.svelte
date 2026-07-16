@@ -19,7 +19,6 @@
 
     // New-player form
     let newName = $state('');
-    let newFaction = $state('');
     let consentChecked = $state(false);
     let newSubmitting = $state(false);
     let newErrorMsg = $state<string | null>(null);
@@ -80,7 +79,7 @@
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, default_faction: newFaction.trim() || null })
+                body: JSON.stringify({ name })
             });
             if (!response.ok) {
                 const body = await response.json().catch(() => ({}));
@@ -189,20 +188,9 @@
             />
         </div>
 
-        <div class="field">
-            <label class="field-label" for="new-faction">Default faction <span class="optional">(optional)</span></label>
-            <input
-                id="new-faction"
-                class="field-input"
-                type="text"
-                placeholder="e.g. Space Marines, Orks…"
-                bind:value={newFaction}
-            />
-        </div>
-
         <div class="privacy-notice">
             <p>
-                Your name and faction will be stored in our club database and shown to other
+                Your name will be stored in our club database and shown to other
                 members on the signup sheets and league standings. Your Discord username is
                 linked to your profile so you can manage your own signups. We don't share
                 your information with third parties.
