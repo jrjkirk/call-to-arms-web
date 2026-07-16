@@ -371,10 +371,8 @@
     let preSuccess = $state<string | null>(null);
     let preError = $state<string | null>(null);
 
-    // The prearranged form's vibe options differ from the main signup form's:
-    // TOW shows "Escalation" here (the main form filters it out — see the
-    // comment in signupOptions.ts's formConfig). This reads the backend's
-    // vibe_options unfiltered on purpose, just sorted for display.
+    // The prearranged form reads the backend's vibe_options for the system,
+    // sorted for display.
     const preVibeOptions = $derived(sortVibeOptions(configFor(systemsConfig, data.system).vibe_options));
     const preShowPoints = $derived(configFor(systemsConfig, data.system).uses_points);
     const prePlayerFactionLabel = $derived(cfg.factionLabel.replace('Your ', ''));

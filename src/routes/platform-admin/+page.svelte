@@ -40,7 +40,6 @@
         has_intro_prepass: boolean;
         recent_weeks: number;
         extended_weeks: number;
-        escalation_priority: boolean;
         faction_list: string[] | null;
         icon_folder: string | null;
         active: boolean;
@@ -83,7 +82,6 @@
     let gsHasIntroPrepass = $state(false);
     let gsRecentWeeks = $state(3);
     let gsExtendedWeeks = $state(6);
-    let gsEscalationPriority = $state(false);
     let gsActive = $state(true);
     let gsSaving = $state(false);
     let gsError = $state<string | null>(null);
@@ -338,7 +336,6 @@
         gsHasIntroPrepass = false;
         gsRecentWeeks = 3;
         gsExtendedWeeks = 6;
-        gsEscalationPriority = false;
         gsActive = true;
         gsError = null;
         gsMessage = null;
@@ -374,7 +371,6 @@
         gsHasIntroPrepass = existing.has_intro_prepass;
         gsRecentWeeks = existing.recent_weeks;
         gsExtendedWeeks = existing.extended_weeks;
-        gsEscalationPriority = existing.escalation_priority;
         gsActive = existing.active;
     }
 
@@ -398,7 +394,6 @@
             has_intro_prepass: gsHasIntroPrepass,
             recent_weeks: gsRecentWeeks,
             extended_weeks: gsExtendedWeeks,
-            escalation_priority: gsEscalationPriority,
             // faction_list / icon_folder are NOT sent: a system's factions and
             // icon directory are backend-owned rules (call-to-arms-api systems/
             // modules), not editable catalogue data. The backend ignores them
@@ -784,10 +779,6 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsHasIntroPrepass} />
                 <span>Has intro pre-pass</span>
-            </label>
-            <label class="check-row">
-                <input type="checkbox" bind:checked={gsEscalationPriority} />
-                <span>Escalation priority</span>
             </label>
             <div class="field-row-break"></div>
 

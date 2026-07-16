@@ -169,7 +169,6 @@
         const k = gt.toLowerCase();
         if (k === 'intro') return 'accent-intro';
         if (k === 'casual') return 'accent-casual';
-        if (k === 'escalation') return 'accent-escalation';
         if (k === 'competitive') return 'accent-competitive';
         if (k === 'standard') return 'accent-standard';
         return '';
@@ -463,7 +462,6 @@
     .accent-casual { border-left: 4px solid #6eb46e; }
     .accent-competitive { border-left: 4px solid #d25050; }
     .accent-intro { border-left: 4px solid #5a9bd4; }
-    .accent-escalation { border-left: 4px solid #c9a14a; }
     .accent-standard { border-left: 4px solid #9c8bd1; }
 
     .unpaired-section {

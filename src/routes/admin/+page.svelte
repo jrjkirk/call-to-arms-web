@@ -277,15 +277,13 @@
         return configFor(systemsConfig, system).faction_list;
     }
 
-    // Vibe options offered in the pairings-grid "Type" dropdowns. TOW excludes
-    // "Escalation" (matching the main signup form's formConfig). Kill Team
-    // additionally excludes "Intro" here — unlike the main signup form (fixed
-    // to "Standard", no selector) and the pre-arranged sub-form (offers
+    // Vibe options offered in the pairings-grid "Type" dropdowns. Kill Team
+    // excludes "Intro" here — unlike the main signup form (fixed to
+    // "Standard", no selector) and the pre-arranged sub-form (offers
     // Standard + Intro), this grid has historically only offered "Standard"
     // for KT pairings. Preserved exactly rather than guessed at; flag before
     // unifying it with the other two KT vibe behaviors.
     const GRID_VIBE_EXCLUSIONS: Record<string, string[]> = {
-        'The Old World': ['Escalation'],
         'Kill Team': ['Intro']
     };
 

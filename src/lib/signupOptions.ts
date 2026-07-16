@@ -84,10 +84,6 @@ export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLB
             showCanDemo: entry.allows_demo
         };
     }
-    // The Old World — this form deliberately excludes "Escalation" from the
-    // vibe list (the pre-arranged sub-form on the signup page shows the full
-    // backend list including it — see PREARRANGED_VIBE_OPTIONS in
-    // +page.svelte). Don't remove this filter to "sync" the two forms.
     return {
         factionLabel: 'Your Faction',
         factions: entry.faction_list,
@@ -95,7 +91,7 @@ export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLB
         defaultPoints: entry.default_points,
         maxPoints: entry.max_points,
         pointsCaption: null,
-        vibeOptions: sortVibeOptions(entry.vibe_options.filter((v) => v !== 'Escalation')),
+        vibeOptions: sortVibeOptions(entry.vibe_options),
         fixedVibe: null,
         defaultVibe: entry.default_vibe,
         showScenario: entry.uses_scenarios,

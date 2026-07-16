@@ -35,7 +35,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         uses_points: true,
         default_points: 2000,
         max_points: 10000,
-        vibe_options: ['Casual', 'Competitive', 'Escalation', 'Intro', 'Either'],
+        vibe_options: ['Casual', 'Competitive', 'Intro', 'Either'],
         default_vibe: 'Casual',
         uses_scenarios: true,
         scenario_options: ['Open Battle', 'Weekly Scenario'],
@@ -176,7 +176,7 @@ export function configFor(systemsConfig: SystemConfig[], legacySystemName: strin
 // display order (common option first). Sort by this canonical order;
 // anything not listed here sorts after, alphabetically, so a future new
 // option still shows up instead of being silently dropped.
-const VIBE_DISPLAY_ORDER = ['Casual', 'Competitive', 'Escalation', 'Standard', 'Intro', 'Either'];
+const VIBE_DISPLAY_ORDER = ['Casual', 'Competitive', 'Standard', 'Intro', 'Either'];
 
 export function sortVibeOptions(options: string[]): string[] {
     return [...options].sort((a, b) => {
