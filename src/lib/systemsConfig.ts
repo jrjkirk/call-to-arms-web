@@ -147,12 +147,18 @@ function normalize(raw: any): SystemConfig {
     };
 }
 
-let cachedFetch: Promise<SystemConfig[]> | null = null;
+const cachedByClub: Record<string, Promise<SystemConfig[]>> = {};
 
-/** Fetches once per page load; every caller after the first gets the same cached promise. */
-export function getSystemsConfig(): Promise<SystemConfig[]> {
-    if (!cachedFetch) {
-        cachedFetch = fetch(`${PUBLIC_API_URL}/systems`)
+/** Fetches once per (club) per page load; later callers get the cached promise.
+ *  Pass a club slug to get that club's vibe overrides (GET /systems?club=…);
+ *  omit it for the global catalogue defaults. */
+export function getSystemsConfig(club?: string): Promise<SystemConfig[]> {
+    const key = club ?? '';
+    if (!cachedByClub[key]) {
+        const url = club
+            ? `${PUBLIC_API_URL}/systems?club=${encodeURIComponent(club)}`
+            : `${PUBLIC_API_URL}/systems`;
+        cachedByClub[key] = fetch(url)
             .then((r) => {
                 if (!r.ok) throw new Error(`GET /systems failed: ${r.status}`);
                 return r.json();
@@ -160,7 +166,7 @@ export function getSystemsConfig(): Promise<SystemConfig[]> {
             .then((rows: any[]) => rows.map(normalize))
             .catch(() => FALLBACK_SYSTEMS_CONFIG);
     }
-    return cachedFetch;
+    return cachedByClub[key];
 }
 
 export function configFor(systemsConfig: SystemConfig[], legacySystemName: string): SystemConfig {

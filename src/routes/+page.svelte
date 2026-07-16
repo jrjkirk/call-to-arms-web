@@ -15,7 +15,10 @@
 
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
     onMount(() => {
-        getSystemsConfig().then((c) => (systemsConfig = c));
+        // Pass the club slug so the signup form shows this club's own vibe
+        // config (falls back to the platform default when the club hasn't set one).
+        const club = getClubSlugFromHostname(window.location.hostname);
+        getSystemsConfig(club).then((c) => (systemsConfig = c));
     });
 
     let system = $state(data.system);

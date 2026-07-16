@@ -8,7 +8,7 @@
         EXPERIENCE_OPTIONS,
     } from '$lib/signupOptions';
     import {
-        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
+        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, CANONICAL_VIBES, type SystemConfig
     } from '$lib/systemsConfig';
 
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
@@ -256,6 +256,10 @@
         session_day: string;
         session_cadence: string;
         cadence_anchor: string | null;
+        vibe_options: string[] | null;
+        default_vibe: string | null;
+        default_vibe_options: string[] | null;
+        default_default_vibe: string | null;
     };
     type CatalogueSystem = { id: number; name: string; legacy_system_name: string };
     const CADENCES = ['weekly', 'fortnightly'];
@@ -269,9 +273,18 @@
     let csSessionCadence = $state('weekly');
     let csCadenceAnchor = $state('');
     let csEnabled = $state(true);
+    let csUseDefaultVibes = $state(true);
+    let csVibeOptions = $state<string[]>([]);
+    let csDefaultVibe = $state('');
     let csSaving = $state(false);
     let csError = $state<string | null>(null);
     let csMessage = $state<string | null>(null);
+    // Name shown in the edit-system form header (existing row or catalogue add).
+    const csEditingName = $derived(
+        clubSystemsMine.find((s) => String(s.system_id) === csSelectId)?.system_name
+        ?? fullCatalogue.find((s) => String(s.id) === csSelectId)?.legacy_system_name
+        ?? ''
+    );
 
     function factionsFor(system: string): string[] {
         return configFor(systemsConfig, system).faction_list;
@@ -887,11 +900,25 @@
             csSessionCadence = existing.session_cadence;
             csCadenceAnchor = existing.cadence_anchor ?? '';
             csEnabled = existing.enabled;
+            if (existing.vibe_options && existing.vibe_options.length > 0) {
+                csUseDefaultVibes = false;
+                csVibeOptions = existing.vibe_options;
+                csDefaultVibe = existing.default_vibe ?? existing.vibe_options[0];
+            } else {
+                // No override: default to "use platform default", but pre-fill
+                // the checkboxes with that default for when they opt into custom.
+                csUseDefaultVibes = true;
+                csVibeOptions = existing.default_vibe_options ?? [];
+                csDefaultVibe = existing.default_default_vibe ?? (existing.default_vibe_options ?? [])[0] ?? '';
+            }
         } else {
             csSessionDay = 'Wednesday';
             csSessionCadence = 'weekly';
             csCadenceAnchor = '';
             csEnabled = true;
+            csUseDefaultVibes = true;
+            csVibeOptions = [];
+            csDefaultVibe = '';
         }
     }
 
@@ -909,12 +936,17 @@
                 enabled: csEnabled,
                 session_day: csSessionDay,
                 session_cadence: csSessionCadence,
-                cadence_anchor: csSessionCadence === 'fortnightly' ? csCadenceAnchor || null : null
+                cadence_anchor: csSessionCadence === 'fortnightly' ? csCadenceAnchor || null : null,
+                // [] clears the override (use the platform default); a list sets
+                // this club's own vibes.
+                vibe_options: csUseDefaultVibes ? [] : csVibeOptions,
+                default_vibe: csUseDefaultVibes ? null : csDefaultVibe
             })
         });
         if (r.ok) {
             csMessage = 'Saved.';
             await loadClubSystemsMine();
+            csSelectId = '';
         } else {
             const body = await r.json().catch(() => ({}));
             csError = body.detail || 'Failed to save.';
@@ -2251,7 +2283,10 @@
                         <span class="status-badge" class:status-active={row.enabled} class:status-inactive={!row.enabled}>
                             {row.enabled ? 'Enabled' : 'Disabled'}
                         </span>
-                        <button class="primary-button" type="button" onclick={() => toggleClubSystemMine(row)}>
+                        <button class="primary-button" type="button" onclick={() => { csSelectId = String(row.system_id); onClubSystemPick(); }}>
+                            Edit
+                        </button>
+                        <button class="secondary-button" type="button" onclick={() => toggleClubSystemMine(row)}>
                             {row.enabled ? 'Disable' : 'Enable'}
                         </button>
                     </li>
@@ -2261,56 +2296,109 @@
                 {/if}
             </ul>
 
-            <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveClubSystemMine(); }}>
-                <div class="field">
-                    <label class="field-label" for="cs-select">System</label>
-                    <select id="cs-select" class="field-select" bind:value={csSelectId} onchange={onClubSystemPick}>
-                        <option value="">— Select system —</option>
-                        {#each fullCatalogue as s}
-                            <option value={String(s.id)}>
-                                {s.legacy_system_name}
-                                {clubSystemsMine.some((cs) => cs.system_id === s.id) ? ' (configured)' : ' (add)'}
-                            </option>
+            {#if fullCatalogue.some((s) => !clubSystemsMine.some((cs) => cs.system_id === s.id))}
+                <div class="field field-narrow cs-add">
+                    <label class="field-label" for="cs-add">Add a system</label>
+                    <select
+                        id="cs-add"
+                        class="field-select"
+                        value=""
+                        onchange={(e) => { const v = (e.target as HTMLSelectElement).value; (e.target as HTMLSelectElement).value = ''; if (v) { csSelectId = v; onClubSystemPick(); } }}
+                    >
+                        <option value="">— Add a system —</option>
+                        {#each fullCatalogue.filter((s) => !clubSystemsMine.some((cs) => cs.system_id === s.id)) as s}
+                            <option value={String(s.id)}>{s.legacy_system_name}</option>
                         {/each}
                     </select>
                 </div>
-                <div class="field field-narrow">
-                    <label class="field-label" for="cs-day">Day</label>
-                    <select id="cs-day" class="field-select" bind:value={csSessionDay}>
-                        {#each DAYS as d}
-                            <option>{d}</option>
-                        {/each}
-                    </select>
-                </div>
-                <div class="field field-narrow">
-                    <label class="field-label" for="cs-cadence">Cadence</label>
-                    <select id="cs-cadence" class="field-select" bind:value={csSessionCadence}>
-                        {#each CADENCES as c}
-                            <option>{c}</option>
-                        {/each}
-                    </select>
-                </div>
-                {#if csSessionCadence === 'fortnightly'}
+            {/if}
+
+            {#if csSelectId}
+                <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveClubSystemMine(); }}>
+                    <h4 class="sub-heading">Edit system: {csEditingName}</h4>
                     <div class="field field-narrow">
-                        <label class="field-label" for="cs-anchor">Anchor date</label>
-                        <input id="cs-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
+                        <label class="field-label" for="cs-day">Day</label>
+                        <select id="cs-day" class="field-select" bind:value={csSessionDay}>
+                            {#each DAYS as d}
+                                <option>{d}</option>
+                            {/each}
+                        </select>
                     </div>
-                {/if}
-                <div class="field-row-break"></div>
-                <label class="check-row">
-                    <input type="checkbox" bind:checked={csEnabled} />
-                    <span>Enabled</span>
-                </label>
-                {#if csError}
-                    <p class="field-error">{csError}</p>
-                {/if}
-                {#if csMessage}
-                    <p class="pairing-message">{csMessage}</p>
-                {/if}
-                <button type="submit" class="primary-button" disabled={!csSelectId || csSaving}>
-                    {csSaving ? 'Saving…' : 'Save System'}
-                </button>
-            </form>
+                    <div class="field field-narrow">
+                        <label class="field-label" for="cs-cadence">Cadence</label>
+                        <select id="cs-cadence" class="field-select" bind:value={csSessionCadence}>
+                            {#each CADENCES as c}
+                                <option>{c}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    {#if csSessionCadence === 'fortnightly'}
+                        <div class="field field-narrow">
+                            <label class="field-label" for="cs-anchor">Anchor date</label>
+                            <input id="cs-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
+                        </div>
+                    {/if}
+                    <div class="field-row-break"></div>
+                    <label class="check-row">
+                        <input type="checkbox" bind:checked={csEnabled} />
+                        <span>Enabled</span>
+                    </label>
+                    <div class="field-row-break"></div>
+
+                    <div class="field cs-vibes-field">
+                        <span class="field-label">Vibes</span>
+                        <label class="check-row">
+                            <input type="checkbox" bind:checked={csUseDefaultVibes} />
+                            <span>Use the platform default vibes for this system</span>
+                        </label>
+                        {#if !csUseDefaultVibes}
+                            <div class="vibe-checkboxes">
+                                {#each CANONICAL_VIBES as v}
+                                    <label class="check-row">
+                                        <input
+                                            type="checkbox"
+                                            checked={csVibeOptions.includes(v)}
+                                            onchange={(e) => {
+                                                const set = new Set(csVibeOptions);
+                                                if ((e.target as HTMLInputElement).checked) set.add(v);
+                                                else set.delete(v);
+                                                csVibeOptions = CANONICAL_VIBES.filter((x) => set.has(x));
+                                                if (!csVibeOptions.includes(csDefaultVibe)) csDefaultVibe = csVibeOptions[0] ?? '';
+                                            }}
+                                        />
+                                        <span>{v}</span>
+                                    </label>
+                                {/each}
+                            </div>
+                            {#if csVibeOptions.length > 0}
+                                <div class="field field-narrow">
+                                    <label class="field-label" for="cs-default-vibe">Default vibe</label>
+                                    <select id="cs-default-vibe" class="field-select" bind:value={csDefaultVibe}>
+                                        {#each csVibeOptions as v}
+                                            <option value={v}>{v}</option>
+                                        {/each}
+                                    </select>
+                                </div>
+                            {:else}
+                                <p class="field-error">Pick at least one vibe, or use the platform default.</p>
+                            {/if}
+                        {/if}
+                    </div>
+
+                    {#if csError}
+                        <p class="field-error">{csError}</p>
+                    {/if}
+                    {#if csMessage}
+                        <p class="pairing-message">{csMessage}</p>
+                    {/if}
+                    <div class="system-form-actions">
+                        <button type="submit" class="primary-button" disabled={csSaving || (!csUseDefaultVibes && csVibeOptions.length === 0)}>
+                            {csSaving ? 'Saving…' : 'Save system'}
+                        </button>
+                        <button type="button" class="secondary-button" onclick={() => { csSelectId = ''; csError = null; csMessage = null; }}>Cancel</button>
+                    </div>
+                </form>
+            {/if}
         </section>
             </div>
         </details>
@@ -3341,6 +3429,32 @@
 
     .cta-reset {
         margin-top: 0.5rem;
+    }
+
+    .cs-add {
+        margin-bottom: 1rem;
+    }
+
+    .cs-edit-form {
+        border-top: 1px solid var(--color-accent-border-soft);
+        padding-top: 1rem;
+    }
+
+    .cs-vibes-field {
+        max-width: 560px;
+    }
+
+    .vibe-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 1.1rem;
+        margin: 0.35rem 0;
+    }
+
+    .system-form-actions {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
     }
 
     .cta-image-field {
