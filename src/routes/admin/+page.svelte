@@ -201,13 +201,6 @@
     let addingBlock = $state(false);
     let addBlockError = $state<string | null>(null);
 
-    // Post Achievement to Discord state
-    let achievementOptions = $state<string[]>([]);
-    let achievementPlayerName = $state('');
-    let achievementSelected = $state('');
-    let achievementPosting = $state(false);
-    let achievementMessage = $state<string | null>(null);
-    let achievementError = $state<string | null>(null);
 
     // Edit Player Profile state
     type PlayerListItem = { id: number; name: string; titles: string[]; active: boolean; admin_notes: string | null };
@@ -231,10 +224,10 @@
     };
     const WEBHOOK_TYPE_LABELS: Record<string, string> = {
         signup: 'Signup notifications',
-        pairings: 'Pairings image',
-        call_to_arms: 'Weekly reminder',
+        pairings: 'Pairings post',
+        call_to_arms: 'Call to Arms post',
         league_result: 'League result',
-        league_rankings: 'League rankings image',
+        league_rankings: 'League rankings post',
         achievement: 'Achievement announcements',
     };
     const PER_SYSTEM_WEBHOOK_TYPES = ['signup', 'pairings', 'call_to_arms'];
@@ -738,15 +731,6 @@
         s.saving = false;
     }
 
-    async function loadAchievementOptions() {
-        const r = await fetch(`${PUBLIC_API_URL}/admin/achievements/options`, { credentials: 'include' });
-        if (r.ok) {
-            const data = await r.json();
-            achievementOptions = data.achievements ?? [];
-            achievementSelected = achievementOptions[0] ?? '';
-        }
-    }
-
     async function loadEditPlayerList() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/players`, { credentials: 'include' });
         if (r.ok) editPlayerList = await r.json();
@@ -943,25 +927,6 @@
         }
     }
 
-    async function postAchievementToDiscord() {
-        achievementPosting = true;
-        achievementMessage = null;
-        achievementError = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/achievements/post-discord`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player_name: achievementPlayerName, achievement: achievementSelected }),
-        });
-        if (r.ok) {
-            achievementMessage = 'Posted to Discord.';
-        } else {
-            const body = await r.json().catch(() => ({}));
-            achievementError = body.detail || 'Post failed.';
-        }
-        achievementPosting = false;
-    }
-
     async function loadAdminMe() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
         adminMe = r.ok ? await r.json() : null;
@@ -1095,7 +1060,6 @@
             tasks.push(
                 loadRoles(),
                 loadGrantableUsers(),
-                loadAchievementOptions(),
                 loadEditPlayerList(),
                 loadClubWebhooks(),
                 loadClubSystemsMine(),
@@ -2305,13 +2269,10 @@
             {:else if webhookRows.length === 0}
                 <p class="muted">Loading…</p>
             {:else}
-                {#each PER_SYSTEM_WEBHOOK_TYPES as webhookType}
+                {#each PER_SYSTEM_WEBHOOK_TYPES.filter((t) => webhookRows.some((r) => r.webhook_type === t)) as webhookType}
                     <div class="sub-section">
                         <h4 class="sub-heading">
                             {WEBHOOK_TYPE_LABELS[webhookType]}
-                            {#if webhookType === 'call_to_arms'}
-                                <span class="badge">saving here does not yet change behavior for this webhook type</span>
-                            {/if}
                         </h4>
                         <ul class="block-list">
                             {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row (row.system_id)}
@@ -2358,7 +2319,7 @@
                     </div>
                 {/each}
 
-                {#each CLUB_LEVEL_WEBHOOK_TYPES as webhookType}
+                {#each CLUB_LEVEL_WEBHOOK_TYPES.filter((t) => webhookRows.some((r) => r.webhook_type === t)) as webhookType}
                     <div class="sub-section">
                         <h4 class="sub-heading">{WEBHOOK_TYPE_LABELS[webhookType]}</h4>
                         <ul class="block-list">
@@ -2403,41 +2364,6 @@
                     </div>
                 {/each}
             {/if}
-        </section>
-        <section class="admin-section">
-            <h3 class="section-heading">Post Achievement to Discord</h3>
-            <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); postAchievementToDiscord(); }}>
-                <div class="field">
-                    <label class="field-label" for="ach-player">Player</label>
-                    <select id="ach-player" class="field-select" bind:value={achievementPlayerName}>
-                        <option value="">— Select player —</option>
-                        {#each editPlayerList as p}
-                            <option value={p.name}>{p.name}</option>
-                        {/each}
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="field-label" for="ach-select">Achievement</label>
-                    <select id="ach-select" class="field-select" bind:value={achievementSelected}>
-                        {#each achievementOptions as opt}
-                            <option>{opt}</option>
-                        {/each}
-                    </select>
-                </div>
-                {#if achievementError}
-                    <p class="field-error">{achievementError}</p>
-                {/if}
-                {#if achievementMessage}
-                    <p class="pairing-message">{achievementMessage}</p>
-                {/if}
-                <button
-                    type="submit"
-                    class="primary-button"
-                    disabled={!achievementPlayerName.trim() || !achievementSelected || achievementPosting}
-                >
-                    {achievementPosting ? 'Posting…' : 'Post'}
-                </button>
-            </form>
         </section>
             </div>
         </details>
