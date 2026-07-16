@@ -157,6 +157,9 @@
         days_before: number;
         time: string;
         last_week: string | null;
+        template: string;
+        default_template: string;
+        tokens: string[];
         saving: boolean;
         error: string | null;
         message: string | null;
@@ -703,6 +706,9 @@
                 days_before: data.days_before,
                 time: data.time,
                 last_week: data.last_week,
+                template: data.template ?? '',
+                default_template: data.default_template ?? '',
+                tokens: data.tokens ?? [],
                 saving: false,
                 error: null,
                 message: null,
@@ -720,7 +726,7 @@
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ system: scope, enabled: s.enabled, days_before: s.days_before, time: s.time }),
+            body: JSON.stringify({ system: scope, enabled: s.enabled, days_before: s.days_before, time: s.time, template: s.template }),
         });
         if (r.ok) {
             s.message = 'Saved.';
@@ -1969,6 +1975,27 @@
                                             <span class="muted small">Last posted for: {cta.last_week}</span>
                                         </div>
                                     {/if}
+                                </div>
+                                <div class="field cta-template-field">
+                                    <label class="field-label" for="cta-template-{scope}">Message</label>
+                                    <textarea
+                                        id="cta-template-{scope}"
+                                        class="field-input field-textarea cta-template"
+                                        rows="12"
+                                        bind:value={cta.template}
+                                    ></textarea>
+                                    {#if cta.tokens.length > 0}
+                                        <p class="field-label-hint">
+                                            Tokens filled in automatically when posted:
+                                            {#each cta.tokens as tok}<code class="cta-token">&#123;{tok}&#125;</code>{/each}
+                                        </p>
+                                    {/if}
+                                    <button
+                                        class="secondary-button cta-reset"
+                                        type="button"
+                                        disabled={cta.template === cta.default_template}
+                                        onclick={() => (cta.template = cta.default_template)}
+                                    >Reset to default</button>
                                 </div>
                                 {#if cta.error}
                                     <p class="field-error">{cta.error}</p>
@@ -3248,6 +3275,34 @@
 
     .ap-last-ran {
         padding-bottom: 6px;
+    }
+
+    .cta-template-field {
+        margin-top: 0.25rem;
+        max-width: 640px;
+    }
+
+    .cta-template {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        line-height: 1.45;
+        resize: vertical;
+        min-height: 8rem;
+    }
+
+    .cta-token {
+        display: inline-block;
+        font-size: 0.72rem;
+        background: rgba(201, 161, 74, 0.12);
+        border: 1px solid rgba(201, 161, 74, 0.35);
+        color: var(--color-accent);
+        padding: 1px 5px;
+        border-radius: 4px;
+        margin: 0 0.3rem 0.25rem 0;
+    }
+
+    .cta-reset {
+        margin-top: 0.5rem;
     }
 
     /* ── Edit Player Profile ────────────────────────────────────────────── */
