@@ -1,8 +1,17 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { TOW_FACTIONS } from '$lib/signupOptions';
+    import { factionIconUrl, systemFolder } from '$lib/factions';
+    import { getSystemsConfig, configFor, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
+
+    // The league is The Old World only — its faction dropdowns and the
+    // most-played-faction icons both use TOW's backend-owned ruleset,
+    // sourced from GET /systems (with FALLBACK until it loads).
+    const LEAGUE_SYSTEM = 'The Old World';
+    let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
+    const leagueFactions = $derived(configFor(systemsConfig, LEAGUE_SYSTEM).faction_list);
+    const leagueFolder = $derived(systemFolder(LEAGUE_SYSTEM, systemsConfig));
 
     let rankings = $state<any[]>([]);
     let allPlayers = $state<{ id: number; name: string }[]>([]);
@@ -47,20 +56,6 @@
         }
     }
 
-    function factionToSlug(name: string | null): string | null {
-        if (!name) return null;
-        return name
-            .toLowerCase()
-            .replace(/&/g, 'and')
-            .replace(/[^a-z0-9]+/g, '_')
-            .replace(/^_|_$/g, '');
-    }
-
-    function factionIconUrl(name: string | null): string | null {
-        const slug = factionToSlug(name);
-        return slug ? `/icons/TOW/${slug}.png` : null;
-    }
-
     function wdl(row: { wins: number; draws: number; losses: number }): string {
         return `${row.wins}/${row.draws}/${row.losses}`;
     }
@@ -96,6 +91,7 @@
             if (r.ok) auth = await r.json();
         } catch (_) {}
         authLoaded = true;
+        getSystemsConfig().then((c) => (systemsConfig = c));
         const club = getClubSlugFromHostname(window.location.hostname);
         await Promise.all([
             loadRankings(),
@@ -226,8 +222,8 @@
                         <td class="center faction-col">
                             {#if row.most_played_faction}
                                 <span class="faction-cell">
-                                    {#if factionIconUrl(row.most_played_faction)}
-                                        <img src={factionIconUrl(row.most_played_faction)} alt={row.most_played_faction} class="faction-icon" />
+                                    {#if factionIconUrl(row.most_played_faction, leagueFolder)}
+                                        <img src={factionIconUrl(row.most_played_faction, leagueFolder)} alt={row.most_played_faction} class="faction-icon" />
                                     {/if}
                                     <em class="faction-name">{row.most_played_faction}</em>
                                 </span>
@@ -348,7 +344,7 @@
                         <label class="field-label" for="lr-p1-faction">Player 1 Faction</label>
                         <select id="lr-p1-faction" class="field-select" bind:value={p1Faction}>
                             <option>— None —</option>
-                            {#each TOW_FACTIONS as f}
+                            {#each leagueFactions as f}
                                 <option>{f}</option>
                             {/each}
                         </select>
@@ -357,7 +353,7 @@
                         <label class="field-label" for="lr-p2-faction">Player 2 Faction</label>
                         <select id="lr-p2-faction" class="field-select" bind:value={p2Faction}>
                             <option>— None —</option>
-                            {#each TOW_FACTIONS as f}
+                            {#each leagueFactions as f}
                                 <option>{f}</option>
                             {/each}
                         </select>

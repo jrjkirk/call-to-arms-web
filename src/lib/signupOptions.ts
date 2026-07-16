@@ -6,53 +6,11 @@ export const SYSTEMS = ['The Old World', 'The Horus Heresy', 'Kill Team'] as con
 
 export const NONE_FACTION = '— None —';
 
-export const TOW_FACTIONS: string[] = [
-    'Empire of Man', 'Dwarfen Mountain Holds', 'Kingdom of Bretonnia',
-    'Wood Elf Realms', 'High Elf Realms', 'Orc & Goblin Tribes',
-    'Warriors of Chaos', 'Beastmen Brayheards', 'Tomb Kings of Khemri',
-    'Skaven', 'Ogre Kingdoms', 'Lizardmen', 'Chaos Dwarfs', 'Dark Elves',
-    'Daemons of Chaos', 'Vampire Counts', 'Grand Cathay', 'Renegade Crowns'
-];
-
-export const HH_FACTIONS: string[] = [
-    'I - Dark Angels',
-    "III - Emperor's Children",
-    'IV - Iron Warriors',
-    'V - White Scars',
-    'VI - Space Wolves',
-    'VII - Imperial Fists',
-    'VIII - Night Lords',
-    'IX - Blood Angels',
-    'X - Iron Hands',
-    'XII - World Eaters',
-    'XIII - Ultramarines',
-    'XIV - Death Guard',
-    'XV - Thousand Sons',
-    'XVI - Sons of Horus',
-    'XVII - Word Bearers',
-    'XVIII - Salamanders',
-    'XIX - Raven Guard',
-    'XX - Alpha Legion',
-    'Anathema Psykana',
-    'Legio Custodes',
-    'Mechanicum',
-    'Questoris Familia',
-    'Solar Auxilia'
-];
-
-export const KT_FACTIONS: string[] = [
-    'Angels Of Death', 'Battleclade', 'Blades Of Khaine', 'Blooded',
-    'Brood Brothers', 'Canoptek Circle', 'Celestian Insidiants', 'Chaos Cult',
-    'Corsair Voidscarred', 'Death Korps', 'Deathwatch', 'Elucidian Starstriders',
-    'Exaction Squad', 'Farstalker Kinband', 'Fellgor Ravagers', 'Gellerpox Infected',
-    'Goremongers', 'Hand Of The Archon', 'Hearthkyn Salvagers', 'Hernkyn Yaegirs',
-    'Hierotek Circle', 'Hunter Clade', 'Imperial Navy Breachers', 'Inquisitorial Agents',
-    'Kasrkin', 'Kommandos', 'Legionaries', 'Mandrakes', 'Murderwing', 'Nemesis Claw',
-    'Novitiates', 'Pathfinders', 'Phobos Strike Team', 'Plague Marines', 'Ratlings',
-    'Raveners', 'Sanctifiers', 'Scout Squad', 'Strike Force Variel', 'Tempestus Aquilon',
-    'Vespid Stingwings', 'Void-Dancer Troupe', 'Warp Coven', 'Wolf Scouts',
-    'Wrecka Krew', 'Wyrmblade', 'XV26 Stealth Battlesuits', 'Unlisted Kill Team'
-];
+// Faction lists are no longer hardcoded here. Each system's factions are
+// owned by backend code (call-to-arms-api systems/ modules), served via
+// GET /systems, and carried on SystemConfig.faction_list — read below in
+// formConfig from the passed-in systemsConfig (which falls back to
+// FALLBACK_SYSTEMS_CONFIG when the API hasn't loaded).
 
 export const EXPERIENCE_OPTIONS = ['New', 'Some', 'Veteran'];
 
@@ -95,7 +53,7 @@ export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLB
     if (system === 'The Horus Heresy') {
         return {
             factionLabel: 'Your Faction',
-            factions: HH_FACTIONS,
+            factions: entry.faction_list,
             showPoints: entry.uses_points,
             defaultPoints: entry.default_points,
             maxPoints: entry.max_points,
@@ -112,7 +70,7 @@ export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLB
     if (system === 'Kill Team') {
         return {
             factionLabel: 'Your Kill Team',
-            factions: KT_FACTIONS,
+            factions: entry.faction_list,
             showPoints: entry.uses_points,
             defaultPoints: entry.default_points,
             maxPoints: entry.max_points,
@@ -132,7 +90,7 @@ export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLB
     // +page.svelte). Don't remove this filter to "sync" the two forms.
     return {
         factionLabel: 'Your Faction',
-        factions: TOW_FACTIONS,
+        factions: entry.faction_list,
         showPoints: entry.uses_points,
         defaultPoints: entry.default_points,
         maxPoints: entry.max_points,

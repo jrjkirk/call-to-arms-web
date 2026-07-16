@@ -1,3 +1,5 @@
+import { configFor, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from './systemsConfig';
+
 /**
  * Convert a faction name into the filename slug used in /static/icons/<system>/.
  * Mirrors the Python _faction_slug() in pairings.py.
@@ -17,19 +19,28 @@ export function factionSlug(name: string | null | undefined): string {
 }
 
 /**
- * Build the URL for a faction icon. Defaults to The Old World since that's
- * where most icons live and league/profile data uses TOW factions.
+ * Build the URL for a faction icon. `folder` is a system's icon directory
+ * (e.g. "TOW"/"HH"/"KT") — get it from systemFolder(). Defaults to "TOW"
+ * since that's where most icons live and league/profile data uses TOW
+ * factions.
  */
 export function factionIconUrl(
     name: string | null | undefined,
-    system: 'TOW' | 'HH' | 'KT' = 'TOW'
+    folder: string = 'TOW'
 ): string | null {
     const slug = factionSlug(name);
-    return slug ? `/icons/${system}/${slug}.png` : null;
+    return slug ? `/icons/${folder}/${slug}.png` : null;
 }
 
-export function systemFolder(system: string): 'TOW' | 'HH' | 'KT' {
-    if (system === 'The Horus Heresy') return 'HH';
-    if (system === 'Kill Team') return 'KT';
-    return 'TOW';
+/**
+ * A system's icon directory name, sourced from its backend-owned
+ * SystemConfig.icon_folder (via GET /systems). Pass the page's loaded
+ * systemsConfig; omit it to use FALLBACK_SYSTEMS_CONFIG, which carries the
+ * same TOW/HH/KT values for the three real systems.
+ */
+export function systemFolder(
+    system: string,
+    systemsConfig: SystemConfig[] = FALLBACK_SYSTEMS_CONFIG
+): string {
+    return configFor(systemsConfig, system).icon_folder;
 }

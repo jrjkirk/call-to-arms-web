@@ -3,9 +3,14 @@
     import { goto } from '$app/navigation';
     import { fly, scale } from 'svelte/transition';
     import { factionIconUrl, systemFolder } from '$lib/factions';
+    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
+
+    // Icon folder per system comes from the backend-owned SystemConfig
+    // (GET /systems); FALLBACK carries the same values until it loads.
+    let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
     let { data } = $props();
 
@@ -135,6 +140,7 @@
     }
 
     onMount(async () => {
+        getSystemsConfig().then((c) => (systemsConfig = c));
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
             if (r.ok) {
@@ -230,8 +236,8 @@
                 in:fly={{ y: 24, duration: 420, delay: cascadeDelay(i) }}
             >
                 <div class="player-row player-a">
-                    {#if factionIconUrl(m.player_a_faction, systemFolder(data.system))}
-                        <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system))} alt="" />
+                    {#if factionIconUrl(m.player_a_faction, systemFolder(data.system, systemsConfig))}
+                        <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system, systemsConfig))} alt="" />
                     {:else}
                         <div class="matchup-icon-empty"></div>
                     {/if}
@@ -248,8 +254,8 @@
                 </div>
 
                 <div class="player-row player-b">
-                    {#if m.player_b_name && factionIconUrl(m.player_b_faction, systemFolder(data.system))}
-                        <img class="matchup-icon" src={factionIconUrl(m.player_b_faction, systemFolder(data.system))} alt="" />
+                    {#if m.player_b_name && factionIconUrl(m.player_b_faction, systemFolder(data.system, systemsConfig))}
+                        <img class="matchup-icon" src={factionIconUrl(m.player_b_faction, systemFolder(data.system, systemsConfig))} alt="" />
                     {:else}
                         <div class="matchup-icon-empty"></div>
                     {/if}

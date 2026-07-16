@@ -84,7 +84,6 @@
     let gsRecentWeeks = $state(3);
     let gsExtendedWeeks = $state(6);
     let gsEscalationPriority = $state(false);
-    let gsIconFolder = $state('');
     let gsActive = $state(true);
     let gsSaving = $state(false);
     let gsError = $state<string | null>(null);
@@ -323,7 +322,6 @@
         gsRecentWeeks = 3;
         gsExtendedWeeks = 6;
         gsEscalationPriority = false;
-        gsIconFolder = '';
         gsActive = true;
         gsError = null;
         gsMessage = null;
@@ -360,7 +358,6 @@
         gsRecentWeeks = existing.recent_weeks;
         gsExtendedWeeks = existing.extended_weeks;
         gsEscalationPriority = existing.escalation_priority;
-        gsIconFolder = existing.icon_folder ?? '';
         gsActive = existing.active;
     }
 
@@ -385,8 +382,10 @@
             recent_weeks: gsRecentWeeks,
             extended_weeks: gsExtendedWeeks,
             escalation_priority: gsEscalationPriority,
-            faction_list: null,
-            icon_folder: gsIconFolder.trim() || null,
+            // faction_list / icon_folder are NOT sent: a system's factions and
+            // icon directory are backend-owned rules (call-to-arms-api systems/
+            // modules), not editable catalogue data. The backend ignores them
+            // if sent.
             active: gsActive
         };
 
@@ -739,10 +738,6 @@
             <div class="field field-narrow">
                 <label class="field-label" for="gs-extended-weeks">Extended weeks</label>
                 <input id="gs-extended-weeks" class="field-input" type="number" min="1" bind:value={gsExtendedWeeks} />
-            </div>
-            <div class="field">
-                <label class="field-label" for="gs-icon-folder">Icon folder</label>
-                <input id="gs-icon-folder" class="field-input" type="text" bind:value={gsIconFolder} />
             </div>
             <div class="field-row-break"></div>
 

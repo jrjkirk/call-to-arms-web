@@ -4,7 +4,6 @@
     import { fetchWeekId } from '$lib/weekId';
     import {
         NONE_FACTION,
-        TOW_FACTIONS, HH_FACTIONS, KT_FACTIONS,
         ETA_OPTIONS,
         EXPERIENCE_OPTIONS,
     } from '$lib/signupOptions';
@@ -266,9 +265,7 @@
     let csMessage = $state<string | null>(null);
 
     function factionsFor(system: string): string[] {
-        if (system === 'The Horus Heresy') return HH_FACTIONS;
-        if (system === 'Kill Team') return KT_FACTIONS;
-        return TOW_FACTIONS;
+        return configFor(systemsConfig, system).faction_list;
     }
 
     // Vibe options offered in the pairings-grid "Type" dropdowns. TOW excludes

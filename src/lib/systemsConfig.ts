@@ -19,6 +19,12 @@ export type SystemConfig = {
     scenario_options: string[];
     default_scenario: string;
     allows_demo: boolean;
+    // System *rules*, owned by backend code (call-to-arms-api systems/ modules)
+    // and served by GET /systems. The values below in FALLBACK_SYSTEMS_CONFIG
+    // are only the offline safety-net copy — same role as the vibe/points
+    // fallbacks above — not a second editable source of truth.
+    faction_list: string[];
+    icon_folder: string;
 };
 
 export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
@@ -34,7 +40,15 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         uses_scenarios: true,
         scenario_options: ['Open Battle', 'Weekly Scenario'],
         default_scenario: 'Open Battle',
-        allows_demo: true
+        allows_demo: true,
+        faction_list: [
+            'Empire of Man', 'Dwarfen Mountain Holds', 'Kingdom of Bretonnia',
+            'Wood Elf Realms', 'High Elf Realms', 'Orc & Goblin Tribes',
+            'Warriors of Chaos', 'Beastmen Brayheards', 'Tomb Kings of Khemri',
+            'Skaven', 'Ogre Kingdoms', 'Lizardmen', 'Chaos Dwarfs', 'Dark Elves',
+            'Daemons of Chaos', 'Vampire Counts', 'Grand Cathay', 'Renegade Crowns'
+        ],
+        icon_folder: 'TOW'
     },
     {
         slug: 'hh',
@@ -48,7 +62,33 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         uses_scenarios: false,
         scenario_options: [],
         default_scenario: '',
-        allows_demo: true
+        allows_demo: true,
+        faction_list: [
+            'I - Dark Angels',
+            "III - Emperor's Children",
+            'IV - Iron Warriors',
+            'V - White Scars',
+            'VI - Space Wolves',
+            'VII - Imperial Fists',
+            'VIII - Night Lords',
+            'IX - Blood Angels',
+            'X - Iron Hands',
+            'XII - World Eaters',
+            'XIII - Ultramarines',
+            'XIV - Death Guard',
+            'XV - Thousand Sons',
+            'XVI - Sons of Horus',
+            'XVII - Word Bearers',
+            'XVIII - Salamanders',
+            'XIX - Raven Guard',
+            'XX - Alpha Legion',
+            'Anathema Psykana',
+            'Legio Custodes',
+            'Mechanicum',
+            'Questoris Familia',
+            'Solar Auxilia'
+        ],
+        icon_folder: 'HH'
     },
     {
         slug: 'kt',
@@ -66,7 +106,21 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         uses_scenarios: false,
         scenario_options: [],
         default_scenario: '',
-        allows_demo: false
+        allows_demo: false,
+        faction_list: [
+            'Angels Of Death', 'Battleclade', 'Blades Of Khaine', 'Blooded',
+            'Brood Brothers', 'Canoptek Circle', 'Celestian Insidiants', 'Chaos Cult',
+            'Corsair Voidscarred', 'Death Korps', 'Deathwatch', 'Elucidian Starstriders',
+            'Exaction Squad', 'Farstalker Kinband', 'Fellgor Ravagers', 'Gellerpox Infected',
+            'Goremongers', 'Hand Of The Archon', 'Hearthkyn Salvagers', 'Hernkyn Yaegirs',
+            'Hierotek Circle', 'Hunter Clade', 'Imperial Navy Breachers', 'Inquisitorial Agents',
+            'Kasrkin', 'Kommandos', 'Legionaries', 'Mandrakes', 'Murderwing', 'Nemesis Claw',
+            'Novitiates', 'Pathfinders', 'Phobos Strike Team', 'Plague Marines', 'Ratlings',
+            'Raveners', 'Sanctifiers', 'Scout Squad', 'Strike Force Variel', 'Tempestus Aquilon',
+            'Vespid Stingwings', 'Void-Dancer Troupe', 'Warp Coven', 'Wolf Scouts',
+            'Wrecka Krew', 'Wyrmblade', 'XV26 Stealth Battlesuits', 'Unlisted Kill Team'
+        ],
+        icon_folder: 'KT'
     }
 ];
 
@@ -87,7 +141,9 @@ function normalize(raw: any): SystemConfig {
         uses_scenarios: !!raw.uses_scenarios,
         scenario_options: raw.scenario_options ?? [],
         default_scenario: raw.default_scenario ?? '',
-        allows_demo: !!raw.allows_demo
+        allows_demo: !!raw.allows_demo,
+        faction_list: raw.faction_list ?? [],
+        icon_folder: raw.icon_folder ?? ''
     };
 }
 

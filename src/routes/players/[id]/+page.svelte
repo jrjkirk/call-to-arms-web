@@ -3,13 +3,18 @@
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
+    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
 
     let apiData = $state<any>(null);
     let pageLoading = $state(true);
     let notFound = $state(false);
     let loadError = $state<string | null>(null);
+    // Icon folder per system comes from backend-owned SystemConfig
+    // (GET /systems); FALLBACK carries the same values until it loads.
+    let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
     onMount(async () => {
+        getSystemsConfig().then((c) => (systemsConfig = c));
         try {
             const r = await fetch(`${PUBLIC_API_URL}/players/${page.params.id}`, { credentials: 'include' });
             if (r.status === 404) {
@@ -144,8 +149,8 @@
                 <div class="faction-box-label">{sysName}</div>
                 {#each factionUsageRows(factionUsage[sysName]) as row}
                     <div class="faction-row">
-                        {#if factionIconUrl(row.name, systemFolder(sysName))}
-                            <img src={factionIconUrl(row.name, systemFolder(sysName))} alt="" />
+                        {#if factionIconUrl(row.name, systemFolder(sysName, systemsConfig))}
+                            <img src={factionIconUrl(row.name, systemFolder(sysName, systemsConfig))} alt="" />
                         {:else}
                             <div class="faction-icon-empty"></div>
                         {/if}
