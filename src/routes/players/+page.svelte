@@ -14,6 +14,10 @@
     // every system regardless of club (e.g. a Kill-Team-only club still saw
     // Old World / Horus Heresy buttons).
     let mySystems = $state<string[] | null>(null);
+    // Gates the system-filter row so it renders once, already scoped to the
+    // club's systems — never flashing the full list before /systems/mine
+    // resolves.
+    let systemsResolved = $state(false);
 
     onMount(async () => {
         try {
@@ -21,6 +25,7 @@
             if (r.ok) players = await r.json();
         } catch (_) {}
         mySystems = await fetchMySystems();
+        systemsResolved = true;
     });
 
     let query = $state('');
@@ -58,18 +63,20 @@
 
 <h2 class="page-heading">Player Profiles</h2>
 
-<div class="system-grid">
-    {#each SYSTEMS as s}
-        <button
-            type="button"
-            class="system-card"
-            class:active={activeSystems.includes(s)}
-            onclick={() => toggleSystem(s)}
-        >
-            <img src={SYSTEM_LOGOS[s]} alt={s} />
-        </button>
-    {/each}
-</div>
+{#if systemsResolved}
+    <div class="system-grid">
+        {#each SYSTEMS as s}
+            <button
+                type="button"
+                class="system-card"
+                class:active={activeSystems.includes(s)}
+                onclick={() => toggleSystem(s)}
+            >
+                <img src={SYSTEM_LOGOS[s]} alt={s} />
+            </button>
+        {/each}
+    </div>
+{/if}
 
 <div class="field">
     <label class="field-label" for="filter">Filter players</label>

@@ -74,6 +74,11 @@
     // still sees every tab, same as before this change.
     let mySystems = $state<string[] | null>(null);
     const tabSystems = $derived(mySystems ?? SYSTEMS);
+    // Gates the system-selector row so it renders once, already filtered to the
+    // club's systems — never flashing the full list before /systems/mine
+    // resolves. True after resolution (or immediately for anonymous visitors,
+    // who correctly see every system).
+    let systemsResolved = $state(false);
 
     onMount(async () => {
         try {
@@ -84,6 +89,7 @@
         if (auth.authenticated) {
             mySystems = await fetchMySystems();
         }
+        systemsResolved = true;
     });
 
     // Once the club's real system list resolves, if the currently-selected
@@ -448,18 +454,20 @@
 
 <h2 class="page-heading">Select a System</h2>
 
-<div class="system-grid">
-    {#each tabSystems as s}
-        <button
-            type="button"
-            class="system-card"
-            class:active={system === s}
-            onclick={() => selectSystem(s)}
-        >
-            <img src={SYSTEM_LOGOS[s]} alt={s} />
-        </button>
-    {/each}
-</div>
+{#if systemsResolved}
+    <div class="system-grid">
+        {#each tabSystems as s}
+            <button
+                type="button"
+                class="system-card"
+                class:active={system === s}
+                onclick={() => selectSystem(s)}
+            >
+                <img src={SYSTEM_LOGOS[s]} alt={s} />
+            </button>
+        {/each}
+    </div>
+{/if}
 
 <div class="next-session-row">
     <span>Next session: <strong>{data.week}</strong></span>

@@ -84,6 +84,10 @@
     // published pairings still works.
     let mySystems = $state<string[] | null>(null);
     const tabSystems = $derived(mySystems ?? systems);
+    // Gates the system-selector row so it renders once, already filtered to the
+    // club's systems — never flashing the full list before /systems/mine
+    // resolves. True after resolution (or immediately for anonymous visitors).
+    let systemsResolved = $state(false);
 
     // Once the club's real system list resolves, if the SSR default system
     // ("The Old World") isn't one this club runs, switch to the first one it
@@ -141,6 +145,7 @@
         if (loggedIn) {
             mySystems = await fetchMySystems();
         }
+        systemsResolved = true;
     });
 
     $effect(() => {
@@ -167,18 +172,20 @@
 
 <h2 class="page-heading">Weekly Pairings</h2>
 
-<div class="system-grid">
-    {#each tabSystems as s}
-        <button
-            type="button"
-            class="system-card"
-            class:active={system === s}
-            onclick={() => selectSystem(s)}
-        >
-            <img src={SYSTEM_LOGOS[s]} alt={s} />
-        </button>
-    {/each}
-</div>
+{#if systemsResolved}
+    <div class="system-grid">
+        {#each tabSystems as s}
+            <button
+                type="button"
+                class="system-card"
+                class:active={system === s}
+                onclick={() => selectSystem(s)}
+            >
+                <img src={SYSTEM_LOGOS[s]} alt={s} />
+            </button>
+        {/each}
+    </div>
+{/if}
 
 <div class="next-session-row">
     <span>Showing: <strong>{data.week}</strong></span>
