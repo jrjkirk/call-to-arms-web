@@ -166,18 +166,6 @@
                 </a>
             {/if}
         </div>
-
-        <div class="sidebar-divider"></div>
-
-        <div class="brand-stack">
-            <a class="sidebar-link" href="https://elementgames.co.uk" target="_blank" rel="noopener">
-                <img src="/brand/element_games.png" alt="Element Games" />
-            </a>
-
-            <a class="sidebar-link" href="https://discord.gg/tnwUCRYH" target="_blank" rel="noopener">
-                <img src="/brand/discord.png" alt="Discord" />
-            </a>
-        </div>
     </aside>
 
     <main class="container">
@@ -389,29 +377,7 @@
 
     .user-sub-warn { color: var(--color-tnt); font-style: normal; }
 
-    .sidebar-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        padding: 0.3rem 0;
-    }
-
-    .brand-stack {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    .sidebar-link img {
-        max-width: 140px;
-        max-height: 45px;
-        height: auto;
-        object-fit: contain;
-    }
-
-.container {
+    .container {
         flex: 1;
         min-width: 0;
         padding: 1.8rem 2rem 1.5rem;
@@ -594,22 +560,6 @@
 
         .sidebar-block { padding-top: 2.75rem; }
         .sidebar-divider { margin: 0.75rem 0; }
-
-        .brand-stack {
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            width: 100%;
-        }
-        .sidebar-link {
-            justify-content: center;
-            width: 100%;
-        }
-        .sidebar-link img {
-            max-height: 60px;
-            width: 100%;
-            object-fit: contain;
-        }
 
         .sidebar-button { font-size: 0.85rem; padding: 0.6rem; }
 
