@@ -116,7 +116,6 @@
     // Create-club form
     let createName = $state('');
     let createSlug = $state('');
-    let createTimezone = $state('Europe/London');
     let createContactEmail = $state('');
     let createLeaguesEnabled = $state(true);
     let createActive = $state(false);
@@ -155,7 +154,6 @@
     // Edit club details form (pre-filled from the selected club on select)
     let editName = $state('');
     let editSlug = $state('');
-    let editTimezone = $state('');
     let editEmail = $state('');
     let editLeagues = $state(true);
     let editSaving = $state(false);
@@ -217,7 +215,6 @@
             body: JSON.stringify({
                 name: createName.trim(),
                 slug: createSlug.trim(),
-                timezone: createTimezone.trim() || 'Europe/London',
                 contact_email: createContactEmail.trim() || null,
                 leagues_enabled: createLeaguesEnabled,
                 active: createActive,
@@ -227,7 +224,6 @@
             createMessage = `Created "${createName}".`;
             createName = '';
             createSlug = '';
-            createTimezone = 'Europe/London';
             createContactEmail = '';
             createLeaguesEnabled = true;
             createActive = false;
@@ -254,7 +250,6 @@
         if (c) {
             editName = c.name;
             editSlug = c.slug;
-            editTimezone = c.timezone;
             editEmail = c.contact_email ?? '';
             editLeagues = c.leagues_enabled;
         }
@@ -512,7 +507,6 @@
             body: JSON.stringify({
                 name: editName,
                 slug: editSlug,
-                timezone: editTimezone,
                 contact_email: editEmail,
                 leagues_enabled: editLeagues,
             }),
@@ -523,7 +517,6 @@
             // normalized/lowercased slug) so the form matches reality.
             editName = updated.name;
             editSlug = updated.slug;
-            editTimezone = updated.timezone;
             editEmail = updated.contact_email ?? '';
             editLeagues = updated.leagues_enabled;
             editMessage = 'Saved.';
@@ -613,10 +606,6 @@
             <div class="field">
                 <label class="field-label" for="cc-slug">Slug</label>
                 <input id="cc-slug" class="field-input" type="text" bind:value={createSlug} required />
-            </div>
-            <div class="field">
-                <label class="field-label" for="cc-timezone">Timezone</label>
-                <input id="cc-timezone" class="field-input" type="text" bind:value={createTimezone} />
             </div>
             <div class="field">
                 <label class="field-label" for="cc-email">Contact Email</label>
@@ -881,10 +870,6 @@
                             (<strong>{selectedClub.slug}</strong>) will stop working.
                         </p>
                     {/if}
-                    <div class="field">
-                        <label class="field-label" for="edit-timezone">Timezone</label>
-                        <input id="edit-timezone" class="field-input" type="text" bind:value={editTimezone} />
-                    </div>
                     <div class="field">
                         <label class="field-label" for="edit-email">Contact Email</label>
                         <input id="edit-email" class="field-input" type="email" bind:value={editEmail} />
