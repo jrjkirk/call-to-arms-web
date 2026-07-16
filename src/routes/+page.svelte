@@ -267,8 +267,11 @@
         const myPlayerId = auth.user?.player_id;
         if (!myPlayerId) return;
         try {
-            const club = getClubSlugFromHostname(window.location.hostname);
-            const params = new URLSearchParams({ system: sys, week: wk, club });
+            // No club param needed — the backend resolves the caller's own
+            // club from the session cookie (authenticated, since we already
+            // returned above otherwise) or, for anonymous callers, this
+            // request's Origin header (subdomain-based resolution).
+            const params = new URLSearchParams({ system: sys, week: wk });
             const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
             if (!r.ok) { pairingsPublished = false; myPairing = null; otherPlayers = []; return; }
             const d = await r.json();

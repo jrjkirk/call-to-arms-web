@@ -6,7 +6,6 @@
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
-    import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     // Icon folder per system comes from the backend-owned SystemConfig
     // (GET /systems); FALLBACK carries the same values until it loads.
@@ -63,8 +62,12 @@
     async function loadPairings(sys: string, wk: string) {
         pairingsLoaded = false;
         try {
-            const club = getClubSlugFromHostname(window.location.hostname);
-            const params = new URLSearchParams({ system: sys, week: wk, club });
+            // No club param needed — the backend resolves the caller's own
+            // club from the session cookie (if logged in) or, for anonymous
+            // callers, this request's Origin header (subdomain-based
+            // resolution), falling back to the single-active-club stopgap
+            // only if neither is present.
+            const params = new URLSearchParams({ system: sys, week: wk });
             const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
             pdata = r.ok ? await r.json() : EMPTY_PAIRINGS;
         } catch (_) {

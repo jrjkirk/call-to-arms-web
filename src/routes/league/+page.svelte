@@ -3,7 +3,6 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, configFor, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
-    import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     // The league is The Old World only — its faction dropdowns and the
     // most-played-faction icons both use TOW's backend-owned ruleset,
@@ -92,10 +91,12 @@
         } catch (_) {}
         authLoaded = true;
         getSystemsConfig().then((c) => (systemsConfig = c));
-        const club = getClubSlugFromHostname(window.location.hostname);
+        // No club param needed — the backend resolves the caller's own club
+        // from the session cookie (if logged in) or this request's Origin
+        // header (subdomain-based resolution) for anonymous callers.
         await Promise.all([
             loadRankings(),
-            fetch(`${PUBLIC_API_URL}/league/factions?club=${encodeURIComponent(club)}`, { credentials: 'include' }).then(r => r.ok ? r.json() : { factions: [] }).then(d => { factions = d.factions; }).catch(() => {}),
+            fetch(`${PUBLIC_API_URL}/league/factions`, { credentials: 'include' }).then(r => r.ok ? r.json() : { factions: [] }).then(d => { factions = d.factions; }).catch(() => {}),
         ]);
     });
 
