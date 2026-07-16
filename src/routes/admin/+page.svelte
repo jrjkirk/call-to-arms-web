@@ -152,6 +152,15 @@
         error: string | null;
         message: string | null;
     };
+    type CallToArmsSettings = {
+        enabled: boolean;
+        days_before: number;
+        time: string;
+        last_week: string | null;
+        saving: boolean;
+        error: string | null;
+        message: string | null;
+    };
 
     let adminMe = $state<AdminMe | null>(null);
     let adminClubSlug = $state<string | undefined>(undefined);
@@ -177,6 +186,7 @@
 
     // Per-scope auto-pairings settings
     let autoPairingsSettings = $state<Record<string, AutoPairingsSettings>>({});
+    let callToArmsSettings = $state<Record<string, CallToArmsSettings>>({});
 
     // Appoint form state
     let grantUserIdStr = $state('');
@@ -688,6 +698,46 @@
         s.saving = false;
     }
 
+    async function loadCallToArmsSettings(scope: string) {
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/call-to-arms-settings?system=${encodeURIComponent(scope)}`,
+            { credentials: 'include' }
+        );
+        if (r.ok) {
+            const data = await r.json();
+            callToArmsSettings[scope] = {
+                enabled: data.enabled,
+                days_before: data.days_before,
+                time: data.time,
+                last_week: data.last_week,
+                saving: false,
+                error: null,
+                message: null,
+            };
+        }
+    }
+
+    async function saveCallToArmsSettings(scope: string) {
+        const s = callToArmsSettings[scope];
+        if (!s) return;
+        s.saving = true;
+        s.error = null;
+        s.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/call-to-arms-settings`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, enabled: s.enabled, days_before: s.days_before, time: s.time }),
+        });
+        if (r.ok) {
+            s.message = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            s.error = body.detail || 'Save failed.';
+        }
+        s.saving = false;
+    }
+
     async function loadAchievementOptions() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/achievements/options`, { credentials: 'include' });
         if (r.ok) {
@@ -1021,7 +1071,7 @@
     async function initSystemScope(scope: string) {
         const week = await fetchWeekId(scope, fetch, adminClubSlug);
         pairings[scope] = initPairingsState(scope, week);
-        await Promise.all([loadPairings(scope), loadAutoPairingsSettings(scope)]);
+        await Promise.all([loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope)]);
     }
 
     async function loadHistory(scope: string) {
@@ -1923,6 +1973,51 @@
                                     disabled={aps.saving}
                                     onclick={() => saveAutoPairingsSettings(scope)}
                                 >{aps.saving ? 'Saving…' : 'Save'}</button>
+                            </div>
+                        {/if}
+
+                        <!-- Call to Arms settings (system scopes only) -->
+                        {#if SYSTEM_SCOPES.includes(scope) && callToArmsSettings[scope]}
+                            {@const cta = callToArmsSettings[scope]}
+                            <div class="sub-section pairings-section">
+                                <h4 class="sub-heading">Call to Arms</h4>
+                                <p class="section-intro">
+                                    Automatically post the sign-up “Call to Arms” to Discord a set number of
+                                    days before this system's session day. Posts to this system's Call to Arms
+                                    webhook (set under Discord Integrations).
+                                </p>
+                                <div class="auto-pairings-form">
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="cta-days-{scope}">Days before</label>
+                                        <input id="cta-days-{scope}" class="field-input" type="number" min="0" max="14" bind:value={cta.days_before} />
+                                    </div>
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="cta-time-{scope}">Time</label>
+                                        <input id="cta-time-{scope}" class="field-input" type="time" bind:value={cta.time} />
+                                    </div>
+                                    <div class="ap-row-break"></div>
+                                    <label class="check-row ap-toggle">
+                                        <input type="checkbox" bind:checked={cta.enabled} />
+                                        <span>Enabled</span>
+                                    </label>
+                                    {#if cta.enabled && cta.last_week}
+                                        <div class="ap-last-ran">
+                                            <span class="muted small">Last posted for: {cta.last_week}</span>
+                                        </div>
+                                    {/if}
+                                </div>
+                                {#if cta.error}
+                                    <p class="field-error">{cta.error}</p>
+                                {/if}
+                                {#if cta.message}
+                                    <p class="pairing-message">{cta.message}</p>
+                                {/if}
+                                <button
+                                    class="primary-button"
+                                    type="button"
+                                    disabled={cta.saving}
+                                    onclick={() => saveCallToArmsSettings(scope)}
+                                >{cta.saving ? 'Saving…' : 'Save'}</button>
                             </div>
                         {/if}
 
