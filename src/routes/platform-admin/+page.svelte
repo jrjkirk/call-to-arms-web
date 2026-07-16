@@ -492,6 +492,13 @@
         club's own <a href="/admin">Admin</a> tools.
     </p>
 
+    <!-- ══ Club Management ══ -->
+    <details class="dash-group" open>
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Club Management</span>
+            </summary>
+        <div class="dash-group-body">
     <section class="admin-section">
         <h3 class="section-heading">Clubs</h3>
         {#if clubsLoading}
@@ -539,7 +546,6 @@
             </div>
         {/if}
     </section>
-
     <section class="admin-section">
         <h3 class="section-heading">Create Club</h3>
         <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); createClub(); }}>
@@ -579,9 +585,17 @@
             </button>
         </form>
     </section>
+        </div>
+    </details>
 
+    <!-- ══ Game Systems ══ -->
+    <details class="dash-group">
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Game Systems</span>
+            </summary>
+        <div class="dash-group-body">
     <section class="admin-section">
-        <h3 class="section-heading">Game Systems</h3>
         <p class="section-intro">
             The global catalogue of systems any club can enable for itself. Deactivating a
             system here is a platform-wide kill switch — no club can self-service-enable it
@@ -761,10 +775,18 @@
             </button>
         </form>
     </section>
+        </div>
+    </details>
 
     {#if selectedClub}
+        <!-- ══ Managing (per-club) ══ -->
+        <details class="dash-group" open>
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Managing: {selectedClub.name}</span>
+            </summary>
+            <div class="dash-group-body">
         <section class="admin-section">
-            <h3 class="section-heading">Managing: {selectedClub.name}</h3>
 
             <div class="sub-section">
                 <h4 class="sub-heading">Active status</h4>
@@ -894,6 +916,8 @@
                 </div>
             {/if}
         </section>
+            </div>
+        </details>
     {/if}
 {/if}
 
@@ -921,6 +945,67 @@
 
     .admin-section {
         margin-bottom: 2rem;
+    }
+
+    /* ── Dashboard groups (collapsible) ──────────────────────────────────── */
+
+    .dash-group {
+        margin-bottom: 1.25rem;
+        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+    }
+
+    .dash-group-header {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 14px 18px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--color-accent);
+        background: rgba(0, 0, 0, 0.25);
+        border-bottom: 1px solid transparent;
+        user-select: none;
+        list-style: none;
+    }
+
+    .dash-group-header::-webkit-details-marker { display: none; }
+
+    .dash-group[open] .dash-group-header {
+        border-bottom-color: var(--color-accent-border);
+    }
+
+    .dash-chevron {
+        font-size: 0.7rem;
+        line-height: 1;
+        transition: transform 0.15s;
+        display: inline-block;
+    }
+
+    .dash-group[open] .dash-chevron {
+        transform: rotate(90deg);
+    }
+
+    .dash-group-title {
+        flex: 1;
+    }
+
+    .dash-group-body {
+        padding: 1.25rem 1.5rem;
+    }
+
+    .dash-group-body .admin-section {
+        margin-bottom: 1.75rem;
+    }
+
+    .dash-group-body .admin-section:last-child {
+        margin-bottom: 0;
     }
 
     .section-heading {
