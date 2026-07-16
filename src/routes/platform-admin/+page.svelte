@@ -152,6 +152,16 @@
     let activeToggling = $state(false);
     let activeError = $state<string | null>(null);
 
+    // Edit club details form (pre-filled from the selected club on select)
+    let editName = $state('');
+    let editSlug = $state('');
+    let editTimezone = $state('');
+    let editEmail = $state('');
+    let editLeagues = $state(true);
+    let editSaving = $state(false);
+    let editError = $state<string | null>(null);
+    let editMessage = $state<string | null>(null);
+
     async function loadAdminMe() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
         adminMe = r.ok ? await r.json() : null;
@@ -238,6 +248,18 @@
         appointError = null;
         activeError = null;
         resetSystemForm();
+
+        // Pre-fill the edit-details form from the club being managed.
+        const c = clubs.find((cl) => cl.id === clubId);
+        if (c) {
+            editName = c.name;
+            editSlug = c.slug;
+            editTimezone = c.timezone;
+            editEmail = c.contact_email ?? '';
+            editLeagues = c.leagues_enabled;
+        }
+        editError = null;
+        editMessage = null;
 
         const [systemsResp, superAdminsResp, grantableResp] = await Promise.all([
             fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${clubId}/systems`, { credentials: 'include' }),
@@ -476,6 +498,41 @@
             activeError = body.detail || 'Failed to update active state.';
         }
         activeToggling = false;
+    }
+
+    async function saveClubDetails() {
+        if (!selectedClub) return;
+        editSaving = true;
+        editError = null;
+        editMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClub.id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: editName,
+                slug: editSlug,
+                timezone: editTimezone,
+                contact_email: editEmail,
+                leagues_enabled: editLeagues,
+            }),
+        });
+        if (r.ok) {
+            const updated = await r.json();
+            // Re-sync to the values the server actually stored (e.g. a
+            // normalized/lowercased slug) so the form matches reality.
+            editName = updated.name;
+            editSlug = updated.slug;
+            editTimezone = updated.timezone;
+            editEmail = updated.contact_email ?? '';
+            editLeagues = updated.leagues_enabled;
+            editMessage = 'Saved.';
+            await loadClubs();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            editError = body.detail || 'Failed to save club details.';
+        }
+        editSaving = false;
     }
 </script>
 
@@ -805,6 +862,50 @@
                 </button>
             </div>
 
+            <div class="sub-section">
+                <h4 class="sub-heading">Edit details</h4>
+                <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); saveClubDetails(); }}>
+                    <div class="field">
+                        <label class="field-label" for="edit-name">Name</label>
+                        <input id="edit-name" class="field-input" type="text" bind:value={editName} required />
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="edit-slug">Slug</label>
+                        <input id="edit-slug" class="field-input" type="text" bind:value={editSlug} required />
+                    </div>
+                    {#if editSlug.trim().toLowerCase() !== selectedClub.slug}
+                        <p class="section-intro slug-warning">
+                            ⚠ Changing the slug renames this club's URL to
+                            <strong>{(editSlug.trim().toLowerCase() || '…')}.calltoarms.app</strong> —
+                            existing links, bookmarks, and subdomain logins using the old slug
+                            (<strong>{selectedClub.slug}</strong>) will stop working.
+                        </p>
+                    {/if}
+                    <div class="field">
+                        <label class="field-label" for="edit-timezone">Timezone</label>
+                        <input id="edit-timezone" class="field-input" type="text" bind:value={editTimezone} />
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="edit-email">Contact Email</label>
+                        <input id="edit-email" class="field-input" type="email" bind:value={editEmail} />
+                    </div>
+                    <div class="field-row-break"></div>
+                    <label class="check-row">
+                        <input type="checkbox" bind:checked={editLeagues} />
+                        <span>Leagues enabled</span>
+                    </label>
+                    {#if editError}
+                        <p class="field-error">{editError}</p>
+                    {/if}
+                    {#if editMessage}
+                        <p class="pairing-message">{editMessage}</p>
+                    {/if}
+                    <button type="submit" class="primary-button" disabled={!editName.trim() || !editSlug.trim() || editSaving}>
+                        {editSaving ? 'Saving…' : 'Save details'}
+                    </button>
+                </form>
+            </div>
+
             {#if detailLoading}
                 <p class="muted">Loading…</p>
             {:else if detailError}
@@ -1023,6 +1124,10 @@
         font-size: 0.85rem;
         color: var(--color-text-muted);
         margin: 0 0 1rem;
+    }
+
+    .slug-warning {
+        color: var(--color-accent);
     }
 
     .sub-section {
