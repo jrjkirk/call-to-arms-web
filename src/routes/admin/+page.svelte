@@ -16,7 +16,10 @@
         getSystemsConfig().then((c) => (systemsConfig = c));
     });
 
-    const SYSTEM_SCOPES = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+    // "League" is the one non-system scope (see the backend's valid_scopes());
+    // every other scope name is a real game system, whatever the catalogue
+    // currently has — not a fixed list that goes stale when a system is added.
+    const isSystemScope = (scope: string) => scope !== 'League';
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
     type AdminMe = { is_super_admin: boolean; scopes: string[] };
@@ -1124,7 +1127,7 @@
             } else {
                 tasks.push(loadHistory(scope));
             }
-            if (SYSTEM_SCOPES.includes(scope)) {
+            if (isSystemScope(scope)) {
                 tasks.push(initSystemScope(scope));
             }
         }
@@ -1413,7 +1416,7 @@
                         {/if}
 
                         <!-- Weekly Pairings (system scopes only) -->
-                        {#if SYSTEM_SCOPES.includes(scope) && pairings[scope]}
+                        {#if isSystemScope(scope) && pairings[scope]}
                             {@const ps = pairings[scope]}
 
                             <!-- This Week's Signups -->
@@ -1946,7 +1949,7 @@
                         {/if}
 
                         <!-- Auto-Pairings settings (system scopes only) -->
-                        {#if SYSTEM_SCOPES.includes(scope) && autoPairingsSettings[scope]}
+                        {#if isSystemScope(scope) && autoPairingsSettings[scope]}
                             {@const aps = autoPairingsSettings[scope]}
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">Auto-Pairings</h4>
@@ -1990,7 +1993,7 @@
                         {/if}
 
                         <!-- Call to Arms settings (system scopes only) -->
-                        {#if SYSTEM_SCOPES.includes(scope) && callToArmsSettings[scope]}
+                        {#if isSystemScope(scope) && callToArmsSettings[scope]}
                             {@const cta = callToArmsSettings[scope]}
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">Call to Arms</h4>
