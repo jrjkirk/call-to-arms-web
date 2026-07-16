@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import { CANONICAL_VIBES } from '$lib/systemsConfig';
 
     type AdminMe = { is_super_admin: boolean; is_platform_admin: boolean; scopes: string[] };
     type PlatformClub = {
@@ -73,7 +74,7 @@
     let gsUsesPoints = $state(false);
     let gsDefaultPoints = $state<number | ''>('');
     let gsMaxPoints = $state<number | ''>('');
-    let gsVibeOptionsStr = $state('');
+    let gsVibeOptions = $state<string[]>([]);
     let gsDefaultVibe = $state('');
     let gsUsesScenarios = $state(false);
     let gsScenarioOptionsStr = $state('');
@@ -88,18 +89,15 @@
     let gsMessage = $state<string | null>(null);
 
     const gsIsEditing = $derived(gsSelectId !== '');
-    const gsVibeOptionsArr = $derived(
-        gsVibeOptionsStr.split(',').map((s) => s.trim()).filter(Boolean)
-    );
     const gsScenarioOptionsArr = $derived(
         gsScenarioOptionsStr.split(',').map((s) => s.trim()).filter(Boolean)
     );
 
     $effect(() => {
-        if (gsVibeOptionsArr.length === 0) {
+        if (gsVibeOptions.length === 0) {
             gsDefaultVibe = '';
-        } else if (!gsVibeOptionsArr.includes(gsDefaultVibe)) {
-            gsDefaultVibe = gsVibeOptionsArr[0];
+        } else if (!gsVibeOptions.includes(gsDefaultVibe)) {
+            gsDefaultVibe = gsVibeOptions[0];
         }
     });
 
@@ -329,7 +327,7 @@
         gsUsesPoints = false;
         gsDefaultPoints = '';
         gsMaxPoints = '';
-        gsVibeOptionsStr = '';
+        gsVibeOptions = [];
         gsUsesScenarios = false;
         gsScenarioOptionsStr = '';
         gsAllowsDemo = false;
@@ -364,7 +362,7 @@
         gsUsesPoints = existing.uses_points;
         gsDefaultPoints = existing.default_points ?? '';
         gsMaxPoints = existing.max_points ?? '';
-        gsVibeOptionsStr = (existing.vibe_options ?? []).join(', ');
+        gsVibeOptions = existing.vibe_options ?? [];
         gsUsesScenarios = existing.uses_scenarios;
         gsScenarioOptionsStr = (existing.scenario_options ?? []).join(', ');
         gsAllowsDemo = existing.allows_demo;
@@ -385,7 +383,7 @@
             uses_points: gsUsesPoints,
             default_points: gsUsesPoints && gsDefaultPoints !== '' ? Number(gsDefaultPoints) : null,
             max_points: gsUsesPoints && gsMaxPoints !== '' ? Number(gsMaxPoints) : null,
-            vibe_options: gsVibeOptionsArr,
+            vibe_options: gsVibeOptions,
             default_vibe: gsDefaultVibe || null,
             uses_scenarios: gsUsesScenarios,
             scenario_options: gsUsesScenarios ? gsScenarioOptionsArr : null,
@@ -401,30 +399,18 @@
             active: gsActive
         };
 
-        let url = `${PUBLIC_API_URL}/admin/platform/systems`;
-        if (gsIsEditing) {
-            url = `${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}`;
-        } else {
-            body.slug = gsSlug.trim();
-        }
-
-        const wasEditing = gsIsEditing;
-        const idAtSaveTime = gsSelectId;
-        const r = await fetch(url, {
+        // Edit-only: systems are created in code. The form only renders when
+        // a system is selected, so gsSelectId is always set here.
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
         if (r.ok) {
-            gsMessage = wasEditing ? 'Updated.' : 'Created.';
+            gsMessage = 'Updated.';
             await loadGameSystems();
             await loadSystemsCatalogue();
-            // Only clear the form if the admin hasn't since picked a
-            // different system to edit while these reloads were in
-            // flight — otherwise this would silently wipe out whatever
-            // they'd started typing for their next edit.
-            if (!wasEditing && gsSelectId === idAtSaveTime) resetGameSystemForm();
         } else {
             const errBody = await r.json().catch(() => ({}));
             gsError = errBody.detail || 'Failed to save system.';
@@ -638,9 +624,9 @@
         <div class="dash-group-body">
     <section class="admin-section">
         <p class="section-intro">
-            The global catalogue of systems any club can enable for itself. Deactivating a
-            system here is a platform-wide kill switch — no club can self-service-enable it
-            while inactive.
+            The global catalogue of systems any club can enable for itself. New systems are
+            created in code; here you edit an existing one. Deactivating a system is a
+            platform-wide kill switch — no club can self-service-enable it while inactive.
         </p>
         {#if gameSystemsLoading}
             <p class="muted">Loading…</p>
@@ -690,16 +676,8 @@
             </div>
         {/if}
 
+        {#if gsIsEditing}
         <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveGameSystem(); }}>
-            <div class="field">
-                <label class="field-label" for="gs-select">System</label>
-                <select id="gs-select" class="field-select" bind:value={gsSelectId} onchange={onGameSystemPick}>
-                    <option value="">— New system —</option>
-                    {#each gameSystems as s}
-                        <option value={String(s.id)}>{s.name}</option>
-                    {/each}
-                </select>
-            </div>
             <div class="field">
                 <label class="field-label" for="gs-name">Name</label>
                 <input id="gs-name" class="field-input" type="text" bind:value={gsName} required />
@@ -711,9 +689,8 @@
                     class="field-input"
                     type="text"
                     bind:value={gsSlug}
-                    required
-                    disabled={gsIsEditing}
-                    title={gsIsEditing ? 'Slug is immutable after creation.' : ''}
+                    disabled
+                    title="Slug is code-defined and immutable."
                 />
             </div>
             <div class="field">
@@ -739,13 +716,29 @@
             <div class="field-row-break"></div>
 
             <div class="field">
-                <label class="field-label" for="gs-vibes">Vibe options (comma-separated)</label>
-                <input id="gs-vibes" class="field-input" type="text" bind:value={gsVibeOptionsStr} placeholder="Casual, Competitive, Intro" />
+                <span class="field-label">Vibe options</span>
+                <div class="vibe-checkboxes">
+                    {#each CANONICAL_VIBES as v}
+                        <label class="check-row">
+                            <input
+                                type="checkbox"
+                                checked={gsVibeOptions.includes(v)}
+                                onchange={(e) => {
+                                    const set = new Set(gsVibeOptions);
+                                    if ((e.target as HTMLInputElement).checked) set.add(v);
+                                    else set.delete(v);
+                                    gsVibeOptions = CANONICAL_VIBES.filter((x) => set.has(x));
+                                }}
+                            />
+                            <span>{v}</span>
+                        </label>
+                    {/each}
+                </div>
             </div>
             <div class="field field-narrow">
                 <label class="field-label" for="gs-default-vibe">Default vibe</label>
                 <select id="gs-default-vibe" class="field-select" bind:value={gsDefaultVibe}>
-                    {#each gsVibeOptionsArr as v}
+                    {#each gsVibeOptions as v}
                         <option value={v}>{v}</option>
                     {/each}
                 </select>
@@ -803,14 +796,18 @@
             {#if gsMessage}
                 <p class="pairing-message">{gsMessage}</p>
             {/if}
-            <button
-                type="submit"
-                class="primary-button"
-                disabled={!gsName.trim() || !gsSlug.trim() || !gsLegacyName.trim() || gsSaving}
-            >
-                {gsSaving ? 'Saving…' : gsIsEditing ? 'Update System' : 'Create System'}
-            </button>
+            <div class="system-form-actions">
+                <button
+                    type="submit"
+                    class="primary-button"
+                    disabled={!gsName.trim() || !gsLegacyName.trim() || gsSaving}
+                >
+                    {gsSaving ? 'Saving…' : 'Update System'}
+                </button>
+                <button type="button" class="secondary-button" onclick={resetGameSystemForm}>Cancel</button>
+            </div>
         </form>
+        {/if}
     </section>
         </div>
     </details>
@@ -1285,6 +1282,19 @@
         gap: 0.4rem;
         font-size: 0.85rem;
         color: var(--color-text-base);
+    }
+
+    .vibe-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1.1rem;
+        margin-top: 0.35rem;
+    }
+
+    .system-form-actions {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
     }
 
     .field-error {

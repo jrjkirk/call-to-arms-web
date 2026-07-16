@@ -178,6 +178,14 @@ export function configFor(systemsConfig: SystemConfig[], legacySystemName: strin
 // option still shows up instead of being silently dropped.
 const VIBE_DISPLAY_ORDER = ['Casual', 'Competitive', 'Standard', 'Intro', 'Either'];
 
+// The platform-level canonical vibe palette. Vibe configuration (platform
+// catalogue + per-club) is chosen from this fixed set — never free text — so
+// the special-meaning vibes can't be mistyped. `Intro` (drives the pairing
+// intro pre-pass) and `Standard` (baseline) are protected members that always
+// appear in the palette.
+export const CANONICAL_VIBES = ['Casual', 'Competitive', 'Standard', 'Intro', 'Either'];
+export const PROTECTED_VIBES = ['Intro', 'Standard'];
+
 export function sortVibeOptions(options: string[]): string[] {
     return [...options].sort((a, b) => {
         const ia = VIBE_DISPLAY_ORDER.indexOf(a);
