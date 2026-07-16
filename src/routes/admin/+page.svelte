@@ -160,6 +160,9 @@
         template: string;
         default_template: string;
         tokens: string[];
+        image_mode: string;
+        image_url: string;
+        supports_mission_image: boolean;
         saving: boolean;
         error: string | null;
         message: string | null;
@@ -709,6 +712,13 @@
                 template: data.template ?? '',
                 default_template: data.default_template ?? '',
                 tokens: data.tokens ?? [],
+                // Non-scenario systems have no mission image, so "default"
+                // there just means no image — show it as "none" for clarity.
+                image_mode: (data.supports_mission_image === false && (data.image_mode ?? 'default') === 'default')
+                    ? 'none'
+                    : (data.image_mode ?? 'default'),
+                image_url: data.image_url ?? '',
+                supports_mission_image: data.supports_mission_image ?? false,
                 saving: false,
                 error: null,
                 message: null,
@@ -726,7 +736,10 @@
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ system: scope, enabled: s.enabled, days_before: s.days_before, time: s.time, template: s.template }),
+            body: JSON.stringify({
+                system: scope, enabled: s.enabled, days_before: s.days_before, time: s.time,
+                template: s.template, image_mode: s.image_mode, image_url: s.image_url,
+            }),
         });
         if (r.ok) {
             s.message = 'Saved.';
@@ -1996,6 +2009,33 @@
                                         disabled={cta.template === cta.default_template}
                                         onclick={() => (cta.template = cta.default_template)}
                                     >Reset to default</button>
+                                </div>
+                                <div class="field cta-image-field">
+                                    <span class="field-label">Image</span>
+                                    <div class="cta-image-modes">
+                                        {#if cta.supports_mission_image}
+                                            <label class="radio-row">
+                                                <input type="radio" bind:group={cta.image_mode} value="default" />
+                                                <span>Mission terrain image</span>
+                                            </label>
+                                        {/if}
+                                        <label class="radio-row">
+                                            <input type="radio" bind:group={cta.image_mode} value="none" />
+                                            <span>No image</span>
+                                        </label>
+                                        <label class="radio-row">
+                                            <input type="radio" bind:group={cta.image_mode} value="custom" />
+                                            <span>Custom image URL</span>
+                                        </label>
+                                    </div>
+                                    {#if cta.image_mode === 'custom'}
+                                        <input
+                                            class="field-input cta-image-url"
+                                            type="url"
+                                            placeholder="https://…/image.png"
+                                            bind:value={cta.image_url}
+                                        />
+                                    {/if}
                                 </div>
                                 {#if cta.error}
                                     <p class="field-error">{cta.error}</p>
@@ -3303,6 +3343,30 @@
 
     .cta-reset {
         margin-top: 0.5rem;
+    }
+
+    .cta-image-field {
+        margin-top: 0.5rem;
+        max-width: 640px;
+    }
+
+    .cta-image-modes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.25rem;
+        margin: 0.35rem 0;
+    }
+
+    .radio-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.88rem;
+        cursor: pointer;
+    }
+
+    .cta-image-url {
+        margin-top: 0.35rem;
     }
 
     /* ── Edit Player Profile ────────────────────────────────────────────── */
