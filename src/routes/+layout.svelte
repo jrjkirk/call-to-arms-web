@@ -13,6 +13,7 @@
         user?: { id: number; discord_name: string; avatar_url: string | null; player_id: number | null; club_id: number };
         player?: { id: number; name: string } | null;
         claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
+        leagues_enabled?: boolean;
     };
 
     type AdminState = {
@@ -54,15 +55,15 @@
         }
     });
 
-    // The league is Old World-specific and, for now, only Manchester runs it.
-    // Show the tab only to Manchester members; other clubs don't see it until
-    // the league is made properly per-club. Hidden by default (before auth
-    // resolves and for every other club) so it never flashes in for them.
-    const MANCHESTER_CLUB_ID = 1;
+    // The league nav tab is gated on the caller's own club having leagues
+    // enabled (Club.leagues_enabled, surfaced via GET /auth/me) rather than a
+    // hardcoded club id — so it works correctly for any leagues-enabled club,
+    // not just Manchester. Hidden by default (before auth resolves and for
+    // every leagues-disabled club) so it never flashes in for them.
     const navItems = $derived([
         { href: '/', label: 'Call to Arms' },
         { href: '/pairings', label: 'Pairings' },
-        ...(auth.user?.club_id === MANCHESTER_CLUB_ID
+        ...(auth.leagues_enabled === true
             ? [{ href: '/league', label: 'Old World League' }]
             : []),
         { href: '/players', label: 'Players' }

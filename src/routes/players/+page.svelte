@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
+    import { SYSTEMS as ALL_SYSTEMS } from '$lib/signupOptions';
 
     type PlayerRow = { id: number; name: string; default_faction: string | null; systems_played?: string[] };
 
@@ -37,7 +38,6 @@
         'Kill Team': '/logos/kt.png'
     };
 
-    const ALL_SYSTEMS = ['The Old World', 'The Horus Heresy', 'Kill Team'];
     const SYSTEMS = $derived(mySystems ?? ALL_SYSTEMS);
 
     function toggleSystem(s: string) {

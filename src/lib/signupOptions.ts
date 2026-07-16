@@ -50,49 +50,23 @@ export type SignupFormConfig = {
 export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLBACK_SYSTEMS_CONFIG): SignupFormConfig {
     const entry = configFor(systemsConfig, system);
 
-    if (system === 'The Horus Heresy') {
-        return {
-            factionLabel: 'Your Faction',
-            factions: entry.faction_list,
-            showPoints: entry.uses_points,
-            defaultPoints: entry.default_points,
-            maxPoints: entry.max_points,
-            pointsCaption: null,
-            vibeOptions: sortVibeOptions(entry.vibe_options),
-            fixedVibe: null,
-            defaultVibe: entry.default_vibe,
-            showScenario: entry.uses_scenarios,
-            scenarioOptions: entry.scenario_options,
-            defaultScenario: entry.default_scenario,
-            showCanDemo: entry.allows_demo
-        };
-    }
-    if (system === 'Kill Team') {
-        return {
-            factionLabel: 'Your Kill Team',
-            factions: entry.faction_list,
-            showPoints: entry.uses_points,
-            defaultPoints: entry.default_points,
-            maxPoints: entry.max_points,
-            pointsCaption: null,
-            vibeOptions: null,
-            fixedVibe: entry.default_vibe,
-            defaultVibe: entry.default_vibe,
-            showScenario: entry.uses_scenarios,
-            scenarioOptions: entry.scenario_options,
-            defaultScenario: entry.default_scenario,
-            showCanDemo: entry.allows_demo
-        };
-    }
+    // A system with exactly one vibe option (Kill Team today) shows a fixed
+    // label instead of a dropdown — derived from entry.vibe_options itself
+    // (already the caller's own club-effective list, override included),
+    // not a hardcoded system name, so this keeps working if a future system
+    // is similarly single-vibe.
+    const vibeIsFixed = entry.vibe_options.length === 1;
+
     return {
-        factionLabel: 'Your Faction',
+        // The one field with no backend equivalent — purely cosmetic copy.
+        factionLabel: system === 'Kill Team' ? 'Your Kill Team' : 'Your Faction',
         factions: entry.faction_list,
         showPoints: entry.uses_points,
         defaultPoints: entry.default_points,
         maxPoints: entry.max_points,
         pointsCaption: null,
-        vibeOptions: sortVibeOptions(entry.vibe_options),
-        fixedVibe: null,
+        vibeOptions: vibeIsFixed ? null : sortVibeOptions(entry.vibe_options),
+        fixedVibe: vibeIsFixed ? entry.default_vibe : null,
         defaultVibe: entry.default_vibe,
         showScenario: entry.uses_scenarios,
         scenarioOptions: entry.scenario_options,
