@@ -1165,494 +1165,15 @@
     <p class="muted">You don't have admin access.</p>
 {:else}
 
-    {#if adminMe.is_super_admin}
-        <!-- ── Manage Admins ───────────────────────────────────────────────── -->
-        <section class="admin-section">
-            <h3 class="section-heading">Manage Admins</h3>
-
-            <div class="sub-section">
-                <h4 class="sub-heading">Super-admins <span class="badge">managed via SQL</span></h4>
-                {#if rolesData && rolesData.super_admins.length > 0}
-                    <ul class="name-list">
-                        {#each rolesData.super_admins as sa}
-                            <li>{displayName(sa)}</li>
-                        {/each}
-                    </ul>
-                {:else if rolesData}
-                    <p class="muted">None.</p>
-                {:else}
-                    <p class="muted">…</p>
-                {/if}
-            </div>
-
-            <div class="sub-section">
-                <h4 class="sub-heading">Scope roles</h4>
-                {#if rolesLoading}
-                    <p class="muted">Loading…</p>
-                {:else if rolesByUser.length === 0}
-                    <p class="muted">No scope admins yet.</p>
-                {:else}
-                    <div class="roles-table">
-                        {#each rolesByUser as person}
-                            <div class="roles-row">
-                                <div class="roles-person">{displayName(person)}</div>
-                                <div class="roles-scopes">
-                                    {#each person.scopes as scope}
-                                        <span class="scope-chip">
-                                            {scope}
-                                            <button
-                                                class="remove-btn"
-                                                type="button"
-                                                title="Remove {scope} from {person.discord_name}"
-                                                onclick={() => removeRole(person.user_id, scope)}
-                                            >×</button>
-                                        </span>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
-            </div>
-
-            <div class="sub-section">
-                <h4 class="sub-heading">Appoint admin</h4>
-                <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); grantRole(); }}>
-                    <div class="field">
-                        <label class="field-label" for="grant-user">User</label>
-                        <select id="grant-user" class="field-select" bind:value={grantUserIdStr}>
-                            <option value="">— Select user —</option>
-                            {#each grantableUsers as u}
-                                <option value={String(u.id)}>{u.player_name} ({u.discord_name})</option>
-                            {/each}
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label class="field-label" for="grant-scope">Scope</label>
-                        <select id="grant-scope" class="field-select" bind:value={grantScope}>
-                            <option value="">— Select scope —</option>
-                            {#each adminMe.scopes as s}
-                                <option>{s}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    {#if grantError}
-                        <p class="field-error">{grantError}</p>
-                    {/if}
-                    <button
-                        type="submit"
-                        class="primary-button"
-                        disabled={!grantUserIdStr || !grantScope || granting}
-                    >
-                        {granting ? 'Appointing…' : 'Appoint'}
-                    </button>
-                </form>
-            </div>
-        </section>
-    {/if}
-
-    {#if adminMe.is_super_admin}
-        <!-- ── Post Achievement to Discord ───────────────────────────────────── -->
-        <section class="admin-section">
-            <h3 class="section-heading">Post Achievement to Discord</h3>
-            <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); postAchievementToDiscord(); }}>
-                <div class="field">
-                    <label class="field-label" for="ach-player">Player</label>
-                    <select id="ach-player" class="field-select" bind:value={achievementPlayerName}>
-                        <option value="">— Select player —</option>
-                        {#each editPlayerList as p}
-                            <option value={p.name}>{p.name}</option>
-                        {/each}
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="field-label" for="ach-select">Achievement</label>
-                    <select id="ach-select" class="field-select" bind:value={achievementSelected}>
-                        {#each achievementOptions as opt}
-                            <option>{opt}</option>
-                        {/each}
-                    </select>
-                </div>
-                {#if achievementError}
-                    <p class="field-error">{achievementError}</p>
-                {/if}
-                {#if achievementMessage}
-                    <p class="pairing-message">{achievementMessage}</p>
-                {/if}
-                <button
-                    type="submit"
-                    class="primary-button"
-                    disabled={!achievementPlayerName.trim() || !achievementSelected || achievementPosting}
-                >
-                    {achievementPosting ? 'Posting…' : 'Post'}
-                </button>
-            </form>
-        </section>
-    {/if}
-
-    {#if adminMe.is_super_admin}
-        <!-- ── Edit Player Profile ───────────────────────────────────────────── -->
-        <section class="admin-section">
-            <h3 class="section-heading">Edit Player Profile</h3>
-            <div class="player-edit-form">
-                <div class="field">
-                    <label class="field-label" for="edit-player-picker">Choose a Player to Edit</label>
-                    <select
-                        id="edit-player-picker"
-                        class="field-select"
-                        bind:value={editPlayerIdStr}
-                        onchange={onEditPlayerChange}
-                    >
-                        <option value="">— Select player —</option>
-                        {#each editPlayerList as p}
-                            <option value={String(p.id)}>{p.name} (#{p.id})</option>
-                        {/each}
-                    </select>
-                </div>
-
-                {#if editPlayerIdStr}
-                    <div class="field player-edit-wide">
-                        <label class="field-label" for="edit-player-name">Display Name</label>
-                        <input id="edit-player-name" class="field-input" type="text" bind:value={editPlayerName} />
-                    </div>
-                    <div class="field player-edit-wide">
-                        <label class="field-label" for="edit-player-titles">Titles (one per line)</label>
-                        <textarea
-                            id="edit-player-titles"
-                            class="field-input field-textarea"
-                            rows="3"
-                            bind:value={editPlayerTitlesText}
-                        ></textarea>
-                    </div>
-                    <label class="check-row">
-                        <input type="checkbox" bind:checked={editPlayerActive} />
-                        <span>Show this player publicly</span>
-                    </label>
-                    <div class="field player-edit-wide">
-                        <label class="field-label" for="edit-player-notes">
-                            Admin Notes <span class="field-label-hint">(private — not shown publicly)</span>
-                        </label>
-                        <textarea
-                            id="edit-player-notes"
-                            class="field-input field-textarea"
-                            rows="3"
-                            bind:value={editPlayerAdminNotes}
-                        ></textarea>
-                    </div>
-                    {#if editPlayerError}
-                        <p class="field-error">{editPlayerError}</p>
-                    {/if}
-                    {#if editPlayerMessage}
-                        <p class="pairing-message">{editPlayerMessage}</p>
-                    {/if}
-                    <button
-                        class="primary-button"
-                        type="button"
-                        disabled={editPlayerSaving}
-                        onclick={saveEditPlayer}
-                    >{editPlayerSaving ? 'Saving…' : 'Save'}</button>
-                {/if}
-            </div>
-        </section>
-    {/if}
-
-    {#if adminMe.is_super_admin}
-        <!-- ── Discord Webhooks ───────────────────────────────────────────────── -->
-        <section class="admin-section">
-            <h3 class="section-heading">Discord Webhooks</h3>
-            <p class="section-intro">
-                Configure this club's Discord webhook URLs. Once saved, a URL is never shown again —
-                only the last 4 characters, so you can confirm you saved the right one.
-            </p>
-
-            {#if webhookListError}
-                <p class="field-error">{webhookListError}</p>
-            {:else if webhookRows.length === 0}
-                <p class="muted">Loading…</p>
-            {:else}
-                {#each PER_SYSTEM_WEBHOOK_TYPES as webhookType}
-                    <div class="sub-section">
-                        <h4 class="sub-heading">
-                            {WEBHOOK_TYPE_LABELS[webhookType]}
-                            {#if webhookType === 'call_to_arms'}
-                                <span class="badge">saving here does not yet change behavior for this webhook type</span>
-                            {/if}
-                        </h4>
-                        <ul class="block-list">
-                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row (row.system_id)}
-                                {@const key = webhookKey(row.webhook_type, row.system_id)}
-                                <li class="block-row webhook-row">
-                                    <span class="block-names">
-                                        <strong>{row.system_name}</strong>
-                                    </span>
-                                    <span class="block-note">
-                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
-                                    </span>
-                                    <span class="webhook-actions">
-                                        <input
-                                            class="field-input"
-                                            type="url"
-                                            placeholder="https://discord.com/api/webhooks/…"
-                                            bind:value={webhookInputs[key]}
-                                        />
-                                        <button
-                                            class="primary-button"
-                                            type="button"
-                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
-                                            onclick={() => saveClubWebhook(row.webhook_type, row.system_id)}
-                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
-                                        {#if row.configured}
-                                            <button
-                                                class="remove-btn"
-                                                type="button"
-                                                title="Remove webhook"
-                                                disabled={webhookSaving[key]}
-                                                onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
-                                            >×</button>
-                                        {/if}
-                                    </span>
-                                    {#if webhookError[key]}
-                                        <p class="field-error">{webhookError[key]}</p>
-                                    {/if}
-                                    {#if webhookMessage[key]}
-                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
-                                    {/if}
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
-                {/each}
-
-                {#each CLUB_LEVEL_WEBHOOK_TYPES as webhookType}
-                    <div class="sub-section">
-                        <h4 class="sub-heading">{WEBHOOK_TYPE_LABELS[webhookType]}</h4>
-                        <ul class="block-list">
-                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row}
-                                {@const key = webhookKey(row.webhook_type, null)}
-                                <li class="block-row webhook-row">
-                                    <span class="block-note">
-                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
-                                    </span>
-                                    <span class="webhook-actions">
-                                        <input
-                                            class="field-input"
-                                            type="url"
-                                            placeholder="https://discord.com/api/webhooks/…"
-                                            bind:value={webhookInputs[key]}
-                                        />
-                                        <button
-                                            class="primary-button"
-                                            type="button"
-                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
-                                            onclick={() => saveClubWebhook(row.webhook_type, null)}
-                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
-                                        {#if row.configured}
-                                            <button
-                                                class="remove-btn"
-                                                type="button"
-                                                title="Remove webhook"
-                                                disabled={webhookSaving[key]}
-                                                onclick={() => removeClubWebhook(row.webhook_type, null)}
-                                            >×</button>
-                                        {/if}
-                                    </span>
-                                    {#if webhookError[key]}
-                                        <p class="field-error">{webhookError[key]}</p>
-                                    {/if}
-                                    {#if webhookMessage[key]}
-                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
-                                    {/if}
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
-                {/each}
-            {/if}
-        </section>
-    {/if}
-
-    {#if adminMe.is_super_admin}
-        <!-- ── Systems ─────────────────────────────────────────────────────── -->
-        <section class="admin-section">
-            <h3 class="section-heading">Systems</h3>
-            <p class="section-intro">
-                Enable or disable which systems your club runs. Disabling a system stops new
-                signups and pairing generation for it, and hides it from league standings —
-                it does not touch any existing signups, pairings, or results.
-            </p>
-
-            {#if clubSystemsMineError}
-                <p class="field-error">{clubSystemsMineError}</p>
-            {/if}
-
-            <ul class="block-list">
-                {#each clubSystemsMine as row (row.system_id)}
-                    <li class="block-row">
-                        <span class="block-names"><strong>{row.system_name}</strong></span>
-                        <span class="block-note">
-                            {row.session_cadence} {row.session_day}
-                            {#if row.cadence_anchor}(anchor {row.cadence_anchor}){/if}
-                        </span>
-                        <span class="status-badge" class:status-active={row.enabled} class:status-inactive={!row.enabled}>
-                            {row.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                        <button class="primary-button" type="button" onclick={() => toggleClubSystemMine(row)}>
-                            {row.enabled ? 'Disable' : 'Enable'}
-                        </button>
-                    </li>
-                {/each}
-                {#if clubSystemsMine.length === 0}
-                    <p class="muted">No systems configured yet — add one below.</p>
-                {/if}
-            </ul>
-
-            <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveClubSystemMine(); }}>
-                <div class="field">
-                    <label class="field-label" for="cs-select">System</label>
-                    <select id="cs-select" class="field-select" bind:value={csSelectId} onchange={onClubSystemPick}>
-                        <option value="">— Select system —</option>
-                        {#each fullCatalogue as s}
-                            <option value={String(s.id)}>
-                                {s.legacy_system_name}
-                                {clubSystemsMine.some((cs) => cs.system_id === s.id) ? ' (configured)' : ' (add)'}
-                            </option>
-                        {/each}
-                    </select>
-                </div>
-                <div class="field field-narrow">
-                    <label class="field-label" for="cs-day">Day</label>
-                    <select id="cs-day" class="field-select" bind:value={csSessionDay}>
-                        {#each DAYS as d}
-                            <option>{d}</option>
-                        {/each}
-                    </select>
-                </div>
-                <div class="field field-narrow">
-                    <label class="field-label" for="cs-cadence">Cadence</label>
-                    <select id="cs-cadence" class="field-select" bind:value={csSessionCadence}>
-                        {#each CADENCES as c}
-                            <option>{c}</option>
-                        {/each}
-                    </select>
-                </div>
-                {#if csSessionCadence === 'fortnightly'}
-                    <div class="field field-narrow">
-                        <label class="field-label" for="cs-anchor">Anchor date</label>
-                        <input id="cs-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
-                    </div>
-                {/if}
-                <div class="field-row-break"></div>
-                <label class="check-row">
-                    <input type="checkbox" bind:checked={csEnabled} />
-                    <span>Enabled</span>
-                </label>
-                {#if csError}
-                    <p class="field-error">{csError}</p>
-                {/if}
-                {#if csMessage}
-                    <p class="pairing-message">{csMessage}</p>
-                {/if}
-                <button type="submit" class="primary-button" disabled={!csSelectId || csSaving}>
-                    {csSaving ? 'Saving…' : 'Save System'}
-                </button>
-            </form>
-        </section>
-    {/if}
-
-    <!-- ── Pairing Blocks ─────────────────────────────────────────────── -->
-    <section class="admin-section">
-        <h3 class="section-heading">Pairing Blocks</h3>
-        <p class="section-intro">Blocks prevent two players from being paired. They apply across all systems.</p>
-
-        {#if adminMe.is_super_admin}
-            <div class="sub-section">
-                <h4 class="sub-heading">Add block</h4>
-                <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); addBlock(); }}>
-                    <div class="field">
-                        <label class="field-label" for="block-p1">Player A</label>
-                        <select id="block-p1" class="field-select" bind:value={addBlockP1Str}>
-                            <option value="">— Select —</option>
-                            {#each blockPlayers as p}
-                                <option value={String(p.id)}>{p.name}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label class="field-label" for="block-p2">Player B</label>
-                        <select id="block-p2" class="field-select" bind:value={addBlockP2Str}>
-                            <option value="">— Select —</option>
-                            {#each blockPlayers as p}
-                                <option value={String(p.id)}>{p.name}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label class="field-label" for="block-note">Note</label>
-                        <input
-                            id="block-note"
-                            class="field-input"
-                            type="text"
-                            bind:value={addBlockNote}
-                            placeholder="optional reason…"
-                        />
-                    </div>
-                    {#if addBlockP1Str && addBlockP2Str && addBlockP1Str === addBlockP2Str}
-                        <p class="field-error">Players must be different.</p>
-                    {/if}
-                    {#if addBlockError}
-                        <p class="field-error">{addBlockError}</p>
-                    {/if}
-                    <button
-                        type="submit"
-                        class="primary-button"
-                        disabled={!addBlockP1Str || !addBlockP2Str || addBlockP1Str === addBlockP2Str || addingBlock}
-                    >
-                        {addingBlock ? 'Adding…' : 'Add Block'}
-                    </button>
-                </form>
-            </div>
-        {/if}
-
-        <div class="sub-section">
-            {#if blocksLoading}
-                <p class="muted">Loading…</p>
-            {:else if blocks.length === 0}
-                <p class="muted">No blocks configured.</p>
-            {:else}
-                <ul class="block-list">
-                    {#each blocks as block}
-                        <li class="block-row">
-                            <span class="block-names">
-                                <strong>{block.player_a_name}</strong>
-                                <span class="block-x">✕</span>
-                                <strong>{block.player_b_name}</strong>
-                            </span>
-                            {#if block.note}
-                                <span class="block-note">{block.note}</span>
-                            {/if}
-                            {#if adminMe.is_super_admin}
-                                <button
-                                    class="remove-btn block-remove"
-                                    type="button"
-                                    title="Remove block"
-                                    onclick={() => removeBlock(block.player_a_id, block.player_b_id)}
-                                >×</button>
-                            {/if}
-                        </li>
-                    {/each}
-                </ul>
-            {/if}
-        </div>
-
-        {#if !adminMe.is_super_admin}
-            <p class="muted small">Block list is managed by the lead admin.</p>
-        {/if}
-    </section>
-
-    <!-- ── Per-scope cards ───────────────────────────────────────────── -->
     {#if adminMe.scopes.length > 0}
+        <!-- ══ Weekly Pairings & Games ══ -->
+        <details class="dash-group" open>
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Weekly Pairings &amp; Games</span>
+            </summary>
+            <div class="dash-group-body">
         <section class="admin-section">
-            <h3 class="section-heading">Your Scopes</h3>
             <div class="scope-cards">
                 {#each adminMe.scopes as scope}
                     <div class="scope-card">
@@ -2409,6 +1930,513 @@
                 {/each}
             </div>
         </section>
+            </div>
+        </details>
+    {/if}
+
+    <!-- ══ Players & Blocks ══ -->
+    <details class="dash-group">
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Players &amp; Blocks</span>
+            </summary>
+        <div class="dash-group-body">
+    {#if adminMe.is_super_admin}
+        <!-- ── Edit Player Profile ───────────────────────────────────────────── -->
+        <section class="admin-section">
+            <h3 class="section-heading">Edit Player Profile</h3>
+            <div class="player-edit-form">
+                <div class="field">
+                    <label class="field-label" for="edit-player-picker">Choose a Player to Edit</label>
+                    <select
+                        id="edit-player-picker"
+                        class="field-select"
+                        bind:value={editPlayerIdStr}
+                        onchange={onEditPlayerChange}
+                    >
+                        <option value="">— Select player —</option>
+                        {#each editPlayerList as p}
+                            <option value={String(p.id)}>{p.name} (#{p.id})</option>
+                        {/each}
+                    </select>
+                </div>
+
+                {#if editPlayerIdStr}
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="edit-player-name">Display Name</label>
+                        <input id="edit-player-name" class="field-input" type="text" bind:value={editPlayerName} />
+                    </div>
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="edit-player-titles">Titles (one per line)</label>
+                        <textarea
+                            id="edit-player-titles"
+                            class="field-input field-textarea"
+                            rows="3"
+                            bind:value={editPlayerTitlesText}
+                        ></textarea>
+                    </div>
+                    <label class="check-row">
+                        <input type="checkbox" bind:checked={editPlayerActive} />
+                        <span>Show this player publicly</span>
+                    </label>
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="edit-player-notes">
+                            Admin Notes <span class="field-label-hint">(private — not shown publicly)</span>
+                        </label>
+                        <textarea
+                            id="edit-player-notes"
+                            class="field-input field-textarea"
+                            rows="3"
+                            bind:value={editPlayerAdminNotes}
+                        ></textarea>
+                    </div>
+                    {#if editPlayerError}
+                        <p class="field-error">{editPlayerError}</p>
+                    {/if}
+                    {#if editPlayerMessage}
+                        <p class="pairing-message">{editPlayerMessage}</p>
+                    {/if}
+                    <button
+                        class="primary-button"
+                        type="button"
+                        disabled={editPlayerSaving}
+                        onclick={saveEditPlayer}
+                    >{editPlayerSaving ? 'Saving…' : 'Save'}</button>
+                {/if}
+            </div>
+        </section>
+    {/if}
+    <section class="admin-section">
+        <h3 class="section-heading">Pairing Blocks</h3>
+        <p class="section-intro">Blocks prevent two players from being paired. They apply across all systems.</p>
+
+        {#if adminMe.is_super_admin}
+            <div class="sub-section">
+                <h4 class="sub-heading">Add block</h4>
+                <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); addBlock(); }}>
+                    <div class="field">
+                        <label class="field-label" for="block-p1">Player A</label>
+                        <select id="block-p1" class="field-select" bind:value={addBlockP1Str}>
+                            <option value="">— Select —</option>
+                            {#each blockPlayers as p}
+                                <option value={String(p.id)}>{p.name}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="block-p2">Player B</label>
+                        <select id="block-p2" class="field-select" bind:value={addBlockP2Str}>
+                            <option value="">— Select —</option>
+                            {#each blockPlayers as p}
+                                <option value={String(p.id)}>{p.name}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="block-note">Note</label>
+                        <input
+                            id="block-note"
+                            class="field-input"
+                            type="text"
+                            bind:value={addBlockNote}
+                            placeholder="optional reason…"
+                        />
+                    </div>
+                    {#if addBlockP1Str && addBlockP2Str && addBlockP1Str === addBlockP2Str}
+                        <p class="field-error">Players must be different.</p>
+                    {/if}
+                    {#if addBlockError}
+                        <p class="field-error">{addBlockError}</p>
+                    {/if}
+                    <button
+                        type="submit"
+                        class="primary-button"
+                        disabled={!addBlockP1Str || !addBlockP2Str || addBlockP1Str === addBlockP2Str || addingBlock}
+                    >
+                        {addingBlock ? 'Adding…' : 'Add Block'}
+                    </button>
+                </form>
+            </div>
+        {/if}
+
+        <div class="sub-section">
+            {#if blocksLoading}
+                <p class="muted">Loading…</p>
+            {:else if blocks.length === 0}
+                <p class="muted">No blocks configured.</p>
+            {:else}
+                <ul class="block-list">
+                    {#each blocks as block}
+                        <li class="block-row">
+                            <span class="block-names">
+                                <strong>{block.player_a_name}</strong>
+                                <span class="block-x">✕</span>
+                                <strong>{block.player_b_name}</strong>
+                            </span>
+                            {#if block.note}
+                                <span class="block-note">{block.note}</span>
+                            {/if}
+                            {#if adminMe.is_super_admin}
+                                <button
+                                    class="remove-btn block-remove"
+                                    type="button"
+                                    title="Remove block"
+                                    onclick={() => removeBlock(block.player_a_id, block.player_b_id)}
+                                >×</button>
+                            {/if}
+                        </li>
+                    {/each}
+                </ul>
+            {/if}
+        </div>
+
+        {#if !adminMe.is_super_admin}
+            <p class="muted small">Block list is managed by the lead admin.</p>
+        {/if}
+    </section>
+        </div>
+    </details>
+
+    {#if adminMe.is_super_admin}
+        <!-- ══ Systems & Schedule ══ -->
+        <details class="dash-group">
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Systems &amp; Schedule</span>
+            </summary>
+            <div class="dash-group-body">
+        <section class="admin-section">
+            <p class="section-intro">
+                Enable or disable which systems your club runs. Disabling a system stops new
+                signups and pairing generation for it, and hides it from league standings —
+                it does not touch any existing signups, pairings, or results.
+            </p>
+
+            {#if clubSystemsMineError}
+                <p class="field-error">{clubSystemsMineError}</p>
+            {/if}
+
+            <ul class="block-list">
+                {#each clubSystemsMine as row (row.system_id)}
+                    <li class="block-row">
+                        <span class="block-names"><strong>{row.system_name}</strong></span>
+                        <span class="block-note">
+                            {row.session_cadence} {row.session_day}
+                            {#if row.cadence_anchor}(anchor {row.cadence_anchor}){/if}
+                        </span>
+                        <span class="status-badge" class:status-active={row.enabled} class:status-inactive={!row.enabled}>
+                            {row.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <button class="primary-button" type="button" onclick={() => toggleClubSystemMine(row)}>
+                            {row.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                    </li>
+                {/each}
+                {#if clubSystemsMine.length === 0}
+                    <p class="muted">No systems configured yet — add one below.</p>
+                {/if}
+            </ul>
+
+            <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveClubSystemMine(); }}>
+                <div class="field">
+                    <label class="field-label" for="cs-select">System</label>
+                    <select id="cs-select" class="field-select" bind:value={csSelectId} onchange={onClubSystemPick}>
+                        <option value="">— Select system —</option>
+                        {#each fullCatalogue as s}
+                            <option value={String(s.id)}>
+                                {s.legacy_system_name}
+                                {clubSystemsMine.some((cs) => cs.system_id === s.id) ? ' (configured)' : ' (add)'}
+                            </option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="field field-narrow">
+                    <label class="field-label" for="cs-day">Day</label>
+                    <select id="cs-day" class="field-select" bind:value={csSessionDay}>
+                        {#each DAYS as d}
+                            <option>{d}</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="field field-narrow">
+                    <label class="field-label" for="cs-cadence">Cadence</label>
+                    <select id="cs-cadence" class="field-select" bind:value={csSessionCadence}>
+                        {#each CADENCES as c}
+                            <option>{c}</option>
+                        {/each}
+                    </select>
+                </div>
+                {#if csSessionCadence === 'fortnightly'}
+                    <div class="field field-narrow">
+                        <label class="field-label" for="cs-anchor">Anchor date</label>
+                        <input id="cs-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
+                    </div>
+                {/if}
+                <div class="field-row-break"></div>
+                <label class="check-row">
+                    <input type="checkbox" bind:checked={csEnabled} />
+                    <span>Enabled</span>
+                </label>
+                {#if csError}
+                    <p class="field-error">{csError}</p>
+                {/if}
+                {#if csMessage}
+                    <p class="pairing-message">{csMessage}</p>
+                {/if}
+                <button type="submit" class="primary-button" disabled={!csSelectId || csSaving}>
+                    {csSaving ? 'Saving…' : 'Save System'}
+                </button>
+            </form>
+        </section>
+            </div>
+        </details>
+
+        <!-- ══ Discord Integrations ══ -->
+        <details class="dash-group">
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Discord Integrations</span>
+            </summary>
+            <div class="dash-group-body">
+        <section class="admin-section">
+            <h3 class="section-heading">Discord Webhooks</h3>
+            <p class="section-intro">
+                Configure this club's Discord webhook URLs. Once saved, a URL is never shown again —
+                only the last 4 characters, so you can confirm you saved the right one.
+            </p>
+
+            {#if webhookListError}
+                <p class="field-error">{webhookListError}</p>
+            {:else if webhookRows.length === 0}
+                <p class="muted">Loading…</p>
+            {:else}
+                {#each PER_SYSTEM_WEBHOOK_TYPES as webhookType}
+                    <div class="sub-section">
+                        <h4 class="sub-heading">
+                            {WEBHOOK_TYPE_LABELS[webhookType]}
+                            {#if webhookType === 'call_to_arms'}
+                                <span class="badge">saving here does not yet change behavior for this webhook type</span>
+                            {/if}
+                        </h4>
+                        <ul class="block-list">
+                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row (row.system_id)}
+                                {@const key = webhookKey(row.webhook_type, row.system_id)}
+                                <li class="block-row webhook-row">
+                                    <span class="block-names">
+                                        <strong>{row.system_name}</strong>
+                                    </span>
+                                    <span class="block-note">
+                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
+                                    </span>
+                                    <span class="webhook-actions">
+                                        <input
+                                            class="field-input"
+                                            type="url"
+                                            placeholder="https://discord.com/api/webhooks/…"
+                                            bind:value={webhookInputs[key]}
+                                        />
+                                        <button
+                                            class="primary-button"
+                                            type="button"
+                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
+                                            onclick={() => saveClubWebhook(row.webhook_type, row.system_id)}
+                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
+                                        {#if row.configured}
+                                            <button
+                                                class="remove-btn"
+                                                type="button"
+                                                title="Remove webhook"
+                                                disabled={webhookSaving[key]}
+                                                onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
+                                            >×</button>
+                                        {/if}
+                                    </span>
+                                    {#if webhookError[key]}
+                                        <p class="field-error">{webhookError[key]}</p>
+                                    {/if}
+                                    {#if webhookMessage[key]}
+                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
+                                    {/if}
+                                </li>
+                            {/each}
+                        </ul>
+                    </div>
+                {/each}
+
+                {#each CLUB_LEVEL_WEBHOOK_TYPES as webhookType}
+                    <div class="sub-section">
+                        <h4 class="sub-heading">{WEBHOOK_TYPE_LABELS[webhookType]}</h4>
+                        <ul class="block-list">
+                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row}
+                                {@const key = webhookKey(row.webhook_type, null)}
+                                <li class="block-row webhook-row">
+                                    <span class="block-note">
+                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
+                                    </span>
+                                    <span class="webhook-actions">
+                                        <input
+                                            class="field-input"
+                                            type="url"
+                                            placeholder="https://discord.com/api/webhooks/…"
+                                            bind:value={webhookInputs[key]}
+                                        />
+                                        <button
+                                            class="primary-button"
+                                            type="button"
+                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
+                                            onclick={() => saveClubWebhook(row.webhook_type, null)}
+                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
+                                        {#if row.configured}
+                                            <button
+                                                class="remove-btn"
+                                                type="button"
+                                                title="Remove webhook"
+                                                disabled={webhookSaving[key]}
+                                                onclick={() => removeClubWebhook(row.webhook_type, null)}
+                                            >×</button>
+                                        {/if}
+                                    </span>
+                                    {#if webhookError[key]}
+                                        <p class="field-error">{webhookError[key]}</p>
+                                    {/if}
+                                    {#if webhookMessage[key]}
+                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
+                                    {/if}
+                                </li>
+                            {/each}
+                        </ul>
+                    </div>
+                {/each}
+            {/if}
+        </section>
+        <section class="admin-section">
+            <h3 class="section-heading">Post Achievement to Discord</h3>
+            <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); postAchievementToDiscord(); }}>
+                <div class="field">
+                    <label class="field-label" for="ach-player">Player</label>
+                    <select id="ach-player" class="field-select" bind:value={achievementPlayerName}>
+                        <option value="">— Select player —</option>
+                        {#each editPlayerList as p}
+                            <option value={p.name}>{p.name}</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="ach-select">Achievement</label>
+                    <select id="ach-select" class="field-select" bind:value={achievementSelected}>
+                        {#each achievementOptions as opt}
+                            <option>{opt}</option>
+                        {/each}
+                    </select>
+                </div>
+                {#if achievementError}
+                    <p class="field-error">{achievementError}</p>
+                {/if}
+                {#if achievementMessage}
+                    <p class="pairing-message">{achievementMessage}</p>
+                {/if}
+                <button
+                    type="submit"
+                    class="primary-button"
+                    disabled={!achievementPlayerName.trim() || !achievementSelected || achievementPosting}
+                >
+                    {achievementPosting ? 'Posting…' : 'Post'}
+                </button>
+            </form>
+        </section>
+            </div>
+        </details>
+
+        <!-- ══ Admins & Delegates ══ -->
+        <details class="dash-group">
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Admins &amp; Delegates</span>
+            </summary>
+            <div class="dash-group-body">
+        <section class="admin-section">
+
+            <div class="sub-section">
+                <h4 class="sub-heading">Super-admins <span class="badge">managed via SQL</span></h4>
+                {#if rolesData && rolesData.super_admins.length > 0}
+                    <ul class="name-list">
+                        {#each rolesData.super_admins as sa}
+                            <li>{displayName(sa)}</li>
+                        {/each}
+                    </ul>
+                {:else if rolesData}
+                    <p class="muted">None.</p>
+                {:else}
+                    <p class="muted">…</p>
+                {/if}
+            </div>
+
+            <div class="sub-section">
+                <h4 class="sub-heading">Scope roles</h4>
+                {#if rolesLoading}
+                    <p class="muted">Loading…</p>
+                {:else if rolesByUser.length === 0}
+                    <p class="muted">No scope admins yet.</p>
+                {:else}
+                    <div class="roles-table">
+                        {#each rolesByUser as person}
+                            <div class="roles-row">
+                                <div class="roles-person">{displayName(person)}</div>
+                                <div class="roles-scopes">
+                                    {#each person.scopes as scope}
+                                        <span class="scope-chip">
+                                            {scope}
+                                            <button
+                                                class="remove-btn"
+                                                type="button"
+                                                title="Remove {scope} from {person.discord_name}"
+                                                onclick={() => removeRole(person.user_id, scope)}
+                                            >×</button>
+                                        </span>
+                                    {/each}
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+
+            <div class="sub-section">
+                <h4 class="sub-heading">Appoint admin</h4>
+                <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); grantRole(); }}>
+                    <div class="field">
+                        <label class="field-label" for="grant-user">User</label>
+                        <select id="grant-user" class="field-select" bind:value={grantUserIdStr}>
+                            <option value="">— Select user —</option>
+                            {#each grantableUsers as u}
+                                <option value={String(u.id)}>{u.player_name} ({u.discord_name})</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="grant-scope">Scope</label>
+                        <select id="grant-scope" class="field-select" bind:value={grantScope}>
+                            <option value="">— Select scope —</option>
+                            {#each adminMe.scopes as s}
+                                <option>{s}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    {#if grantError}
+                        <p class="field-error">{grantError}</p>
+                    {/if}
+                    <button
+                        type="submit"
+                        class="primary-button"
+                        disabled={!grantUserIdStr || !grantScope || granting}
+                    >
+                        {granting ? 'Appointing…' : 'Appoint'}
+                    </button>
+                </form>
+            </div>
+        </section>
+            </div>
+        </details>
     {/if}
 
 {/if}
@@ -2430,6 +2458,70 @@
 
     .admin-section {
         margin-bottom: 2rem;
+    }
+
+    /* ── Dashboard groups (collapsible) ──────────────────────────────────── */
+
+    .dash-group {
+        margin-bottom: 1.25rem;
+        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+    }
+
+    .dash-group-header {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 14px 18px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--color-accent);
+        background: rgba(0, 0, 0, 0.25);
+        border-bottom: 1px solid transparent;
+        user-select: none;
+        list-style: none;
+    }
+
+    .dash-group-header::-webkit-details-marker { display: none; }
+
+    .dash-group[open] .dash-group-header {
+        border-bottom-color: var(--color-accent-border);
+    }
+
+    .dash-chevron {
+        font-size: 0.7rem;
+        line-height: 1;
+        transition: transform 0.15s;
+        display: inline-block;
+    }
+
+    .dash-group[open] .dash-chevron {
+        transform: rotate(90deg);
+    }
+
+    .dash-group-title {
+        flex: 1;
+    }
+
+    .dash-group-body {
+        padding: 1.25rem 1.5rem;
+    }
+
+    /* Member sections sit inside the group card — the card is the frame, so
+       drop their own bottom-margin scaffolding and don't let the last one
+       add trailing space. */
+    .dash-group-body .admin-section {
+        margin-bottom: 1.75rem;
+    }
+
+    .dash-group-body .admin-section:last-child {
+        margin-bottom: 0;
     }
 
     .section-heading {
