@@ -321,8 +321,8 @@
     }
 
     .profile-title-chip {
-        background: rgba(255, 122, 51, 0.18);
-        border: 1px solid rgba(255, 122, 51, 0.45);
+        background: rgba(201, 161, 74, 0.18);
+        border: 1px solid rgba(201, 161, 74, 0.45);
         color: var(--color-text-bright);
         padding: 3px 10px;
         border-radius: var(--radius);
@@ -350,12 +350,12 @@
     }
 
     .achievement-chip:hover {
-        background: rgba(255, 122, 51, 0.10);
-        border-color: rgba(255, 122, 51, 0.55);
+        background: rgba(201, 161, 74, 0.10);
+        border-color: rgba(201, 161, 74, 0.55);
     }
 
     .achievement-chip.expanded {
-        background: rgba(255, 122, 51, 0.18);
+        background: rgba(201, 161, 74, 0.18);
         border-color: var(--color-accent);
     }
 

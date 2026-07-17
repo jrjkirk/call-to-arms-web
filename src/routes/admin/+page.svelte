@@ -2801,8 +2801,8 @@
         display: inline-flex;
         align-items: center;
         gap: 0.3rem;
-        background: rgba(255, 122, 51, 0.12);
-        border: 1px solid rgba(255, 122, 51, 0.35);
+        background: rgba(201, 161, 74, 0.12);
+        border: 1px solid rgba(201, 161, 74, 0.35);
         color: var(--color-accent);
         font-size: 0.78rem;
         font-weight: 600;
@@ -3039,7 +3039,7 @@
     }
 
     .secondary-button:not(:disabled):hover {
-        background: rgba(255, 122, 51, 0.1);
+        background: rgba(201, 161, 74, 0.1);
     }
 
     .publish-btn {
@@ -3244,7 +3244,7 @@
     }
 
     .prearranged-row td {
-        background: rgba(255, 122, 51, 0.06);
+        background: rgba(201, 161, 74, 0.06);
     }
 
     .preview-row td {
@@ -3423,8 +3423,8 @@
     .cta-token {
         display: inline-block;
         font-size: 0.72rem;
-        background: rgba(255, 122, 51, 0.12);
-        border: 1px solid rgba(255, 122, 51, 0.35);
+        background: rgba(201, 161, 74, 0.12);
+        border: 1px solid rgba(201, 161, 74, 0.35);
         color: var(--color-accent);
         padding: 1px 5px;
         border-radius: 4px;

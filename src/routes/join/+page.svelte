@@ -139,7 +139,7 @@
     }
     .player-row { border-bottom: 1px dashed var(--color-accent-border-soft); }
     .player-row:last-child { border-bottom: none; }
-    .player-row.selected { background: rgba(255, 122, 51, 0.15); }
+    .player-row.selected { background: rgba(201, 161, 74, 0.15); }
     .player-link {
         display: block;
         width: 100%;

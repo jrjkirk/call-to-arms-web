@@ -308,8 +308,8 @@
     }
 
     .sidebar-button:hover {
-        background: rgba(255, 122, 51, 0.10);
-        border-color: rgba(255, 122, 51, 0.55);
+        background: rgba(201, 161, 74, 0.10);
+        border-color: rgba(201, 161, 74, 0.55);
     }
 
     .sidebar-button-primary {
@@ -348,7 +348,7 @@
     }
 
     .user-pill-link:hover {
-        background: rgba(255, 122, 51, 0.08);
+        background: rgba(201, 161, 74, 0.08);
     }
 
     .user-meta { flex: 1; min-width: 0; }

@@ -415,18 +415,6 @@
     .page-heading {
         font-size: 1.6rem;
         margin: 0 0 1.1rem;
-        display: inline-flex;
-        flex-direction: column;
-        gap: 0.35rem;
-    }
-
-    /* Kicker rule above the standings heading — a small gilt tick that reads
-       as the header of an official record. */
-    .page-heading::before {
-        content: '';
-        width: 44px;
-        height: 2px;
-        background: linear-gradient(90deg, var(--color-accent), transparent);
     }
 
     .table-wrap {
@@ -522,13 +510,13 @@
     /* Podium: a flat gilt tint + a gilt edge on the champion's first cell, so
        the leader reads as the leader at a glance. Silver and bronze get
        quieter tints of the same idea. */
-    .row-rank-1 td { background: rgba(255, 122, 51, 0.10); }
+    .row-rank-1 td { background: rgba(201, 161, 74, 0.16); }
     .row-rank-1 td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
     .row-rank-1 .elo-col { color: var(--color-accent-bright); }
-    .row-rank-2 td { background: rgba(192, 200, 214, 0.05); }
+    .row-rank-2 td { background: rgba(192, 200, 214, 0.06); }
     .row-rank-2 td:first-child { box-shadow: inset 3px 0 0 rgba(192, 200, 214, 0.5); }
-    .row-rank-3 td { background: rgba(255, 122, 51, 0.045); }
-    .row-rank-3 td:first-child { box-shadow: inset 3px 0 0 rgba(255, 158, 87, 0.55); }
+    .row-rank-3 td { background: rgba(184, 115, 51, 0.08); }
+    .row-rank-3 td:first-child { box-shadow: inset 3px 0 0 rgba(184, 115, 51, 0.6); }
     .rank-change {
         font-size: 0.7rem;
         font-weight: 600;

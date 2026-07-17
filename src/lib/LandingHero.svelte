@@ -178,7 +178,7 @@
         justify-content: center;
         border-radius: 50%;
         border: 1px solid var(--color-accent-border);
-        background: radial-gradient(circle at 50% 35%, rgba(255, 122, 51, 0.12), transparent 70%);
+        background: radial-gradient(circle at 50% 35%, rgba(201, 161, 74, 0.12), transparent 70%);
         color: var(--color-accent);
         margin-bottom: 0.9rem;
         flex: 0 0 auto;

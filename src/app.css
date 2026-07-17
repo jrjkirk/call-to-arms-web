@@ -2,38 +2,38 @@
 
 @theme {
     /* Ground — cool gunmetal darks */
-    --color-bg-base: #10131a;
-    --color-bg-deep: #0a0c11;
-    --color-sidebar-bg: #161a23;
-    --color-surface: rgba(24, 28, 38, 0.95);
-    --color-surface-dark: rgba(17, 20, 27, 0.96);
-    --color-surface-hover: rgba(255, 122, 51, 0.07);
+    --color-bg-base: #101219;
+    --color-bg-deep: #0a0b0e;
+    --color-sidebar-bg: #171a22;
+    --color-surface: rgba(26, 29, 39, 0.92);
+    --color-surface-dark: rgba(18, 20, 28, 0.95);
+    --color-surface-hover: rgba(201, 161, 74, 0.06);
 
-    /* Text — cool near-white (modern dashboard) */
-    --color-text-base: #dde2ea;
-    --color-text-bright: #f4f7fb;
-    --color-text-muted: #aab2c1;
-    --color-text-dim: #838b9b;
-    --color-text-faint: #626a7a;
+    /* Text — warm parchment, reads against the cool ground */
+    --color-text-base: #e9e0cd;
+    --color-text-bright: #f5edd7;
+    --color-text-muted: #cabfa6;
+    --color-text-dim: #a89e86;
+    --color-text-faint: #767c8a;
 
-    /* Structure — cool hairlines & secondary UI */
-    --color-steel: #8891a3;
-    --color-steel-border: rgba(255, 255, 255, 0.09);
-    --color-steel-border-soft: rgba(255, 255, 255, 0.05);
+    /* Structure — cool steel hairlines & secondary UI */
+    --color-steel: #7c869a;
+    --color-steel-border: rgba(124, 134, 154, 0.20);
+    --color-steel-border-soft: rgba(124, 134, 154, 0.11);
 
-    /* Accent — bright ember orange, the energy of the dashboard */
-    --color-accent: #ff7a33;
-    --color-accent-soft: #ff8c4d;
-    --color-accent-bright: #ffa869;
-    --color-accent-border: rgba(255, 122, 51, 0.38);
-    --color-accent-border-soft: rgba(255, 122, 51, 0.18);
-    --color-accent-glow: rgba(255, 122, 51, 0.40);
+    /* Accent — antique gilt */
+    --color-accent: #c9a14a;
+    --color-accent-soft: #cba758;
+    --color-accent-bright: #e6c67d;
+    --color-accent-border: rgba(201, 161, 74, 0.34);
+    --color-accent-border-soft: rgba(201, 161, 74, 0.16);
+    --color-accent-glow: rgba(201, 161, 74, 0.4);
 
-    --color-win: #4ade80;
-    --color-loss: #f87171;
-    --color-draw: #ff9e57;
+    --color-win: #6fae72;
+    --color-loss: #cf5a54;
+    --color-draw: #c9a14a;
 
-    --color-tnt: #ff8c4d;
+    --color-tnt: #d97a2a;
 
     --font-display: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', sans-serif;
 
