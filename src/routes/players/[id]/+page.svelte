@@ -40,6 +40,34 @@
     const hasLeagueGames = $derived((league.total_games ?? 0) > 0);
 
     let expandedAchievement = $state<string | null>(null);
+    let downloadingCard = $state(false);
+    let cardError = $state<string | null>(null);
+
+    async function downloadCard() {
+        if (downloadingCard) return;
+        downloadingCard = true;
+        cardError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/players/${page.params.id}/card`, {
+                credentials: 'include'
+            });
+            if (!r.ok) {
+                cardError = 'Could not generate a card for this player yet.';
+                return;
+            }
+            const blob = await r.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${player.name || 'player'}-card.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (_) {
+            cardError = 'Network error.';
+        } finally {
+            downloadingCard = false;
+        }
+    }
 
     const systemsInOrder = ['The Old World', 'The Horus Heresy', 'Kill Team'];
 
@@ -192,6 +220,15 @@
         </div>
     </div>
 
+    <div class="card-download-row">
+        <button class="card-download-button" onclick={downloadCard} disabled={downloadingCard} type="button">
+            {downloadingCard ? 'Generating…' : 'Download Card'}
+        </button>
+        {#if cardError}
+            <span class="card-download-error">{cardError}</span>
+        {/if}
+    </div>
+
     {#if league.elo_history && league.elo_history.length > 1}
         {@const elos = league.elo_history.map((h: any) => h.elo)}
         {@const yMin = Math.min(...elos) - 20}
@@ -340,6 +377,41 @@
         padding: 3px 10px;
         border-radius: var(--radius);
         font-size: 0.82rem;
+    }
+
+    .card-download-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0.9rem 0 1.4rem;
+    }
+
+    .card-download-button {
+        background: var(--color-accent);
+        border: 1px solid var(--color-accent);
+        color: #1b1608;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--radius);
+        font-size: 0.9rem;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.1s ease, border-color 0.1s ease;
+    }
+
+    .card-download-button:hover:not(:disabled) {
+        background: var(--color-accent-soft);
+        box-shadow: 0 4px 16px var(--color-accent-glow);
+    }
+
+    .card-download-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .card-download-error {
+        color: #f87171;
+        font-size: 0.85rem;
     }
 
     .achievement-grid {

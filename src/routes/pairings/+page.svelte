@@ -76,9 +76,38 @@
         pairingsLoaded = true;
     }
 
+    // While pairings for this system/week aren't published yet, poll for
+    // them so a player sitting on the page sees them appear the moment an
+    // admin publishes — no manual refresh needed. Stops the instant
+    // `published` flips true; the matchup cards' own `in:fly`/`in:scale`
+    // transitions (below) then provide the reveal for free, since the
+    // {#each} block only mounts once `pdata.published` is true.
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function startPolling(sys: string, wk: string) {
+        stopPolling();
+        pollTimer = setInterval(async () => {
+            await loadPairings(sys, wk);
+            if (pdata.published) stopPolling();
+        }, 6000);
+    }
+
     // Re-fetch whenever the resolved system/week changes (initial mount too).
     $effect(() => {
-        loadPairings(data.system, data.week);
+        const sys = data.system;
+        const wk = data.week;
+        loadPairings(sys, wk).then(() => {
+            if (!pdata.published) startPolling(sys, wk);
+            else stopPolling();
+        });
+        return stopPolling;
     });
 
     const systems = ['The Old World', 'The Horus Heresy', 'Kill Team'];
