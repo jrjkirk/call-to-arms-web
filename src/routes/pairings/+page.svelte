@@ -238,6 +238,7 @@
     </div>
 {/if}
 
+{#key data.system}
 {#if !pairingsLoaded}
     <div class="empty-state">Loading…</div>
 {:else if !pdata.published}
@@ -331,6 +332,7 @@
         </div>
     {/if}
 {/if}
+{/key}
 
 <style>
     .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }

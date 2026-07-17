@@ -134,6 +134,16 @@
             {/each}
         </div>
     {/if}
+    {#if hasLeagueGames}
+        <div class="card-download-row">
+            <button class="card-download-button" onclick={downloadCard} disabled={downloadingCard} type="button">
+                {downloadingCard ? 'Generating…' : 'Download Card'}
+            </button>
+            {#if cardError}
+                <span class="card-download-error">{cardError}</span>
+            {/if}
+        </div>
+    {/if}
 </div>
 
 {#if achievements.length > 0}
@@ -218,15 +228,6 @@
             <div class="stat-label">League Games</div>
             <div class="stat-value">{league.total_games}</div>
         </div>
-    </div>
-
-    <div class="card-download-row">
-        <button class="card-download-button" onclick={downloadCard} disabled={downloadingCard} type="button">
-            {downloadingCard ? 'Generating…' : 'Download Card'}
-        </button>
-        {#if cardError}
-            <span class="card-download-error">{cardError}</span>
-        {/if}
     </div>
 
     {#if league.elo_history && league.elo_history.length > 1}
@@ -383,7 +384,7 @@
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        margin: 0.9rem 0 1.4rem;
+        margin-top: 0.9rem;
     }
 
     .card-download-button {
