@@ -55,33 +55,92 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.01em;
 }
 
+/* Signature: the unit-datacard. Every panel gets a cut top-right corner, a
+   steel frame, a gilt top rule, and a gilt line across the cut — so surfaces
+   across the whole app (sign-up card, league table, admin group) read as one
+   family of field records. clip-path clips box-shadow, so depth comes from
+   filter: drop-shadow, which follows the notched silhouette. */
+.datacard {
+    position: relative;
+    --notch: 16px;
+    background:
+        linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
+        var(--color-surface);
+    border: none;
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
+    box-shadow: inset 0 0 0 1px var(--color-steel-border);
+    filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
+}
+
+.datacard::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: calc(var(--notch) * 1.42);
+    height: 2px;
+    background: var(--color-accent);
+    transform-origin: top right;
+    transform: rotate(-45deg);
+    pointer-events: none;
+}
+
 /* Ratings, points, W/D/L — data reads as a record when the figures line up */
 .stat-value, .rank-num, td, th { font-variant-numeric: tabular-nums; }
 
 /* ===== Reusable building blocks ===== */
 
-/* Cards read as gilded records: a cool gunmetal surface with a faint top-lit
-   gradient, a steel hairline frame, and a single gilt hairline along the top
-   edge — the cohesive thread that ties every panel in the app together. */
+/* The shared card is a datacard (see .datacard). */
 .card {
+    position: relative;
+    --notch: 16px;
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(0, 0, 0, 0.14)),
+        linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
         var(--color-surface);
-    border: 1px solid var(--color-steel-border);
-    border-radius: 12px;
-    box-shadow:
-        inset 0 1px 0 rgba(230, 198, 125, 0.10),
-        0 6px 20px rgba(0, 0, 0, 0.38);
+    border: none;
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
+    box-shadow: inset 0 0 0 1px var(--color-steel-border);
+    filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
 }
 
+.card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: calc(var(--notch) * 1.42);
+    height: 2px;
+    background: var(--color-accent);
+    transform-origin: top right;
+    transform: rotate(-45deg);
+    pointer-events: none;
+}
+
+/* Section labels are stamped crate-markings: condensed, spaced, gilt, led by
+   a short gilt tick. */
 .section-title {
     color: var(--color-accent);
     font-size: 0.82rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1.4px;
+    letter-spacing: 1.5px;
     margin-top: 1.4rem;
-    margin-bottom: 0.65rem;
+    margin-bottom: 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.section-title::before {
+    content: '';
+    width: 16px;
+    height: 2px;
+    background: var(--color-accent);
+    flex: 0 0 auto;
 }
 
 .section-title:first-child { margin-top: 0; }
@@ -99,20 +158,19 @@ h1, h2, h3, h4, h5, h6 {
     position: relative;
     background: var(--color-surface-dark);
     border: 1px solid var(--color-steel-border);
-    border-left: 2px solid var(--color-accent);
-    border-radius: 8px;
-    padding: 0.75rem 0.85rem;
+    border-left: 3px solid var(--color-accent);
+    border-radius: 0;
+    padding: 0.75rem 0.9rem;
     text-align: left;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     min-height: 92px;
-    box-shadow: inset 0 1px 0 rgba(230, 198, 125, 0.08);
 }
 
 .stat-label {
     color: var(--color-accent);
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 1.1px;
     font-weight: 700;
@@ -121,7 +179,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .stat-value {
     color: var(--color-text-bright);
-    font-size: 1.9rem;
+    font-size: 1.95rem;
     font-weight: 700;
     line-height: 1;
     margin-top: auto;

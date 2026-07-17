@@ -2639,13 +2639,34 @@
 
     /* ── Dashboard groups (collapsible) ──────────────────────────────────── */
 
+    /* Datacard form — matches .card in app.css for cross-page consistency. */
     .dash-group {
+        position: relative;
+        --notch: 16px;
         margin-bottom: 1.25rem;
-        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
-        border: 1px solid var(--color-accent-border);
-        border-radius: 12px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-        overflow: hidden;
+        background:
+            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
+            linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
+            var(--color-surface);
+        border: none;
+        border-radius: 0;
+        clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
+        box-shadow: inset 0 0 0 1px var(--color-steel-border);
+        filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
+    }
+
+    .dash-group::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: calc(var(--notch) * 1.42);
+        height: 2px;
+        background: var(--color-accent);
+        transform-origin: top right;
+        transform: rotate(-45deg);
+        pointer-events: none;
+        z-index: 2;
     }
 
     .dash-group-header {
@@ -3076,10 +3097,14 @@
         gap: 1.5rem;
     }
 
+    /* A member panel inside a group — quieter than the notched group card:
+       angular, steel-framed, with a gilt top rule for family resemblance. */
     .scope-card {
-        background: var(--color-sidebar-bg);
-        border: 1px solid var(--color-accent-border);
-        border-radius: 12px;
+        background:
+            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
+            var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: 0;
         padding: 1.2rem 1.4rem;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     }

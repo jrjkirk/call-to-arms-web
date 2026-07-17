@@ -429,16 +429,35 @@
         background: linear-gradient(90deg, var(--color-accent), transparent);
     }
 
+    /* Datacard form — matches .card in app.css so the standings read as the
+       same family of field record as the rest of the app. */
     .table-wrap {
+        position: relative;
+        --notch: 16px;
         overflow-x: auto;
         background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(0, 0, 0, 0.14)),
+            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
+            linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
             var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: 12px;
-        box-shadow:
-            inset 0 1px 0 rgba(230, 198, 125, 0.1),
-            0 6px 20px rgba(0, 0, 0, 0.38);
+        border: none;
+        border-radius: 0;
+        clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
+        box-shadow: inset 0 0 0 1px var(--color-steel-border);
+        filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
+    }
+
+    .table-wrap::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: calc(var(--notch) * 1.42);
+        height: 2px;
+        background: var(--color-accent);
+        transform-origin: top right;
+        transform: rotate(-45deg);
+        pointer-events: none;
+        z-index: 2;
     }
 
     .league-table {
@@ -523,13 +542,13 @@
         color: var(--color-text-faint);
     }
 
-    /* Podium: the champion's row carries a gilt wash + a gilt edge on its
-       first cell, so the leader reads as the leader at a glance. Silver and
-       bronze get quieter tints of the same idea. */
-    .row-rank-1 td { background: linear-gradient(90deg, rgba(201, 161, 74, 0.13), rgba(201, 161, 74, 0.04)); }
+    /* Podium: a flat gilt tint + a gilt edge on the champion's first cell, so
+       the leader reads as the leader at a glance. Silver and bronze get
+       quieter tints of the same idea. */
+    .row-rank-1 td { background: rgba(201, 161, 74, 0.08); }
     .row-rank-1 td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
     .row-rank-1 .elo-col { color: var(--color-accent-bright); }
-    .row-rank-2 td { background: rgba(192, 200, 214, 0.055); }
+    .row-rank-2 td { background: rgba(192, 200, 214, 0.05); }
     .row-rank-2 td:first-child { box-shadow: inset 3px 0 0 rgba(192, 200, 214, 0.5); }
     .row-rank-3 td { background: rgba(205, 127, 50, 0.05); }
     .row-rank-3 td:first-child { box-shadow: inset 3px 0 0 rgba(205, 127, 50, 0.5); }

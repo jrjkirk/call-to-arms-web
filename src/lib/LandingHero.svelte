@@ -151,26 +151,42 @@
         margin-top: clamp(2.2rem, 5vw, 3.2rem);
     }
 
+    /* Datacard form — matches .card in app.css. */
     .pillar {
+        position: relative;
+        --notch: 16px;
         background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(0, 0, 0, 0.16)),
+            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
+            linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
             var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border);
-        border-radius: 14px;
-        padding: 1.5rem 1.15rem 1.6rem;
+        border: none;
+        border-radius: 0;
+        clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
+        box-shadow: inset 0 0 0 1px var(--color-steel-border);
+        filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
+        padding: 1.6rem 1.2rem 1.7rem;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        box-shadow: inset 0 1px 0 rgba(230, 198, 125, 0.1);
-        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        transition: transform 0.2s ease, filter 0.2s ease;
+    }
+
+    .pillar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: calc(var(--notch) * 1.42);
+        height: 2px;
+        background: var(--color-accent);
+        transform-origin: top right;
+        transform: rotate(-45deg);
+        pointer-events: none;
     }
 
     .pillar:hover {
-        border-color: var(--color-accent-border);
-        box-shadow:
-            inset 0 1px 0 rgba(230, 198, 125, 0.18),
-            0 10px 26px rgba(0, 0, 0, 0.4);
+        filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.5));
         transform: translateY(-3px);
     }
 
