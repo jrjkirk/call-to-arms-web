@@ -156,6 +156,18 @@ function normalize(raw: any): SystemConfig {
     };
 }
 
+/** Logo asset URL for a system, derived from its catalogue slug
+ *  (/logos/<slug>.png) rather than a per-page hardcoded name→path map. Adding
+ *  a system (with a matching /static/logos/<slug>.png) is picked up
+ *  automatically. Defaults to the offline fallback config for pages that
+ *  don't load the full catalogue. */
+export function systemLogoUrl(
+    legacySystemName: string,
+    systemsConfig: SystemConfig[] = FALLBACK_SYSTEMS_CONFIG
+): string {
+    return `/logos/${configFor(systemsConfig, legacySystemName).slug}.png`;
+}
+
 /** Systems that run a league, in catalogue order. The league UI is
  *  single-system today (only TOW has a league), so callers generally take
  *  the first entry — but sourcing it from has_league removes the hardcoded

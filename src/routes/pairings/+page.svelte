@@ -3,7 +3,7 @@
     import { goto } from '$app/navigation';
     import { fly, scale } from 'svelte/transition';
     import { factionIconUrl, systemFolder } from '$lib/factions';
-    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getSystemsConfig, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
 
@@ -110,7 +110,9 @@
         return stopPolling;
     });
 
-    const systems = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+    // Systems come from the catalogue (systemsConfig starts as the offline
+    // fallback and updates once GET /systems loads), not a hardcoded list.
+    const systems = $derived(systemsConfig.map((s) => s.legacy_system_name));
 
     // The caller's own club's actually-enabled systems (GET /systems/mine,
     // authenticated). null until resolved or if unauthenticated/failed —
@@ -150,11 +152,6 @@
 
     let showWeekField = $state(false);
 
-    const SYSTEM_LOGOS: Record<string, string> = {
-        'The Old World': '/logos/tow.png',
-        'The Horus Heresy': '/logos/hh.png',
-        'Kill Team': '/logos/kt.png'
-    };
 
     /* ---------- auth + unpaired ---------- */
     type UnpairedPlayer = { player_id: number; player_name: string; signup_id: number };
@@ -218,7 +215,7 @@
                 class:active={system === s}
                 onclick={() => selectSystem(s)}
             >
-                <img src={SYSTEM_LOGOS[s]} alt={s} />
+                <img src={systemLogoUrl(s, systemsConfig)} alt={s} />
             </button>
         {/each}
     </div>

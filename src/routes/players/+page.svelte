@@ -3,6 +3,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
     import { SYSTEMS as ALL_SYSTEMS } from '$lib/signupOptions';
+    import { systemLogoUrl } from '$lib/systemsConfig';
 
     type PlayerRow = { id: number; name: string; default_faction: string | null; systems_played?: string[] };
 
@@ -32,11 +33,6 @@
     let query = $state('');
     let activeSystems = $state<string[]>([]);
 
-    const SYSTEM_LOGOS: Record<string, string> = {
-        'The Old World': '/logos/tow.png',
-        'The Horus Heresy': '/logos/hh.png',
-        'Kill Team': '/logos/kt.png'
-    };
 
     const SYSTEMS = $derived(mySystems ?? ALL_SYSTEMS);
 
@@ -72,7 +68,7 @@
                 class:active={activeSystems.includes(s)}
                 onclick={() => toggleSystem(s)}
             >
-                <img src={SYSTEM_LOGOS[s]} alt={s} />
+                <img src={systemLogoUrl(s)} alt={s} />
             </button>
         {/each}
     </div>

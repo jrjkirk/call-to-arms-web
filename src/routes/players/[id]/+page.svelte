@@ -44,7 +44,10 @@
 
     let expandedAchievement = $state<string | null>(null);
 
-    const systemsInOrder = ['The Old World', 'The Horus Heresy', 'Kill Team'];
+    // System display order comes from the catalogue (systemsConfig starts as
+    // the offline fallback and updates once GET /systems loads), not a
+    // hardcoded list.
+    const systemsInOrder = $derived(systemsConfig.map((s) => s.legacy_system_name));
 
     const visibleSystems = $derived(
         systemsInOrder.filter((s) => (signupCounts[s] ?? 0) > 0)

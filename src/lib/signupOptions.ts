@@ -2,7 +2,12 @@
 
 import { configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from './systemsConfig';
 
-export const SYSTEMS = ['The Old World', 'The Horus Heresy', 'Kill Team'] as const;
+// Baseline system list, derived from the offline fallback catalogue rather
+// than a hardcoded literal. This is only the synchronous default used before
+// GET /systems loads (or when it's unreachable) and to scope club filters;
+// live pages read the fetched catalogue. A new system in the catalogue is
+// reflected here via FALLBACK_SYSTEMS_CONFIG.
+export const SYSTEMS: string[] = FALLBACK_SYSTEMS_CONFIG.map((s) => s.legacy_system_name);
 
 export const NONE_FACTION = '— None —';
 

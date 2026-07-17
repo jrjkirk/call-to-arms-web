@@ -6,7 +6,7 @@
         SYSTEMS, NONE_FACTION, EXPERIENCE_OPTIONS, ETA_OPTIONS, formConfig
     } from '$lib/signupOptions';
     import {
-        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
+        getSystemsConfig, configFor, sortVibeOptions, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
     } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { fetchMySystems } from '$lib/mySystems';
@@ -56,11 +56,6 @@
 
     let showWeekField = $state(false);
 
-    const SYSTEM_LOGOS: Record<string, string> = {
-        'The Old World': '/logos/tow.png',
-        'The Horus Heresy': '/logos/hh.png',
-        'Kill Team': '/logos/kt.png'
-    };
 
     /* ---------- auth ---------- */
     type AuthState = {
@@ -467,7 +462,7 @@
                 class:active={system === s}
                 onclick={() => selectSystem(s)}
             >
-                <img src={SYSTEM_LOGOS[s]} alt={s} />
+                <img src={systemLogoUrl(s, systemsConfig)} alt={s} />
             </button>
         {/each}
     </div>
