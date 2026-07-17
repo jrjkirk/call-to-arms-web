@@ -413,16 +413,32 @@
 
 <style>
     .page-heading {
-        font-size: 1.5rem;
-        margin: 0 0 1rem;
+        font-size: 1.6rem;
+        margin: 0 0 1.1rem;
+        display: inline-flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    /* Kicker rule above the standings heading — a small gilt tick that reads
+       as the header of an official record. */
+    .page-heading::before {
+        content: '';
+        width: 44px;
+        height: 2px;
+        background: linear-gradient(90deg, var(--color-accent), transparent);
     }
 
     .table-wrap {
         overflow-x: auto;
-        background: var(--color-sidebar-bg);
-        border: 1px solid var(--color-accent-border);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(0, 0, 0, 0.14)),
+            var(--color-surface);
+        border: 1px solid var(--color-steel-border);
         border-radius: 12px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        box-shadow:
+            inset 0 1px 0 rgba(230, 198, 125, 0.1),
+            0 6px 20px rgba(0, 0, 0, 0.38);
     }
 
     .league-table {
@@ -433,15 +449,15 @@
     }
 
     .league-table thead th {
-        background: rgba(0, 0, 0, 0.25);
+        background: rgba(0, 0, 0, 0.22);
         color: var(--color-accent);
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
+        letter-spacing: 1.1px;
         font-weight: 700;
-        padding: 10px 12px;
+        padding: 12px 14px;
         text-align: left;
-        border-bottom: 1px solid var(--color-accent-border);
+        border-bottom: 1px solid var(--color-steel-border);
     }
 
     .league-table thead th.center {
@@ -449,8 +465,8 @@
     }
 
     .league-table tbody td {
-        padding: 10px 12px;
-        border-bottom: 1px dashed var(--color-accent-border-soft);
+        padding: 13px 14px;
+        border-bottom: 1px solid var(--color-steel-border-soft);
         font-size: 0.95rem;
         vertical-align: middle;
     }
@@ -464,10 +480,11 @@
     }
 
     .center { text-align: center; }
-    .rank-col { width: 64px; font-weight: 700; color: var(--color-text-bright); }
-    .elo-col  { width: 78px; font-weight: 700; color: var(--color-text-bright); }
+    .rank-col { width: 64px; font-weight: 700; color: var(--color-text-bright); font-size: 1.02rem; }
+    /* ELO is the headline metric of the standings — give it weight. */
+    .elo-col  { width: 84px; font-weight: 700; color: var(--color-accent-bright); font-size: 1.05rem; }
     .wdl-col  { width: 96px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
-    .games-col { width: 80px; color: var(--color-text-muted); }
+    .games-col { width: 80px; color: var(--color-text-dim); }
 
     .medal {
         font-size: 1.3rem;
@@ -506,9 +523,16 @@
         color: var(--color-text-faint);
     }
 
-    .row-rank-1 td { background: rgba(255, 215, 0, 0.06); }
-    .row-rank-2 td { background: rgba(192, 192, 192, 0.06); }
-    .row-rank-3 td { background: rgba(205, 127, 50, 0.06); }
+    /* Podium: the champion's row carries a gilt wash + a gilt edge on its
+       first cell, so the leader reads as the leader at a glance. Silver and
+       bronze get quieter tints of the same idea. */
+    .row-rank-1 td { background: linear-gradient(90deg, rgba(201, 161, 74, 0.13), rgba(201, 161, 74, 0.04)); }
+    .row-rank-1 td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
+    .row-rank-1 .elo-col { color: var(--color-accent-bright); }
+    .row-rank-2 td { background: rgba(192, 200, 214, 0.055); }
+    .row-rank-2 td:first-child { box-shadow: inset 3px 0 0 rgba(192, 200, 214, 0.5); }
+    .row-rank-3 td { background: rgba(205, 127, 50, 0.05); }
+    .row-rank-3 td:first-child { box-shadow: inset 3px 0 0 rgba(205, 127, 50, 0.5); }
     .rank-change {
         font-size: 0.7rem;
         font-weight: 600;
