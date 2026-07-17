@@ -152,33 +152,39 @@
     }
 
     .pillar {
-        background: rgba(0, 0, 0, 0.22);
-        border: 1px solid var(--color-accent-border-soft);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(0, 0, 0, 0.16)),
+            var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
         border-radius: 14px;
-        padding: 1.4rem 1.1rem 1.5rem;
+        padding: 1.5rem 1.15rem 1.6rem;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+        box-shadow: inset 0 1px 0 rgba(230, 198, 125, 0.1);
+        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     }
 
     .pillar:hover {
         border-color: var(--color-accent-border);
-        background: rgba(0, 0, 0, 0.32);
-        transform: translateY(-2px);
+        box-shadow:
+            inset 0 1px 0 rgba(230, 198, 125, 0.18),
+            0 10px 26px rgba(0, 0, 0, 0.4);
+        transform: translateY(-3px);
     }
 
     .pillar-icon {
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 50%;
         border: 1px solid var(--color-accent-border);
+        background: radial-gradient(circle at 50% 35%, rgba(201, 161, 74, 0.12), transparent 70%);
         color: var(--color-accent);
-        margin-bottom: 0.85rem;
+        margin-bottom: 0.9rem;
         flex: 0 0 auto;
     }
 
