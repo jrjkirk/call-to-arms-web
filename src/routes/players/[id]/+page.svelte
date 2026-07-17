@@ -31,6 +31,7 @@
     });
 
     const player = $derived(apiData?.player ?? { name: '' });
+    const club = $derived(apiData?.club ?? null);
     const titles = $derived(apiData?.titles ?? []);
     const achievements = $derived(apiData?.achievements ?? []);
     const signupCounts = $derived(apiData?.signup_counts ?? {});
@@ -95,8 +96,11 @@
         </div>
     {/if}
     <div class="profile-name">{player.name}</div>
-    {#if titles.length > 0}
+    {#if club || titles.length > 0}
         <div class="profile-titles">
+            {#if club}
+                <span class="profile-club-chip">{club.name}</span>
+            {/if}
             {#each titles as t}
                 <span class="profile-title-chip">{t}</span>
             {/each}
@@ -324,6 +328,15 @@
         background: rgba(201, 161, 74, 0.18);
         border: 1px solid rgba(201, 161, 74, 0.45);
         color: var(--color-text-bright);
+        padding: 3px 10px;
+        border-radius: var(--radius);
+        font-size: 0.82rem;
+    }
+
+    .profile-club-chip {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        color: var(--color-text-dim);
         padding: 3px 10px;
         border-radius: var(--radius);
         font-size: 0.82rem;
