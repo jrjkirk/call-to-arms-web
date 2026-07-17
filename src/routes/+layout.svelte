@@ -5,6 +5,7 @@
     import { navigating } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fly } from 'svelte/transition';
+    import LandingHero from '$lib/LandingHero.svelte';
 
     let { children } = $props();
 
@@ -186,13 +187,7 @@
             {#if !authLoaded}
                 <div class="auth-gate"></div>
             {:else if !isAuthed && !page.url.pathname.startsWith('/pairings') && page.url.pathname !== '/join'}
-                <div class="auth-gate">
-                    <h1 class="auth-gate-title">Call to Arms</h1>
-                    <p class="auth-gate-text">
-                        Sign in with Discord to view league standings and player profiles.
-                    </p>
-                    <a class="auth-gate-button" href={loginUrl()}>Sign in with Discord</a>
-                </div>
+                <LandingHero loginUrl={loginUrl()} />
             {:else}
                 {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
                     <div class="claim-banner">
@@ -463,40 +458,6 @@
         min-height: 50vh;
         gap: 1rem;
         padding: 2rem 1rem;
-    }
-
-    .auth-gate-title {
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: var(--color-text-bright);
-        margin: 0;
-    }
-
-    .auth-gate-text {
-        font-size: 0.92rem;
-        color: var(--color-text-dim);
-        max-width: 360px;
-        line-height: 1.5;
-        margin: 0;
-    }
-
-    .auth-gate-button {
-        display: inline-block;
-        background: rgba(201, 161, 74, 0.18);
-        border: 1px solid rgba(201, 161, 74, 0.55);
-        color: var(--color-text-bright);
-        font-weight: 600;
-        padding: 0.65rem 1.6rem;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        text-decoration: none;
-        font-family: inherit;
-        cursor: pointer;
-        transition: background 0.1s ease, border-color 0.1s ease;
-    }
-
-    .auth-gate-button:hover {
-        background: rgba(201, 161, 74, 0.28);
     }
 
     @media (max-width: 768px) {
