@@ -3,10 +3,6 @@
 
     let { loginUrl }: { loginUrl: string } = $props();
 
-    // Scoped to this component deliberately — the rest of the app uses only
-    // system fonts. If this hero is ever reverted, nothing elsewhere depends
-    // on this import.
-
     const pillars = [
         {
             glyph: 'sign-up',
@@ -26,26 +22,12 @@
     ];
 </script>
 
-<svelte:head>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet" />
-</svelte:head>
-
 <div class="hero">
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="hero-grid" aria-hidden="true"></div>
 
     <div class="hero-inner">
-        <div class="hero-mark" in:fly={{ y: 14, duration: 550, delay: 60 }}>
-            <span class="hero-mark-line" aria-hidden="true"></span>
-            <span class="hero-mark-diamond" aria-hidden="true"></span>
-            <span class="hero-mark-line" aria-hidden="true"></span>
-        </div>
-
-        <h1 class="hero-title" in:fly={{ y: 18, duration: 600, delay: 120 }}>
-            Call <span class="hero-title-to">to</span> Arms
-        </h1>
+        <h1 class="hero-title" in:fly={{ y: 18, duration: 600, delay: 120 }}>Call to Arms</h1>
 
         <p class="hero-tagline" in:fly={{ y: 14, duration: 550, delay: 240 }}>
             The home for your club's tabletop nights — sign-ups, pairings, and
@@ -137,57 +119,20 @@
         max-width: 780px;
     }
 
-    .hero-mark {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        margin-bottom: 1.4rem;
-    }
-
-    .hero-mark-line {
-        width: 34px;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, var(--color-accent-border));
-    }
-
-    .hero-mark-line:last-child {
-        background: linear-gradient(90deg, var(--color-accent-border), transparent);
-    }
-
-    .hero-mark-diamond {
-        width: 7px;
-        height: 7px;
-        background: var(--color-accent);
-        transform: rotate(45deg);
-        box-shadow: 0 0 10px var(--color-accent-glow);
-    }
-
     .hero-title {
-        font-family: 'Cinzel', var(--font-display);
+        width: 100%;
+        text-align: center;
+        font-family: var(--font-display);
         font-weight: 700;
-        font-size: clamp(2.4rem, 6.5vw, 4.4rem);
-        line-height: 1.08;
-        letter-spacing: 0.02em;
+        font-size: clamp(2.2rem, 6vw, 3.6rem);
+        line-height: 1.15;
+        letter-spacing: 0.01em;
         margin: 0;
         background: linear-gradient(180deg, var(--color-text-bright) 0%, var(--color-accent) 115%);
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
         text-shadow: 0 0 46px var(--color-accent-glow);
-    }
-
-    .hero-title-to {
-        display: inline-block;
-        font-size: 0.42em;
-        text-transform: uppercase;
-        letter-spacing: 0.28em;
-        vertical-align: middle;
-        margin: 0 0.15em;
-        /* background-clip text doesn't inherit to children — give this its
-           own solid color instead of ending up invisible. */
-        background: none;
-        color: var(--color-text-dim);
-        -webkit-text-fill-color: var(--color-text-dim);
     }
 
     .hero-tagline {

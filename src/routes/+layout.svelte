@@ -131,6 +131,8 @@
 {/if}
 
 <div class="page-wrap" data-sveltekit-preload-data="hover">
+    <div class="ambient-glow" aria-hidden="true"></div>
+
     <header class="topbar">
         <nav class="nav-tabs-wrap">
             <div class="nav-tabs">
@@ -256,10 +258,33 @@
     }
 
     .page-wrap {
+        position: relative;
         display: flex;
         flex-direction: column;
         min-height: 100vh;
         padding: 1rem;
+    }
+
+    /* Same ambient gold glow as the signed-out landing hero, subdued —
+       carries the same visual language onto every page (signed in or out)
+       instead of it only existing on the one screen. */
+    .ambient-glow {
+        position: absolute;
+        top: -80px;
+        left: 50%;
+        width: min(1100px, 100%);
+        height: 340px;
+        transform: translateX(-50%);
+        background: radial-gradient(ellipse 60% 100% at 50% 0%, var(--color-accent-glow), transparent 72%);
+        opacity: 0.18;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .topbar,
+    .container {
+        position: relative;
+        z-index: 1;
     }
 
     /* Desktop: nav tabs + auth panel share one row. Mobile (see media query
