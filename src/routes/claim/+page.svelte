@@ -231,11 +231,11 @@
         overflow-y: auto;
         background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
         border: 1px solid var(--color-accent-border);
-        border-radius: 12px;
+        border-radius: var(--radius);
     }
     .player-row { border-bottom: 1px dashed var(--color-accent-border-soft); }
     .player-row:last-child { border-bottom: none; }
-    .player-row.selected { background: rgba(201, 161, 74, 0.15); }
+    .player-row.selected { background: rgba(255, 122, 51, 0.15); }
     .player-link {
         display: block;
         width: 100%;
@@ -262,17 +262,17 @@
         border: 1px solid rgba(210, 80, 80, 0.5);
         color: var(--color-text-bright);
         padding: 0.7rem 1rem;
-        border-radius: 10px;
+        border-radius: var(--radius);
         margin: 0.75rem 0 0;
         font-size: 0.9rem;
     }
     .actions { margin-top: 1rem; }
     .confirm-button {
-        background: rgba(201, 161, 74, 0.18);
-        border: 1px solid rgba(201, 161, 74, 0.55);
-        color: var(--color-text-bright);
+        background: var(--color-accent);
+        border: 1px solid var(--color-accent);
+        color: #1b1206;
         padding: 0.7rem 1.25rem;
-        border-radius: 10px;
+        border-radius: var(--radius);
         font-size: 0.95rem;
         font-weight: 600;
         font-family: inherit;
@@ -280,8 +280,8 @@
         transition: background 0.1s ease, border-color 0.1s ease;
     }
     .confirm-button:hover:not(:disabled) {
-        background: rgba(201, 161, 74, 0.30);
-        border-color: var(--color-accent);
+        background: var(--color-accent-soft);
+        box-shadow: 0 4px 16px var(--color-accent-glow);
     }
     .confirm-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -299,9 +299,9 @@
     }
     .optional { font-weight: 400; color: var(--color-text-dim); font-size: 0.85em; }
     .privacy-notice {
-        background: rgba(201, 161, 74, 0.06);
+        background: rgba(255, 122, 51, 0.06);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 10px;
+        border-radius: var(--radius);
         padding: 0.75rem 1rem;
         margin: 0.75rem 0 0.75rem;
         font-size: 0.85rem;
@@ -326,7 +326,7 @@
         width: 100%;
         background: var(--color-surface-dark);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 0.55rem 0.75rem;
         color: var(--color-text-bright);
         font-family: inherit;

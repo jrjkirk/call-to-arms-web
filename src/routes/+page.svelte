@@ -783,9 +783,9 @@
     }
 
     .system-card {
-        background: var(--color-sidebar-bg);
-        border: 2px solid transparent;
-        border-radius: 10px;
+        background: var(--color-surface-dark);
+        border: 2px solid var(--color-steel-border-soft);
+        border-radius: var(--radius);
         padding: 0.75rem 0.5rem;
         display: flex;
         align-items: center;
@@ -795,7 +795,7 @@
     }
 
     .system-card:hover {
-        border-color: var(--color-accent-border-soft);
+        border-color: var(--color-accent-border);
     }
 
     .system-card:active {
@@ -881,7 +881,7 @@
         border: 1px solid rgba(110, 180, 110, 0.40);
         color: var(--color-text-bright);
         padding: 0.55rem 0.9rem;
-        border-radius: 10px;
+        border-radius: var(--radius);
         margin-bottom: 1rem;
         font-size: 0.88rem;
     }
@@ -891,7 +891,7 @@
         border: 1px solid rgba(210, 80, 80, 0.5);
         color: var(--color-text-bright);
         padding: 0.7rem 1rem;
-        border-radius: 10px;
+        border-radius: var(--radius);
         margin-top: 0.75rem;
         font-size: 0.9rem;
     }
@@ -901,7 +901,7 @@
         border: 1px solid rgba(110, 180, 110, 0.5);
         color: var(--color-text-bright);
         padding: 0.7rem 1rem;
-        border-radius: 10px;
+        border-radius: var(--radius);
         margin-top: 0.75rem;
         font-size: 0.9rem;
     }
@@ -910,22 +910,22 @@
 
    .primary-button {
         display: inline-block;
-        background: rgba(201, 161, 74, 0.18);
-        border: 1px solid rgba(201, 161, 74, 0.55);
-        color: var(--color-text-bright);
-        padding: 0.7rem 1.25rem;
-        border-radius: 10px;
+        background: var(--color-accent);
+        border: 1px solid var(--color-accent);
+        color: #1b1206;
+        padding: 0.7rem 1.4rem;
+        border-radius: var(--radius);
         font-size: 0.95rem;
-        font-weight: 600;
+        font-weight: 700;
         font-family: inherit;
         text-decoration: none;
         cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease, opacity 0.15s ease;
+        transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease, opacity 0.15s ease;
     }
 
     .primary-button:hover:not(:disabled) {
-        background: rgba(201, 161, 74, 0.30);
-        border-color: var(--color-accent);
+        background: var(--color-accent-soft);
+        box-shadow: 0 4px 16px var(--color-accent-glow);
     }
 
     .primary-button:active:not(:disabled) {
@@ -939,7 +939,7 @@
         border: 1px solid rgba(210, 80, 80, 0.5);
         color: var(--color-text-bright);
         padding: 0.7rem 1.25rem;
-        border-radius: 10px;
+        border-radius: var(--radius);
         font-size: 0.95rem;
         font-weight: 600;
         font-family: inherit;

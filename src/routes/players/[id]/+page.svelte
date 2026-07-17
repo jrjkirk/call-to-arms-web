@@ -280,7 +280,7 @@
     .profile-card {
         background: var(--color-sidebar-bg);
         border: 1px solid var(--color-accent-border);
-        border-radius: 12px;
+        border-radius: var(--radius);
         padding: 18px 22px;
         margin-bottom: 14px;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -321,11 +321,11 @@
     }
 
     .profile-title-chip {
-        background: rgba(201, 161, 74, 0.18);
-        border: 1px solid rgba(201, 161, 74, 0.45);
+        background: rgba(255, 122, 51, 0.18);
+        border: 1px solid rgba(255, 122, 51, 0.45);
         color: var(--color-text-bright);
         padding: 3px 10px;
-        border-radius: 12px;
+        border-radius: var(--radius);
         font-size: 0.82rem;
     }
 
@@ -341,7 +341,7 @@
         border: 1px solid var(--color-accent-border-soft);
         color: var(--color-text-bright);
         padding: 8px 10px;
-        border-radius: 10px;
+        border-radius: var(--radius);
         font-size: 0.85rem;
         font-family: inherit;
         cursor: pointer;
@@ -350,12 +350,12 @@
     }
 
     .achievement-chip:hover {
-        background: rgba(201, 161, 74, 0.10);
-        border-color: rgba(201, 161, 74, 0.55);
+        background: rgba(255, 122, 51, 0.10);
+        border-color: rgba(255, 122, 51, 0.55);
     }
 
     .achievement-chip.expanded {
-        background: rgba(201, 161, 74, 0.18);
+        background: rgba(255, 122, 51, 0.18);
         border-color: var(--color-accent);
     }
 
@@ -364,7 +364,7 @@
         padding: 0.75rem 1rem;
         background: rgba(0, 0, 0, 0.25);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 10px;
+        border-radius: var(--radius);
         font-size: 0.9rem;
     }
 
@@ -379,7 +379,7 @@
     .faction-box {
         background: rgba(0, 0, 0, 0.25);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 10px;
+        border-radius: var(--radius);
         padding: 14px 12px;
     }
 
@@ -436,14 +436,14 @@
     .elo-chart {
         background: rgba(0, 0, 0, 0.25);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 10px;
+        border-radius: var(--radius);
         padding: 0.5rem;
         margin: 0.5rem 0 1rem;
     }
 
     .elo-svg { width: 100%; height: auto; }
 
-    .results { background: rgba(0, 0, 0, 0.15); border-radius: 10px; padding: 0.25rem 0.75rem; }
+    .results { background: rgba(0, 0, 0, 0.15); border-radius: var(--radius); padding: 0.25rem 0.75rem; }
 
     .result-row {
         display: flex;

@@ -429,35 +429,12 @@
         background: linear-gradient(90deg, var(--color-accent), transparent);
     }
 
-    /* Datacard form — matches .card in app.css so the standings read as the
-       same family of field record as the rest of the app. */
     .table-wrap {
-        position: relative;
-        --notch: 16px;
         overflow-x: auto;
-        background:
-            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
-            linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
-            var(--color-surface);
-        border: none;
-        border-radius: 0;
-        clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
-        box-shadow: inset 0 0 0 1px var(--color-steel-border);
-        filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
-    }
-
-    .table-wrap::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: calc(var(--notch) * 1.42);
-        height: 2px;
-        background: var(--color-accent);
-        transform-origin: top right;
-        transform: rotate(-45deg);
-        pointer-events: none;
-        z-index: 2;
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
     }
 
     .league-table {
@@ -545,13 +522,13 @@
     /* Podium: a flat gilt tint + a gilt edge on the champion's first cell, so
        the leader reads as the leader at a glance. Silver and bronze get
        quieter tints of the same idea. */
-    .row-rank-1 td { background: rgba(201, 161, 74, 0.08); }
+    .row-rank-1 td { background: rgba(255, 122, 51, 0.10); }
     .row-rank-1 td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
     .row-rank-1 .elo-col { color: var(--color-accent-bright); }
     .row-rank-2 td { background: rgba(192, 200, 214, 0.05); }
     .row-rank-2 td:first-child { box-shadow: inset 3px 0 0 rgba(192, 200, 214, 0.5); }
-    .row-rank-3 td { background: rgba(205, 127, 50, 0.05); }
-    .row-rank-3 td:first-child { box-shadow: inset 3px 0 0 rgba(205, 127, 50, 0.5); }
+    .row-rank-3 td { background: rgba(255, 122, 51, 0.045); }
+    .row-rank-3 td:first-child { box-shadow: inset 3px 0 0 rgba(255, 158, 87, 0.55); }
     .rank-change {
         font-size: 0.7rem;
         font-weight: 600;
@@ -646,10 +623,10 @@
 
     .submit-section {
         margin-top: 2rem;
-        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
-        border: 1px solid var(--color-accent-border);
-        border-radius: 12px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
         overflow: hidden;
     }
 
@@ -668,7 +645,7 @@
     }
 
     .submit-section[open] .submit-toggle {
-        border-bottom-color: var(--color-accent-border);
+        border-bottom-color: var(--color-steel-border);
     }
 
     .submit-toggle::-webkit-details-marker { display: none; }
@@ -743,7 +720,7 @@
     .field-select {
         background: var(--color-surface-dark);
         border: 1px solid var(--color-accent-border);
-        border-radius: 6px;
+        border-radius: var(--radius);
         color: var(--color-text-base);
         padding: 7px 10px;
         font-size: 0.9rem;
@@ -773,7 +750,7 @@
         background: var(--color-accent);
         color: #111;
         border: none;
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 9px 20px;
         font-size: 0.9rem;
         font-weight: 700;
@@ -792,7 +769,7 @@
     }
 
     .result-msg {
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 10px 14px;
         font-size: 0.9rem;
         line-height: 1.5;

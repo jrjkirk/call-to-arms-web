@@ -121,9 +121,9 @@
     }
 
     .system-card {
-        background: var(--color-sidebar-bg);
-        border: 2px solid transparent;
-        border-radius: 10px;
+        background: var(--color-surface-dark);
+        border: 2px solid var(--color-steel-border-soft);
+        border-radius: var(--radius);
         padding: 0.75rem 0.5rem;
         display: flex;
         align-items: center;
@@ -133,7 +133,7 @@
     }
 
     .system-card:hover {
-        border-color: var(--color-accent-border-soft);
+        border-color: var(--color-accent-border);
     }
 
     .system-card:active {
@@ -158,14 +158,14 @@
         list-style: none;
         padding: 0;
         margin: 1rem 0 0;
-        background: var(--color-sidebar-bg);
-        border: 1px solid var(--color-accent-border);
-        border-radius: 12px;
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
         overflow: hidden;
     }
 
     .player-row {
-        border-bottom: 1px dashed var(--color-accent-border-soft);
+        border-bottom: 1px solid var(--color-steel-border-soft);
     }
 
     .player-row:last-child {

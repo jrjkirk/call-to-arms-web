@@ -1010,7 +1010,7 @@
         padding: 10px 14px;
         background: rgba(180, 90, 60, 0.08);
         border: 1px solid rgba(180, 90, 60, 0.3);
-        border-radius: 8px;
+        border-radius: var(--radius);
     }
 
     .platform-banner a {
@@ -1027,7 +1027,7 @@
         margin-bottom: 1.25rem;
         background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
         border: 1px solid var(--color-accent-border);
-        border-radius: 12px;
+        border-radius: var(--radius);
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
         overflow: hidden;
     }
@@ -1184,7 +1184,7 @@
         padding: 5px 10px;
         background: rgba(0, 0, 0, 0.15);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 7px;
+        border-radius: var(--radius);
         font-size: 0.88rem;
         flex-wrap: wrap;
     }
@@ -1249,7 +1249,7 @@
     .field-select {
         background: var(--color-surface-dark);
         border: 1px solid var(--color-accent-border);
-        border-radius: 6px;
+        border-radius: var(--radius);
         color: var(--color-text-base);
         padding: 7px 10px;
         font-size: 0.9rem;
@@ -1264,7 +1264,7 @@
     .field-input {
         background: var(--color-surface-dark);
         border: 1px solid var(--color-accent-border);
-        border-radius: 6px;
+        border-radius: var(--radius);
         color: var(--color-text-base);
         padding: 7px 10px;
         font-size: 0.9rem;
@@ -1315,7 +1315,7 @@
         background: var(--color-accent);
         color: #111;
         border: none;
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 0 14px;
         height: 2.2rem;
         box-sizing: border-box;

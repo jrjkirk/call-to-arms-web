@@ -2639,34 +2639,14 @@
 
     /* ── Dashboard groups (collapsible) ──────────────────────────────────── */
 
-    /* Datacard form — matches .card in app.css for cross-page consistency. */
+    /* Clean squared panel — matches .card in app.css for cross-page consistency. */
     .dash-group {
-        position: relative;
-        --notch: 16px;
         margin-bottom: 1.25rem;
-        background:
-            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
-            linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
-            var(--color-surface);
-        border: none;
-        border-radius: 0;
-        clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
-        box-shadow: inset 0 0 0 1px var(--color-steel-border);
-        filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
-    }
-
-    .dash-group::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: calc(var(--notch) * 1.42);
-        height: 2px;
-        background: var(--color-accent);
-        transform-origin: top right;
-        transform: rotate(-45deg);
-        pointer-events: none;
-        z-index: 2;
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
+        overflow: hidden;
     }
 
     .dash-group-header {
@@ -2781,7 +2761,7 @@
         color: var(--color-text-base);
         padding: 4px 8px;
         background: rgba(0, 0, 0, 0.15);
-        border-radius: 6px;
+        border-radius: var(--radius);
         border: 1px solid var(--color-accent-border-soft);
         display: inline-block;
         width: fit-content;
@@ -2800,7 +2780,7 @@
         padding: 8px 10px;
         background: rgba(0, 0, 0, 0.15);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 8px;
+        border-radius: var(--radius);
         flex-wrap: wrap;
     }
 
@@ -2821,8 +2801,8 @@
         display: inline-flex;
         align-items: center;
         gap: 0.3rem;
-        background: rgba(201, 161, 74, 0.12);
-        border: 1px solid rgba(201, 161, 74, 0.35);
+        background: rgba(255, 122, 51, 0.12);
+        border: 1px solid rgba(255, 122, 51, 0.35);
         color: var(--color-accent);
         font-size: 0.78rem;
         font-weight: 600;
@@ -2863,7 +2843,7 @@
         padding: 5px 10px;
         background: rgba(0, 0, 0, 0.15);
         border: 1px solid var(--color-accent-border-soft);
-        border-radius: 7px;
+        border-radius: var(--radius);
         font-size: 0.88rem;
         flex-wrap: wrap;
     }
@@ -2976,7 +2956,7 @@
     .field-select {
         background: var(--color-surface-dark);
         border: 1px solid var(--color-accent-border);
-        border-radius: 6px;
+        border-radius: var(--radius);
         color: var(--color-text-base);
         padding: 7px 10px;
         font-size: 0.9rem;
@@ -2991,7 +2971,7 @@
     .field-input {
         background: var(--color-surface-dark);
         border: 1px solid var(--color-accent-border);
-        border-radius: 6px;
+        border-radius: var(--radius);
         color: var(--color-text-base);
         padding: 7px 10px;
         font-size: 0.9rem;
@@ -3018,7 +2998,7 @@
         background: var(--color-accent);
         color: #111;
         border: none;
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 0 14px;
         height: 2.2rem;
         box-sizing: border-box;
@@ -3042,7 +3022,7 @@
         background: transparent;
         color: var(--color-accent);
         border: 1px solid var(--color-accent-border);
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 0 14px;
         height: 2.2rem;
         box-sizing: border-box;
@@ -3059,12 +3039,12 @@
     }
 
     .secondary-button:not(:disabled):hover {
-        background: rgba(201, 161, 74, 0.1);
+        background: rgba(255, 122, 51, 0.1);
     }
 
     .publish-btn {
         border: none;
-        border-radius: 8px;
+        border-radius: var(--radius);
         padding: 0 14px;
         height: 2.2rem;
         box-sizing: border-box;
@@ -3097,16 +3077,12 @@
         gap: 1.5rem;
     }
 
-    /* A member panel inside a group — quieter than the notched group card:
-       angular, steel-framed, with a gilt top rule for family resemblance. */
+    /* Member panel inside a group — a quieter square steel panel. */
     .scope-card {
-        background:
-            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
-            var(--color-surface-dark);
+        background: var(--color-surface-dark);
         border: 1px solid var(--color-steel-border);
-        border-radius: 0;
+        border-radius: var(--radius);
         padding: 1.2rem 1.4rem;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     }
 
     .scope-card-title {
@@ -3268,7 +3244,7 @@
     }
 
     .prearranged-row td {
-        background: rgba(201, 161, 74, 0.06);
+        background: rgba(255, 122, 51, 0.06);
     }
 
     .preview-row td {
@@ -3447,8 +3423,8 @@
     .cta-token {
         display: inline-block;
         font-size: 0.72rem;
-        background: rgba(201, 161, 74, 0.12);
-        border: 1px solid rgba(201, 161, 74, 0.35);
+        background: rgba(255, 122, 51, 0.12);
+        border: 1px solid rgba(255, 122, 51, 0.35);
         color: var(--color-accent);
         padding: 1px 5px;
         border-radius: 4px;

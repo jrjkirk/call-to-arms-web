@@ -1,41 +1,44 @@
 @import 'tailwindcss';
 
 @theme {
-    /* Ground — cool gunmetal darks, not flat warm-black */
-    --color-bg-base: #101219;
-    --color-bg-deep: #0a0b0e;
-    --color-sidebar-bg: #171a22;
-    --color-surface: rgba(26, 29, 39, 0.92);
-    --color-surface-dark: rgba(18, 20, 28, 0.95);
-    --color-surface-hover: rgba(201, 161, 74, 0.06);
+    /* Ground — cool gunmetal darks */
+    --color-bg-base: #10131a;
+    --color-bg-deep: #0a0c11;
+    --color-sidebar-bg: #161a23;
+    --color-surface: rgba(24, 28, 38, 0.95);
+    --color-surface-dark: rgba(17, 20, 27, 0.96);
+    --color-surface-hover: rgba(255, 122, 51, 0.07);
 
-    /* Text — warm parchment, reads against the cool ground */
-    --color-text-base: #e9e0cd;
-    --color-text-bright: #f5edd7;
-    --color-text-muted: #cabfa6;
-    --color-text-dim: #a89e86;
-    --color-text-faint: #767c8a;
+    /* Text — cool near-white (modern dashboard) */
+    --color-text-base: #dde2ea;
+    --color-text-bright: #f4f7fb;
+    --color-text-muted: #aab2c1;
+    --color-text-dim: #838b9b;
+    --color-text-faint: #626a7a;
 
-    /* Structure — cool steel hairlines & secondary UI */
-    --color-steel: #7c869a;
-    --color-steel-border: rgba(124, 134, 154, 0.20);
-    --color-steel-border-soft: rgba(124, 134, 154, 0.11);
+    /* Structure — cool hairlines & secondary UI */
+    --color-steel: #8891a3;
+    --color-steel-border: rgba(255, 255, 255, 0.09);
+    --color-steel-border-soft: rgba(255, 255, 255, 0.05);
 
-    /* Accent — antique gilt (kept), with a brighter edge highlight */
-    --color-accent: #c9a14a;
-    --color-accent-soft: #cba758;
-    --color-accent-bright: #e6c67d;
-    --color-accent-border: rgba(201, 161, 74, 0.34);
-    --color-accent-border-soft: rgba(201, 161, 74, 0.16);
-    --color-accent-glow: rgba(201, 161, 74, 0.4);
+    /* Accent — bright ember orange, the energy of the dashboard */
+    --color-accent: #ff7a33;
+    --color-accent-soft: #ff8c4d;
+    --color-accent-bright: #ffa869;
+    --color-accent-border: rgba(255, 122, 51, 0.38);
+    --color-accent-border-soft: rgba(255, 122, 51, 0.18);
+    --color-accent-glow: rgba(255, 122, 51, 0.40);
 
-    --color-win: #6fae72;
-    --color-loss: #cf5a54;
-    --color-draw: #c9a14a;
+    --color-win: #4ade80;
+    --color-loss: #f87171;
+    --color-draw: #ff9e57;
 
-    --color-tnt: #d97a2a;
+    --color-tnt: #ff8c4d;
 
     --font-display: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', sans-serif;
+
+    /* One radius, used everywhere — clean squared corners. */
+    --radius: 5px;
 }
 
 body {
@@ -55,73 +58,19 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.01em;
 }
 
-/* Signature: the unit-datacard. Every panel gets a cut top-right corner, a
-   steel frame, a gilt top rule, and a gilt line across the cut — so surfaces
-   across the whole app (sign-up card, league table, admin group) read as one
-   family of field records. clip-path clips box-shadow, so depth comes from
-   filter: drop-shadow, which follows the notched silhouette. */
-.datacard {
-    position: relative;
-    --notch: 16px;
-    background:
-        linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
-        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
-        var(--color-surface);
-    border: none;
-    border-radius: 0;
-    clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
-    box-shadow: inset 0 0 0 1px var(--color-steel-border);
-    filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
-}
-
-.datacard::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: calc(var(--notch) * 1.42);
-    height: 2px;
-    background: var(--color-accent);
-    transform-origin: top right;
-    transform: rotate(-45deg);
-    pointer-events: none;
-}
-
-/* Ratings, points, W/D/L — data reads as a record when the figures line up */
+/* Data reads as a record when the figures line up */
 .stat-value, .rank-num, td, th { font-variant-numeric: tabular-nums; }
 
 /* ===== Reusable building blocks ===== */
 
-/* The shared card is a datacard (see .datacard). */
+/* Clean squared panel — surface, hairline frame, quiet depth. */
 .card {
-    position: relative;
-    --notch: 16px;
-    background:
-        linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
-        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
-        var(--color-surface);
-    border: none;
-    border-radius: 0;
-    clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
-    box-shadow: inset 0 0 0 1px var(--color-steel-border);
-    filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
+    background: var(--color-surface);
+    border: 1px solid var(--color-steel-border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
 }
 
-.card::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: calc(var(--notch) * 1.42);
-    height: 2px;
-    background: var(--color-accent);
-    transform-origin: top right;
-    transform: rotate(-45deg);
-    pointer-events: none;
-}
-
-/* Section labels are stamped crate-markings: condensed, spaced, gilt, led by
-   a short gilt tick. */
 .section-title {
     color: var(--color-accent);
     font-size: 0.82rem;
@@ -152,14 +101,13 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0.4rem 0 1rem;
 }
 
-/* Stat tiles are ledger entries: left-ruled in gilt, left-aligned, with a
-   large tabular figure sitting below its small-caps label. */
+/* KPI tile — bold figure, small-caps accent label, orange left rule. */
 .stat-card {
     position: relative;
     background: var(--color-surface-dark);
     border: 1px solid var(--color-steel-border);
     border-left: 3px solid var(--color-accent);
-    border-radius: 0;
+    border-radius: var(--radius);
     padding: 0.75rem 0.9rem;
     text-align: left;
     display: flex;
@@ -200,7 +148,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     background: var(--color-surface-dark);
     border: 1px solid var(--color-steel-border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     color: var(--color-text-base);
     padding: 0.55rem 0.75rem;
     font-family: inherit;
@@ -228,7 +176,7 @@ h1, h2, h3, h4, h5, h6 {
 .empty-state {
     background: var(--color-surface-dark);
     border: 1px dashed var(--color-steel-border);
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 1rem;
     color: var(--color-text-dim);
     font-style: italic;

@@ -151,42 +151,22 @@
         margin-top: clamp(2.2rem, 5vw, 3.2rem);
     }
 
-    /* Datacard form — matches .card in app.css. */
     .pillar {
-        position: relative;
-        --notch: 16px;
-        background:
-            linear-gradient(var(--color-accent), var(--color-accent)) no-repeat top / 100% 2px,
-            linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16)),
-            var(--color-surface-dark);
-        border: none;
-        border-radius: 0;
-        clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch), 100% 100%, 0 100%);
-        box-shadow: inset 0 0 0 1px var(--color-steel-border);
-        filter: drop-shadow(0 5px 16px rgba(0, 0, 0, 0.42));
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
         padding: 1.6rem 1.2rem 1.7rem;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        transition: transform 0.2s ease, filter 0.2s ease;
-    }
-
-    .pillar::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: calc(var(--notch) * 1.42);
-        height: 2px;
-        background: var(--color-accent);
-        transform-origin: top right;
-        transform: rotate(-45deg);
-        pointer-events: none;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .pillar:hover {
-        filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.5));
+        border-color: var(--color-accent-border);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.46);
         transform: translateY(-3px);
     }
 
@@ -198,7 +178,7 @@
         justify-content: center;
         border-radius: 50%;
         border: 1px solid var(--color-accent-border);
-        background: radial-gradient(circle at 50% 35%, rgba(201, 161, 74, 0.12), transparent 70%);
+        background: radial-gradient(circle at 50% 35%, rgba(255, 122, 51, 0.12), transparent 70%);
         color: var(--color-accent);
         margin-bottom: 0.9rem;
         flex: 0 0 auto;
@@ -233,23 +213,23 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(180deg, rgba(201, 161, 74, 0.24), rgba(201, 161, 74, 0.14));
+        background: var(--color-accent);
         border: 1px solid var(--color-accent);
-        color: var(--color-text-bright);
+        color: #1b1206;
         font-weight: 700;
         font-size: 1.02rem;
         letter-spacing: 0.01em;
         padding: 0.85rem 2.2rem;
-        border-radius: 10px;
+        border-radius: var(--radius);
         text-decoration: none;
         cursor: pointer;
-        box-shadow: 0 0 0 rgba(201, 161, 74, 0);
+        box-shadow: 0 6px 22px var(--color-accent-glow);
         transition: background 0.18s ease, box-shadow 0.25s ease, transform 0.15s ease;
     }
 
     .hero-button:hover {
-        background: linear-gradient(180deg, rgba(201, 161, 74, 0.34), rgba(201, 161, 74, 0.2));
-        box-shadow: 0 0 28px var(--color-accent-glow);
+        background: var(--color-accent-soft);
+        box-shadow: 0 8px 30px var(--color-accent-glow);
         transform: translateY(-1px);
     }
 

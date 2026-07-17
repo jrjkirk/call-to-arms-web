@@ -308,15 +308,20 @@
     }
 
     .sidebar-button:hover {
-        background: rgba(201, 161, 74, 0.10);
-        border-color: rgba(201, 161, 74, 0.55);
+        background: rgba(255, 122, 51, 0.10);
+        border-color: rgba(255, 122, 51, 0.55);
     }
 
     .sidebar-button-primary {
-        background: rgba(201, 161, 74, 0.18);
-        border-color: rgba(201, 161, 74, 0.55);
-        color: var(--color-text-bright);
-        font-weight: 600;
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+        color: #1b1206;
+        font-weight: 700;
+    }
+
+    .sidebar-button-primary:hover {
+        background: var(--color-accent-soft);
+        border-color: var(--color-accent-soft);
     }
 
     .user-pill {
@@ -343,7 +348,7 @@
     }
 
     .user-pill-link:hover {
-        background: rgba(201, 161, 74, 0.08);
+        background: rgba(255, 122, 51, 0.08);
     }
 
     .user-meta { flex: 1; min-width: 0; }
@@ -386,10 +391,16 @@
     .nav-tabs {
         display: flex;
         gap: 1.5rem;
-        border-bottom: 1px solid var(--color-accent-border);
+        border-bottom: 1px solid var(--color-steel-border);
         padding-bottom: 0.6rem;
         position: relative;
+        /* Scrolls horizontally on mobile; hide the scrollbar chrome so the
+           tab ribbon stays clean (still swipeable + the fade hints overflow). */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
+
+    .nav-tabs::-webkit-scrollbar { display: none; }
 
     .nav-tab {
         color: var(--color-text-base);
