@@ -19,6 +19,10 @@ export type SystemConfig = {
     scenario_options: string[];
     default_scenario: string;
     allows_demo: boolean;
+    // Whether this system runs a league (ELO ladder + results). Drives which
+    // systems the league UI surfaces — replaces the hardcoded
+    // 'The Old World' league checks.
+    has_league: boolean;
     // System *rules*, owned by backend code (call-to-arms-api systems/ modules)
     // and served by GET /systems. The values below in FALLBACK_SYSTEMS_CONFIG
     // are only the offline safety-net copy — same role as the vibe/points
@@ -41,6 +45,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: ['Open Battle', 'Weekly Scenario'],
         default_scenario: 'Open Battle',
         allows_demo: true,
+        has_league: true,
         faction_list: [
             'Empire of Man', 'Dwarfen Mountain Holds', 'Kingdom of Bretonnia',
             'Wood Elf Realms', 'High Elf Realms', 'Orc & Goblin Tribes',
@@ -63,6 +68,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: [],
         default_scenario: '',
         allows_demo: true,
+        has_league: false,
         faction_list: [
             'I - Dark Angels',
             "III - Emperor's Children",
@@ -107,6 +113,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: [],
         default_scenario: '',
         allows_demo: false,
+        has_league: false,
         faction_list: [
             'Angels Of Death', 'Battleclade', 'Blades Of Khaine', 'Blooded',
             'Brood Brothers', 'Canoptek Circle', 'Celestian Insidiants', 'Chaos Cult',
@@ -142,9 +149,18 @@ function normalize(raw: any): SystemConfig {
         scenario_options: raw.scenario_options ?? [],
         default_scenario: raw.default_scenario ?? '',
         allows_demo: !!raw.allows_demo,
+        has_league: !!raw.has_league,
         faction_list: raw.faction_list ?? [],
         icon_folder: raw.icon_folder ?? ''
     };
+}
+
+/** Systems that run a league, in catalogue order. The league UI is
+ *  single-system today (only TOW has a league), so callers generally take
+ *  the first entry — but sourcing it from has_league removes the hardcoded
+ *  'The Old World' literal and makes a future league system data-driven. */
+export function leagueSystems(systemsConfig: SystemConfig[]): SystemConfig[] {
+    return systemsConfig.filter((c) => c.has_league);
 }
 
 const cachedByClub: Record<string, Promise<SystemConfig[]>> = {};

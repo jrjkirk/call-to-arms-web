@@ -39,6 +39,7 @@
         default_scenario: string | null;
         allows_demo: boolean;
         has_intro_prepass: boolean;
+        has_league: boolean;
         recent_weeks: number;
         extended_weeks: number;
         faction_list: string[] | null;
@@ -81,6 +82,7 @@
     let gsDefaultScenario = $state('');
     let gsAllowsDemo = $state(false);
     let gsHasIntroPrepass = $state(false);
+    let gsHasLeague = $state(false);
     let gsRecentWeeks = $state(3);
     let gsExtendedWeeks = $state(6);
     let gsActive = $state(true);
@@ -332,6 +334,7 @@
         gsScenarioOptionsStr = '';
         gsAllowsDemo = false;
         gsHasIntroPrepass = false;
+        gsHasLeague = false;
         gsRecentWeeks = 3;
         gsExtendedWeeks = 6;
         gsActive = true;
@@ -367,6 +370,7 @@
         gsScenarioOptionsStr = (existing.scenario_options ?? []).join(', ');
         gsAllowsDemo = existing.allows_demo;
         gsHasIntroPrepass = existing.has_intro_prepass;
+        gsHasLeague = existing.has_league;
         gsRecentWeeks = existing.recent_weeks;
         gsExtendedWeeks = existing.extended_weeks;
         gsActive = existing.active;
@@ -390,6 +394,7 @@
             default_scenario: gsUsesScenarios ? gsDefaultScenario || null : null,
             allows_demo: gsAllowsDemo,
             has_intro_prepass: gsHasIntroPrepass,
+            has_league: gsHasLeague,
             recent_weeks: gsRecentWeeks,
             extended_weeks: gsExtendedWeeks,
             // faction_list / icon_folder are NOT sent: a system's factions and
@@ -772,6 +777,10 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsHasIntroPrepass} />
                 <span>Has intro pre-pass</span>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsHasLeague} />
+                <span>Has league</span>
             </label>
             <div class="field-row-break"></div>
 

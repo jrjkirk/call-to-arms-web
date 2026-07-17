@@ -3,7 +3,7 @@
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
-    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getSystemsConfig, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
 
     let apiData = $state<any>(null);
     let pageLoading = $state(true);
@@ -38,6 +38,9 @@
     const factionUsage = $derived(apiData?.faction_usage ?? {});
     const league = $derived(apiData?.league ?? {});
     const hasLeagueGames = $derived((league.total_games ?? 0) > 0);
+    // League section heading names the (single, today) league-eligible system,
+    // sourced from has_league rather than a hardcoded 'The Old World'.
+    const leagueName = $derived(leagueSystems(systemsConfig)[0]?.name ?? 'The Old World');
 
     let expandedAchievement = $state<string | null>(null);
 
@@ -171,7 +174,7 @@
 {/if}
 
 {#if hasLeagueGames}
-    <div class="section-title">The Old World League</div>
+    <div class="section-title">{leagueName} League</div>
 
     <div class="stat-row">
         <div class="stat-card">

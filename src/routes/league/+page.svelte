@@ -2,15 +2,19 @@
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
-    import { getSystemsConfig, configFor, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getSystemsConfig, configFor, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
 
-    // The league is The Old World only — its faction dropdowns and the
-    // most-played-faction icons both use TOW's backend-owned ruleset,
-    // sourced from GET /systems (with FALLBACK until it loads).
-    const LEAGUE_SYSTEM = 'The Old World';
+    // The league UI is single-system today: it surfaces the first system whose
+    // has_league capability is set (The Old World). Its faction dropdowns and
+    // most-played-faction icons use that system's backend-owned ruleset,
+    // sourced from GET /systems (with FALLBACK until it loads). Sourcing the
+    // system from has_league removes the hardcoded name.
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
-    const leagueFactions = $derived(configFor(systemsConfig, LEAGUE_SYSTEM).faction_list);
-    const leagueFolder = $derived(systemFolder(LEAGUE_SYSTEM, systemsConfig));
+    const leagueSystem = $derived(
+        (leagueSystems(systemsConfig)[0] ?? configFor(systemsConfig, 'The Old World')).legacy_system_name
+    );
+    const leagueFactions = $derived(configFor(systemsConfig, leagueSystem).faction_list);
+    const leagueFolder = $derived(systemFolder(leagueSystem, systemsConfig));
 
     let rankings = $state<any[]>([]);
     let allPlayers = $state<{ id: number; name: string }[]>([]);
