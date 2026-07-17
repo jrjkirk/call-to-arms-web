@@ -130,13 +130,26 @@
 {/if}
 
 <div class="page-wrap" data-sveltekit-preload-data="hover">
-    <aside class="sidebar" class:drawer-open={drawerOpen}>
-        <div class="sidebar-block">
+    <header class="topbar">
+        <nav class="nav-tabs-wrap">
+            <div class="nav-tabs">
+                {#each navItems as item}
+                    <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
+                {/each}
+                {#if hasAdminAccess}
+                    <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
+                {/if}
+                {#if hasPlatformAdminAccess}
+                    <a href="/platform-admin" class="nav-tab" class:active={isActive('/platform-admin')} data-sveltekit-preload-data="hover">Platform Admin</a>
+                {/if}
+            </div>
+            <div class="nav-tabs-fade"></div>
+        </nav>
+
+        <aside class="auth-panel" class:drawer-open={drawerOpen}>
             {#if !authLoaded}
-                <h2 class="sidebar-heading">Access</h2>
-                <p class="sidebar-note">…</p>
+                <p class="auth-panel-note">…</p>
             {:else if isAuthed && auth.user}
-                <h2 class="sidebar-heading">Access</h2>
                 {#if auth.player}
                     <a class="user-pill user-pill-link" href={`/players/${auth.player.id}`} onclick={closeDrawer}>
                         {#if auth.user.avatar_url}
@@ -160,31 +173,15 @@
                 {/if}
                 <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
             {:else}
-                <h2 class="sidebar-heading">Access</h2>
-                <p class="sidebar-note">Sign in to submit results and sign up for sessions.</p>
+                <p class="auth-panel-note">Sign in to submit results and sign up for sessions.</p>
                 <a class="sidebar-button sidebar-button-primary" href={loginUrl()} onclick={closeDrawer}>
                     Sign in with Discord
                 </a>
             {/if}
-        </div>
-    </aside>
+        </aside>
+    </header>
 
     <main class="container">
-        <nav class="nav-tabs-wrap">
-            <div class="nav-tabs">
-                {#each navItems as item}
-                    <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
-                {/each}
-                {#if hasAdminAccess}
-                    <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
-                {/if}
-                {#if hasPlatformAdminAccess}
-                    <a href="/platform-admin" class="nav-tab" class:active={isActive('/platform-admin')} data-sveltekit-preload-data="hover">Platform Admin</a>
-                {/if}
-            </div>
-            <div class="nav-tabs-fade"></div>
-        </nav>
-
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
@@ -265,48 +262,47 @@
 
     .page-wrap {
         display: flex;
+        flex-direction: column;
         min-height: 100vh;
-        gap: 1rem;
         padding: 1rem;
     }
 
-    .sidebar {
-        flex: 0 0 200px;
+    /* Desktop: nav tabs + auth panel share one row. Mobile (see media query
+       below) detaches the auth panel into a hamburger-toggled drawer, same
+       mechanism as before — just no longer a persistent column. */
+    .topbar {
         display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        padding-top: 0.25rem;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        width: 100%;
+        max-width: 1100px;
+        margin: 0 auto 1.5rem;
     }
 
-    .sidebar-heading {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--color-text-base);
-        margin: 0 0 0.5rem;
+    .auth-panel {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 0 0 auto;
     }
 
-    .sidebar-note {
+    .auth-panel-note {
         font-size: 0.78rem;
         color: var(--color-text-dim);
-        margin: 0 0 0.5rem;
+        margin: 0;
         line-height: 1.4;
-    }
-
-    .sidebar-block { padding: 0.25rem 0.25rem 0.5rem; }
-
-    .sidebar-divider {
-        height: 1px;
-        background: var(--color-accent-border-soft);
-        margin: 0.25rem 0;
+        text-align: right;
     }
 
     .sidebar-button {
-        display: block;
-        width: 100%;
+        display: inline-block;
+        width: auto;
+        white-space: nowrap;
         background: rgba(0, 0, 0, 0.25);
         border: 1px solid var(--color-accent-border-soft);
         color: var(--color-text-base);
-        padding: 0.5rem 0.6rem;
+        padding: 0.5rem 0.9rem;
         border-radius: 8px;
         font-size: 0.82rem;
         font-family: inherit;
@@ -332,7 +328,6 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        margin-bottom: 0.5rem;
     }
 
     .user-avatar {
@@ -379,8 +374,9 @@
     .user-sub-warn { color: var(--color-tnt); font-style: normal; }
 
     .container {
-        flex: 1;
-        min-width: 0;
+        width: 100%;
+        max-width: 1100px;
+        margin: 0 auto;
         padding: 1.8rem 2rem 1.5rem;
         background: var(--color-bg-deep);
     }
@@ -388,7 +384,8 @@
     /* Wrapper around the scrollable tab row, needed for the fade overlay */
     .nav-tabs-wrap {
         position: relative;
-        margin-bottom: 1.5rem;
+        flex: 1;
+        min-width: 0;
     }
 
     .nav-tabs {
@@ -531,8 +528,14 @@
             padding-top: 0;
         }
 
-        /* The sidebar becomes a left slide-out drawer, hidden by default */
-        .sidebar {
+        .topbar {
+            margin-bottom: 0;
+        }
+
+        /* The auth panel becomes a left slide-out drawer, hidden by default —
+           same hamburger-toggled mechanism as before, just no longer a
+           persistent column on desktop. */
+        .auth-panel {
             position: fixed;
             top: 0;
             left: 0;
@@ -543,26 +546,27 @@
             background: var(--color-sidebar-bg);
             border-right: 1px solid var(--color-accent-border);
             padding: 1rem;
+            padding-top: 2.75rem;
             overflow-y: auto;
             transform: translateX(-100%);
             transition: transform 0.25s ease;
-            flex: none;
-            display: flex;
             flex-direction: column;
+            align-items: stretch;
+            gap: 0.5rem;
         }
 
-        .sidebar .sidebar-divider {
-            margin-top: auto;
-        }
-
-        .sidebar.drawer-open {
+        .auth-panel.drawer-open {
             transform: translateX(0);
         }
 
-        .sidebar-block { padding-top: 2.75rem; }
-        .sidebar-divider { margin: 0.75rem 0; }
+        .auth-panel-note { text-align: left; }
 
-        .sidebar-button { font-size: 0.85rem; padding: 0.6rem; }
+        .sidebar-button {
+            display: block;
+            width: 100%;
+            font-size: 0.85rem;
+            padding: 0.6rem;
+        }
 
         .container { padding: 1rem; }
 
