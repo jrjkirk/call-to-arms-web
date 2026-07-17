@@ -293,19 +293,13 @@
         return configFor(systemsConfig, system).faction_list;
     }
 
-    // Vibe options offered in the pairings-grid "Type" dropdowns. Kill Team
-    // excludes "Intro" here — unlike the main signup form (fixed to
-    // "Standard", no selector) and the pre-arranged sub-form (offers
-    // Standard + Intro), this grid has historically only offered "Standard"
-    // for KT pairings. Preserved exactly rather than guessed at; flag before
-    // unifying it with the other two KT vibe behaviors.
-    const GRID_VIBE_EXCLUSIONS: Record<string, string[]> = {
-        'Kill Team': ['Intro']
-    };
-
+    // Vibe options offered in the pairings-grid "Type" dropdowns — sourced
+    // purely from the catalogue, same as the main signup form and the
+    // pre-arranged sub-form. (Previously this grid hardcoded a KT-excludes-
+    // "Intro" rule that diverged from the other two surfaces; removed so all
+    // three agree on whatever the catalogue says for each system.)
     function vibeOptionsFor(system: string): string[] {
-        const excluded = GRID_VIBE_EXCLUSIONS[system] ?? [];
-        return sortVibeOptions(configFor(systemsConfig, system).vibe_options.filter((v) => !excluded.includes(v)));
+        return sortVibeOptions(configFor(systemsConfig, system).vibe_options);
     }
 
     function showPoints(system: string): boolean {

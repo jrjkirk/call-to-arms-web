@@ -103,11 +103,12 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         uses_points: false,
         default_points: 0,
         max_points: 10000,
-        // Matches the live backend's SystemConfig row today: just
-        // "Standard". Note this is narrower than what the pre-arranged
-        // sub-form on the signup page used to hardcode (["Standard",
-        // "Intro"]) — see the flag in the Part 2 report about this gap.
-        vibe_options: ['Standard'],
+        // Kill Team offers Standard + Intro. All three signup/admin surfaces
+        // now read this from the catalogue (no per-surface hardcoding), so
+        // this fallback must match the live catalogue row. Intro here is a
+        // signup label only — KT has no intro pre-pass (has_intro_prepass is
+        // false), so the matcher is unaffected.
+        vibe_options: ['Standard', 'Intro'],
         default_vibe: 'Standard',
         uses_scenarios: false,
         scenario_options: [],
