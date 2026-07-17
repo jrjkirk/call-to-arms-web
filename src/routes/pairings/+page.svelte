@@ -80,8 +80,8 @@
     // them so a player sitting on the page sees them appear the moment an
     // admin publishes — no manual refresh needed. Stops the instant
     // `published` flips true; the matchup cards' own `in:fly`/`in:scale`
-    // transitions (below) then provide the reveal for free, since the
-    // {#each} block only mounts once `pdata.published` is true.
+    // transitions (below) then provide the reveal for free, since each
+    // card only enters `pdata.matchups` (and the keyed {#each}) once.
     let pollTimer: ReturnType<typeof setInterval> | null = null;
 
     function stopPolling() {
@@ -238,14 +238,15 @@
     </div>
 {/if}
 
-{#key data.system}
 {#if !pairingsLoaded}
     <div class="empty-state">Loading…</div>
 {:else if !pdata.published}
     <div class="empty-state">No pairings published yet for this week/system.</div>
 {:else if pdata.matchups.length === 0}
     <div class="empty-state">No pairings yet.</div>
-{:else}
+{/if}
+
+{#if pairingsLoaded && pdata.published && pdata.matchups.length > 0}
     <div class="stat-row">
         <div class="stat-card">
             <div class="stat-label">Players</div>
@@ -260,9 +261,17 @@
             <div class="stat-value">{pdata.byes}</div>
         </div>
     </div>
+{/if}
 
-    <div class="matchups">
-        {#each pdata.matchups as m, i (matchKey(m))}
+<!-- Deliberately NOT wrapped in the {#if} above — an {#each ... in:fly}
+     block nested inside a conditional branch that's itself newly
+     activating (the common "loading -> content" pattern) never plays its
+     children's intro transitions in Svelte 5, even though the branch swap
+     and the each-block population happen in the same reactive flush.
+     Keeping this container always mounted (rendering zero items when
+     there's nothing to show) is what lets the per-card reveal fire. -->
+<div class="matchups">
+    {#each pdata.matchups as m, i (matchKey(m))}
             <div
                 class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
                 in:fly={{ y: 24, duration: 420, delay: cascadeDelay(i) }}
@@ -325,14 +334,12 @@
         {/each}
     </div>
 
-    {#if loggedIn && unpaired.length > 0}
-        <div class="unpaired-section">
-            <p class="unpaired-notice">⚠️ Looking for a game: {unpaired.map((p) => p.player_name).join(', ')}</p>
-            <p class="unpaired-note">Head to the home page and use the Re-arrange your game form.</p>
-        </div>
-    {/if}
+{#if loggedIn && unpaired.length > 0}
+    <div class="unpaired-section">
+        <p class="unpaired-notice">⚠️ Looking for a game: {unpaired.map((p) => p.player_name).join(', ')}</p>
+        <p class="unpaired-note">Head to the home page and use the Re-arrange your game form.</p>
+    </div>
 {/if}
-{/key}
 
 <style>
     .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
