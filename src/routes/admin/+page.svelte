@@ -171,6 +171,32 @@
         message: string | null;
     };
 
+    type MissionRow = {
+        id: number;
+        name: string | null;
+        secondary_objectives: string | null;
+        image_url: string | null;
+        active: boolean;
+    };
+    type MissionGuidelines = { formats: string[]; max_size_mb: number; recommended: string };
+    type MissionsState = {
+        missions_enabled: boolean;
+        missions_use_secondary: boolean;
+        guidelines: MissionGuidelines | null;
+        missions: MissionRow[];
+        loading: boolean;
+        error: string | null;
+        settingsSaving: boolean;
+        // upload form
+        uploadName: string;
+        uploadSecondary: string;
+        uploadFile: File | null;
+        uploadFileKey: number; // bump to reset the <input type=file>
+        uploading: boolean;
+        uploadError: string | null;
+        uploadMessage: string | null;
+    };
+
     let adminMe = $state<AdminMe | null>(null);
     let adminClubSlug = $state<string | undefined>(undefined);
     let rolesData = $state<RolesData | null>(null);
@@ -196,6 +222,8 @@
     // Per-scope auto-pairings settings
     let autoPairingsSettings = $state<Record<string, AutoPairingsSettings>>({});
     let callToArmsSettings = $state<Record<string, CallToArmsSettings>>({});
+    // Per-scope missions pool state
+    let missionsState = $state<Record<string, MissionsState>>({});
 
     // Appoint form state
     let grantUserIdStr = $state('');
@@ -758,6 +786,125 @@
         s.saving = false;
     }
 
+    async function loadMissions(scope: string) {
+        const prev = missionsState[scope];
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/missions?system=${encodeURIComponent(scope)}`,
+            { credentials: 'include' }
+        );
+        if (r.ok) {
+            const data = await r.json();
+            missionsState[scope] = {
+                missions_enabled: data.missions_enabled,
+                missions_use_secondary: data.missions_use_secondary,
+                guidelines: data.guidelines ?? null,
+                missions: data.missions ?? [],
+                loading: false,
+                error: null,
+                settingsSaving: false,
+                uploadName: prev?.uploadName ?? '',
+                uploadSecondary: prev?.uploadSecondary ?? '',
+                uploadFile: null,
+                uploadFileKey: prev?.uploadFileKey ?? 0,
+                uploading: false,
+                uploadError: null,
+                uploadMessage: null,
+            };
+        }
+    }
+
+    async function saveMissionsSettings(scope: string) {
+        const ms = missionsState[scope];
+        if (!ms) return;
+        ms.settingsSaving = true;
+        ms.error = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/missions-settings`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system: scope,
+                missions_enabled: ms.missions_enabled,
+                missions_use_secondary: ms.missions_use_secondary,
+            }),
+        });
+        if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            ms.error = body.detail || 'Save failed.';
+        }
+        ms.settingsSaving = false;
+    }
+
+    async function uploadMission(scope: string) {
+        const ms = missionsState[scope];
+        if (!ms) return;
+        ms.uploadError = null;
+        ms.uploadMessage = null;
+        if (!ms.uploadFile) {
+            ms.uploadError = 'Choose an image to upload.';
+            return;
+        }
+        ms.uploading = true;
+        const fd = new FormData();
+        fd.append('system', scope);
+        if (ms.uploadName.trim()) fd.append('name', ms.uploadName.trim());
+        if (ms.missions_use_secondary && ms.uploadSecondary.trim())
+            fd.append('secondary_objectives', ms.uploadSecondary.trim());
+        fd.append('image', ms.uploadFile);
+        const r = await fetch(`${PUBLIC_API_URL}/admin/missions`, {
+            method: 'POST',
+            credentials: 'include',
+            body: fd, // no Content-Type — browser sets the multipart boundary
+        });
+        if (r.ok) {
+            const created = await r.json();
+            ms.missions = [...ms.missions, created];
+            ms.uploadName = '';
+            ms.uploadSecondary = '';
+            ms.uploadFile = null;
+            ms.uploadFileKey += 1;
+            ms.uploadMessage = 'Mission added.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ms.uploadError = body.detail || 'Upload failed.';
+        }
+        ms.uploading = false;
+    }
+
+    async function patchMission(scope: string, m: MissionRow, patch: Partial<MissionRow>) {
+        const ms = missionsState[scope];
+        if (!ms) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/missions/${m.id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch),
+        });
+        if (r.ok) {
+            const updated = await r.json();
+            ms.missions = ms.missions.map((x) => (x.id === m.id ? updated : x));
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ms.error = body.detail || 'Update failed.';
+        }
+    }
+
+    async function deleteMission(scope: string, m: MissionRow) {
+        const ms = missionsState[scope];
+        if (!ms) return;
+        if (!confirm(`Delete this mission${m.name ? ` (“${m.name}”)` : ''}? This can't be undone.`)) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/missions/${m.id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            ms.missions = ms.missions.filter((x) => x.id !== m.id);
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ms.error = body.detail || 'Delete failed.';
+        }
+    }
+
     async function loadEditPlayerList() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/players`, { credentials: 'include' });
         if (r.ok) editPlayerList = await r.json();
@@ -1082,7 +1229,7 @@
     async function initSystemScope(scope: string) {
         const week = await fetchWeekId(scope, fetch, adminClubSlug);
         pairings[scope] = initPairingsState(scope, week);
-        await Promise.all([loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope)]);
+        await Promise.all([loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope), loadMissions(scope)]);
     }
 
     async function loadHistory(scope: string) {
@@ -2076,6 +2223,126 @@
                                     disabled={cta.saving}
                                     onclick={() => saveCallToArmsSettings(scope)}
                                 >{cta.saving ? 'Saving…' : 'Save'}</button>
+                            </div>
+                        {/if}
+
+                        <!-- Missions pool (system scopes only) -->
+                        {#if isSystemScope(scope) && missionsState[scope]}
+                            {@const ms = missionsState[scope]}
+                            <div class="sub-section pairings-section">
+                                <h4 class="sub-heading">Missions</h4>
+                                <p class="section-intro">
+                                    Curate a pool of missions for this system. When enabled, the weekly Call to
+                                    Arms post picks one at random and shows its image (plus secondary objectives,
+                                    if this system uses them) — replacing the built-in list with your club's own.
+                                </p>
+
+                                <div class="auto-pairings-form">
+                                    <label class="check-row ap-toggle">
+                                        <input type="checkbox" bind:checked={ms.missions_enabled} onchange={() => saveMissionsSettings(scope)} />
+                                        <span>Enable custom missions for this system</span>
+                                    </label>
+                                    <label class="check-row ap-toggle">
+                                        <input type="checkbox" bind:checked={ms.missions_use_secondary} onchange={() => saveMissionsSettings(scope)} />
+                                        <span>This system uses secondary objectives</span>
+                                    </label>
+                                </div>
+                                {#if ms.error}<p class="field-error">{ms.error}</p>{/if}
+
+                                {#if ms.missions_enabled}
+                                    {#if ms.guidelines}
+                                        <p class="field-label-hint mission-guidelines">
+                                            <strong>Image guidelines:</strong> {ms.guidelines.recommended}
+                                            Accepted formats: {ms.guidelines.formats.join(', ')}. Max {ms.guidelines.max_size_mb} MB per image.
+                                        </p>
+                                    {/if}
+
+                                    <div class="mission-upload">
+                                        <div class="field">
+                                            <label class="field-label" for="mission-name-{scope}">Name (optional)</label>
+                                            <input id="mission-name-{scope}" class="field-input" type="text" placeholder="e.g. King of the Hill" bind:value={ms.uploadName} />
+                                        </div>
+                                        {#if ms.missions_use_secondary}
+                                            <div class="field">
+                                                <label class="field-label" for="mission-secondary-{scope}">Secondary objectives (optional)</label>
+                                                <input id="mission-secondary-{scope}" class="field-input" type="text" placeholder="e.g. Baggage Train, Domination" bind:value={ms.uploadSecondary} />
+                                            </div>
+                                        {/if}
+                                        <div class="field">
+                                            <label class="field-label" for="mission-image-{scope}">Mission image</label>
+                                            {#key ms.uploadFileKey}
+                                                <input
+                                                    id="mission-image-{scope}"
+                                                    class="field-input mission-file"
+                                                    type="file"
+                                                    accept="image/png,image/jpeg,image/webp"
+                                                    onchange={(e) => (ms.uploadFile = e.currentTarget.files?.[0] ?? null)}
+                                                />
+                                            {/key}
+                                        </div>
+                                        {#if ms.uploadError}<p class="field-error">{ms.uploadError}</p>{/if}
+                                        {#if ms.uploadMessage}<p class="pairing-message">{ms.uploadMessage}</p>{/if}
+                                        <button
+                                            class="primary-button"
+                                            type="button"
+                                            disabled={ms.uploading || !ms.uploadFile}
+                                            onclick={() => uploadMission(scope)}
+                                        >{ms.uploading ? 'Uploading…' : 'Add mission'}</button>
+                                    </div>
+
+                                    {#if ms.missions.length === 0}
+                                        <p class="muted small">No missions yet — add your first one above.</p>
+                                    {:else}
+                                        <div class="mission-table-wrap">
+                                            <table class="mission-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Image</th>
+                                                        <th>Name</th>
+                                                        {#if ms.missions_use_secondary}<th>Secondary objectives</th>{/if}
+                                                        <th>Active</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {#each ms.missions as m (m.id)}
+                                                        <tr class:mission-inactive={!m.active}>
+                                                            <td>
+                                                                {#if m.image_url}
+                                                                    <img class="mission-thumb" src={m.image_url} alt={m.name ?? 'mission'} />
+                                                                {:else}
+                                                                    <span class="muted small">no image</span>
+                                                                {/if}
+                                                            </td>
+                                                            <td>
+                                                                <input class="field-input mission-edit" type="text" value={m.name ?? ''}
+                                                                    onchange={(e) => patchMission(scope, m, { name: e.currentTarget.value })} />
+                                                            </td>
+                                                            {#if ms.missions_use_secondary}
+                                                                <td>
+                                                                    <input class="field-input mission-edit" type="text" value={m.secondary_objectives ?? ''}
+                                                                        onchange={(e) => patchMission(scope, m, { secondary_objectives: e.currentTarget.value })} />
+                                                                </td>
+                                                            {/if}
+                                                            <td class="mission-active-cell">
+                                                                <input type="checkbox" checked={m.active}
+                                                                    onchange={(e) => patchMission(scope, m, { active: e.currentTarget.checked })} />
+                                                            </td>
+                                                            <td>
+                                                                <button class="secondary-button" type="button" onclick={() => deleteMission(scope, m)}>Delete</button>
+                                                            </td>
+                                                        </tr>
+                                                    {/each}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <p class="muted small">
+                                            Inactive missions stay in your pool but are never posted. Each week's post
+                                            picks at random from the active ones. Edit a name or secondary objective
+                                            inline — changes save automatically.
+                                        </p>
+                                    {/if}
+                                {/if}
                             </div>
                         {/if}
 
@@ -3505,5 +3772,64 @@
         text-transform: none;
         letter-spacing: 0;
         color: var(--color-text-faint);
+    }
+
+    /* Missions */
+    .mission-guidelines {
+        margin: 0.5rem 0 0.75rem;
+        line-height: 1.4;
+    }
+    .mission-upload {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding: 0.75rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: 6px;
+        background: var(--color-surface-dark);
+        margin-bottom: 1rem;
+    }
+    .mission-file {
+        padding: 0.4rem;
+        font-size: 0.8rem;
+    }
+    .mission-table-wrap {
+        overflow-x: auto;
+    }
+    .mission-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .mission-table th,
+    .mission-table td {
+        text-align: left;
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid var(--color-steel-border);
+        vertical-align: middle;
+    }
+    .mission-table th {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-faint);
+    }
+    .mission-thumb {
+        width: 72px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid var(--color-steel-border);
+        display: block;
+    }
+    .mission-edit {
+        min-width: 10rem;
+        font-size: 0.8rem;
+    }
+    .mission-active-cell {
+        text-align: center;
+    }
+    .mission-inactive {
+        opacity: 0.5;
     }
 </style>
