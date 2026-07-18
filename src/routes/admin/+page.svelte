@@ -2190,7 +2190,7 @@
                                         {#if cta.supports_mission_image}
                                             <label class="radio-row">
                                                 <input type="radio" bind:group={cta.image_mode} value="default" />
-                                                <span>Mission terrain image</span>
+                                                <span>Mission image</span>
                                             </label>
                                         {/if}
                                         <label class="radio-row">
@@ -2202,6 +2202,12 @@
                                             <span>Custom image URL</span>
                                         </label>
                                     </div>
+                                    {#if cta.supports_mission_image && cta.image_mode === 'default'}
+                                        <p class="field-label-hint">
+                                            Attaches a random image from this system's Missions pool below
+                                            (or the built-in mission list if custom missions aren't enabled).
+                                        </p>
+                                    {/if}
                                     {#if cta.image_mode === 'custom'}
                                         <input
                                             class="field-input cta-image-url"
