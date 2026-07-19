@@ -16,9 +16,12 @@
         getSystemsConfig().then((c) => (systemsConfig = c));
     });
 
-    // "League" is the one non-system scope (see the backend's valid_scopes());
-    // every other scope name is a real game system, whatever the catalogue
-    // currently has — not a fixed list that goes stale when a system is added.
+    // Every scope name is a real game system now — the old standalone
+    // "League" pseudo-scope was retired from the backend (see valid_scopes());
+    // league admin lives inside each system's own scope instead, gated by
+    // that system's own league_enabled toggle. This always evaluates true
+    // today; kept as an explicit boundary in case a non-system scope is ever
+    // reintroduced, so call sites don't need to change either way.
     const isSystemScope = (scope: string) => scope !== 'League';
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -106,6 +109,49 @@
         game_type: string;
         result: string;
         k_factor_used: number;
+    };
+
+    // Per-system league state — modular per (club, system): each system's
+    // admin section gets its own enable toggle, scoring config, seasons, and
+    // results table. Mirrors the missions/call-to-arms per-scope pattern.
+    type LeagueConfigData = {
+        league_enabled: boolean;
+        scoring_method: string; // 'elo' | 'winloss'
+        starting_rating: number;
+        k_casual: number;
+        k_competitive: number;
+        painting_fully_bonus: number;
+        painting_partial_bonus: number;
+        points_win: number;
+        points_draw: number;
+        points_loss: number;
+        winloss_use_painting: boolean;
+    };
+    type LeagueSeasonRow = {
+        id: number;
+        name: string;
+        start_date: string;
+        end_date: string | null;
+        current: boolean;
+    };
+    type LeagueState = {
+        config: LeagueConfigData | null;
+        configLoading: boolean;
+        configSaving: boolean;
+        configError: string | null;
+        configMessage: string | null;
+
+        seasons: LeagueSeasonRow[];
+        seasonsLoading: boolean;
+        seasonCreating: boolean;
+        seasonError: string | null;
+        newSeasonName: string;
+        newSeasonStart: string;
+        newSeasonEnd: string;
+
+        results: LeagueResultRow[];
+        resultsLoading: boolean;
+        resultsError: string | null;
     };
     type RearrangeForm = {
         player1Id: string;
@@ -208,9 +254,7 @@
     let blocksLoading = $state(false);
     let blockPlayers = $state<BlockPlayer[]>([]);
     let historyByScope = $state<Record<string, any[]>>({});
-    let leagueResults = $state<LeagueResultRow[]>([]);
-    let leagueResultsLoading = $state(false);
-    let leagueResultsError = $state<string | null>(null);
+    let leagueState = $state<Record<string, LeagueState>>({});
 
     const PAINTING_OPTIONS = ['Partially Painted', 'Fully Painted'];
     const GAME_TYPE_OPTIONS = ['Casual', 'Competitive'];
@@ -1168,13 +1212,123 @@
         if (r.ok) blockPlayers = await r.json();
     }
 
-    async function loadLeagueResults() {
-        leagueResultsLoading = true;
-        leagueResultsError = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results`, { credentials: 'include' });
+    function initLeagueState(): LeagueState {
+        return {
+            config: null, configLoading: false, configSaving: false, configError: null, configMessage: null,
+            seasons: [], seasonsLoading: false, seasonCreating: false, seasonError: null,
+            newSeasonName: '', newSeasonStart: '', newSeasonEnd: '',
+            results: [], resultsLoading: false, resultsError: null,
+        };
+    }
+
+    async function loadLeagueConfig(scope: string) {
+        const ls = leagueState[scope];
+        ls.configLoading = true;
+        ls.configError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league-config?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
+        if (r.ok) {
+            ls.config = await r.json();
+        } else {
+            ls.configError = 'Failed to load league config.';
+        }
+        ls.configLoading = false;
+    }
+
+    async function saveLeagueEnabled(scope: string, enabled: boolean) {
+        const ls = leagueState[scope];
+        ls.configError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league-settings`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, league_enabled: enabled }),
+        });
+        if (r.ok) {
+            if (ls.config) ls.config.league_enabled = enabled;
+            if (enabled) {
+                await Promise.all([loadLeagueSeasons(scope), loadLeagueResults(scope)]);
+            }
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ls.configError = body.detail || 'Failed to update.';
+            if (ls.config) ls.config.league_enabled = !enabled; // revert the optimistic toggle
+        }
+    }
+
+    async function saveLeagueConfig(scope: string) {
+        const ls = leagueState[scope];
+        if (!ls.config) return;
+        ls.configSaving = true;
+        ls.configError = null;
+        ls.configMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league-config`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, ...ls.config }),
+        });
+        if (r.ok) {
+            ls.configMessage = 'Saved — this season’s ratings have been recalculated.';
+            await loadLeagueResults(scope);
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ls.configError = body.detail || 'Failed to save config.';
+        }
+        ls.configSaving = false;
+    }
+
+    async function loadLeagueSeasons(scope: string) {
+        const ls = leagueState[scope];
+        ls.seasonsLoading = true;
+        ls.seasonError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league-seasons?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
+        if (r.ok) {
+            ls.seasons = await r.json();
+        } else {
+            ls.seasonError = 'Failed to load seasons.';
+        }
+        ls.seasonsLoading = false;
+    }
+
+    async function createLeagueSeason(scope: string) {
+        const ls = leagueState[scope];
+        if (!ls.newSeasonName.trim() || !ls.newSeasonStart) {
+            ls.seasonError = 'Name and start date are required.';
+            return;
+        }
+        ls.seasonCreating = true;
+        ls.seasonError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league-seasons`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system: scope,
+                name: ls.newSeasonName.trim(),
+                start_date: ls.newSeasonStart,
+                end_date: ls.newSeasonEnd || null,
+            }),
+        });
+        if (r.ok) {
+            ls.newSeasonName = '';
+            ls.newSeasonStart = '';
+            ls.newSeasonEnd = '';
+            await Promise.all([loadLeagueSeasons(scope), loadLeagueResults(scope)]);
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ls.seasonError = body.detail || 'Failed to create season.';
+        }
+        ls.seasonCreating = false;
+    }
+
+    async function loadLeagueResults(scope: string) {
+        const ls = leagueState[scope];
+        ls.resultsLoading = true;
+        ls.resultsError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
         if (r.ok) {
             const data: LeagueResultRow[] = await r.json();
-            leagueResults = data.map((row) => ({
+            ls.results = data.map((row) => ({
                 ...row,
                 player_1_faction: row.player_1_faction ?? '',
                 player_2_faction: row.player_2_faction ?? '',
@@ -1182,13 +1336,14 @@
                 player_2_painting_bonus: row.player_2_painting_bonus ?? NONE_FACTION,
             }));
         } else {
-            leagueResultsError = 'Failed to load league results.';
+            ls.resultsError = 'Failed to load league results.';
         }
-        leagueResultsLoading = false;
+        ls.resultsLoading = false;
     }
 
-    async function patchLeagueResult(resultId: number, field: string, rawValue: any) {
-        leagueResultsError = null;
+    async function patchLeagueResult(scope: string, resultId: number, field: string, rawValue: any) {
+        const ls = leagueState[scope];
+        ls.resultsError = null;
         let v: any = rawValue;
         if (field === 'player_1_id' || field === 'player_2_id') {
             v = Number(v);
@@ -1204,32 +1359,44 @@
             body: JSON.stringify({ [field]: v }),
         });
         if (r.ok) {
-            await loadLeagueResults();
+            await loadLeagueResults(scope);
         } else {
             const body = await r.json().catch(() => ({}));
-            leagueResultsError = body.detail || 'Failed to update result.';
+            ls.resultsError = body.detail || 'Failed to update result.';
         }
     }
 
-    async function deleteLeagueResult(resultId: number) {
+    async function deleteLeagueResult(scope: string, resultId: number) {
         if (!confirm('Delete this result? This recalculates ELO ratings for all players.')) return;
-        leagueResultsError = null;
+        const ls = leagueState[scope];
+        ls.resultsError = null;
         const r = await fetch(`${PUBLIC_API_URL}/admin/league/results/${resultId}`, {
             method: 'DELETE',
             credentials: 'include',
         });
         if (r.ok) {
-            await loadLeagueResults();
+            await loadLeagueResults(scope);
         } else {
             const body = await r.json().catch(() => ({}));
-            leagueResultsError = body.detail || 'Failed to delete result.';
+            ls.resultsError = body.detail || 'Failed to delete result.';
+        }
+    }
+
+    async function initLeagueForScope(scope: string) {
+        leagueState[scope] = initLeagueState();
+        await loadLeagueConfig(scope);
+        if (leagueState[scope].config?.league_enabled) {
+            await Promise.all([loadLeagueSeasons(scope), loadLeagueResults(scope)]);
         }
     }
 
     async function initSystemScope(scope: string) {
         const week = await fetchWeekId(scope, fetch, adminClubSlug);
         pairings[scope] = initPairingsState(scope, week);
-        await Promise.all([loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope), loadMissions(scope)]);
+        await Promise.all([
+            loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
+            loadMissions(scope), initLeagueForScope(scope),
+        ]);
     }
 
     async function loadHistory(scope: string) {
@@ -1259,15 +1426,13 @@
                 loadFullCatalogue()
             );
         }
-        if (adminMe.is_super_admin || adminMe.scopes.includes('League')) {
+        if (adminMe.is_super_admin || adminMe.scopes.length > 0) {
+            // Shared player picker used by the League results grid and the
+            // per-system "add signup" form, both inside system scopes.
             tasks.push(loadBlockPlayers());
         }
         for (const scope of adminMe.scopes) {
-            if (scope === 'League') {
-                tasks.push(loadLeagueResults());
-            } else {
-                tasks.push(loadHistory(scope));
-            }
+            tasks.push(loadHistory(scope));
             if (isSystemScope(scope)) {
                 tasks.push(initSystemScope(scope));
             }
@@ -1386,172 +1551,314 @@
                     <div class="scope-card">
                         <div class="scope-card-title">{scope}</div>
 
-                        {#if scope === 'League'}
-                            <!-- League Results (read-write — editing/deleting recalculates ELO) -->
-                            <div class="sub-section">
-                                <h4 class="sub-heading">League Results</h4>
+                        <!-- Recent Games -->
+                        <div class="sub-section">
+                            <h4 class="sub-heading">Recent Games</h4>
+                            {#if historyLoading[scope]}
+                                <p class="muted small">Loading…</p>
+                            {:else if !(historyByScope[scope]?.length)}
+                                <p class="muted small">No games recorded yet.</p>
+                            {:else}
+                                <ul class="history-list">
+                                    {#each historyByScope[scope] as entry}
+                                        <li class="history-row">
+                                            <span class="history-date">{entry.week}</span>
+                                            {#if entry.player_b_name}
+                                                <span class="history-matchup">
+                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) vs {entry.player_b_name} ({fmt(entry.player_b_faction)})
+                                                </span>
+                                            {:else}
+                                                <span class="history-matchup">
+                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) — bye
+                                                </span>
+                                            {/if}
+                                        </li>
+                                    {/each}
+                                </ul>
+                            {/if}
+                        </div>
 
-                                {#if leagueResultsError}
-                                    <p class="field-error">{leagueResultsError}</p>
-                                {/if}
+                        <!-- League (system scopes only) — enable toggle, scoring config,
+                             seasons, and this season's editable results grid. -->
+                        {#if isSystemScope(scope) && leagueState[scope]}
+                            {@const ls = leagueState[scope]}
+                            <div class="sub-section pairings-section">
+                                <h4 class="sub-heading">League</h4>
 
-                                {#if leagueResultsLoading}
+                                {#if ls.configLoading}
                                     <p class="muted small">Loading…</p>
-                                {:else if leagueResults.length === 0}
-                                    <p class="muted small">No results recorded yet.</p>
-                                {:else}
-                                    <div class="grid-wrap league-results-wrap">
-                                        <table class="pairing-grid league-results-grid">
-                                            <thead>
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Player 1</th>
-                                                    <th>P1 Faction</th>
-                                                    <th>P1 Painting</th>
-                                                    <th>P1 Before</th>
-                                                    <th>P1 After</th>
-                                                    <th>Result</th>
-                                                    <th>Type</th>
-                                                    <th>Player 2</th>
-                                                    <th>P2 Faction</th>
-                                                    <th>P2 Painting</th>
-                                                    <th>P2 Before</th>
-                                                    <th>P2 After</th>
-                                                    <th></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {#each leagueResults as r (r.id)}
-                                                    <tr>
-                                                        <td><span class="cell-text">{r.result_date}</span></td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                value={String(r.player_1_id)}
-                                                                onchange={(e) => patchLeagueResult(r.id, 'player_1_id', (e.target as HTMLSelectElement).value)}
-                                                            >
-                                                                {#each blockPlayers as p}
-                                                                    <option value={String(p.id)}>{p.name}</option>
-                                                                {/each}
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <input
-                                                                class="cell-input"
-                                                                type="text"
-                                                                bind:value={r.player_1_faction}
-                                                                onchange={() => patchLeagueResult(r.id, 'player_1_faction', r.player_1_faction)}
-                                                            />
-                                                        </td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                bind:value={r.player_1_painting_bonus}
-                                                                onchange={() => patchLeagueResult(r.id, 'player_1_painting_bonus', r.player_1_painting_bonus)}
-                                                            >
-                                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                                                                {#each PAINTING_OPTIONS as opt}
-                                                                    <option>{opt}</option>
-                                                                {/each}
-                                                            </select>
-                                                        </td>
-                                                        <td><span class="cell-readonly">{Math.round(r.player_1_rating_before)}</span></td>
-                                                        <td><span class="cell-readonly">{Math.round(r.player_1_rating_after)}</span></td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                bind:value={r.result}
-                                                                onchange={() => patchLeagueResult(r.id, 'result', r.result)}
-                                                            >
-                                                                <option value="Player 1 Victory">{r.player_1_name} Victory</option>
-                                                                <option value="Draw">Draw</option>
-                                                                <option value="Player 2 Victory">{r.player_2_name} Victory</option>
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                bind:value={r.game_type}
-                                                                onchange={() => patchLeagueResult(r.id, 'game_type', r.game_type)}
-                                                            >
-                                                                {#each GAME_TYPE_OPTIONS as opt}
-                                                                    <option>{opt}</option>
-                                                                {/each}
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                value={String(r.player_2_id)}
-                                                                onchange={(e) => patchLeagueResult(r.id, 'player_2_id', (e.target as HTMLSelectElement).value)}
-                                                            >
-                                                                {#each blockPlayers as p}
-                                                                    <option value={String(p.id)}>{p.name}</option>
-                                                                {/each}
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <input
-                                                                class="cell-input"
-                                                                type="text"
-                                                                bind:value={r.player_2_faction}
-                                                                onchange={() => patchLeagueResult(r.id, 'player_2_faction', r.player_2_faction)}
-                                                            />
-                                                        </td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                bind:value={r.player_2_painting_bonus}
-                                                                onchange={() => patchLeagueResult(r.id, 'player_2_painting_bonus', r.player_2_painting_bonus)}
-                                                            >
-                                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                                                                {#each PAINTING_OPTIONS as opt}
-                                                                    <option>{opt}</option>
-                                                                {/each}
-                                                            </select>
-                                                        </td>
-                                                        <td><span class="cell-readonly">{Math.round(r.player_2_rating_before)}</span></td>
-                                                        <td><span class="cell-readonly">{Math.round(r.player_2_rating_after)}</span></td>
-                                                        <td class="cell-delete">
-                                                            <button
-                                                                class="remove-btn"
-                                                                type="button"
-                                                                title="Delete this result"
-                                                                onclick={() => deleteLeagueResult(r.id)}
-                                                            >×</button>
-                                                        </td>
-                                                    </tr>
-                                                {/each}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                {/if}
-                            </div>
-                        {:else}
-                            <!-- Recent Games -->
-                            <div class="sub-section">
-                                <h4 class="sub-heading">Recent Games</h4>
-                                {#if historyLoading[scope]}
-                                    <p class="muted small">Loading…</p>
-                                {:else if !(historyByScope[scope]?.length)}
-                                    <p class="muted small">No games recorded yet.</p>
-                                {:else}
-                                    <ul class="history-list">
-                                        {#each historyByScope[scope] as entry}
-                                            <li class="history-row">
-                                                <span class="history-date">{entry.week}</span>
-                                                {#if entry.player_b_name}
-                                                    <span class="history-matchup">
-                                                        {entry.player_a_name} ({fmt(entry.player_a_faction)}) vs {entry.player_b_name} ({fmt(entry.player_b_faction)})
-                                                    </span>
-                                                {:else}
-                                                    <span class="history-matchup">
-                                                        {entry.player_a_name} ({fmt(entry.player_a_faction)}) — bye
-                                                    </span>
+                                {:else if ls.config}
+                                    <label class="check-row ap-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={ls.config.league_enabled}
+                                            onchange={(e) => saveLeagueEnabled(scope, e.currentTarget.checked)}
+                                        />
+                                        <span>Run a league for this system</span>
+                                    </label>
+
+                                    {#if ls.configError}<p class="field-error">{ls.configError}</p>{/if}
+
+                                    {#if ls.config.league_enabled}
+                                        <!-- Scoring config -->
+                                        <div class="league-config-form">
+                                            <div class="field">
+                                                <span class="field-label">Scoring method</span>
+                                                <label class="radio-row">
+                                                    <input type="radio" bind:group={ls.config.scoring_method} value="elo" />
+                                                    <span>ELO rating</span>
+                                                </label>
+                                                <label class="radio-row">
+                                                    <input type="radio" bind:group={ls.config.scoring_method} value="winloss" />
+                                                    <span>Flat win/loss points</span>
+                                                </label>
+                                            </div>
+
+                                            <div class="field field-narrow">
+                                                <label class="field-label" for="lc-start-{scope}">Starting rating</label>
+                                                <input id="lc-start-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.starting_rating} />
+                                            </div>
+
+                                            {#if ls.config.scoring_method === 'elo'}
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="lc-kc-{scope}">K (casual)</label>
+                                                    <input id="lc-kc-{scope}" class="field-input" type="number" bind:value={ls.config.k_casual} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="lc-kk-{scope}">K (competitive)</label>
+                                                    <input id="lc-kk-{scope}" class="field-input" type="number" bind:value={ls.config.k_competitive} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="lc-pf-{scope}">Painting bonus (fully)</label>
+                                                    <input id="lc-pf-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="lc-pp-{scope}">Painting bonus (partial)</label>
+                                                    <input id="lc-pp-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
+                                                </div>
+                                            {:else}
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="lc-pw-{scope}">Points (win)</label>
+                                                    <input id="lc-pw-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_win} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="lc-pd-{scope}">Points (draw)</label>
+                                                    <input id="lc-pd-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_draw} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="lc-pl-{scope}">Points (loss)</label>
+                                                    <input id="lc-pl-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_loss} />
+                                                </div>
+                                                <label class="check-row ap-toggle">
+                                                    <input type="checkbox" bind:checked={ls.config.winloss_use_painting} />
+                                                    <span>Also apply the painting bonuses above</span>
+                                                </label>
+                                                {#if ls.config.winloss_use_painting}
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="lc-pf2-{scope}">Painting bonus (fully)</label>
+                                                        <input id="lc-pf2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
+                                                    </div>
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="lc-pp2-{scope}">Painting bonus (partial)</label>
+                                                        <input id="lc-pp2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
+                                                    </div>
                                                 {/if}
-                                            </li>
-                                        {/each}
-                                    </ul>
+                                            {/if}
+
+                                            {#if ls.configMessage}<p class="pairing-message">{ls.configMessage}</p>{/if}
+                                            <button
+                                                class="primary-button"
+                                                type="button"
+                                                disabled={ls.configSaving}
+                                                onclick={() => saveLeagueConfig(scope)}
+                                            >{ls.configSaving ? 'Saving…' : 'Save scoring config'}</button>
+                                            <p class="muted small">Saving replays this season's results under the new config — ratings update immediately.</p>
+                                        </div>
+
+                                        <!-- Seasons -->
+                                        <div class="league-seasons">
+                                            <h5 class="sub-heading-minor">Seasons</h5>
+                                            {#if ls.seasonsLoading}
+                                                <p class="muted small">Loading…</p>
+                                            {:else if ls.seasons.length === 0}
+                                                <p class="muted small">No season yet — create one below to start recording results.</p>
+                                            {:else}
+                                                <ul class="season-list">
+                                                    {#each ls.seasons as s}
+                                                        <li>
+                                                            <strong>{s.name}</strong>
+                                                            <span class="muted small">{s.start_date} – {s.end_date ?? 'ongoing'}</span>
+                                                            {#if s.current}<span class="season-current-badge">current</span>{/if}
+                                                        </li>
+                                                    {/each}
+                                                </ul>
+                                            {/if}
+                                            {#if ls.seasonError}<p class="field-error">{ls.seasonError}</p>{/if}
+                                            <details class="add-signup-details">
+                                                <summary>+ New season</summary>
+                                                <div class="add-signup-form">
+                                                    <div class="field">
+                                                        <label class="field-label" for="ns-name-{scope}">Name</label>
+                                                        <input id="ns-name-{scope}" class="field-input" type="text" placeholder="e.g. 2027" bind:value={ls.newSeasonName} />
+                                                    </div>
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="ns-start-{scope}">Start date</label>
+                                                        <input id="ns-start-{scope}" class="field-input" type="date" bind:value={ls.newSeasonStart} />
+                                                    </div>
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="ns-end-{scope}">End date (optional)</label>
+                                                        <input id="ns-end-{scope}" class="field-input" type="date" bind:value={ls.newSeasonEnd} />
+                                                    </div>
+                                                    <p class="muted small">Starting a new season resets ratings to the starting rating above; the currently open season (if any) is automatically closed the day before this one starts. Past seasons and their results stay archived.</p>
+                                                    <button
+                                                        class="primary-button"
+                                                        type="button"
+                                                        disabled={ls.seasonCreating}
+                                                        onclick={() => createLeagueSeason(scope)}
+                                                    >{ls.seasonCreating ? 'Creating…' : 'Start season'}</button>
+                                                </div>
+                                            </details>
+                                        </div>
+
+                                        <!-- League Results (current season; editing/deleting recalculates ratings) -->
+                                        <div class="league-results">
+                                            <h5 class="sub-heading-minor">This Season's Results</h5>
+                                            {#if ls.resultsError}
+                                                <p class="field-error">{ls.resultsError}</p>
+                                            {/if}
+                                            {#if ls.resultsLoading}
+                                                <p class="muted small">Loading…</p>
+                                            {:else if ls.results.length === 0}
+                                                <p class="muted small">No results recorded yet this season.</p>
+                                            {:else}
+                                                <div class="grid-wrap league-results-wrap">
+                                                    <table class="pairing-grid league-results-grid">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Date</th>
+                                                                <th>Player 1</th>
+                                                                <th>P1 Faction</th>
+                                                                <th>P1 Painting</th>
+                                                                <th>P1 Before</th>
+                                                                <th>P1 After</th>
+                                                                <th>Result</th>
+                                                                <th>Type</th>
+                                                                <th>Player 2</th>
+                                                                <th>P2 Faction</th>
+                                                                <th>P2 Painting</th>
+                                                                <th>P2 Before</th>
+                                                                <th>P2 After</th>
+                                                                <th></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {#each ls.results as r (r.id)}
+                                                                <tr>
+                                                                    <td><span class="cell-text">{r.result_date}</span></td>
+                                                                    <td>
+                                                                        <select
+                                                                            class="cell-select"
+                                                                            value={String(r.player_1_id)}
+                                                                            onchange={(e) => patchLeagueResult(scope, r.id, 'player_1_id', (e.target as HTMLSelectElement).value)}
+                                                                        >
+                                                                            {#each blockPlayers as p}
+                                                                                <option value={String(p.id)}>{p.name}</option>
+                                                                            {/each}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            class="cell-input"
+                                                                            type="text"
+                                                                            bind:value={r.player_1_faction}
+                                                                            onchange={() => patchLeagueResult(scope, r.id, 'player_1_faction', r.player_1_faction)}
+                                                                        />
+                                                                    </td>
+                                                                    <td>
+                                                                        <select
+                                                                            class="cell-select"
+                                                                            bind:value={r.player_1_painting_bonus}
+                                                                            onchange={() => patchLeagueResult(scope, r.id, 'player_1_painting_bonus', r.player_1_painting_bonus)}
+                                                                        >
+                                                                            <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                            {#each PAINTING_OPTIONS as opt}
+                                                                                <option>{opt}</option>
+                                                                            {/each}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td><span class="cell-readonly">{Math.round(r.player_1_rating_before)}</span></td>
+                                                                    <td><span class="cell-readonly">{Math.round(r.player_1_rating_after)}</span></td>
+                                                                    <td>
+                                                                        <select
+                                                                            class="cell-select"
+                                                                            bind:value={r.result}
+                                                                            onchange={() => patchLeagueResult(scope, r.id, 'result', r.result)}
+                                                                        >
+                                                                            <option value="Player 1 Victory">{r.player_1_name} Victory</option>
+                                                                            <option value="Draw">Draw</option>
+                                                                            <option value="Player 2 Victory">{r.player_2_name} Victory</option>
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <select
+                                                                            class="cell-select"
+                                                                            bind:value={r.game_type}
+                                                                            onchange={() => patchLeagueResult(scope, r.id, 'game_type', r.game_type)}
+                                                                        >
+                                                                            {#each GAME_TYPE_OPTIONS as opt}
+                                                                                <option>{opt}</option>
+                                                                            {/each}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <select
+                                                                            class="cell-select"
+                                                                            value={String(r.player_2_id)}
+                                                                            onchange={(e) => patchLeagueResult(scope, r.id, 'player_2_id', (e.target as HTMLSelectElement).value)}
+                                                                        >
+                                                                            {#each blockPlayers as p}
+                                                                                <option value={String(p.id)}>{p.name}</option>
+                                                                            {/each}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            class="cell-input"
+                                                                            type="text"
+                                                                            bind:value={r.player_2_faction}
+                                                                            onchange={() => patchLeagueResult(scope, r.id, 'player_2_faction', r.player_2_faction)}
+                                                                        />
+                                                                    </td>
+                                                                    <td>
+                                                                        <select
+                                                                            class="cell-select"
+                                                                            bind:value={r.player_2_painting_bonus}
+                                                                            onchange={() => patchLeagueResult(scope, r.id, 'player_2_painting_bonus', r.player_2_painting_bonus)}
+                                                                        >
+                                                                            <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                            {#each PAINTING_OPTIONS as opt}
+                                                                                <option>{opt}</option>
+                                                                            {/each}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td><span class="cell-readonly">{Math.round(r.player_2_rating_before)}</span></td>
+                                                                    <td><span class="cell-readonly">{Math.round(r.player_2_rating_after)}</span></td>
+                                                                    <td class="cell-delete">
+                                                                        <button
+                                                                            class="remove-btn"
+                                                                            type="button"
+                                                                            title="Delete this result"
+                                                                            onclick={() => deleteLeagueResult(scope, r.id)}
+                                                                        >×</button>
+                                                                    </td>
+                                                                </tr>
+                                                            {/each}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            {/if}
+                                        </div>
+                                    {/if}
                                 {/if}
                             </div>
                         {/if}
@@ -3837,5 +4144,47 @@
     }
     .mission-inactive {
         opacity: 0.5;
+    }
+
+    /* League */
+    .sub-heading-minor {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--color-text-muted);
+        margin: 1rem 0 0.5rem;
+    }
+    .league-config-form,
+    .league-seasons,
+    .league-results {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-top: 0.5rem;
+    }
+    .season-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .season-list li {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+    }
+    .season-current-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-win);
+        border: 1px solid var(--color-win);
+        border-radius: 4px;
+        padding: 0.05rem 0.35rem;
     }
 </style>
