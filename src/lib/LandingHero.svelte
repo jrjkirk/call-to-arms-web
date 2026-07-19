@@ -23,9 +23,6 @@
 </script>
 
 <div class="hero">
-    <div class="hero-glow" aria-hidden="true"></div>
-    <div class="hero-grid" aria-hidden="true"></div>
-
     <div class="hero-inner">
         <h1 class="hero-title" in:fly={{ y: 18, duration: 600, delay: 120 }}>Call to Arms</h1>
 
@@ -68,6 +65,8 @@
             </a>
             <p class="hero-cta-note">Free to join · Your club may already be here</p>
         </div>
+
+        <a class="hero-footer-link" href="/privacy">Privacy Policy</a>
     </div>
 </div>
 
@@ -82,34 +81,6 @@
         overflow: hidden;
         border-radius: 18px;
         isolation: isolate;
-    }
-
-    .hero-glow {
-        position: absolute;
-        top: -18%;
-        left: 50%;
-        width: min(900px, 140%);
-        height: 560px;
-        transform: translateX(-50%);
-        background: radial-gradient(closest-side, var(--color-accent-glow), transparent 72%);
-        opacity: 0.55;
-        filter: blur(6px);
-        pointer-events: none;
-        z-index: -2;
-    }
-
-    .hero-grid {
-        position: absolute;
-        inset: 0;
-        background-image:
-            linear-gradient(var(--color-accent-border-soft) 1px, transparent 1px),
-            linear-gradient(90deg, var(--color-accent-border-soft) 1px, transparent 1px);
-        background-size: 42px 42px;
-        -webkit-mask-image: radial-gradient(ellipse 65% 55% at 50% 30%, black 0%, transparent 75%);
-        mask-image: radial-gradient(ellipse 65% 55% at 50% 30%, black 0%, transparent 75%);
-        opacity: 0.5;
-        pointer-events: none;
-        z-index: -1;
     }
 
     .hero-inner {
@@ -132,7 +103,6 @@
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
-        text-shadow: 0 0 46px var(--color-accent-glow);
     }
 
     .hero-tagline {
@@ -178,7 +148,7 @@
         justify-content: center;
         border-radius: 50%;
         border: 1px solid var(--color-accent-border);
-        background: radial-gradient(circle at 50% 35%, rgba(201, 161, 74, 0.12), transparent 70%);
+        background: var(--color-surface-dark);
         color: var(--color-accent);
         margin-bottom: 0.9rem;
         flex: 0 0 auto;
@@ -223,13 +193,11 @@
         border-radius: var(--radius);
         text-decoration: none;
         cursor: pointer;
-        box-shadow: 0 6px 22px var(--color-accent-glow);
-        transition: background 0.18s ease, box-shadow 0.25s ease, transform 0.15s ease;
+        transition: background 0.18s ease, transform 0.15s ease;
     }
 
     .hero-button:hover {
         background: var(--color-accent-soft);
-        box-shadow: 0 8px 30px var(--color-accent-glow);
         transform: translateY(-1px);
     }
 
@@ -238,6 +206,17 @@
         color: var(--color-text-faint);
         font-size: 0.76rem;
         letter-spacing: 0.02em;
+    }
+
+    .hero-footer-link {
+        margin-top: clamp(2rem, 4vw, 2.6rem);
+        color: var(--color-text-faint);
+        font-size: 0.75rem;
+        text-decoration: underline;
+    }
+
+    .hero-footer-link:hover {
+        color: var(--color-text-muted);
     }
 
     @media (max-width: 640px) {

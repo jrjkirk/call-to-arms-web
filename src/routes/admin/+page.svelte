@@ -314,8 +314,11 @@
         league_rankings: 'League rankings post',
         achievement: 'Achievement announcements',
     };
-    const PER_SYSTEM_WEBHOOK_TYPES = ['signup', 'pairings', 'call_to_arms'];
-    const CLUB_LEVEL_WEBHOOK_TYPES = ['league_result', 'achievement', 'league_rankings'];
+    // All webhook types are per-system now (league_result/achievement/
+    // league_rankings moved off the old club-level path when leagues went
+    // modular — a club webhook can post to a different Discord channel per
+    // system). Every row in webhookRows carries a real system_id/system_name.
+    const PER_SYSTEM_WEBHOOK_TYPES = ['signup', 'pairings', 'call_to_arms', 'league_result', 'achievement', 'league_rankings'];
     function webhookKey(webhookType: string, systemId: number | null): string {
         return `${webhookType}:${systemId ?? 'null'}`;
     }
@@ -3084,51 +3087,6 @@
                                                 title="Remove webhook"
                                                 disabled={webhookSaving[key]}
                                                 onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
-                                            >×</button>
-                                        {/if}
-                                    </span>
-                                    {#if webhookError[key]}
-                                        <p class="field-error">{webhookError[key]}</p>
-                                    {/if}
-                                    {#if webhookMessage[key]}
-                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
-                                    {/if}
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
-                {/each}
-
-                {#each CLUB_LEVEL_WEBHOOK_TYPES.filter((t) => webhookRows.some((r) => r.webhook_type === t)) as webhookType}
-                    <div class="sub-section">
-                        <h4 class="sub-heading">{WEBHOOK_TYPE_LABELS[webhookType]}</h4>
-                        <ul class="block-list">
-                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row}
-                                {@const key = webhookKey(row.webhook_type, null)}
-                                <li class="block-row webhook-row">
-                                    <span class="block-note">
-                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
-                                    </span>
-                                    <span class="webhook-actions">
-                                        <input
-                                            class="field-input"
-                                            type="url"
-                                            placeholder="https://discord.com/api/webhooks/…"
-                                            bind:value={webhookInputs[key]}
-                                        />
-                                        <button
-                                            class="primary-button"
-                                            type="button"
-                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
-                                            onclick={() => saveClubWebhook(row.webhook_type, null)}
-                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
-                                        {#if row.configured}
-                                            <button
-                                                class="remove-btn"
-                                                type="button"
-                                                title="Remove webhook"
-                                                disabled={webhookSaving[key]}
-                                                onclick={() => removeClubWebhook(row.webhook_type, null)}
                                             >×</button>
                                         {/if}
                                     </span>

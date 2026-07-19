@@ -189,7 +189,7 @@
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
-            {:else if !isAuthed && !page.url.pathname.startsWith('/pairings') && page.url.pathname !== '/join'}
+            {:else if !isAuthed && !page.url.pathname.startsWith('/pairings') && page.url.pathname !== '/join' && page.url.pathname !== '/privacy'}
                 <LandingHero loginUrl={loginUrl()} />
             {:else}
                 {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
