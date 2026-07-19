@@ -2616,6 +2616,9 @@
                                 {#if ms.error}<p class="field-error">{ms.error}</p>{/if}
 
                                 {#if ms.missions_enabled}
+                                <details class="league-settings-details">
+                                    <summary>Mission pool</summary>
+                                    <div class="league-settings-body">
                                     {#if ms.guidelines}
                                         <p class="field-label-hint mission-guidelines">
                                             <strong>Image guidelines:</strong> {ms.guidelines.recommended}
@@ -2708,6 +2711,8 @@
                                             inline — changes save automatically.
                                         </p>
                                     {/if}
+                                    </div>
+                                </details>
                                 {/if}
                             </div>
                         {/if}
