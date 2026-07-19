@@ -6,6 +6,8 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fly } from 'svelte/transition';
     import LandingHero from '$lib/LandingHero.svelte';
+    import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
+    import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     let { children } = $props();
 
@@ -14,7 +16,6 @@
         user?: { id: number; discord_name: string; avatar_url: string | null; player_id: number | null; club_id: number };
         player?: { id: number; name: string } | null;
         claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
-        leagues_enabled?: boolean;
     };
 
     type AdminState = {
@@ -27,6 +28,11 @@
     let adminState = $state<AdminState | null>(null);
     let authLoaded = $state(false);
     let drawerOpen = $state(false);
+    // Whether THIS club runs a league for at least one system (has_league,
+    // per-club via a club-scoped systems fetch — not the platform-wide
+    // catalogue default). Hidden by default (before it resolves and for
+    // every club with no leagues at all) so the nav tab never flashes in.
+    let hasAnyLeague = $state(false);
 
     async function refreshAuth() {
         try {
@@ -46,6 +52,10 @@
 
     onMount(() => {
         refreshAuth();
+        const club = getClubSlugFromHostname(window.location.hostname);
+        getSystemsConfig(club).then((cfg) => {
+            hasAnyLeague = leagueSystems(cfg).length > 0;
+        });
     });
 
     // Expose refreshAuth on the window so the claim-profile page can trigger
@@ -56,17 +66,10 @@
         }
     });
 
-    // The league nav tab is gated on the caller's own club having leagues
-    // enabled (Club.leagues_enabled, surfaced via GET /auth/me) rather than a
-    // hardcoded club id — so it works correctly for any leagues-enabled club,
-    // not just Manchester. Hidden by default (before auth resolves and for
-    // every leagues-disabled club) so it never flashes in for them.
     const navItems = $derived([
         { href: '/', label: 'Call to Arms' },
         { href: '/pairings', label: 'Pairings' },
-        ...(auth.leagues_enabled === true
-            ? [{ href: '/league', label: 'Old World League' }]
-            : []),
+        ...(hasAnyLeague ? [{ href: '/leagues', label: 'Leagues' }] : []),
         { href: '/players', label: 'Players' }
     ]);
 

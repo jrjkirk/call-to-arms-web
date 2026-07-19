@@ -168,10 +168,11 @@ export function systemLogoUrl(
     return `/logos/${configFor(systemsConfig, legacySystemName).slug}.png`;
 }
 
-/** Systems that run a league, in catalogue order. The league UI is
- *  single-system today (only TOW has a league), so callers generally take
- *  the first entry — but sourcing it from has_league removes the hardcoded
- *  'The Old World' literal and makes a future league system data-driven. */
+/** Systems that run a league, in catalogue order. `has_league` reflects the
+ *  caller's own club's ClubSystem.league_enabled when systemsConfig came from
+ *  a club-scoped fetch (getSystemsConfig(club) / GET /systems/mine) — a club
+ *  can now run more than one system's league, so callers should show ALL of
+ *  these (e.g. the /leagues system-picker), not just take the first one. */
 export function leagueSystems(systemsConfig: SystemConfig[]): SystemConfig[] {
     return systemsConfig.filter((c) => c.has_league);
 }

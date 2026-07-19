@@ -4,6 +4,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     let apiData = $state<any>(null);
     let pageLoading = $state(true);
@@ -14,7 +15,11 @@
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
     onMount(async () => {
-        getSystemsConfig().then((c) => (systemsConfig = c));
+        // Club slug is required so has_league (used for the league heading
+        // below) reflects THIS club's own leagues, not the platform
+        // catalogue default — see leagueSystems()'s doc comment.
+        const club = getClubSlugFromHostname(window.location.hostname);
+        getSystemsConfig(club).then((c) => (systemsConfig = c));
         try {
             const r = await fetch(`${PUBLIC_API_URL}/players/${page.params.id}`, { credentials: 'include' });
             if (r.status === 404) {
