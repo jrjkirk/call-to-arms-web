@@ -129,6 +129,34 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
             'Wrecka Krew', 'Wyrmblade', 'XV26 Stealth Battlesuits', 'Unlisted Kill Team'
         ],
         icon_folder: 'KT'
+    },
+    {
+        slug: 'aos',
+        name: 'Age of Sigmar',
+        legacy_system_name: 'Age of Sigmar',
+        uses_points: true,
+        default_points: 2000,
+        max_points: 5000,
+        vibe_options: ['Casual', 'Competitive'],
+        default_vibe: 'Casual',
+        uses_scenarios: false,
+        scenario_options: [],
+        default_scenario: '',
+        allows_demo: true,
+        has_league: false,
+        faction_list: [
+            'Cities of Sigmar', 'Daughters of Khaine', 'Fyreslayers',
+            'Idoneth Deepkin', 'Kharadron Overlords', 'Lumineth Realm-lords',
+            'Seraphon', 'Stormcast Eternals', 'Sylvaneth',
+            'Blades of Khorne', 'Disciples of Tzeentch', 'Hedonites of Slaanesh',
+            'Helsmiths of Hashut', 'Maggotkin of Nurgle', 'Skaven',
+            'Slaves to Darkness',
+            'Flesh-eater Courts', 'Nighthaunt', 'Ossiarch Bonereapers',
+            'Soulblight Gravelords',
+            'Gloomspite Gitz', 'Ironjawz', 'Kruleboyz', 'Ogor Mawtribes',
+            'Sons of Behemat'
+        ],
+        icon_folder: 'AOS'
     }
 ];
 
