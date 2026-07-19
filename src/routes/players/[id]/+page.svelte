@@ -43,9 +43,13 @@
     const factionUsage = $derived(apiData?.faction_usage ?? {});
     const league = $derived(apiData?.league ?? {});
     const hasLeagueGames = $derived((league.total_games ?? 0) > 0);
-    // League section heading names the (single, today) league-eligible system,
-    // sourced from has_league rather than a hardcoded 'The Old World'.
-    const leagueName = $derived(leagueSystems(systemsConfig)[0]?.name ?? 'The Old World');
+    // League section heading names the (single, today) league-eligible
+    // system, sourced from has_league. Falls back to the generic "League"
+    // (not a hardcoded system name) for the rare case systemsConfig hasn't
+    // loaded yet or this club has none — matches the de-hardcoded wording
+    // used elsewhere (services.py's ACHIEVEMENT_DESCRIPTIONS).
+    const leagueSystemName = $derived(leagueSystems(systemsConfig)[0]?.name);
+    const leagueHeading = $derived(leagueSystemName ? `${leagueSystemName} League` : 'League');
 
     let expandedAchievement = $state<string | null>(null);
 
@@ -182,7 +186,7 @@
 {/if}
 
 {#if hasLeagueGames}
-    <div class="section-title">{leagueName} League</div>
+    <div class="section-title">{leagueHeading}</div>
 
     <div class="stat-row">
         <div class="stat-card">

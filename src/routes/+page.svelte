@@ -6,10 +6,11 @@
         SYSTEMS, NONE_FACTION, EXPERIENCE_OPTIONS, ETA_OPTIONS, formConfig
     } from '$lib/signupOptions';
     import {
-        getSystemsConfig, configFor, sortVibeOptions, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
+        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
     } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { fetchMySystems } from '$lib/mySystems';
+    import SystemPicker from '$lib/SystemPicker.svelte';
 
     let { data } = $props();
 
@@ -454,18 +455,12 @@
 <h2 class="page-heading">Select a System</h2>
 
 {#if systemsResolved}
-    <div class="system-grid">
-        {#each tabSystems as s}
-            <button
-                type="button"
-                class="system-card"
-                class:active={system === s}
-                onclick={() => selectSystem(s)}
-            >
-                <img src={systemLogoUrl(s, systemsConfig)} alt={s} />
-            </button>
-        {/each}
-    </div>
+    <SystemPicker
+        systems={tabSystems}
+        {systemsConfig}
+        isActive={(s) => system === s}
+        onSelect={selectSystem}
+    />
 {/if}
 
 <div class="next-session-row">
@@ -769,43 +764,6 @@
 
 <style>
     .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
-
-    .system-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .system-card {
-        background: var(--color-surface-dark);
-        border: 2px solid var(--color-steel-border-soft);
-        border-radius: var(--radius);
-        padding: 0.75rem 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: border-color 0.15s ease, transform 0.08s ease;
-    }
-
-    .system-card:hover {
-        border-color: var(--color-accent-border);
-    }
-
-    .system-card:active {
-        transform: scale(0.98);
-    }
-
-    .system-card.active {
-        border-color: var(--color-accent);
-    }
-
-    .system-card img {
-        max-width: 100%;
-        max-height: 60px;
-        object-fit: contain;
-    }
 
     .next-session-row {
         display: flex;

@@ -3,9 +3,11 @@
     import { goto } from '$app/navigation';
     import { fly, scale } from 'svelte/transition';
     import { factionIconUrl, systemFolder } from '$lib/factions';
-    import { getSystemsConfig, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
+    import SystemPicker from '$lib/SystemPicker.svelte';
 
     // Icon folder per system comes from the backend-owned SystemConfig
     // (GET /systems); FALLBACK carries the same values until it loads.
@@ -169,7 +171,11 @@
     }
 
     onMount(async () => {
-        getSystemsConfig().then((c) => (systemsConfig = c));
+        // Club slug is required so has_league/vibe overrides reflect THIS
+        // club's own config, not the platform catalogue default — see
+        // leagueSystems()'s doc comment in systemsConfig.ts.
+        const club = getClubSlugFromHostname(window.location.hostname);
+        getSystemsConfig(club).then((c) => (systemsConfig = c));
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
             if (r.ok) {
@@ -207,17 +213,13 @@
 <h2 class="page-heading">Weekly Pairings</h2>
 
 {#if systemsResolved}
-    <div class="system-grid">
-        {#each tabSystems as s}
-            <button
-                type="button"
-                class="system-card"
-                class:active={system === s}
-                onclick={() => selectSystem(s)}
-            >
-                <img src={systemLogoUrl(s, systemsConfig)} alt={s} />
-            </button>
-        {/each}
+    <div class="system-picker-theme">
+        <SystemPicker
+            systems={tabSystems}
+            {systemsConfig}
+            isActive={(s) => system === s}
+            onSelect={selectSystem}
+        />
     </div>
 {/if}
 
@@ -341,41 +343,14 @@
 <style>
     .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
 
-    .system-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .system-card {
-        background: var(--color-sidebar-bg);
-        border: 2px solid transparent;
-        border-radius: 10px;
-        padding: 0.75rem 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: border-color 0.15s ease, transform 0.08s ease;
-    }
-
-    .system-card:hover {
-        border-color: var(--color-accent-border-soft);
-    }
-
-    .system-card:active {
-        transform: scale(0.98);
-    }
-
-    .system-card.active {
-        border-color: var(--color-accent);
-    }
-
-    .system-card img {
-        max-width: 100%;
-        max-height: 60px;
-        object-fit: contain;
+    /* This page's system tiles look slightly different from the other
+       pages' (SystemPicker.svelte's defaults) — preserved via custom
+       property overrides rather than duplicating the component. */
+    .system-picker-theme {
+        --system-card-bg: var(--color-sidebar-bg);
+        --system-card-border: transparent;
+        --system-card-radius: 10px;
+        --system-card-hover-border: var(--color-accent-border-soft);
     }
 
     .next-session-row {

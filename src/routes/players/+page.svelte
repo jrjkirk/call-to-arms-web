@@ -3,7 +3,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
     import { SYSTEMS as ALL_SYSTEMS } from '$lib/signupOptions';
-    import { systemLogoUrl } from '$lib/systemsConfig';
+    import SystemPicker from '$lib/SystemPicker.svelte';
 
     type PlayerRow = { id: number; name: string; default_faction: string | null; systems_played?: string[] };
 
@@ -60,18 +60,11 @@
 <h2 class="page-heading">Player Profiles</h2>
 
 {#if systemsResolved}
-    <div class="system-grid">
-        {#each SYSTEMS as s}
-            <button
-                type="button"
-                class="system-card"
-                class:active={activeSystems.includes(s)}
-                onclick={() => toggleSystem(s)}
-            >
-                <img src={systemLogoUrl(s)} alt={s} />
-            </button>
-        {/each}
-    </div>
+    <SystemPicker
+        systems={SYSTEMS}
+        isActive={(s) => activeSystems.includes(s)}
+        onSelect={toggleSystem}
+    />
 {/if}
 
 <div class="field">
@@ -107,43 +100,6 @@
     .page-heading {
         font-size: 1.5rem;
         margin: 0 0 1rem;
-    }
-
-    .system-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 1rem;
-    }
-
-    .system-card {
-        background: var(--color-surface-dark);
-        border: 2px solid var(--color-steel-border-soft);
-        border-radius: var(--radius);
-        padding: 0.75rem 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: border-color 0.15s ease, transform 0.08s ease;
-    }
-
-    .system-card:hover {
-        border-color: var(--color-accent-border);
-    }
-
-    .system-card:active {
-        transform: scale(0.98);
-    }
-
-    .system-card.active {
-        border-color: var(--color-accent);
-    }
-
-    .system-card img {
-        max-width: 100%;
-        max-height: 60px;
-        object-fit: contain;
     }
 
     .field {

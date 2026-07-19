@@ -12,9 +12,6 @@
     } from '$lib/systemsConfig';
 
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
-    onMount(() => {
-        getSystemsConfig().then((c) => (systemsConfig = c));
-    });
 
     // Every scope name is a real game system now — the old standalone
     // "League" pseudo-scope was retired from the backend (see valid_scopes());
@@ -1427,6 +1424,11 @@
 
     onMount(async () => {
         await Promise.all([loadAdminMe(), loadAdminClubSlug()]);
+        // adminClubSlug comes from the admin's own authenticated club (not
+        // hostname-guessed — an admin could be viewing the panel from a
+        // different club's subdomain), so has_league/vibe overrides reflect
+        // the club they actually administer.
+        getSystemsConfig(adminClubSlug).then((c) => (systemsConfig = c));
         if (!adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)) {
             pageLoading = false;
             return;

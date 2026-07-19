@@ -2,8 +2,9 @@
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
-    import { getSystemsConfig, configFor, leagueSystems, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getSystemsConfig, configFor, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
+    import SystemPicker from '$lib/SystemPicker.svelte';
 
     // One "Leagues" page for the whole club: a row of system tiles (same
     // pattern as /pairings and /players) picks which system's league to show
@@ -255,18 +256,12 @@
 <h2 class="page-heading">Leagues</h2>
 
 {#if leagueSystemsList.length > 0}
-    <div class="system-grid">
-        {#each leagueSystemsList as s}
-            <button
-                type="button"
-                class="system-card"
-                class:active={selectedSystem === s.legacy_system_name}
-                onclick={() => selectSystem(s.legacy_system_name)}
-            >
-                <img src={systemLogoUrl(s.legacy_system_name, systemsConfig)} alt={s.legacy_system_name} />
-            </button>
-        {/each}
-    </div>
+    <SystemPicker
+        systems={leagueSystemsList.map((s) => s.legacy_system_name)}
+        {systemsConfig}
+        isActive={(s) => selectedSystem === s}
+        onSelect={selectSystem}
+    />
 {:else}
     <p class="muted">This club doesn't have any leagues set up yet.</p>
 {/if}
@@ -559,43 +554,6 @@
     .muted {
         color: var(--color-text-muted);
         font-style: italic;
-    }
-
-    .system-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 1.25rem;
-    }
-
-    .system-card {
-        background: var(--color-surface-dark);
-        border: 2px solid var(--color-steel-border-soft);
-        border-radius: var(--radius);
-        padding: 0.75rem 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: border-color 0.15s ease, transform 0.08s ease;
-    }
-
-    .system-card:hover {
-        border-color: var(--color-accent-border);
-    }
-
-    .system-card:active {
-        transform: scale(0.98);
-    }
-
-    .system-card.active {
-        border-color: var(--color-accent);
-    }
-
-    .system-card img {
-        max-width: 100%;
-        max-height: 60px;
-        object-fit: contain;
     }
 
     .table-wrap {

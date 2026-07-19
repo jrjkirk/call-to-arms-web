@@ -9,7 +9,6 @@
         name: string;
         slug: string;
         active: boolean;
-        leagues_enabled: boolean;
         timezone: string;
         contact_email: string | null;
         enabled_system_count: number;
@@ -115,7 +114,6 @@
     let createName = $state('');
     let createSlug = $state('');
     let createContactEmail = $state('');
-    let createLeaguesEnabled = $state(true);
     let createActive = $state(false);
     let creating = $state(false);
     let createError = $state<string | null>(null);
@@ -153,7 +151,6 @@
     let editName = $state('');
     let editSlug = $state('');
     let editEmail = $state('');
-    let editLeagues = $state(true);
     let editSaving = $state(false);
     let editError = $state<string | null>(null);
     let editMessage = $state<string | null>(null);
@@ -214,7 +211,6 @@
                 name: createName.trim(),
                 slug: createSlug.trim(),
                 contact_email: createContactEmail.trim() || null,
-                leagues_enabled: createLeaguesEnabled,
                 active: createActive,
             }),
         });
@@ -223,7 +219,6 @@
             createName = '';
             createSlug = '';
             createContactEmail = '';
-            createLeaguesEnabled = true;
             createActive = false;
             await loadClubs();
         } else {
@@ -249,7 +244,6 @@
             editName = c.name;
             editSlug = c.slug;
             editEmail = c.contact_email ?? '';
-            editLeagues = c.leagues_enabled;
         }
         editError = null;
         editMessage = null;
@@ -494,7 +488,6 @@
                 name: editName,
                 slug: editSlug,
                 contact_email: editEmail,
-                leagues_enabled: editLeagues,
             }),
         });
         if (r.ok) {
@@ -504,7 +497,6 @@
             editName = updated.name;
             editSlug = updated.slug;
             editEmail = updated.contact_email ?? '';
-            editLeagues = updated.leagues_enabled;
             editMessage = 'Saved.';
             await loadClubs();
         } else {
@@ -598,10 +590,6 @@
                 <input id="cc-email" class="field-input" type="email" bind:value={createContactEmail} />
             </div>
             <div class="field-row-break"></div>
-            <label class="check-row">
-                <input type="checkbox" bind:checked={createLeaguesEnabled} />
-                <span>Leagues enabled</span>
-            </label>
             <label class="check-row">
                 <input type="checkbox" bind:checked={createActive} />
                 <span>Active immediately</span>
@@ -871,11 +859,6 @@
                         <label class="field-label" for="edit-email">Contact Email</label>
                         <input id="edit-email" class="field-input" type="email" bind:value={editEmail} />
                     </div>
-                    <div class="field-row-break"></div>
-                    <label class="check-row">
-                        <input type="checkbox" bind:checked={editLeagues} />
-                        <span>Leagues enabled</span>
-                    </label>
                     {#if editError}
                         <p class="field-error">{editError}</p>
                     {/if}
