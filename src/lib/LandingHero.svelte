@@ -99,10 +99,7 @@
         line-height: 1.15;
         letter-spacing: 0.01em;
         margin: 0;
-        background: linear-gradient(180deg, var(--color-text-bright) 0%, var(--color-accent) 115%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: var(--color-text-bright);
     }
 
     .hero-tagline {
