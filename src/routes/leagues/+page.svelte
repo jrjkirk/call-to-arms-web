@@ -29,6 +29,7 @@
         factions = [];
         selectedFaction = null;
         factionStats = null;
+        viewingSeasonId = null; // back to the current season on a system switch
         // Loading itself is handled by the $effect watching selectedSystem.
     }
 
@@ -42,6 +43,33 @@
     let rankings = $state<any[]>([]);
     let allPlayers = $state<{ id: number; name: string }[]>([]);
 
+    /* ---------- seasons ---------- */
+    type Champion = { player_id: number; name: string; rating: number };
+    type SeasonRow = { id: number; name: string; start_date: string; end_date: string | null; current: boolean; champion: Champion | null };
+    let seasons = $state<SeasonRow[]>([]);
+    // null = viewing the current season; otherwise an archived season's id.
+    // Archived seasons are read-only (no results submission).
+    let viewingSeasonId = $state<number | null>(null);
+    const pastSeasons = $derived(seasons.filter((s) => !s.current && s.champion));
+    const viewingSeason = $derived(seasons.find((s) => s.id === viewingSeasonId) ?? null);
+
+    async function loadSeasons() {
+        if (!selectedSystem) return;
+        try {
+            const params = new URLSearchParams({ system: selectedSystem });
+            const r = await fetch(`${PUBLIC_API_URL}/league/seasons?${params}`, { credentials: 'include' });
+            seasons = r.ok ? await r.json() : [];
+        } catch (_) {
+            seasons = [];
+        }
+    }
+
+    function onSeasonChange(e: Event) {
+        const val = (e.target as HTMLSelectElement).value;
+        viewingSeasonId = val === '' ? null : Number(val);
+        loadRankings();
+    }
+
     /* ---------- faction filter ---------- */
     let factions = $state<string[]>([]);
     let selectedFaction = $state<string | null>(null);
@@ -52,6 +80,7 @@
         if (!selectedSystem) return;
         try {
             const params = new URLSearchParams({ system: selectedSystem });
+            if (viewingSeasonId !== null) params.set('season_id', String(viewingSeasonId));
             const [rankingsResp, playersResp] = await Promise.all([
                 fetch(`${PUBLIC_API_URL}/league/rankings?${params}`, { credentials: 'include' }),
                 fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' }),
@@ -140,11 +169,12 @@
     });
 
     // Once a system is selected (either the auto-picked default above, or a
-    // user click), load its rankings + factions.
+    // user click), load its rankings + factions + seasons.
     $effect(() => {
         if (selectedSystem) {
             loadRankings();
             loadFactions();
+            loadSeasons();
         }
     });
 
@@ -176,6 +206,7 @@
 
     const canSubmit = $derived(
         p1IdStr !== '' && p2IdStr !== '' && p1IdStr !== p2IdStr && !submitting && !!selectedSystem
+        && viewingSeasonId === null
     );
 
     function signedDelta(before: number | null, after: number | null): string {
@@ -241,6 +272,41 @@
 {/if}
 
 {#if selectedSystem}
+{#if seasons.length > 1}
+    <div class="faction-filter-row season-select-row">
+        <label class="faction-filter-label" for="season-select">Season</label>
+        <select id="season-select" class="field-select faction-filter-select" value={viewingSeasonId ?? ''} onchange={onSeasonChange}>
+            {#each seasons as s}
+                <option value={s.id}>{s.name}{s.current ? ' (current)' : ''}</option>
+            {/each}
+        </select>
+    </div>
+{/if}
+
+{#if viewingSeason && !viewingSeason.current}
+    <p class="archive-banner">
+        Viewing the archived <strong>{viewingSeason.name}</strong> season
+        ({viewingSeason.start_date} – {viewingSeason.end_date ?? 'ongoing'}).
+        {#if viewingSeason.champion}Champion: <strong>{viewingSeason.champion.name}</strong> ({Math.round(viewingSeason.champion.rating)}).{/if}
+        <button type="button" class="link-button" onclick={() => { viewingSeasonId = null; loadRankings(); }}>Back to current season</button>
+    </p>
+{/if}
+
+{#if pastSeasons.length > 0}
+    <details class="champions-section">
+        <summary class="submit-toggle">Hall of Champions</summary>
+        <ul class="champions-list">
+            {#each pastSeasons as s}
+                <li>
+                    <span class="champion-season">{s.name}</span>
+                    <span class="champion-name">🏆 {s.champion?.name}</span>
+                    <span class="muted small">({Math.round(s.champion?.rating ?? 0)})</span>
+                </li>
+            {/each}
+        </ul>
+    </details>
+{/if}
+
 <div class="faction-filter-row">
     <label class="faction-filter-label" for="faction-filter">Filter by faction</label>
     <select id="faction-filter" class="field-select faction-filter-select" onchange={onFactionChange}>
@@ -358,7 +424,12 @@
 <details class="submit-section">
     <summary class="submit-toggle">Results Submission</summary>
     <div class="submit-body">
-        {#if !authLoaded}
+        {#if viewingSeason && !viewingSeason.current}
+            <p class="muted">
+                Results can only be submitted to the current season.
+                <button type="button" class="link-button" onclick={() => { viewingSeasonId = null; loadRankings(); }}>Switch to the current season</button> to submit a result.
+            </p>
+        {:else if !authLoaded}
             <p class="muted">Loading…</p>
         {:else if !auth.authenticated || !auth.player}
             <p class="sign-in-prompt">
@@ -693,6 +764,66 @@
 
     .faction-showing-label {
         margin: 0 0 0.6rem;
+    }
+
+    .season-select-row {
+        margin-bottom: 0.75rem;
+    }
+
+    .link-button {
+        background: none;
+        border: none;
+        color: var(--color-accent);
+        font-family: inherit;
+        font-size: 0.85rem;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .archive-banner {
+        background: rgba(148, 163, 184, 0.1);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        margin: 0 0 1rem;
+        line-height: 1.5;
+    }
+
+    .champions-section {
+        margin-bottom: 1rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        overflow: hidden;
+    }
+
+    .champions-list {
+        list-style: none;
+        margin: 0;
+        padding: 0.75rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .champions-list li {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .champion-season {
+        font-weight: 700;
+        color: var(--color-text-bright);
+        min-width: 5rem;
+    }
+
+    .champion-name {
+        color: var(--color-accent);
     }
 
     .winrate-col { width: 96px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }

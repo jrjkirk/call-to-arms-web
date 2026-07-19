@@ -127,12 +127,14 @@
         points_loss: number;
         winloss_use_painting: boolean;
     };
+    type LeagueChampion = { player_id: number; name: string; rating: number };
     type LeagueSeasonRow = {
         id: number;
         name: string;
         start_date: string;
         end_date: string | null;
         current: boolean;
+        champion: LeagueChampion | null;
     };
     type LeagueState = {
         config: LeagueConfigData | null;
@@ -148,6 +150,10 @@
         newSeasonName: string;
         newSeasonStart: string;
         newSeasonEnd: string;
+
+        // null = current season; otherwise the id of an archived season
+        // being browsed read-only-ish in the results grid below.
+        viewingSeasonId: number | null;
 
         results: LeagueResultRow[];
         resultsLoading: boolean;
@@ -1217,6 +1223,7 @@
             config: null, configLoading: false, configSaving: false, configError: null, configMessage: null,
             seasons: [], seasonsLoading: false, seasonCreating: false, seasonError: null,
             newSeasonName: '', newSeasonStart: '', newSeasonEnd: '',
+            viewingSeasonId: null,
             results: [], resultsLoading: false, resultsError: null,
         };
     }
@@ -1313,6 +1320,7 @@
             ls.newSeasonName = '';
             ls.newSeasonStart = '';
             ls.newSeasonEnd = '';
+            ls.viewingSeasonId = null; // back to (the new) current season
             await Promise.all([loadLeagueSeasons(scope), loadLeagueResults(scope)]);
         } else {
             const body = await r.json().catch(() => ({}));
@@ -1321,11 +1329,19 @@
         ls.seasonCreating = false;
     }
 
+    function viewSeason(scope: string, seasonId: number | null) {
+        const ls = leagueState[scope];
+        ls.viewingSeasonId = seasonId;
+        loadLeagueResults(scope);
+    }
+
     async function loadLeagueResults(scope: string) {
         const ls = leagueState[scope];
         ls.resultsLoading = true;
         ls.resultsError = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
+        const params = new URLSearchParams({ system: scope });
+        if (ls.viewingSeasonId !== null) params.set('season_id', String(ls.viewingSeasonId));
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results?${params}`, { credentials: 'include' });
         if (r.ok) {
             const data: LeagueResultRow[] = await r.json();
             ls.results = data.map((row) => ({
@@ -1705,12 +1721,21 @@
                                                     {:else if ls.seasons.length === 0}
                                                         <p class="muted small">No season yet — create one below to start recording results.</p>
                                                     {:else}
+                                                        <p class="muted small">Click a season to browse its results below.</p>
                                                         <ul class="season-list">
                                                             {#each ls.seasons as s}
                                                                 <li>
-                                                                    <strong>{s.name}</strong>
-                                                                    <span class="muted small">{s.start_date} – {s.end_date ?? 'ongoing'}</span>
-                                                                    {#if s.current}<span class="season-current-badge">current</span>{/if}
+                                                                    <button
+                                                                        type="button"
+                                                                        class="season-row-button"
+                                                                        class:active={ls.viewingSeasonId === s.id || (ls.viewingSeasonId === null && s.current)}
+                                                                        onclick={() => viewSeason(scope, s.current ? null : s.id)}
+                                                                    >
+                                                                        <strong>{s.name}</strong>
+                                                                        <span class="muted small">{s.start_date} – {s.end_date ?? 'ongoing'}</span>
+                                                                        {#if s.current}<span class="season-current-badge">current</span>{/if}
+                                                                        {#if s.champion}<span class="season-champion">🏆 {s.champion.name}</span>{/if}
+                                                                    </button>
                                                                 </li>
                                                             {/each}
                                                         </ul>
@@ -1741,9 +1766,11 @@
                                             </div>
                                         </details>
 
-                                        <!-- League Results (current season; editing/deleting recalculates ratings) -->
+                                        <!-- League Results (editing/deleting recalculates that season's ratings) -->
                                         <div class="league-results">
-                                            <h5 class="sub-heading-minor">This Season's Results</h5>
+                                            <h5 class="sub-heading-minor">
+                                                {ls.viewingSeasonId === null ? "This Season's Results" : `${ls.seasons.find((s) => s.id === ls.viewingSeasonId)?.name ?? 'Season'}'s Results (archived)`}
+                                            </h5>
                                             {#if ls.resultsError}
                                                 <p class="field-error">{ls.resultsError}</p>
                                             {/if}
@@ -4194,9 +4221,29 @@
     }
     .season-list li {
         display: flex;
+    }
+    .season-row-button {
+        display: flex;
         align-items: baseline;
+        flex-wrap: wrap;
         gap: 0.5rem;
         font-size: 0.85rem;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        padding: 0.25rem 0.4rem;
+        cursor: pointer;
+        color: inherit;
+        font-family: inherit;
+    }
+    .season-row-button:hover {
+        border-color: var(--color-steel-border);
+    }
+    .season-row-button.active {
+        border-color: var(--color-accent-border);
+        background: rgba(148, 163, 184, 0.06);
     }
     .season-current-badge {
         font-size: 0.65rem;
@@ -4207,6 +4254,10 @@
         border: 1px solid var(--color-win);
         border-radius: 4px;
         padding: 0.05rem 0.35rem;
+    }
+    .season-champion {
+        font-size: 0.75rem;
+        color: var(--color-accent);
     }
     .league-settings-details {
         margin-top: 0.5rem;
