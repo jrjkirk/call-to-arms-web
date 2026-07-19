@@ -293,7 +293,7 @@
 {/if}
 
 <details class="submit-section">
-    <summary class="submit-toggle">⚔️ Results Submission</summary>
+    <summary class="submit-toggle">Results Submission</summary>
     <div class="submit-body">
         {#if !authLoaded}
             <p class="muted">Loading…</p>

@@ -1600,125 +1600,146 @@
                                     {#if ls.configError}<p class="field-error">{ls.configError}</p>{/if}
 
                                     {#if ls.config.league_enabled}
-                                        <!-- Scoring config -->
-                                        <div class="league-config-form">
-                                            <div class="field">
-                                                <span class="field-label">Scoring method</span>
-                                                <label class="radio-row">
-                                                    <input type="radio" bind:group={ls.config.scoring_method} value="elo" />
-                                                    <span>ELO rating</span>
-                                                </label>
-                                                <label class="radio-row">
-                                                    <input type="radio" bind:group={ls.config.scoring_method} value="winloss" />
-                                                    <span>Flat win/loss points</span>
-                                                </label>
-                                            </div>
+                                        <!-- League settings: scoring config + seasons, collapsed together
+                                             (results stay outside, always visible below). -->
+                                        <details class="league-settings-details">
+                                            <summary>League settings</summary>
+                                            <div class="league-settings-body">
+                                                <p class="league-help-text">
+                                                    <strong>ELO rating</strong> gives every player a number (starting
+                                                    at 1000 by default) that goes up after a win and down after a
+                                                    loss — how much it moves depends on the gap between the two
+                                                    players' ratings, so beating a higher-rated opponent earns more
+                                                    than beating a lower-rated one, and vice versa. The
+                                                    <strong>K value</strong> controls how big those swings are (higher
+                                                    K = ratings move faster); it's common to use a lower K for casual
+                                                    games and a higher K for competitive ones. <strong>Painting
+                                                    bonuses</strong> add a small flat boost for fielding a painted
+                                                    army, on top of the result. <strong>Flat win/loss points</strong>
+                                                    is the simpler alternative: everyone just earns a fixed number of
+                                                    points per win/draw/loss, with no opponent-strength weighting.
+                                                    The defaults below (1000 start, K 10/40, +3/+1 painting) match a
+                                                    typical club setup — adjust them if you like.
+                                                </p>
 
-                                            <div class="field field-narrow">
-                                                <label class="field-label" for="lc-start-{scope}">Starting rating</label>
-                                                <input id="lc-start-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.starting_rating} />
-                                            </div>
-
-                                            {#if ls.config.scoring_method === 'elo'}
-                                                <div class="field field-narrow">
-                                                    <label class="field-label" for="lc-kc-{scope}">K (casual)</label>
-                                                    <input id="lc-kc-{scope}" class="field-input" type="number" bind:value={ls.config.k_casual} />
-                                                </div>
-                                                <div class="field field-narrow">
-                                                    <label class="field-label" for="lc-kk-{scope}">K (competitive)</label>
-                                                    <input id="lc-kk-{scope}" class="field-input" type="number" bind:value={ls.config.k_competitive} />
-                                                </div>
-                                                <div class="field field-narrow">
-                                                    <label class="field-label" for="lc-pf-{scope}">Painting bonus (fully)</label>
-                                                    <input id="lc-pf-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
-                                                </div>
-                                                <div class="field field-narrow">
-                                                    <label class="field-label" for="lc-pp-{scope}">Painting bonus (partial)</label>
-                                                    <input id="lc-pp-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
-                                                </div>
-                                            {:else}
-                                                <div class="field field-narrow">
-                                                    <label class="field-label" for="lc-pw-{scope}">Points (win)</label>
-                                                    <input id="lc-pw-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_win} />
-                                                </div>
-                                                <div class="field field-narrow">
-                                                    <label class="field-label" for="lc-pd-{scope}">Points (draw)</label>
-                                                    <input id="lc-pd-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_draw} />
-                                                </div>
-                                                <div class="field field-narrow">
-                                                    <label class="field-label" for="lc-pl-{scope}">Points (loss)</label>
-                                                    <input id="lc-pl-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_loss} />
-                                                </div>
-                                                <label class="check-row ap-toggle">
-                                                    <input type="checkbox" bind:checked={ls.config.winloss_use_painting} />
-                                                    <span>Also apply the painting bonuses above</span>
-                                                </label>
-                                                {#if ls.config.winloss_use_painting}
-                                                    <div class="field field-narrow">
-                                                        <label class="field-label" for="lc-pf2-{scope}">Painting bonus (fully)</label>
-                                                        <input id="lc-pf2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
-                                                    </div>
-                                                    <div class="field field-narrow">
-                                                        <label class="field-label" for="lc-pp2-{scope}">Painting bonus (partial)</label>
-                                                        <input id="lc-pp2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
-                                                    </div>
-                                                {/if}
-                                            {/if}
-
-                                            {#if ls.configMessage}<p class="pairing-message">{ls.configMessage}</p>{/if}
-                                            <button
-                                                class="primary-button"
-                                                type="button"
-                                                disabled={ls.configSaving}
-                                                onclick={() => saveLeagueConfig(scope)}
-                                            >{ls.configSaving ? 'Saving…' : 'Save scoring config'}</button>
-                                            <p class="muted small">Saving replays this season's results under the new config — ratings update immediately.</p>
-                                        </div>
-
-                                        <!-- Seasons -->
-                                        <div class="league-seasons">
-                                            <h5 class="sub-heading-minor">Seasons</h5>
-                                            {#if ls.seasonsLoading}
-                                                <p class="muted small">Loading…</p>
-                                            {:else if ls.seasons.length === 0}
-                                                <p class="muted small">No season yet — create one below to start recording results.</p>
-                                            {:else}
-                                                <ul class="season-list">
-                                                    {#each ls.seasons as s}
-                                                        <li>
-                                                            <strong>{s.name}</strong>
-                                                            <span class="muted small">{s.start_date} – {s.end_date ?? 'ongoing'}</span>
-                                                            {#if s.current}<span class="season-current-badge">current</span>{/if}
-                                                        </li>
-                                                    {/each}
-                                                </ul>
-                                            {/if}
-                                            {#if ls.seasonError}<p class="field-error">{ls.seasonError}</p>{/if}
-                                            <details class="add-signup-details">
-                                                <summary>+ New season</summary>
-                                                <div class="add-signup-form">
+                                                <!-- Scoring config -->
+                                                <div class="league-config-form">
                                                     <div class="field">
-                                                        <label class="field-label" for="ns-name-{scope}">Name</label>
-                                                        <input id="ns-name-{scope}" class="field-input" type="text" placeholder="e.g. 2027" bind:value={ls.newSeasonName} />
+                                                        <span class="field-label">Scoring method</span>
+                                                        <label class="radio-row">
+                                                            <input type="radio" bind:group={ls.config.scoring_method} value="elo" />
+                                                            <span>ELO rating</span>
+                                                        </label>
+                                                        <label class="radio-row">
+                                                            <input type="radio" bind:group={ls.config.scoring_method} value="winloss" />
+                                                            <span>Flat win/loss points</span>
+                                                        </label>
                                                     </div>
+
                                                     <div class="field field-narrow">
-                                                        <label class="field-label" for="ns-start-{scope}">Start date</label>
-                                                        <input id="ns-start-{scope}" class="field-input" type="date" bind:value={ls.newSeasonStart} />
+                                                        <label class="field-label" for="lc-start-{scope}">Starting rating</label>
+                                                        <input id="lc-start-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.starting_rating} />
                                                     </div>
-                                                    <div class="field field-narrow">
-                                                        <label class="field-label" for="ns-end-{scope}">End date (optional)</label>
-                                                        <input id="ns-end-{scope}" class="field-input" type="date" bind:value={ls.newSeasonEnd} />
-                                                    </div>
-                                                    <p class="muted small">Starting a new season resets ratings to the starting rating above; the currently open season (if any) is automatically closed the day before this one starts. Past seasons and their results stay archived.</p>
+
+                                                    {#if ls.config.scoring_method === 'elo'}
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-kc-{scope}">K (casual)</label>
+                                                            <input id="lc-kc-{scope}" class="field-input" type="number" bind:value={ls.config.k_casual} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-kk-{scope}">K (competitive)</label>
+                                                            <input id="lc-kk-{scope}" class="field-input" type="number" bind:value={ls.config.k_competitive} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-pf-{scope}">Painting bonus (fully)</label>
+                                                            <input id="lc-pf-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-pp-{scope}">Painting bonus (partial)</label>
+                                                            <input id="lc-pp-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
+                                                        </div>
+                                                    {:else}
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-pw-{scope}">Points (win)</label>
+                                                            <input id="lc-pw-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_win} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-pd-{scope}">Points (draw)</label>
+                                                            <input id="lc-pd-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_draw} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-pl-{scope}">Points (loss)</label>
+                                                            <input id="lc-pl-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_loss} />
+                                                        </div>
+                                                        <label class="check-row ap-toggle">
+                                                            <input type="checkbox" bind:checked={ls.config.winloss_use_painting} />
+                                                            <span>Also apply the painting bonuses above</span>
+                                                        </label>
+                                                        {#if ls.config.winloss_use_painting}
+                                                            <div class="field field-narrow">
+                                                                <label class="field-label" for="lc-pf2-{scope}">Painting bonus (fully)</label>
+                                                                <input id="lc-pf2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
+                                                            </div>
+                                                            <div class="field field-narrow">
+                                                                <label class="field-label" for="lc-pp2-{scope}">Painting bonus (partial)</label>
+                                                                <input id="lc-pp2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
+                                                            </div>
+                                                        {/if}
+                                                    {/if}
+
+                                                    {#if ls.configMessage}<p class="pairing-message">{ls.configMessage}</p>{/if}
                                                     <button
                                                         class="primary-button"
                                                         type="button"
-                                                        disabled={ls.seasonCreating}
-                                                        onclick={() => createLeagueSeason(scope)}
-                                                    >{ls.seasonCreating ? 'Creating…' : 'Start season'}</button>
+                                                        disabled={ls.configSaving}
+                                                        onclick={() => saveLeagueConfig(scope)}
+                                                    >{ls.configSaving ? 'Saving…' : 'Save scoring config'}</button>
+                                                    <p class="muted small">Saving replays this season's results under the new config — ratings update immediately.</p>
                                                 </div>
-                                            </details>
-                                        </div>
+
+                                                <!-- Seasons -->
+                                                <div class="league-seasons">
+                                                    <h5 class="sub-heading-minor">Seasons</h5>
+                                                    {#if ls.seasonsLoading}
+                                                        <p class="muted small">Loading…</p>
+                                                    {:else if ls.seasons.length === 0}
+                                                        <p class="muted small">No season yet — create one below to start recording results.</p>
+                                                    {:else}
+                                                        <ul class="season-list">
+                                                            {#each ls.seasons as s}
+                                                                <li>
+                                                                    <strong>{s.name}</strong>
+                                                                    <span class="muted small">{s.start_date} – {s.end_date ?? 'ongoing'}</span>
+                                                                    {#if s.current}<span class="season-current-badge">current</span>{/if}
+                                                                </li>
+                                                            {/each}
+                                                        </ul>
+                                                    {/if}
+                                                    {#if ls.seasonError}<p class="field-error">{ls.seasonError}</p>{/if}
+                                                    <div class="add-signup-form">
+                                                        <div class="field">
+                                                            <label class="field-label" for="ns-name-{scope}">New season name</label>
+                                                            <input id="ns-name-{scope}" class="field-input" type="text" placeholder="e.g. 2027" bind:value={ls.newSeasonName} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="ns-start-{scope}">Start date</label>
+                                                            <input id="ns-start-{scope}" class="field-input" type="date" bind:value={ls.newSeasonStart} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="ns-end-{scope}">End date (optional)</label>
+                                                            <input id="ns-end-{scope}" class="field-input" type="date" bind:value={ls.newSeasonEnd} />
+                                                        </div>
+                                                        <p class="muted small">Starting a new season resets ratings to the starting rating above; the currently open season (if any) is automatically closed the day before this one starts. Past seasons and their results stay archived.</p>
+                                                        <button
+                                                            class="primary-button"
+                                                            type="button"
+                                                            disabled={ls.seasonCreating}
+                                                            onclick={() => createLeagueSeason(scope)}
+                                                        >{ls.seasonCreating ? 'Creating…' : 'Start season'}</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </details>
 
                                         <!-- League Results (current season; editing/deleting recalculates ratings) -->
                                         <div class="league-results">
@@ -4186,5 +4207,32 @@
         border: 1px solid var(--color-win);
         border-radius: 4px;
         padding: 0.05rem 0.35rem;
+    }
+    .league-settings-details {
+        margin-top: 0.5rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: 6px;
+        padding: 0.6rem 0.75rem;
+        background: var(--color-surface-dark);
+    }
+    .league-settings-details summary {
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-muted);
+    }
+    .league-settings-body {
+        margin-top: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .league-help-text {
+        font-size: 0.8rem;
+        line-height: 1.5;
+        color: var(--color-text-dim);
+        margin: 0 0 0.25rem;
     }
 </style>
