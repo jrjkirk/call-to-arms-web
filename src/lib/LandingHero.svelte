@@ -61,6 +61,12 @@
             {/each}
         </div>
 
+        <div class="hero-cta" in:fly={{ y: 12, duration: 500, delay: 520 }}>
+            <a class="hero-button" href={loginUrl}>
+                <span>Sign in with Discord</span>
+            </a>
+        </div>
+
         <ClubsMap />
         <ClubRequestForm />
 
@@ -159,6 +165,35 @@
         color: var(--color-text-dim);
         font-size: 0.83rem;
         line-height: 1.55;
+    }
+
+    .hero-cta {
+        margin-top: clamp(2.2rem, 5vw, 3rem);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .hero-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-accent);
+        border: 1px solid var(--color-accent);
+        color: #1b1206;
+        font-weight: 700;
+        font-size: 1.02rem;
+        letter-spacing: 0.01em;
+        padding: 0.85rem 2.2rem;
+        border-radius: var(--radius);
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.18s ease, transform 0.15s ease;
+    }
+
+    .hero-button:hover {
+        background: var(--color-accent-soft);
+        transform: translateY(-1px);
     }
 
     .hero-footer-link {
