@@ -197,7 +197,8 @@
         font-size: 0.95rem;
         color: var(--color-text-muted);
         line-height: 1.55;
-        max-width: 60ch;
+        /* No max-width cap — wraps to the full slide width instead of
+           stopping short partway across the card. */
     }
 
     .carousel-arrow {

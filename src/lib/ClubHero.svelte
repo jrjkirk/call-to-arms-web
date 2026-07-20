@@ -11,48 +11,51 @@
 </script>
 
 <div class="club-hero">
-    {#if club.logo_url}
-        <img class="club-logo" src={club.logo_url} alt={`${club.name} logo`} />
-    {/if}
-    <div class="club-hero-text">
+    <div class="club-hero-top">
+        {#if club.logo_url}
+            <img class="club-logo" src={club.logo_url} alt={`${club.name} logo`} />
+        {/if}
         <h1 class="club-name">{club.name}</h1>
-        {#if club.blurb}
-            <p class="club-blurb">{club.blurb}</p>
-        {/if}
-        {#if club.website_url || club.discord_url}
-            <div class="club-links">
-                {#if club.website_url}
-                    <a class="club-link" href={club.website_url} target="_blank" rel="noopener noreferrer">Website</a>
-                {/if}
-                {#if club.discord_url}
-                    <a class="club-link" href={club.discord_url} target="_blank" rel="noopener noreferrer">Discord</a>
-                {/if}
-            </div>
-        {/if}
     </div>
+    {#if club.blurb}
+        <p class="club-blurb">{club.blurb}</p>
+    {/if}
+    {#if club.website_url || club.discord_url}
+        <div class="club-links">
+            {#if club.website_url}
+                <a class="club-link" href={club.website_url} target="_blank" rel="noopener noreferrer">Website</a>
+            {/if}
+            {#if club.discord_url}
+                <a class="club-link" href={club.discord_url} target="_blank" rel="noopener noreferrer">Discord</a>
+            {/if}
+        </div>
+    {/if}
 </div>
 
 <style>
     .club-hero {
+        margin-bottom: 1.6rem;
+    }
+
+    /* Logo + name stay inline together at every width — only the blurb and
+       links reflow to full-width below, rather than the whole block
+       collapsing to a single stacked column on mobile. */
+    .club-hero-top {
         display: flex;
         align-items: center;
-        gap: 1.4rem;
-        margin-bottom: 1.6rem;
+        gap: 1rem;
+        margin-bottom: 0.9rem;
     }
 
     .club-logo {
         flex: 0 0 auto;
-        width: 88px;
-        height: 88px;
+        width: 64px;
+        height: 64px;
         object-fit: contain;
         background: var(--color-surface-dark);
         border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
-        padding: 0.5rem;
-    }
-
-    .club-hero-text {
-        min-width: 0;
+        padding: 0.4rem;
     }
 
     .club-name {
@@ -61,7 +64,7 @@
         font-weight: 700;
         color: var(--color-text-bright);
         letter-spacing: -0.01em;
-        margin: 0 0 0.4rem;
+        margin: 0;
     }
 
     .club-blurb {
@@ -75,7 +78,7 @@
     .club-links {
         display: flex;
         gap: 0.6rem;
-        margin-top: 0.7rem;
+        margin-top: 0.9rem;
     }
 
     .club-link {
@@ -96,11 +99,11 @@
         border-color: var(--color-accent);
     }
 
-    @media (max-width: 560px) {
-        .club-hero {
-            flex-direction: column;
-            align-items: flex-start;
-            text-align: left;
+    @media (min-width: 561px) {
+        .club-logo {
+            width: 88px;
+            height: 88px;
+            padding: 0.5rem;
         }
     }
 </style>
