@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
     import { SYSTEMS as ALL_SYSTEMS } from '$lib/signupOptions';
@@ -57,15 +59,16 @@
     );
 </script>
 
+{#if systemsResolved}
+<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+
 <h2 class="page-heading">Player Profiles</h2>
 
-{#if systemsResolved}
-    <SystemPicker
-        systems={SYSTEMS}
-        isActive={(s) => activeSystems.includes(s)}
-        onSelect={toggleSystem}
-    />
-{/if}
+<SystemPicker
+    systems={SYSTEMS}
+    isActive={(s) => activeSystems.includes(s)}
+    onSelect={toggleSystem}
+/>
 
 <div class="field">
     <label class="field-label" for="filter">Filter players</label>
@@ -95,6 +98,9 @@
         <li class="empty">No players match.</li>
     {/if}
 </ul>
+
+</div>
+{/if}
 
 <style>
     .page-heading {

@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { goto } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
 
@@ -97,11 +99,15 @@
     }
 </script>
 
+{#if !loaded}
+<h2 class="page-heading">Link your player profile</h2>
+<p class="lead-sub">Loading…</p>
+{:else}
+<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+
 <h2 class="page-heading">Link your player profile</h2>
 
-{#if !loaded}
-    <p class="lead-sub">Loading…</p>
-{:else if !auth.authenticated}
+{#if !auth.authenticated}
     <div class="empty-state">
         You need to be signed in. <a href="/">Go back home</a> and click Sign in with Discord.
     </div>
@@ -217,6 +223,9 @@
             </button>
         </div>
     </section>
+{/if}
+
+</div>
 {/if}
 
 <style>

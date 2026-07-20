@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { goto, invalidateAll } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import {
@@ -78,6 +80,11 @@
     // resolves. True after resolution (or immediately for anonymous visitors,
     // who correctly see every system).
     let systemsResolved = $state(false);
+    // Everything below reads auth/systemsConfig-dependent state (the system
+    // tabs, the sign-up card's auth branch) — gating the whole page on both
+    // being resolved means it appears once, fully formed, instead of the
+    // tab row and sign-up card popping in separately as each fetch lands.
+    const pageReady = $derived(authLoaded && systemsResolved);
 
     onMount(async () => {
         try {
@@ -452,16 +459,17 @@
     }
 </script>
 
+{#if pageReady}
+<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+
 <h2 class="page-heading">Select a System</h2>
 
-{#if systemsResolved}
-    <SystemPicker
-        systems={tabSystems}
-        {systemsConfig}
-        isActive={(s) => system === s}
-        onSelect={selectSystem}
-    />
-{/if}
+<SystemPicker
+    systems={tabSystems}
+    {systemsConfig}
+    isActive={(s) => system === s}
+    onSelect={selectSystem}
+/>
 
 <div class="next-session-row">
     <span>Next session: <strong>{data.week}</strong></span>
@@ -494,9 +502,7 @@
 
 <div class="section-title">Sign Up</div>
 
-{#if !authLoaded}
-    <div class="signup-card card"><p class="muted">Loading…</p></div>
-{:else if !auth.authenticated}
+{#if !auth.authenticated}
     <div class="signup-card card">
         <p class="prompt-body">Sign in with Discord to sign up for this week's session.</p>
         <a class="primary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in with Discord</a>
@@ -760,6 +766,9 @@
             </div>
         {/if}
     </details>
+{/if}
+
+</div>
 {/if}
 
 <style>

@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { fly, scale } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
@@ -210,18 +211,19 @@
     }
 </script>
 
+{#if systemsResolved}
+<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+
 <h2 class="page-heading">Weekly Pairings</h2>
 
-{#if systemsResolved}
-    <div class="system-picker-theme">
-        <SystemPicker
-            systems={tabSystems}
-            {systemsConfig}
-            isActive={(s) => system === s}
-            onSelect={selectSystem}
-        />
-    </div>
-{/if}
+<div class="system-picker-theme">
+    <SystemPicker
+        systems={tabSystems}
+        {systemsConfig}
+        isActive={(s) => system === s}
+        onSelect={selectSystem}
+    />
+</div>
 
 <div class="next-session-row">
     <span>Showing: <strong>{data.week}</strong></span>
@@ -338,6 +340,9 @@
         <p class="unpaired-notice">⚠️ Looking for a game: {unpaired.map((p) => p.player_name).join(', ')}</p>
         <p class="unpaired-note">Head to the home page and use the Re-arrange your game form.</p>
     </div>
+{/if}
+
+</div>
 {/if}
 
 <style>

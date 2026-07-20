@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, configFor, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
@@ -146,6 +148,8 @@
     };
     let auth = $state<AuthState>({ authenticated: false });
     let authLoaded = $state(false);
+    let systemsConfigLoaded = $state(false);
+    const pageReady = $derived(authLoaded && systemsConfigLoaded);
 
     let mobileFactionLabel = $state('Most Played Faction');
 
@@ -167,6 +171,7 @@
         // catalogue default — see leagueSystems()'s doc comment.
         const club = getClubSlugFromHostname(window.location.hostname);
         systemsConfig = await getSystemsConfig(club);
+        systemsConfigLoaded = true;
     });
 
     // Once a system is selected (either the auto-picked default above, or a
@@ -252,6 +257,9 @@
         submitting = false;
     }
 </script>
+
+{#if pageReady}
+<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
 <h2 class="page-heading">Leagues</h2>
 
@@ -543,6 +551,9 @@
         {/if}
     </div>
 </details>
+{/if}
+
+</div>
 {/if}
 
 <style>

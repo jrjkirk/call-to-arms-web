@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
@@ -94,6 +96,7 @@
 {:else if loadError}
     <p style="color: #fca5a5;">{loadError}</p>
 {:else}
+<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
 <div class="profile-card">
     {#if discord}
@@ -282,6 +285,7 @@
         </div>
     {/if}
 {/each}
+</div>
 {/if}
 
 <style>
