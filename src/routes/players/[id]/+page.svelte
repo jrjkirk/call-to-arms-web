@@ -3,7 +3,7 @@
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
-    import { getSystemsConfig, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     let apiData = $state<any>(null);
@@ -15,9 +15,6 @@
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
     onMount(async () => {
-        // Club slug is required so has_league (used for the league heading
-        // below) reflects THIS club's own leagues, not the platform
-        // catalogue default — see leagueSystems()'s doc comment.
         const club = getClubSlugFromHostname(window.location.hostname);
         getSystemsConfig(club).then((c) => (systemsConfig = c));
         try {
@@ -41,15 +38,12 @@
     const achievements = $derived(apiData?.achievements ?? []);
     const signupCounts = $derived(apiData?.signup_counts ?? {});
     const factionUsage = $derived(apiData?.faction_usage ?? {});
-    const league = $derived(apiData?.league ?? {});
-    const hasLeagueGames = $derived((league.total_games ?? 0) > 0);
-    // League section heading names the (single, today) league-eligible
-    // system, sourced from has_league. Falls back to the generic "League"
-    // (not a hardcoded system name) for the rare case systemsConfig hasn't
-    // loaded yet or this club has none — matches the de-hardcoded wording
-    // used elsewhere (services.py's ACHIEVEMENT_DESCRIPTIONS).
-    const leagueSystemName = $derived(leagueSystems(systemsConfig)[0]?.name);
-    const leagueHeading = $derived(leagueSystemName ? `${leagueSystemName} League` : 'League');
+    // One entry per league-enabled system this player has actually played
+    // in — a club can run more than one system's league now, so this is a
+    // list, not a single object. Each entry carries its own system_name for
+    // the section heading (e.g. "The Old World League", "Age of Sigmar
+    // League").
+    const leagues = $derived<any[]>(apiData?.leagues ?? []);
 
     let expandedAchievement = $state<string | null>(null);
 
@@ -185,34 +179,34 @@
     </div>
 {/if}
 
-{#if hasLeagueGames}
-    <div class="section-title">{leagueHeading}</div>
+{#each leagues as lg (lg.system)}
+    <div class="section-title">{lg.system_name} League</div>
 
     <div class="stat-row">
         <div class="stat-card">
             <div class="stat-label">ELO</div>
-            <div class="stat-value">{league.rating?.toFixed(0) ?? '—'}</div>
+            <div class="stat-value">{lg.rating?.toFixed(0) ?? '—'}</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">Rank</div>
-            <div class="stat-value">#{league.rank ?? '—'}</div>
+            <div class="stat-value">#{lg.rank ?? '—'}</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">W / D / L</div>
-            <div class="stat-value">{league.wins}/{league.draws}/{league.losses}</div>
+            <div class="stat-value">{lg.wins}/{lg.draws}/{lg.losses}</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">League Games</div>
-            <div class="stat-value">{league.total_games}</div>
+            <div class="stat-value">{lg.total_games}</div>
         </div>
     </div>
 
-    {#if league.elo_history && league.elo_history.length > 1}
-        {@const elos = league.elo_history.map((h: any) => h.elo)}
+    {#if lg.elo_history && lg.elo_history.length > 1}
+        {@const elos = lg.elo_history.map((h: any) => h.elo)}
         {@const yMin = Math.min(...elos) - 20}
         {@const yMax = Math.max(yMin + 40, Math.max(...elos) + 20)}
         {@const range = yMax - yMin}
-        {@const n = league.elo_history.length}
+        {@const n = lg.elo_history.length}
         <div class="elo-chart">
             <svg viewBox="0 0 600 240" preserveAspectRatio="none" class="elo-svg">
                 <!-- gridlines (4 horizontal divisions) -->
@@ -240,7 +234,7 @@
                     fill="none"
                     stroke="#c9a14a"
                     stroke-width="2.5"
-                    points={league.elo_history
+                    points={lg.elo_history
                         .map((h: any, i: number) => {
                             const x = 40 + (i / Math.max(1, n - 1)) * 540;
                             const y = 20 + ((yMax - h.elo) / range) * 200;
@@ -250,7 +244,7 @@
                 />
 
                 <!-- points -->
-                {#each league.elo_history as h, i}
+                {#each lg.elo_history as h, i}
                     {@const x = 40 + (i / Math.max(1, n - 1)) * 540}
                     {@const y = 20 + ((yMax - h.elo) / range) * 200}
                     <circle cx={x} cy={y} r="5" fill="#f4e9c8" stroke="#c9a14a" stroke-width="2">
@@ -260,8 +254,7 @@
             </svg>
         </div>
     {/if}
-
-{/if}
+{/each}
 
 {#each systemsInOrder as sysName}
     {@const games = recentGamesBySystem[sysName] ?? []}
