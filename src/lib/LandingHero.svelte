@@ -26,7 +26,7 @@
 
 <div class="hero">
     <div class="hero-inner">
-        <img class="hero-logo" src="/logo.svg" alt="Call to Arms" in:fly={{ y: 18, duration: 600, delay: 120 }} />
+        <img class="hero-logo" src="/logo-hero.svg" alt="Call to Arms" in:fly={{ y: 18, duration: 600, delay: 120 }} />
 
         <p class="hero-tagline" in:fly={{ y: 14, duration: 550, delay: 240 }}>
             The home for your club's tabletop nights — sign-ups, pairings, and
@@ -96,16 +96,9 @@
 
     .hero-logo {
         width: 100%;
-        max-width: 420px;
+        max-width: 580px;
         height: auto;
         display: block;
-        /* The artwork's blade/flourish extends well past the right edge of
-           the wordmark, so centering the raw image visually shifts the
-           text left of true center. Padding the left side (border-box, so
-           it eats into the rendered image rather than widening the box)
-           nudges the whole mark right until the text itself lands centered. */
-        box-sizing: border-box;
-        padding-left: 28%;
     }
 
     .hero-tagline {
