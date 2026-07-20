@@ -92,6 +92,12 @@
     const hasPlatformAdminAccess = $derived(
         authLoaded && adminState !== null && adminState.is_platform_admin === true
     );
+    // The hero page carries its own large logo, so the header shouldn't
+    // duplicate it there — only show the header logo everywhere else.
+    const showingHero = $derived(
+        authLoaded && !isAuthed && !page.url.pathname.startsWith('/pairings') &&
+        page.url.pathname !== '/join' && page.url.pathname !== '/privacy'
+    );
 
     function loginUrl(): string {
         return `${PUBLIC_API_URL}/auth/discord/login`;
@@ -143,6 +149,11 @@
 
 <div class="page-wrap" data-sveltekit-preload-data="hover">
     <header class="topbar" class:topbar-signed-out={authLoaded && !isAuthed}>
+        {#if !showingHero}
+            <a class="topbar-logo-link" href="/" aria-label="Call to Arms">
+                <img class="topbar-logo" src="/logo.svg" alt="Call to Arms" />
+            </a>
+        {/if}
         <!-- Nav tabs only make sense once a Discord-authenticated club member
              is looking at them — a signed-out visitor (landing page, or one
              of the pre-auth exempt routes like /pairings, /join, /privacy)
@@ -191,8 +202,6 @@
                     </div>
                 {/if}
                 <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
-            {:else}
-                <p class="auth-panel-note">Sign in to submit results and sign up for sessions.</p>
             {/if}
         </aside>
     </header>
@@ -307,6 +316,18 @@
         width: 100%;
         max-width: 1100px;
         margin: 0 auto 1.5rem;
+    }
+
+    .topbar-logo-link {
+        display: flex;
+        align-items: center;
+        flex: 0 0 auto;
+    }
+
+    .topbar-logo {
+        height: 34px;
+        width: auto;
+        display: block;
     }
 
     /* No nav-tabs-wrap renders when signed out, so .auth-panel is the only
