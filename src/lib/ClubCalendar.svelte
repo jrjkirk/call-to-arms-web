@@ -6,11 +6,18 @@
         description?: string | null;
         system_id: number | null;
         system_name: string | null;
+        system_slug: string | null;
         accent_color: string;
         all_day: boolean;
         start_time: string | null;
         end_time: string | null;
     };
+
+    const MAX_LABELS_PER_CELL = 2;
+
+    function cellLabel(e: CalendarEntry): string {
+        return (e.system_slug ?? 'club').toUpperCase();
+    }
 
     let {
         month,
@@ -92,14 +99,22 @@
                     class="day-cell"
                     class:dimmed={!day.inMonth}
                     class:is-today={day.iso === todayIso}
+                    class:is-selected={day.iso === expandedDay}
                     onclick={() => (expandedDay = expandedDay === day.iso ? null : day.iso)}
+                    aria-pressed={day.iso === expandedDay}
                 >
                     <span class="day-num">{day.date.getDate()}</span>
                     {#if dayEntries.length > 0}
-                        <span class="day-dots">
-                            {#each dayEntries.slice(0, 4) as e}
-                                <span class="dot" style={`background: ${e.accent_color}`}></span>
+                        <span class="day-labels">
+                            {#each dayEntries.slice(0, MAX_LABELS_PER_CELL) as e}
+                                <span
+                                    class="day-label-pill"
+                                    style={`--pill-accent: ${e.accent_color}`}
+                                >{cellLabel(e)}</span>
                             {/each}
+                            {#if dayEntries.length > MAX_LABELS_PER_CELL}
+                                <span class="day-label-more">+{dayEntries.length - MAX_LABELS_PER_CELL}</span>
+                            {/if}
                         </span>
                     {/if}
                 </button>
@@ -182,19 +197,20 @@
     }
 
     .day-cell {
-        aspect-ratio: 1;
+        min-height: 62px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 0.2rem;
+        justify-content: flex-start;
+        gap: 0.22rem;
+        padding: 0.3rem 0.15rem 0.35rem;
         background: var(--color-surface-dark);
         border: 1px solid var(--color-steel-border-soft);
         border-radius: var(--radius);
         color: var(--color-text-base);
         cursor: pointer;
         font-family: inherit;
-        transition: border-color 0.15s ease, background 0.15s ease;
+        transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
     }
 
     .day-cell:hover {
@@ -203,12 +219,23 @@
 
     .day-cell.dimmed {
         color: var(--color-text-faint);
-        opacity: 0.45;
+        opacity: 0.4;
     }
 
-    .day-cell.is-today {
-        border-color: var(--color-accent);
+    /* Today: a quiet marker on the date itself — reserved so the selected
+       state below reads as the stronger, more deliberate highlight. */
+    .day-cell.is-today .day-num {
+        color: var(--color-accent);
+        font-weight: 700;
+    }
+
+    /* Selected: the cell the visitor actually clicked, driving the detail
+       panel underneath — needs to read clearly at a glance, distinct from
+       "today". */
+    .day-cell.is-selected {
         background: var(--color-surface-hover);
+        border-color: var(--color-accent-bright);
+        box-shadow: 0 0 0 1px var(--color-accent-bright);
     }
 
     .day-num {
@@ -216,15 +243,30 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .day-dots {
+    .day-labels {
         display: flex;
-        gap: 0.18rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.16rem;
+        line-height: 1;
     }
 
-    .dot {
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
+    .day-label-pill {
+        background: color-mix(in srgb, var(--pill-accent) 22%, transparent);
+        color: var(--pill-accent);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        padding: 0.14rem 0.32rem;
+        border-radius: 3px;
+        white-space: nowrap;
+    }
+
+    .day-label-more {
+        color: var(--color-text-faint);
+        font-size: 0.58rem;
+        font-weight: 700;
+        padding: 0.14rem 0.2rem;
     }
 
     .day-detail {
@@ -280,7 +322,9 @@
     }
 
     @media (max-width: 560px) {
+        .day-cell { min-height: 52px; padding: 0.24rem 0.1rem 0.28rem; }
         .day-num { font-size: 0.72rem; }
         .day-label { font-size: 0.6rem; }
+        .day-label-pill { font-size: 0.52rem; padding: 0.1rem 0.24rem; }
     }
 </style>
