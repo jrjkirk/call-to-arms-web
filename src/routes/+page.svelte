@@ -107,6 +107,11 @@
         <div class="section-title">Opening Hours</div>
         <OpeningHours openingHours={data.club.opening_hours} />
 
+        <div class="section-title">Calendar</div>
+        <div class="card calendar-card">
+            <ClubCalendar month={data.calendar.month} entries={data.calendar.entries} onMonthChange={changeMonth} />
+        </div>
+
         {#if data.club.address || (data.club.latitude != null && data.club.longitude != null)}
             <div class="section-title">Location</div>
             <div class="card location-card">
@@ -128,11 +133,6 @@
                 >Get directions ↗</a>
             </div>
         {/if}
-
-        <div class="section-title">Calendar</div>
-        <div class="card calendar-card">
-            <ClubCalendar month={data.calendar.month} entries={data.calendar.entries} onMonthChange={changeMonth} />
-        </div>
     </div>
 {/if}
 

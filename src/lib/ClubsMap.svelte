@@ -41,8 +41,12 @@
         L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
         map = L.map(container, { scrollWheelZoom: false });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        // CARTO's free dark basemap (no API key) — matches the app's dark
+        // theme instead of the default light/colourful OSM tile style.
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
+                '&copy; <a href="https://carto.com/attributions">CARTO</a>',
             maxZoom: 19,
         }).addTo(map);
 
@@ -111,5 +115,27 @@
 
     .clubs-map :global(.leaflet-popup-content a:hover) {
         color: var(--color-accent-bright);
+    }
+
+    /* Zoom buttons + attribution strip also default to light chrome —
+       recolour them to match the dark/gold theme too. */
+    .clubs-map :global(.leaflet-control-zoom a) {
+        background: var(--color-surface);
+        color: var(--color-text-base);
+        border-color: var(--color-steel-border) !important;
+    }
+
+    .clubs-map :global(.leaflet-control-zoom a:hover) {
+        background: var(--color-surface-hover);
+        color: var(--color-accent);
+    }
+
+    .clubs-map :global(.leaflet-control-attribution) {
+        background: var(--color-surface-dark);
+        color: var(--color-text-faint);
+    }
+
+    .clubs-map :global(.leaflet-control-attribution a) {
+        color: var(--color-text-dim);
     }
 </style>
