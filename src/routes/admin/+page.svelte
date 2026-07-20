@@ -272,6 +272,75 @@
     // Per-scope missions pool state
     let missionsState = $state<Record<string, MissionsState>>({});
 
+    // Club landing page: club-wide profile (super-admin) + per-system
+    // carousel card and events (each system's own admin). Mirrors the
+    // Missions ownership split above.
+    type ClubEventRow = {
+        id: number;
+        system_id: number | null;
+        title: string;
+        description: string | null;
+        event_date: string;
+        start_time: string | null;
+        end_time: string | null;
+        all_day: boolean;
+    };
+    type EventsFormState = {
+        events: ClubEventRow[];
+        loading: boolean;
+        error: string | null;
+        addTitle: string;
+        addDate: string;
+        addAllDay: boolean;
+        addStart: string;
+        addEnd: string;
+        adding: boolean;
+        addError: string | null;
+    };
+    function initEventsFormState(): EventsFormState {
+        return {
+            events: [], loading: false, error: null,
+            addTitle: '', addDate: '', addAllDay: true, addStart: '', addEnd: '',
+            adding: false, addError: null,
+        };
+    }
+
+    type ClubProfileState = {
+        blurb: string;
+        website_url: string;
+        discord_url: string;
+        logo_url: string | null;
+    };
+    type OpeningHoursRow = { day: string; enabled: boolean; open: string; close: string; note: string };
+    let clubProfile = $state<ClubProfileState | null>(null);
+    let clubHours = $state<OpeningHoursRow[]>(
+        DAYS.map((d) => ({ day: d, enabled: false, open: '18:00', close: '22:00', note: '' }))
+    );
+    let clubProfileSaving = $state(false);
+    let clubProfileError = $state<string | null>(null);
+    let clubProfileMessage = $state<string | null>(null);
+    let clubLogoFile = $state<File | null>(null);
+    let clubLogoFileKey = $state(0);
+    let clubLogoUploading = $state(false);
+    let clubLogoError = $state<string | null>(null);
+    let clubWideEvents = $state<EventsFormState>(initEventsFormState());
+
+    type CarouselState = {
+        blurb: string;
+        photo_url: string | null;
+        accent_color: string;
+        carousel_order: number;
+        saving: boolean;
+        error: string | null;
+        message: string | null;
+        uploadFile: File | null;
+        uploadFileKey: number;
+        uploading: boolean;
+        uploadError: string | null;
+    };
+    let carouselState = $state<Record<string, CarouselState>>({});
+    let systemEventsState = $state<Record<string, EventsFormState>>({});
+
     // Appoint form state
     let grantUserIdStr = $state('');
     let grantScope = $state('');
@@ -955,6 +1024,278 @@
         }
     }
 
+    // ── Club landing page: super-admin profile ────────────────────────────
+    async function loadClubProfile() {
+        const r = await fetch(`${PUBLIC_API_URL}/club`, { credentials: 'include' });
+        if (!r.ok) return;
+        const data = await r.json();
+        clubProfile = {
+            blurb: data.club.blurb ?? '',
+            website_url: data.club.website_url ?? '',
+            discord_url: data.club.discord_url ?? '',
+            logo_url: data.club.logo_url,
+        };
+        const byDay = new Map((data.club.opening_hours ?? []).map((h: any) => [h.day, h]));
+        clubHours = DAYS.map((d) => {
+            const row: any = byDay.get(d);
+            return row
+                ? { day: d, enabled: true, open: row.open ?? '18:00', close: row.close ?? '22:00', note: row.note ?? '' }
+                : { day: d, enabled: false, open: '18:00', close: '22:00', note: '' };
+        });
+    }
+
+    async function saveClubProfile() {
+        if (!clubProfile) return;
+        clubProfileSaving = true;
+        clubProfileError = null;
+        clubProfileMessage = null;
+        const opening_hours = clubHours
+            .filter((h) => h.enabled)
+            .map((h) => ({ day: h.day, open: h.open, close: h.close, note: h.note.trim() || null }));
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                blurb: clubProfile.blurb,
+                website_url: clubProfile.website_url,
+                discord_url: clubProfile.discord_url,
+                opening_hours,
+            }),
+        });
+        if (r.ok) {
+            clubProfileMessage = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubProfileError = body.detail || 'Save failed.';
+        }
+        clubProfileSaving = false;
+    }
+
+    async function uploadClubLogo() {
+        if (!clubLogoFile) {
+            clubLogoError = 'Choose an image to upload.';
+            return;
+        }
+        clubLogoUploading = true;
+        clubLogoError = null;
+        const fd = new FormData();
+        fd.append('image', clubLogoFile);
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club/logo`, {
+            method: 'POST',
+            credentials: 'include',
+            body: fd,
+        });
+        if (r.ok) {
+            const data = await r.json();
+            if (clubProfile) clubProfile.logo_url = data.logo_url;
+            clubLogoFile = null;
+            clubLogoFileKey += 1;
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubLogoError = body.detail || 'Upload failed.';
+        }
+        clubLogoUploading = false;
+    }
+
+    async function deleteClubLogo() {
+        if (!confirm('Remove the club logo?')) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club/logo`, { method: 'DELETE', credentials: 'include' });
+        if (r.ok && clubProfile) clubProfile.logo_url = null;
+    }
+
+    // ── Club landing page: events, shared by the club-wide (super-admin)
+    // and per-system (that system's admin) call sites below. ────────────
+    async function loadClubWideEvents() {
+        clubWideEvents.loading = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club/events`, { credentials: 'include' });
+        if (r.ok) {
+            const all: ClubEventRow[] = await r.json();
+            clubWideEvents.events = all.filter((e) => e.system_id === null);
+        }
+        clubWideEvents.loading = false;
+    }
+
+    async function addClubWideEvent() {
+        const s = clubWideEvents;
+        s.addError = null;
+        if (!s.addTitle.trim() || !s.addDate) {
+            s.addError = 'Title and date are required.';
+            return;
+        }
+        s.adding = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club/events`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system: null,
+                title: s.addTitle.trim(),
+                event_date: s.addDate,
+                all_day: s.addAllDay,
+                start_time: s.addAllDay ? null : s.addStart || null,
+                end_time: s.addAllDay ? null : s.addEnd || null,
+            }),
+        });
+        if (r.ok) {
+            const created = await r.json();
+            s.events = [...s.events, created];
+            s.addTitle = '';
+            s.addDate = '';
+            s.addAllDay = true;
+            s.addStart = '';
+            s.addEnd = '';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            s.addError = body.detail || 'Failed to add event.';
+        }
+        s.adding = false;
+    }
+
+    async function deleteClubWideEvent(id: number) {
+        if (!confirm('Delete this event?')) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club/events/${id}`, { method: 'DELETE', credentials: 'include' });
+        if (r.ok) clubWideEvents.events = clubWideEvents.events.filter((e) => e.id !== id);
+    }
+
+    // ── Club landing page: per-system carousel card ────────────────────
+    async function loadCarousel(scope: string) {
+        const r = await fetch(`${PUBLIC_API_URL}/club`, { credentials: 'include' });
+        if (!r.ok) return;
+        const data = await r.json();
+        const sys = (data.systems ?? []).find((s: any) => s.legacy_system_name === scope);
+        carouselState[scope] = {
+            blurb: sys?.blurb ?? '',
+            photo_url: sys?.photo_url ?? null,
+            accent_color: sys?.accent_color ?? '#c9a14a',
+            carousel_order: sys?.carousel_order ?? 0,
+            saving: false, error: null, message: null,
+            uploadFile: null, uploadFileKey: 0, uploading: false, uploadError: null,
+        };
+    }
+
+    async function saveCarousel(scope: string) {
+        const cs = carouselState[scope];
+        if (!cs) return;
+        cs.saving = true;
+        cs.error = null;
+        cs.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club-systems/carousel`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system: scope,
+                blurb: cs.blurb,
+                accent_color: cs.accent_color,
+                carousel_order: cs.carousel_order,
+            }),
+        });
+        if (r.ok) {
+            cs.message = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            cs.error = body.detail || 'Save failed.';
+        }
+        cs.saving = false;
+    }
+
+    async function uploadCarouselPhoto(scope: string) {
+        const cs = carouselState[scope];
+        if (!cs || !cs.uploadFile) {
+            if (cs) cs.uploadError = 'Choose an image to upload.';
+            return;
+        }
+        cs.uploading = true;
+        cs.uploadError = null;
+        const fd = new FormData();
+        fd.append('system', scope);
+        fd.append('image', cs.uploadFile);
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club-systems/carousel/photo`, {
+            method: 'POST',
+            credentials: 'include',
+            body: fd,
+        });
+        if (r.ok) {
+            const data = await r.json();
+            cs.photo_url = data.photo_url;
+            cs.uploadFile = null;
+            cs.uploadFileKey += 1;
+        } else {
+            const body = await r.json().catch(() => ({}));
+            cs.uploadError = body.detail || 'Upload failed.';
+        }
+        cs.uploading = false;
+    }
+
+    async function deleteCarouselPhoto(scope: string) {
+        const cs = carouselState[scope];
+        if (!cs) return;
+        if (!confirm('Remove this system\'s carousel photo?')) return;
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/club-systems/carousel/photo?system=${encodeURIComponent(scope)}`,
+            { method: 'DELETE', credentials: 'include' }
+        );
+        if (r.ok) cs.photo_url = null;
+    }
+
+    async function loadSystemEvents(scope: string) {
+        systemEventsState[scope] = systemEventsState[scope] ?? initEventsFormState();
+        const s = systemEventsState[scope];
+        s.loading = true;
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/club/events?system=${encodeURIComponent(scope)}`,
+            { credentials: 'include' }
+        );
+        if (r.ok) s.events = await r.json();
+        s.loading = false;
+    }
+
+    async function addSystemEvent(scope: string) {
+        const s = systemEventsState[scope];
+        if (!s) return;
+        s.addError = null;
+        if (!s.addTitle.trim() || !s.addDate) {
+            s.addError = 'Title and date are required.';
+            return;
+        }
+        s.adding = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club/events`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system: scope,
+                title: s.addTitle.trim(),
+                event_date: s.addDate,
+                all_day: s.addAllDay,
+                start_time: s.addAllDay ? null : s.addStart || null,
+                end_time: s.addAllDay ? null : s.addEnd || null,
+            }),
+        });
+        if (r.ok) {
+            const created = await r.json();
+            s.events = [...s.events, created];
+            s.addTitle = '';
+            s.addDate = '';
+            s.addAllDay = true;
+            s.addStart = '';
+            s.addEnd = '';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            s.addError = body.detail || 'Failed to add event.';
+        }
+        s.adding = false;
+    }
+
+    async function deleteSystemEvent(scope: string, id: number) {
+        const s = systemEventsState[scope];
+        if (!s) return;
+        if (!confirm('Delete this event?')) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club/events/${id}`, { method: 'DELETE', credentials: 'include' });
+        if (r.ok) s.events = s.events.filter((e) => e.id !== id);
+    }
+
     async function loadEditPlayerList() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/players`, { credentials: 'include' });
         if (r.ok) editPlayerList = await r.json();
@@ -1412,6 +1753,7 @@
         await Promise.all([
             loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
             loadMissions(scope), initLeagueForScope(scope),
+            loadCarousel(scope), loadSystemEvents(scope),
         ]);
     }
 
@@ -1444,7 +1786,9 @@
                 loadEditPlayerList(),
                 loadClubWebhooks(),
                 loadClubSystemsMine(),
-                loadFullCatalogue()
+                loadFullCatalogue(),
+                loadClubProfile(),
+                loadClubWideEvents()
             );
         }
         if (adminMe.is_super_admin || adminMe.scopes.length > 0) {
@@ -1557,6 +1901,144 @@
 {:else if !adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)}
     <p class="muted">You don't have admin access.</p>
 {:else}
+
+    {#if adminMe.is_super_admin}
+        <!-- ══ Club Page (super-admin: club-wide profile) ══ -->
+        <details class="dash-group">
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Club Page</span>
+            </summary>
+            <div class="dash-group-body">
+                <section class="admin-section">
+                    <h3 class="section-heading">Club Profile</h3>
+                    <p class="section-intro">
+                        The blurb, logo, links, and opening hours shown at the top of the Club page.
+                        Each system's own admin manages that system's carousel card and events from
+                        its own section below.
+                    </p>
+                    {#if clubProfile}
+                        <div class="field">
+                            <label class="field-label" for="club-blurb">Blurb</label>
+                            <textarea id="club-blurb" class="field-input" rows="3"
+                                placeholder="A short welcome for players landing on the Club page…"
+                                bind:value={clubProfile.blurb}></textarea>
+                        </div>
+                        <div class="form-grid">
+                            <div class="field">
+                                <label class="field-label" for="club-website">Website</label>
+                                <input id="club-website" class="field-input" type="text" placeholder="https://…" bind:value={clubProfile.website_url} />
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="club-discord">Discord invite</label>
+                                <input id="club-discord" class="field-input" type="text" placeholder="https://discord.gg/…" bind:value={clubProfile.discord_url} />
+                            </div>
+                        </div>
+
+                        <h4 class="sub-heading">Opening Hours</h4>
+                        <div class="club-hours-grid">
+                            {#each clubHours as row}
+                                <div class="club-hours-row">
+                                    <label class="check-row ap-toggle club-hours-day">
+                                        <input type="checkbox" bind:checked={row.enabled} />
+                                        <span>{row.day}</span>
+                                    </label>
+                                    {#if row.enabled}
+                                        <div class="club-hours-times">
+                                            <input class="field-input" type="time" bind:value={row.open} />
+                                            <input class="field-input" type="time" bind:value={row.close} />
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
+
+                        {#if clubProfileError}<p class="field-error">{clubProfileError}</p>{/if}
+                        {#if clubProfileMessage}<p class="pairing-message">{clubProfileMessage}</p>{/if}
+                        <div class="actions">
+                            <button class="primary-button" type="button" disabled={clubProfileSaving} onclick={saveClubProfile}>
+                                {clubProfileSaving ? 'Saving…' : 'Save'}
+                            </button>
+                        </div>
+
+                        <h4 class="sub-heading">Logo</h4>
+                        {#if clubProfile.logo_url}
+                            <div class="club-logo-preview">
+                                <img src={clubProfile.logo_url} alt="Club logo" />
+                                <button class="secondary-button" type="button" onclick={deleteClubLogo}>Remove logo</button>
+                            </div>
+                        {/if}
+                        {#key clubLogoFileKey}
+                            <input
+                                class="field-input mission-file"
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                onchange={(e) => (clubLogoFile = e.currentTarget.files?.[0] ?? null)}
+                            />
+                        {/key}
+                        {#if clubLogoError}<p class="field-error">{clubLogoError}</p>{/if}
+                        <div class="actions">
+                            <button class="secondary-button" type="button" disabled={clubLogoUploading || !clubLogoFile} onclick={uploadClubLogo}>
+                                {clubLogoUploading ? 'Uploading…' : 'Upload logo'}
+                            </button>
+                        </div>
+
+                        <h4 class="sub-heading">Club-wide Events</h4>
+                        <p class="section-intro">
+                            Dates that apply to the whole club, not one system — closures, open days. For a
+                            single system's own event (a tournament, a campaign day), use that system's
+                            Events section instead.
+                        </p>
+                        {#if clubWideEvents.events.length === 0 && !clubWideEvents.loading}
+                            <p class="muted small">No club-wide events yet — add one below.</p>
+                        {:else}
+                            <ul class="history-list">
+                                {#each clubWideEvents.events as ev (ev.id)}
+                                    <li class="history-row">
+                                        <span class="history-date">{ev.event_date}</span>
+                                        <span class="history-matchup">{ev.title}</span>
+                                        <button class="secondary-button" type="button" onclick={() => deleteClubWideEvent(ev.id)}>Delete</button>
+                                    </li>
+                                {/each}
+                            </ul>
+                        {/if}
+                        <div class="form-grid event-add-form">
+                            <div class="field">
+                                <label class="field-label" for="club-ev-title">Title</label>
+                                <input id="club-ev-title" class="field-input" type="text" bind:value={clubWideEvents.addTitle} />
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="club-ev-date">Date</label>
+                                <input id="club-ev-date" class="field-input" type="date" bind:value={clubWideEvents.addDate} />
+                            </div>
+                            <label class="check-row ap-toggle">
+                                <input type="checkbox" bind:checked={clubWideEvents.addAllDay} />
+                                <span>All day</span>
+                            </label>
+                            {#if !clubWideEvents.addAllDay}
+                                <div class="field">
+                                    <label class="field-label" for="club-ev-start">Start time</label>
+                                    <input id="club-ev-start" class="field-input" type="time" bind:value={clubWideEvents.addStart} />
+                                </div>
+                                <div class="field">
+                                    <label class="field-label" for="club-ev-end">End time</label>
+                                    <input id="club-ev-end" class="field-input" type="time" bind:value={clubWideEvents.addEnd} />
+                                </div>
+                            {/if}
+                        </div>
+                        {#if clubWideEvents.addError}<p class="field-error">{clubWideEvents.addError}</p>{/if}
+                        <div class="actions">
+                            <button class="primary-button" type="button" disabled={clubWideEvents.adding} onclick={addClubWideEvent}>
+                                {clubWideEvents.adding ? 'Adding…' : 'Add event'}
+                            </button>
+                        </div>
+                    {:else}
+                        <p class="muted small">Loading…</p>
+                    {/if}
+                </section>
+            </div>
+        </details>
+    {/if}
 
     {#if adminMe.scopes.length > 0}
         <!-- ══ Weekly Pairings & Games ══ -->
@@ -2713,6 +3195,128 @@
                                     {/if}
                                     </div>
                                 </details>
+                                {/if}
+                            </div>
+                        {/if}
+
+                        <!-- Club page carousel card + events (system scopes only) -->
+                        {#if isSystemScope(scope) && carouselState[scope]}
+                            {@const cs = carouselState[scope]}
+                            <div class="sub-section pairings-section">
+                                <h4 class="sub-heading">Club Page</h4>
+                                <p class="section-intro">
+                                    How this system appears in the Systems carousel on the Club page — blurb,
+                                    photo, and the accent colour that threads through its carousel card and
+                                    calendar entries.
+                                </p>
+
+                                <div class="field">
+                                    <label class="field-label" for="carousel-blurb-{scope}">Blurb</label>
+                                    <textarea id="carousel-blurb-{scope}" class="field-input" rows="2"
+                                        placeholder="A short line about how this system runs at your club…"
+                                        bind:value={cs.blurb}></textarea>
+                                </div>
+                                <div class="form-grid">
+                                    <div class="field">
+                                        <label class="field-label" for="carousel-accent-{scope}">Accent colour</label>
+                                        <div class="accent-row">
+                                            <input id="carousel-accent-{scope}" type="color" class="accent-swatch" bind:value={cs.accent_color} />
+                                            <input class="field-input" type="text" bind:value={cs.accent_color} placeholder="#c9a14a" />
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label class="field-label" for="carousel-order-{scope}">Carousel order</label>
+                                        <input id="carousel-order-{scope}" class="field-input" type="number" bind:value={cs.carousel_order} />
+                                    </div>
+                                </div>
+                                {#if cs.error}<p class="field-error">{cs.error}</p>{/if}
+                                {#if cs.message}<p class="pairing-message">{cs.message}</p>{/if}
+                                <div class="actions">
+                                    <button class="primary-button" type="button" disabled={cs.saving} onclick={() => saveCarousel(scope)}>
+                                        {cs.saving ? 'Saving…' : 'Save'}
+                                    </button>
+                                </div>
+
+                                <div class="field carousel-photo-field">
+                                    <label class="field-label" for="carousel-photo-{scope}">Carousel photo (optional)</label>
+                                    {#if cs.photo_url}
+                                        <div class="carousel-photo-preview">
+                                            <img src={cs.photo_url} alt="" />
+                                            <button class="secondary-button" type="button" onclick={() => deleteCarouselPhoto(scope)}>Remove photo</button>
+                                        </div>
+                                    {/if}
+                                    {#key cs.uploadFileKey}
+                                        <input
+                                            id="carousel-photo-{scope}"
+                                            class="field-input mission-file"
+                                            type="file"
+                                            accept="image/png,image/jpeg,image/webp"
+                                            onchange={(e) => (cs.uploadFile = e.currentTarget.files?.[0] ?? null)}
+                                        />
+                                    {/key}
+                                    {#if cs.uploadError}<p class="field-error">{cs.uploadError}</p>{/if}
+                                    <div class="actions">
+                                        <button class="secondary-button" type="button" disabled={cs.uploading || !cs.uploadFile} onclick={() => uploadCarouselPhoto(scope)}>
+                                            {cs.uploading ? 'Uploading…' : 'Upload photo'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {#if systemEventsState[scope]}
+                                    {@const es = systemEventsState[scope]}
+                                    <details class="league-settings-details">
+                                        <summary>Events</summary>
+                                        <div class="league-settings-body">
+                                            <p class="section-intro">
+                                                One-off dates for this system — tournaments, campaign days — shown
+                                                on the Club page calendar in this system's accent colour, alongside
+                                                its regular weekly/fortnightly sessions.
+                                            </p>
+                                            {#if es.events.length === 0 && !es.loading}
+                                                <p class="muted small">No events yet — add one below.</p>
+                                            {:else}
+                                                <ul class="history-list">
+                                                    {#each es.events as ev (ev.id)}
+                                                        <li class="history-row">
+                                                            <span class="history-date">{ev.event_date}</span>
+                                                            <span class="history-matchup">{ev.title}</span>
+                                                            <button class="secondary-button" type="button" onclick={() => deleteSystemEvent(scope, ev.id)}>Delete</button>
+                                                        </li>
+                                                    {/each}
+                                                </ul>
+                                            {/if}
+                                            <div class="form-grid event-add-form">
+                                                <div class="field">
+                                                    <label class="field-label" for="ev-title-{scope}">Title</label>
+                                                    <input id="ev-title-{scope}" class="field-input" type="text" bind:value={es.addTitle} />
+                                                </div>
+                                                <div class="field">
+                                                    <label class="field-label" for="ev-date-{scope}">Date</label>
+                                                    <input id="ev-date-{scope}" class="field-input" type="date" bind:value={es.addDate} />
+                                                </div>
+                                                <label class="check-row ap-toggle">
+                                                    <input type="checkbox" bind:checked={es.addAllDay} />
+                                                    <span>All day</span>
+                                                </label>
+                                                {#if !es.addAllDay}
+                                                    <div class="field">
+                                                        <label class="field-label" for="ev-start-{scope}">Start time</label>
+                                                        <input id="ev-start-{scope}" class="field-input" type="time" bind:value={es.addStart} />
+                                                    </div>
+                                                    <div class="field">
+                                                        <label class="field-label" for="ev-end-{scope}">End time</label>
+                                                        <input id="ev-end-{scope}" class="field-input" type="time" bind:value={es.addEnd} />
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                            {#if es.addError}<p class="field-error">{es.addError}</p>{/if}
+                                            <div class="actions">
+                                                <button class="primary-button" type="button" disabled={es.adding} onclick={() => addSystemEvent(scope)}>
+                                                    {es.adding ? 'Adding…' : 'Add event'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </details>
                                 {/if}
                             </div>
                         {/if}
@@ -4250,5 +4854,94 @@
         line-height: 1.5;
         color: var(--color-text-dim);
         margin: 0 0 0.25rem;
+    }
+
+    /* Club landing page: carousel accent picker, photo preview, event form */
+    .accent-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .accent-swatch {
+        flex: 0 0 auto;
+        width: 40px;
+        height: 38px;
+        padding: 2px;
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        cursor: pointer;
+    }
+
+    .carousel-photo-field {
+        margin-top: 1rem;
+    }
+
+    .carousel-photo-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .carousel-photo-preview img {
+        width: 120px;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: var(--radius);
+        border: 1px solid var(--color-steel-border);
+    }
+
+    .event-add-form {
+        margin-top: 0.7rem;
+    }
+
+    .club-hours-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.6rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .club-hours-row {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        padding: 0.6rem;
+    }
+
+    .club-hours-day {
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-bottom: 0.4rem;
+        display: block;
+    }
+
+    .club-hours-times {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.4rem;
+    }
+
+    .club-hours-times input {
+        width: 100%;
+    }
+
+    .club-logo-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .club-logo-preview img {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        padding: 0.4rem;
     }
 </style>

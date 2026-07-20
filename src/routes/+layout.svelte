@@ -68,7 +68,8 @@
     });
 
     const navItems = $derived([
-        { href: '/', label: 'Call to Arms' },
+        { href: '/', label: 'Club' },
+        { href: '/signup', label: 'Signup' },
         { href: '/pairings', label: 'Pairings' },
         ...(hasAnyLeague ? [{ href: '/leagues', label: 'Leagues' }] : []),
         { href: '/players', label: 'Players' }
