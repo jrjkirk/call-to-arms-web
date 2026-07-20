@@ -80,6 +80,9 @@
 
     const isAuthed = $derived(auth.authenticated === true);
     const needsClaim = $derived(isAuthed && auth.user?.player_id == null);
+    const isAdminRoute = $derived(
+        page.url.pathname.startsWith('/admin') || page.url.pathname.startsWith('/platform-admin')
+    );
     const hasAdminAccess = $derived(
         authLoaded && adminState !== null && (adminState.is_super_admin || adminState.scopes.length > 0)
     );
@@ -200,9 +203,20 @@
                     </div>
                 {/if}
                 {#key page.url.pathname}
-                    <div class="page-transition" in:fly={{ y: 10, duration: 220 }}>
-                        {@render children()}
-                    </div>
+                    {#if isAdminRoute}
+                        <div class="page-transition" in:fly={{ y: 10, duration: 220 }}>
+                            {@render children()}
+                        </div>
+                    {:else}
+                        <!-- Same fly-in feel as LandingHero's title/tagline (fly
+                             animates position AND opacity, so this reads as a
+                             fade+rise) — admin pages keep the snappier transition
+                             above since dense tables/forms don't want the extra
+                             motion on every navigation. -->
+                        <div class="page-transition" in:fly={{ y: 16, duration: 420 }}>
+                            {@render children()}
+                        </div>
+                    {/if}
                 {/key}
             {/if}
         </div>
