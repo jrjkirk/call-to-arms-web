@@ -5,6 +5,7 @@
     import { navigating } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import LandingHero from '$lib/LandingHero.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
@@ -137,21 +138,28 @@
 {/if}
 
 <div class="page-wrap" data-sveltekit-preload-data="hover">
-    <header class="topbar">
-        <nav class="nav-tabs-wrap">
-            <div class="nav-tabs">
-                {#each navItems as item}
-                    <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
-                {/each}
-                {#if hasAdminAccess}
-                    <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
-                {/if}
-                {#if hasPlatformAdminAccess}
-                    <a href="/platform-admin" class="nav-tab" class:active={isActive('/platform-admin')} data-sveltekit-preload-data="hover">Platform Admin</a>
-                {/if}
-            </div>
-            <div class="nav-tabs-fade"></div>
-        </nav>
+    <header class="topbar" class:topbar-signed-out={authLoaded && !isAuthed}>
+        <!-- Nav tabs only make sense once a Discord-authenticated club member
+             is looking at them — a signed-out visitor (landing page, or one
+             of the pre-auth exempt routes like /pairings, /join, /privacy)
+             gets no tab ribbon, just the sign-in prompt. Gated on authLoaded
+             too so it doesn't flash in during the brief pre-auth-check window. -->
+        {#if authLoaded && isAuthed}
+            <nav class="nav-tabs-wrap">
+                <div class="nav-tabs">
+                    {#each navItems as item}
+                        <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
+                    {/each}
+                    {#if hasAdminAccess}
+                        <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
+                    {/if}
+                    {#if hasPlatformAdminAccess}
+                        <a href="/platform-admin" class="nav-tab" class:active={isActive('/platform-admin')} data-sveltekit-preload-data="hover">Platform Admin</a>
+                    {/if}
+                </div>
+                <div class="nav-tabs-fade"></div>
+            </nav>
+        {/if}
 
         <aside class="auth-panel" class:drawer-open={drawerOpen}>
             {#if !authLoaded}
@@ -212,8 +220,16 @@
                              animates position AND opacity, so this reads as a
                              fade+rise) — admin pages keep the snappier transition
                              above since dense tables/forms don't want the extra
-                             motion on every navigation. -->
-                        <div class="page-transition" in:fly={{ y: 16, duration: 420 }}>
+                             motion on every navigation. Deliberately in-only, no
+                             out: transition: an out+in pair here would overlap
+                             the outgoing and incoming blocks in normal document
+                             flow for the transition's duration (this div has no
+                             fixed height to position them absolutely within),
+                             which reads as a worse jump than an instant cut. -->
+                        <div
+                            class="page-transition"
+                            in:fly={{ y: 24, duration: 550, easing: cubicOut }}
+                        >
                             {@render children()}
                         </div>
                     {/if}
@@ -290,6 +306,13 @@
         width: 100%;
         max-width: 1100px;
         margin: 0 auto 1.5rem;
+    }
+
+    /* No nav-tabs-wrap renders when signed out, so .auth-panel is the only
+       flex child — space-between would otherwise pin it to the start
+       (left) instead of its usual right-hand spot. */
+    .topbar-signed-out {
+        justify-content: flex-end;
     }
 
     .auth-panel {
