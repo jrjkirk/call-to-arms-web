@@ -10,6 +10,7 @@
   component needing to know which mode a caller is in.
 -->
 <script lang="ts">
+    import { fly } from 'svelte/transition';
     import { systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from './systemsConfig';
 
     let {
@@ -27,12 +28,13 @@
 </script>
 
 <div class="system-grid">
-    {#each systems as s (s)}
+    {#each systems as s, i (s)}
         <button
             type="button"
             class="system-card"
             class:active={isActive(s)}
             onclick={() => onSelect(s)}
+            in:fly={{ y: 16, duration: 400, delay: Math.min(i, 6) * 70 }}
         >
             <img src={systemLogoUrl(s, systemsConfig)} alt={s} />
         </button>

@@ -123,12 +123,13 @@
 {#if achievements.length > 0}
     <div class="section-title">Achievements</div>
     <div class="achievement-grid">
-        {#each achievements as ach}
+        {#each achievements as ach, i}
             <button
                 class="achievement-chip"
                 class:expanded={expandedAchievement === ach.name}
                 onclick={() => toggleAchievement(ach.name)}
                 type="button"
+                in:fly={{ y: 12, duration: 350, delay: Math.min(i, 8) * 50 }}
             >
                 🏅 {ach.name}
             </button>
@@ -148,8 +149,8 @@
 {#if visibleSystems.length > 0}
     <div class="section-title">Games Played</div>
     <div class="stat-row">
-        {#each visibleSystems as s}
-            <div class="stat-card">
+        {#each visibleSystems as s, i}
+            <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: Math.min(i, 6) * 70 }}>
                 <div class="stat-label">{s}</div>
                 <div class="stat-value">{signupCounts[s]}</div>
             </div>
@@ -186,19 +187,19 @@
     <div class="section-title">{lg.system_name} League</div>
 
     <div class="stat-row">
-        <div class="stat-card">
+        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 0 }}>
             <div class="stat-label">ELO</div>
             <div class="stat-value">{lg.rating?.toFixed(0) ?? '—'}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 70 }}>
             <div class="stat-label">Rank</div>
             <div class="stat-value">#{lg.rank ?? '—'}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 140 }}>
             <div class="stat-label">W / D / L</div>
             <div class="stat-value">{lg.wins}/{lg.draws}/{lg.losses}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 210 }}>
             <div class="stat-label">League Games</div>
             <div class="stat-value">{lg.total_games}</div>
         </div>
@@ -264,8 +265,8 @@
     {#if games.length > 0}
         <div class="section-title">Recent {sysName} Games</div>
         <div class="results">
-            {#each games as g}
-                <div class="result-row">
+            {#each games as g, i}
+                <div class="result-row" in:fly={{ y: 10, duration: 300, delay: Math.min(i, 8) * 40 }}>
                     <span class="result-date">{g.week}</span>
                     {#if g.result}
                         <span class={outcomeClass(g.result) + ' result-outcome'}>{g.result.toUpperCase()}</span>

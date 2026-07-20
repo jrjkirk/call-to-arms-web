@@ -486,15 +486,15 @@
 {/if}
 
 <div class="stat-row">
-    <div class="stat-card">
+    <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 0 }}>
         <div class="stat-label">Signed Up</div>
         <div class="stat-value">{stats.signed_up}</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 70 }}>
         <div class="stat-label">Newcomers</div>
         <div class="stat-value">{stats.newcomers}</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 140 }}>
         <div class="stat-label">Veterans</div>
         <div class="stat-value">{stats.veterans}</div>
     </div>

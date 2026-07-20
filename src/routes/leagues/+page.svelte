@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition';
+    import { fly, fade } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
@@ -335,8 +335,8 @@
                 </tr>
             </thead>
             <tbody>
-                {#each rankings as row}
-                    <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`}>
+                {#each rankings as row, i}
+                    <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`} in:fade={{ duration: 300, delay: Math.min(i, 10) * 40 }}>
                         <td class="center rank-col">
                             {#if medal(row.rank)}
                                 <span class="medal">{medal(row.rank)}</span>
@@ -402,7 +402,7 @@
                 {:else if factionStats !== null}
                     {#each factionStats as row, i}
                         {@const rank = i + 1}
-                        <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`}>
+                        <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`} in:fade={{ duration: 300, delay: Math.min(i, 10) * 40 }}>
                             <td class="center rank-col">
                                 {#if medal(rank)}
                                     <span class="medal">{medal(rank)}</span>

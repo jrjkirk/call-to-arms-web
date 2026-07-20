@@ -82,8 +82,8 @@
 </div>
 
 <ul class="player-list">
-    {#each filtered as player}
-        <li class="player-row">
+    {#each filtered as player, i}
+        <li class="player-row" in:fly={{ y: 12, duration: 350, delay: Math.min(i, 8) * 45 }}>
             <a href="/players/{player.id}" class="player-link">
                 <span class="player-name">{player.name}</span>
                 {#if player.default_faction}
