@@ -5021,6 +5021,16 @@
         margin-top: 0.7rem;
     }
 
+    /* Was used in markup (Website/Discord, Latitude/Longitude, event fields)
+       without ever being defined — every ".form-grid" div silently rendered
+       as a single stacked column instead of a real grid. */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+    }
+
     .club-hours-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

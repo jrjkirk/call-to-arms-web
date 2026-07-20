@@ -51,6 +51,24 @@
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const CADENCES = ['weekly', 'fortnightly'];
 
+    // 00:00 -> 23:30 in 30-minute steps, for the opening-hours time pickers —
+    // dropdown selects instead of the native browser time-picker, matching
+    // the club self-service admin panel's Opening Hours section.
+    const HALF_HOUR_OPTIONS: string[] = (() => {
+        const out: string[] = [];
+        for (let h = 0; h < 24; h++) {
+            for (const m of [0, 30]) {
+                out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+            }
+        }
+        return out;
+    })();
+
+    function googleMapsSearchUrl(address: string): string {
+        const q = address.trim() || 'Manchester, UK';
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    }
+
     let adminMe = $state<AdminMe | null>(null);
     let pageLoading = $state(true);
 
@@ -154,6 +172,24 @@
     let editSaving = $state(false);
     let editError = $state<string | null>(null);
     let editMessage = $state<string | null>(null);
+
+    // Club Page profile (location, opening hours, logo) — platform admin
+    // editing on behalf of any club, mirroring the club's own super-admin
+    // self-service section in /admin.
+    type OpeningHoursRow = { day: string; enabled: boolean; open: string; close: string; note: string };
+    type ClubProfileState = { logo_url: string | null; address: string; latitude: number | null; longitude: number | null };
+    let clubProfile = $state<ClubProfileState | null>(null);
+    let clubHours = $state<OpeningHoursRow[]>(
+        DAYS.map((d) => ({ day: d, enabled: false, open: '18:00', close: '22:00', note: '' }))
+    );
+    let clubProfileLoading = $state(false);
+    let clubProfileSaving = $state(false);
+    let clubProfileError = $state<string | null>(null);
+    let clubProfileMessage = $state<string | null>(null);
+    let clubLogoFile = $state<File | null>(null);
+    let clubLogoFileKey = $state(0);
+    let clubLogoUploading = $state(false);
+    let clubLogoError = $state<string | null>(null);
 
     async function loadAdminMe() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
@@ -262,6 +298,100 @@
             detailError = 'Failed to load club detail.';
         }
         detailLoading = false;
+
+        await loadClubProfile(clubId);
+    }
+
+    async function loadClubProfile(clubId: number) {
+        clubProfileLoading = true;
+        clubProfileError = null;
+        clubProfileMessage = null;
+        clubLogoError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${clubId}/profile`, { credentials: 'include' });
+        if (r.ok) {
+            const data = await r.json();
+            clubProfile = {
+                logo_url: data.logo_url,
+                address: data.address ?? '',
+                latitude: data.latitude ?? null,
+                longitude: data.longitude ?? null,
+            };
+            const byDay = new Map((data.opening_hours ?? []).map((h: any) => [h.day, h]));
+            clubHours = DAYS.map((d) => {
+                const row: any = byDay.get(d);
+                return row
+                    ? { day: d, enabled: true, open: row.open ?? '18:00', close: row.close ?? '22:00', note: row.note ?? '' }
+                    : { day: d, enabled: false, open: '18:00', close: '22:00', note: '' };
+            });
+        } else {
+            clubProfile = null;
+            clubProfileError = 'Failed to load club profile.';
+        }
+        clubProfileLoading = false;
+    }
+
+    async function saveClubProfile() {
+        if (!selectedClubId || !clubProfile) return;
+        clubProfileSaving = true;
+        clubProfileError = null;
+        clubProfileMessage = null;
+        const opening_hours = clubHours
+            .filter((h) => h.enabled)
+            .map((h) => ({ day: h.day, open: h.open, close: h.close, note: h.note.trim() || null }));
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClubId}/profile`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                address: clubProfile.address,
+                latitude: clubProfile.latitude,
+                longitude: clubProfile.longitude,
+                opening_hours,
+            }),
+        });
+        if (r.ok) {
+            clubProfileMessage = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubProfileError = body.detail || 'Save failed.';
+        }
+        clubProfileSaving = false;
+    }
+
+    async function uploadClubLogo() {
+        if (!selectedClubId || !clubLogoFile) {
+            clubLogoError = 'Choose an image to upload.';
+            return;
+        }
+        clubLogoUploading = true;
+        clubLogoError = null;
+        const fd = new FormData();
+        fd.append('image', clubLogoFile);
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClubId}/logo`, {
+            method: 'POST',
+            credentials: 'include',
+            body: fd,
+        });
+        if (r.ok) {
+            const data = await r.json();
+            if (clubProfile) clubProfile.logo_url = data.logo_url;
+            clubLogoFile = null;
+            clubLogoFileKey += 1;
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubLogoError = body.detail || 'Upload failed.';
+        }
+        clubLogoUploading = false;
+    }
+
+    async function deleteClubLogo() {
+        if (!selectedClubId) return;
+        if (!confirm('Remove this club\'s logo?')) return;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs/${selectedClubId}/logo`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok && clubProfile) clubProfile.logo_url = null;
     }
 
     function resetSystemForm() {
@@ -871,6 +1001,100 @@
                 </form>
             </div>
 
+            <div class="sub-section">
+                <h4 class="sub-heading">Club Page: Location, Hours &amp; Logo</h4>
+                <p class="section-intro">
+                    The location, opening hours, and logo shown on this club's Club page. The blurb,
+                    website, and Discord link stay editable only by the club's own super-admin.
+                </p>
+                {#if clubProfileLoading}
+                    <p class="muted">Loading…</p>
+                {:else if !clubProfile}
+                    <p class="field-error">{clubProfileError || 'Failed to load.'}</p>
+                {:else}
+                    <div class="field">
+                        <label class="field-label" for="pa-club-address">Address</label>
+                        <input id="pa-club-address" class="field-input" type="text" placeholder="123 Example St, Manchester, UK" bind:value={clubProfile.address} />
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label class="field-label" for="pa-club-lat">Latitude</label>
+                            <input id="pa-club-lat" class="field-input" type="number" step="any" placeholder="53.4808" bind:value={clubProfile.latitude} />
+                        </div>
+                        <div class="field">
+                            <label class="field-label" for="pa-club-lng">Longitude</label>
+                            <input id="pa-club-lng" class="field-input" type="number" step="any" placeholder="-2.2426" bind:value={clubProfile.longitude} />
+                        </div>
+                    </div>
+                    <p class="field-label-hint">
+                        Coordinates place the pin on this club's Club-page map and on the multi-club map
+                        logged-out visitors see. No coordinates, no pin — the address text still shows.
+                        <a class="hint-link" href={googleMapsSearchUrl(clubProfile.address)} target="_blank" rel="noopener noreferrer">
+                            Find this address on Google Maps ↗
+                        </a> — right-click the exact spot, click the lat/long shown at the top of the menu to copy it, then paste the two numbers in above.
+                    </p>
+
+                    <h5 class="sub-heading">Opening Hours</h5>
+                    <div class="club-hours-grid">
+                        {#each clubHours as row}
+                            <div class="club-hours-row">
+                                <label class="check-row ap-toggle club-hours-day">
+                                    <input type="checkbox" bind:checked={row.enabled} />
+                                    <span>{row.day}</span>
+                                </label>
+                                {#if row.enabled}
+                                    <div class="club-hours-times">
+                                        <select class="field-select" bind:value={row.open}>
+                                            {#each HALF_HOUR_OPTIONS as t}
+                                                <option value={t}>{t}</option>
+                                            {/each}
+                                        </select>
+                                        <span class="club-hours-times-sep">&ndash;</span>
+                                        <select class="field-select" bind:value={row.close}>
+                                            {#each HALF_HOUR_OPTIONS as t}
+                                                <option value={t}>{t}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
+                                {/if}
+                            </div>
+                        {/each}
+                    </div>
+
+                    {#if clubProfileError}<p class="field-error">{clubProfileError}</p>{/if}
+                    {#if clubProfileMessage}<p class="pairing-message">{clubProfileMessage}</p>{/if}
+                    <button class="primary-button" type="button" disabled={clubProfileSaving} onclick={saveClubProfile}>
+                        {clubProfileSaving ? 'Saving…' : 'Save'}
+                    </button>
+
+                    <h5 class="sub-heading">Logo</h5>
+                    <p class="field-label-hint">
+                        <strong>Image guidelines:</strong> square, at least 400×400px. Transparent PNG
+                        works best against the dark background. Accepted formats: PNG, JPEG, WEBP. Max 5 MB.
+                    </p>
+                    {#if clubProfile.logo_url}
+                        <div class="club-logo-preview">
+                            <img src={clubProfile.logo_url} alt="Club logo" />
+                            <button class="secondary-button" type="button" onclick={deleteClubLogo}>Remove logo</button>
+                        </div>
+                    {/if}
+                    {#key clubLogoFileKey}
+                        <input
+                            class="field-input mission-file"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            onchange={(e) => (clubLogoFile = e.currentTarget.files?.[0] ?? null)}
+                        />
+                    {/key}
+                    {#if clubLogoError}<p class="field-error">{clubLogoError}</p>{/if}
+                    <div class="actions">
+                        <button class="primary-button" type="button" disabled={clubLogoUploading || !clubLogoFile} onclick={uploadClubLogo}>
+                            {clubLogoUploading ? 'Uploading…' : 'Upload logo'}
+                        </button>
+                    </div>
+                {/if}
+            </div>
+
             {#if detailLoading}
                 <p class="muted">Loading…</p>
             {:else if detailError}
@@ -1321,5 +1545,116 @@
     .primary-button:disabled {
         opacity: 0.45;
         cursor: not-allowed;
+    }
+
+    .secondary-button {
+        background: transparent;
+        color: var(--color-accent);
+        border: 1px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        padding: 0 14px;
+        height: 2.2rem;
+        box-sizing: border-box;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+        white-space: nowrap;
+    }
+
+    .secondary-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+    }
+
+    .ap-toggle {
+        padding-bottom: 6px;
+    }
+
+    .mission-file {
+        padding: 0.4rem;
+        font-size: 0.8rem;
+    }
+
+    .field-label-hint {
+        font-size: 0.65rem;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--color-text-faint);
+    }
+
+    .field-label-hint .hint-link {
+        color: var(--color-accent);
+        text-decoration: underline;
+    }
+
+    .field-label-hint .hint-link:hover {
+        color: var(--color-accent-bright);
+    }
+
+    .club-hours-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.6rem;
+        margin: 0.5rem 0 0.9rem;
+    }
+
+    .club-hours-row {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        padding: 0.6rem;
+    }
+
+    /* Overrides only what .check-row doesn't already set (weight/size/
+       spacing) — must NOT touch display, or it cancels .check-row's flex
+       layout and the checkbox + day name wrap onto separate lines. */
+    .club-hours-day {
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .club-hours-times {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.4rem;
+    }
+
+    .club-hours-times select {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .club-hours-times-sep {
+        color: var(--color-text-faint);
+        flex: 0 0 auto;
+    }
+
+    .club-logo-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .club-logo-preview img {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        padding: 0.4rem;
     }
 </style>
