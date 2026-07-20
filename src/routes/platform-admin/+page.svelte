@@ -227,10 +227,125 @@
         gameSystemsLoading = false;
     }
 
+    // "2h ago" / "3d ago" — good enough resolution for a health-check/audit
+    // glance view, no need for a full date-formatting library.
+    function formatRelativeTime(iso: string): string {
+        const then = new Date(iso).getTime();
+        const diffMs = Date.now() - then;
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    // Site Banner
+    let siteBannerMessage = $state('');
+    let siteBannerSeverity = $state('info');
+    let siteBannerActive = $state(false);
+    let siteBannerLoading = $state(false);
+    let siteBannerSaving = $state(false);
+    let siteBannerError = $state<string | null>(null);
+    let siteBannerMessageOk = $state<string | null>(null);
+
+    async function loadSiteBanner() {
+        siteBannerLoading = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/banner`, { credentials: 'include' });
+        if (r.ok) {
+            const data = await r.json();
+            siteBannerMessage = data.message ?? '';
+            siteBannerSeverity = data.severity ?? 'info';
+            siteBannerActive = data.active ?? false;
+        }
+        siteBannerLoading = false;
+    }
+
+    async function saveSiteBanner() {
+        siteBannerSaving = true;
+        siteBannerError = null;
+        siteBannerMessageOk = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/banner`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: siteBannerMessage,
+                severity: siteBannerSeverity,
+                active: siteBannerActive,
+            }),
+        });
+        if (r.ok) {
+            siteBannerMessageOk = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            siteBannerError = body.detail || 'Save failed.';
+        }
+        siteBannerSaving = false;
+    }
+
+    // Scheduled Jobs
+    type JobRun = { job_name: string; ran_at: string; status: string; detail: string | null };
+    type JobEntry = { job_name: string; latest: JobRun | null };
+    let jobRuns = $state<JobEntry[]>([]);
+    let jobRunsLoading = $state(false);
+
+    async function loadJobRuns() {
+        jobRunsLoading = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/job-runs`, { credentials: 'include' });
+        if (r.ok) {
+            const data = await r.json();
+            jobRuns = data.jobs ?? [];
+        }
+        jobRunsLoading = false;
+    }
+
+    // Audit Log
+    type AuditEntry = { id: number; created_at: string; actor_name: string; action: string; target_type: string | null; target_id: number | null; detail: string | null };
+    let auditLog = $state<AuditEntry[]>([]);
+    let auditLogLoading = $state(false);
+
+    async function loadAuditLog() {
+        auditLogLoading = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/audit-log?limit=50`, { credentials: 'include' });
+        if (r.ok) auditLog = await r.json();
+        auditLogLoading = false;
+    }
+
+    // Find a User
+    type UserSearchResult = {
+        user_id: number; discord_name: string; player_name: string | null;
+        club_id: number; club_name: string; club_slug: string;
+        is_super_admin: boolean; is_platform_admin: boolean;
+    };
+    let userSearchQuery = $state('');
+    let userSearchResults = $state<UserSearchResult[] | null>(null);
+    let userSearchLoading = $state(false);
+    let userSearchError = $state<string | null>(null);
+
+    async function searchUsers() {
+        const q = userSearchQuery.trim();
+        if (!q) return;
+        userSearchLoading = true;
+        userSearchError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/users/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+        if (r.ok) {
+            userSearchResults = await r.json();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            userSearchError = body.detail || 'Search failed.';
+        }
+        userSearchLoading = false;
+    }
+
     onMount(async () => {
         await loadAdminMe();
         if (adminMe?.is_platform_admin) {
-            await Promise.all([loadClubs(), loadSystemsCatalogue(), loadGameSystems()]);
+            await Promise.all([
+                loadClubs(), loadSystemsCatalogue(), loadGameSystems(),
+                loadSiteBanner(), loadJobRuns(), loadAuditLog(),
+            ]);
         }
         pageLoading = false;
     });
@@ -936,6 +1051,180 @@
         </form>
         {/if}
     </section>
+        </div>
+    </details>
+
+    <!-- ══ Site Banner ══ -->
+    <details class="dash-group">
+        <summary class="dash-group-header">
+            <span class="dash-chevron" aria-hidden="true">▶</span>
+            <span class="dash-group-title">Site Banner</span>
+        </summary>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <h3 class="section-heading">Announcement Banner</h3>
+                <p class="section-intro">
+                    Shown at the top of every page, for every visitor, across every club — logged in
+                    or not. Use it sparingly (scheduled maintenance, a platform-wide notice).
+                </p>
+                {#if siteBannerLoading}
+                    <p class="muted">Loading…</p>
+                {:else}
+                    <div class="field">
+                        <label class="field-label" for="banner-message">Message</label>
+                        <textarea id="banner-message" class="field-input" rows="2" bind:value={siteBannerMessage}></textarea>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label class="field-label" for="banner-severity">Severity</label>
+                            <select id="banner-severity" class="field-select" bind:value={siteBannerSeverity}>
+                                <option value="info">Info</option>
+                                <option value="warning">Warning</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                        <label class="check-row ap-toggle">
+                            <input type="checkbox" bind:checked={siteBannerActive} />
+                            <span>Active (visible to everyone)</span>
+                        </label>
+                    </div>
+                    {#if siteBannerError}<p class="field-error">{siteBannerError}</p>{/if}
+                    {#if siteBannerMessageOk}<p class="pairing-message">{siteBannerMessageOk}</p>{/if}
+                    <button class="primary-button" type="button" disabled={siteBannerSaving} onclick={saveSiteBanner}>
+                        {siteBannerSaving ? 'Saving…' : 'Save'}
+                    </button>
+                {/if}
+            </section>
+        </div>
+    </details>
+
+    <!-- ══ Scheduled Jobs ══ -->
+    <details class="dash-group">
+        <summary class="dash-group-header">
+            <span class="dash-chevron" aria-hidden="true">▶</span>
+            <span class="dash-group-title">Scheduled Jobs</span>
+        </summary>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <h3 class="section-heading">Scheduled Job Health</h3>
+                <p class="section-intro">
+                    Each job's most recent run — a job that's gone quiet (or keeps erroring) means a
+                    club's pairings or call-to-arms posts silently stopped firing.
+                </p>
+                {#if jobRunsLoading}
+                    <p class="muted">Loading…</p>
+                {:else}
+                    <ul class="block-list">
+                        {#each jobRuns as j (j.job_name)}
+                            <li class="block-row">
+                                <span class="block-names"><strong>{j.job_name}</strong></span>
+                                {#if j.latest}
+                                    <span class="status-badge" class:status-active={j.latest.status === 'ok'} class:status-inactive={j.latest.status !== 'ok'}>
+                                        {j.latest.status === 'ok' ? 'OK' : 'Error'}
+                                    </span>
+                                    <span class="block-note">{formatRelativeTime(j.latest.ran_at)}{j.latest.detail ? ` — ${j.latest.detail}` : ''}</span>
+                                {:else}
+                                    <span class="status-badge status-inactive">Never run</span>
+                                {/if}
+                            </li>
+                        {/each}
+                    </ul>
+                    <button class="secondary-button" type="button" onclick={loadJobRuns}>Refresh</button>
+                {/if}
+            </section>
+        </div>
+    </details>
+
+    <!-- ══ Audit Log ══ -->
+    <details class="dash-group">
+        <summary class="dash-group-header">
+            <span class="dash-chevron" aria-hidden="true">▶</span>
+            <span class="dash-group-title">Audit Log</span>
+        </summary>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <h3 class="section-heading">Recent Platform Admin Actions</h3>
+                {#if auditLogLoading}
+                    <p class="muted">Loading…</p>
+                {:else if auditLog.length === 0}
+                    <p class="muted">No actions recorded yet.</p>
+                {:else}
+                    <div class="table-wrap">
+                        <table class="clubs-table">
+                            <thead>
+                                <tr>
+                                    <th>When</th>
+                                    <th>Actor</th>
+                                    <th>Action</th>
+                                    <th>Detail</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#each auditLog as entry (entry.id)}
+                                    <tr>
+                                        <td>{formatRelativeTime(entry.created_at)}</td>
+                                        <td>{entry.actor_name}</td>
+                                        <td>{entry.action}</td>
+                                        <td>{entry.detail ?? '—'}</td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="secondary-button" type="button" onclick={loadAuditLog}>Refresh</button>
+                {/if}
+            </section>
+        </div>
+    </details>
+
+    <!-- ══ Find a User ══ -->
+    <details class="dash-group">
+        <summary class="dash-group-header">
+            <span class="dash-chevron" aria-hidden="true">▶</span>
+            <span class="dash-group-title">Find a User</span>
+        </summary>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <h3 class="section-heading">Cross-club User Search</h3>
+                <p class="section-intro">
+                    Search by Discord name or linked player name across every club — for support
+                    requests when you don't know which club someone belongs to.
+                </p>
+                <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); searchUsers(); }}>
+                    <div class="field">
+                        <label class="field-label" for="user-search-q">Search</label>
+                        <input id="user-search-q" class="field-input" type="text" bind:value={userSearchQuery} placeholder="Discord or player name" />
+                    </div>
+                    <button type="submit" class="primary-button" disabled={!userSearchQuery.trim() || userSearchLoading}>
+                        {userSearchLoading ? 'Searching…' : 'Search'}
+                    </button>
+                </form>
+                {#if userSearchError}<p class="field-error">{userSearchError}</p>{/if}
+                {#if userSearchResults !== null}
+                    {#if userSearchResults.length === 0}
+                        <p class="muted">No matches.</p>
+                    {:else}
+                        <ul class="block-list">
+                            {#each userSearchResults as u (u.user_id)}
+                                <li class="block-row">
+                                    <span class="block-names">
+                                        <strong>{u.discord_name}</strong>
+                                        {#if u.player_name}<span class="block-note">({u.player_name})</span>{/if}
+                                    </span>
+                                    <span class="block-note">{u.club_name}</span>
+                                    {#if u.is_super_admin}<span class="status-badge status-active">Super-admin</span>{/if}
+                                    {#if u.is_platform_admin}<span class="status-badge status-active">Platform admin</span>{/if}
+                                    <button
+                                        class="secondary-button"
+                                        type="button"
+                                        onclick={() => { selectClub(u.club_id); }}
+                                    >Manage {u.club_name}</button>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                {/if}
+            </section>
         </div>
     </details>
 

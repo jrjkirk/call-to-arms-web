@@ -7,6 +7,7 @@
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import LandingHero from '$lib/LandingHero.svelte';
+    import SiteBanner from '$lib/SiteBanner.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
 
@@ -121,6 +122,8 @@
 {#if $navigating}
     <div class="nav-progress"></div>
 {/if}
+
+<SiteBanner />
 
 <!-- Mobile-only top bar with hamburger toggle -->
 <div class="mobile-topbar">
