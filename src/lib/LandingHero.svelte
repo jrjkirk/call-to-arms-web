@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fly, fade } from 'svelte/transition';
+    import ClubsMap from './ClubsMap.svelte';
 
     let { loginUrl }: { loginUrl: string } = $props();
 
@@ -65,6 +66,8 @@
             </a>
             <p class="hero-cta-note">Free to join · Your club may already be here</p>
         </div>
+
+        <ClubsMap />
 
         <a class="hero-footer-link" href="/privacy">Privacy Policy</a>
     </div>

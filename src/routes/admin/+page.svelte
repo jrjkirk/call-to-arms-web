@@ -22,6 +22,20 @@
     const isSystemScope = (scope: string) => scope !== 'League';
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+    // 00:00 -> 23:30 in 30-minute steps, for every time picker in this admin
+    // panel (opening hours, session start time, event start/end) — dropdown
+    // selects instead of the native browser time-picker, consistent with the
+    // rest of the app's select-based inputs (ETA/Experience on the signup form).
+    const HALF_HOUR_OPTIONS: string[] = (() => {
+        const out: string[] = [];
+        for (let h = 0; h < 24; h++) {
+            for (const m of [0, 30]) {
+                out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+            }
+        }
+        return out;
+    })();
+
     type AdminMe = { is_super_admin: boolean; scopes: string[] };
     type RoleEntry = { user_id: number; discord_name: string; player_name: string | null; scope: string };
     type SuperAdminEntry = { user_id: number; discord_name: string; player_name: string | null };
@@ -310,7 +324,15 @@
         website_url: string;
         discord_url: string;
         logo_url: string | null;
+        address: string;
+        latitude: number | null;
+        longitude: number | null;
     };
+
+    function googleMapsSearchUrl(address: string): string {
+        const q = address.trim() || 'Manchester, UK';
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    }
     type OpeningHoursRow = { day: string; enabled: boolean; open: string; close: string; note: string };
     let clubProfile = $state<ClubProfileState | null>(null);
     let clubHours = $state<OpeningHoursRow[]>(
@@ -329,7 +351,6 @@
         blurb: string;
         photo_url: string | null;
         accent_color: string;
-        carousel_order: number;
         saving: boolean;
         error: string | null;
         message: string | null;
@@ -406,6 +427,7 @@
         session_day: string;
         session_cadence: string;
         cadence_anchor: string | null;
+        session_start_time: string | null;
         vibe_options: string[] | null;
         default_vibe: string | null;
         default_vibe_options: string[] | null;
@@ -422,6 +444,7 @@
     let csSessionDay = $state('Wednesday');
     let csSessionCadence = $state('weekly');
     let csCadenceAnchor = $state('');
+    let csSessionStartTime = $state('');
     let csEnabled = $state(true);
     let csUseDefaultVibes = $state(true);
     let csVibeOptions = $state<string[]>([]);
@@ -1034,6 +1057,9 @@
             website_url: data.club.website_url ?? '',
             discord_url: data.club.discord_url ?? '',
             logo_url: data.club.logo_url,
+            address: data.club.address ?? '',
+            latitude: data.club.latitude ?? null,
+            longitude: data.club.longitude ?? null,
         };
         const byDay = new Map((data.club.opening_hours ?? []).map((h: any) => [h.day, h]));
         clubHours = DAYS.map((d) => {
@@ -1061,6 +1087,9 @@
                 website_url: clubProfile.website_url,
                 discord_url: clubProfile.discord_url,
                 opening_hours,
+                address: clubProfile.address,
+                latitude: clubProfile.latitude,
+                longitude: clubProfile.longitude,
             }),
         });
         if (r.ok) {
@@ -1168,7 +1197,6 @@
             blurb: sys?.blurb ?? '',
             photo_url: sys?.photo_url ?? null,
             accent_color: sys?.accent_color ?? '#c9a14a',
-            carousel_order: sys?.carousel_order ?? 0,
             saving: false, error: null, message: null,
             uploadFile: null, uploadFileKey: 0, uploading: false, uploadError: null,
         };
@@ -1188,7 +1216,6 @@
                 system: scope,
                 blurb: cs.blurb,
                 accent_color: cs.accent_color,
-                carousel_order: cs.carousel_order,
             }),
         });
         if (r.ok) {
@@ -1434,6 +1461,7 @@
             csSessionDay = existing.session_day;
             csSessionCadence = existing.session_cadence;
             csCadenceAnchor = existing.cadence_anchor ?? '';
+            csSessionStartTime = existing.session_start_time ?? '';
             csEnabled = existing.enabled;
             if (existing.vibe_options && existing.vibe_options.length > 0) {
                 csUseDefaultVibes = false;
@@ -1450,6 +1478,7 @@
             csSessionDay = 'Wednesday';
             csSessionCadence = 'weekly';
             csCadenceAnchor = '';
+            csSessionStartTime = '';
             csEnabled = true;
             csUseDefaultVibes = true;
             csVibeOptions = [];
@@ -1472,6 +1501,7 @@
                 session_day: csSessionDay,
                 session_cadence: csSessionCadence,
                 cadence_anchor: csSessionCadence === 'fortnightly' ? csCadenceAnchor || null : null,
+                session_start_time: csSessionStartTime || null,
                 // [] clears the override (use the platform default); a list sets
                 // this club's own vibes.
                 vibe_options: csUseDefaultVibes ? [] : csVibeOptions,
@@ -1500,7 +1530,8 @@
                 enabled: !row.enabled,
                 session_day: row.session_day,
                 session_cadence: row.session_cadence,
-                cadence_anchor: row.cadence_anchor
+                cadence_anchor: row.cadence_anchor,
+                session_start_time: row.session_start_time
             })
         });
         if (r.ok) {
@@ -1918,12 +1949,16 @@
                         its own section below.
                     </p>
                     {#if clubProfile}
+                        <!-- Profile -->
                         <div class="field">
                             <label class="field-label" for="club-blurb">Blurb</label>
                             <textarea id="club-blurb" class="field-input" rows="3"
                                 placeholder="A short welcome for players landing on the Club page…"
                                 bind:value={clubProfile.blurb}></textarea>
                         </div>
+
+                        <!-- Links & Location -->
+                        <h4 class="sub-heading">Links &amp; Location</h4>
                         <div class="form-grid">
                             <div class="field">
                                 <label class="field-label" for="club-website">Website</label>
@@ -1934,24 +1969,27 @@
                                 <input id="club-discord" class="field-input" type="text" placeholder="https://discord.gg/…" bind:value={clubProfile.discord_url} />
                             </div>
                         </div>
-
-                        <h4 class="sub-heading">Opening Hours</h4>
-                        <div class="club-hours-grid">
-                            {#each clubHours as row}
-                                <div class="club-hours-row">
-                                    <label class="check-row ap-toggle club-hours-day">
-                                        <input type="checkbox" bind:checked={row.enabled} />
-                                        <span>{row.day}</span>
-                                    </label>
-                                    {#if row.enabled}
-                                        <div class="club-hours-times">
-                                            <input class="field-input" type="time" bind:value={row.open} />
-                                            <input class="field-input" type="time" bind:value={row.close} />
-                                        </div>
-                                    {/if}
-                                </div>
-                            {/each}
+                        <div class="field">
+                            <label class="field-label" for="club-address">Address</label>
+                            <input id="club-address" class="field-input" type="text" placeholder="123 Example St, Manchester, UK" bind:value={clubProfile.address} />
                         </div>
+                        <div class="form-grid">
+                            <div class="field">
+                                <label class="field-label" for="club-lat">Latitude</label>
+                                <input id="club-lat" class="field-input" type="number" step="any" placeholder="53.4808" bind:value={clubProfile.latitude} />
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="club-lng">Longitude</label>
+                                <input id="club-lng" class="field-input" type="number" step="any" placeholder="-2.2426" bind:value={clubProfile.longitude} />
+                            </div>
+                        </div>
+                        <p class="field-label-hint">
+                            Coordinates place the pin on the Club page's map and on the multi-club map
+                            logged-out visitors see. No coordinates, no pin — the address text still shows.
+                            <a class="hint-link" href={googleMapsSearchUrl(clubProfile.address)} target="_blank" rel="noopener noreferrer">
+                                Find this address on Google Maps ↗
+                            </a> — right-click the exact spot, click the lat/long shown at the top of the menu to copy it, then paste the two numbers in above.
+                        </p>
 
                         {#if clubProfileError}<p class="field-error">{clubProfileError}</p>{/if}
                         {#if clubProfileMessage}<p class="pairing-message">{clubProfileMessage}</p>{/if}
@@ -1961,7 +1999,12 @@
                             </button>
                         </div>
 
+                        <!-- Logo -->
                         <h4 class="sub-heading">Logo</h4>
+                        <p class="field-label-hint mission-guidelines">
+                            <strong>Image guidelines:</strong> square, at least 400×400px. Transparent PNG
+                            works best against the dark background. Accepted formats: PNG, JPEG, WEBP. Max 5 MB.
+                        </p>
                         {#if clubProfile.logo_url}
                             <div class="club-logo-preview">
                                 <img src={clubProfile.logo_url} alt="Club logo" />
@@ -1978,60 +2021,112 @@
                         {/key}
                         {#if clubLogoError}<p class="field-error">{clubLogoError}</p>{/if}
                         <div class="actions">
-                            <button class="secondary-button" type="button" disabled={clubLogoUploading || !clubLogoFile} onclick={uploadClubLogo}>
+                            <button class="primary-button" type="button" disabled={clubLogoUploading || !clubLogoFile} onclick={uploadClubLogo}>
                                 {clubLogoUploading ? 'Uploading…' : 'Upload logo'}
                             </button>
                         </div>
 
-                        <h4 class="sub-heading">Club-wide Events</h4>
-                        <p class="section-intro">
-                            Dates that apply to the whole club, not one system — closures, open days. For a
-                            single system's own event (a tournament, a campaign day), use that system's
-                            Events section instead.
-                        </p>
-                        {#if clubWideEvents.events.length === 0 && !clubWideEvents.loading}
-                            <p class="muted small">No club-wide events yet — add one below.</p>
-                        {:else}
-                            <ul class="history-list">
-                                {#each clubWideEvents.events as ev (ev.id)}
-                                    <li class="history-row">
-                                        <span class="history-date">{ev.event_date}</span>
-                                        <span class="history-matchup">{ev.title}</span>
-                                        <button class="secondary-button" type="button" onclick={() => deleteClubWideEvent(ev.id)}>Delete</button>
-                                    </li>
-                                {/each}
-                            </ul>
-                        {/if}
-                        <div class="form-grid event-add-form">
-                            <div class="field">
-                                <label class="field-label" for="club-ev-title">Title</label>
-                                <input id="club-ev-title" class="field-input" type="text" bind:value={clubWideEvents.addTitle} />
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="club-ev-date">Date</label>
-                                <input id="club-ev-date" class="field-input" type="date" bind:value={clubWideEvents.addDate} />
-                            </div>
-                            <label class="check-row ap-toggle">
-                                <input type="checkbox" bind:checked={clubWideEvents.addAllDay} />
-                                <span>All day</span>
-                            </label>
-                            {#if !clubWideEvents.addAllDay}
-                                <div class="field">
-                                    <label class="field-label" for="club-ev-start">Start time</label>
-                                    <input id="club-ev-start" class="field-input" type="time" bind:value={clubWideEvents.addStart} />
+                        <!-- Opening Hours -->
+                        <details class="league-settings-details" open>
+                            <summary>Opening Hours</summary>
+                            <div class="league-settings-body">
+                                <div class="club-hours-grid">
+                                    {#each clubHours as row}
+                                        <div class="club-hours-row">
+                                            <label class="check-row ap-toggle club-hours-day">
+                                                <input type="checkbox" bind:checked={row.enabled} />
+                                                <span>{row.day}</span>
+                                            </label>
+                                            {#if row.enabled}
+                                                <div class="club-hours-times">
+                                                    <select class="field-select" bind:value={row.open}>
+                                                        {#each HALF_HOUR_OPTIONS as t}
+                                                            <option value={t}>{t}</option>
+                                                        {/each}
+                                                    </select>
+                                                    <span class="club-hours-times-sep">&ndash;</span>
+                                                    <select class="field-select" bind:value={row.close}>
+                                                        {#each HALF_HOUR_OPTIONS as t}
+                                                            <option value={t}>{t}</option>
+                                                        {/each}
+                                                    </select>
+                                                </div>
+                                            {/if}
+                                        </div>
+                                    {/each}
                                 </div>
-                                <div class="field">
-                                    <label class="field-label" for="club-ev-end">End time</label>
-                                    <input id="club-ev-end" class="field-input" type="time" bind:value={clubWideEvents.addEnd} />
+                                <div class="actions">
+                                    <button class="primary-button" type="button" disabled={clubProfileSaving} onclick={saveClubProfile}>
+                                        {clubProfileSaving ? 'Saving…' : 'Save'}
+                                    </button>
                                 </div>
-                            {/if}
-                        </div>
-                        {#if clubWideEvents.addError}<p class="field-error">{clubWideEvents.addError}</p>{/if}
-                        <div class="actions">
-                            <button class="primary-button" type="button" disabled={clubWideEvents.adding} onclick={addClubWideEvent}>
-                                {clubWideEvents.adding ? 'Adding…' : 'Add event'}
-                            </button>
-                        </div>
+                            </div>
+                        </details>
+
+                        <!-- Club-wide Events -->
+                        <details class="league-settings-details">
+                            <summary>Club-wide Events</summary>
+                            <div class="league-settings-body">
+                                <p class="section-intro">
+                                    Dates that apply to the whole club, not one system — closures, open days. For a
+                                    single system's own event (a tournament, a campaign day), use that system's
+                                    Events section instead.
+                                </p>
+                                {#if clubWideEvents.events.length === 0 && !clubWideEvents.loading}
+                                    <p class="muted small">No club-wide events yet — add one below.</p>
+                                {:else}
+                                    <ul class="history-list">
+                                        {#each clubWideEvents.events as ev (ev.id)}
+                                            <li class="history-row">
+                                                <span class="history-date">{ev.event_date}</span>
+                                                <span class="history-matchup">{ev.title}</span>
+                                                <button class="secondary-button" type="button" onclick={() => deleteClubWideEvent(ev.id)}>Delete</button>
+                                            </li>
+                                        {/each}
+                                    </ul>
+                                {/if}
+                                <div class="form-grid event-add-form">
+                                    <div class="field">
+                                        <label class="field-label" for="club-ev-title">Title</label>
+                                        <input id="club-ev-title" class="field-input" type="text" bind:value={clubWideEvents.addTitle} />
+                                    </div>
+                                    <div class="field">
+                                        <label class="field-label" for="club-ev-date">Date</label>
+                                        <input id="club-ev-date" class="field-input" type="date" bind:value={clubWideEvents.addDate} />
+                                    </div>
+                                    <label class="check-row ap-toggle">
+                                        <input type="checkbox" bind:checked={clubWideEvents.addAllDay} />
+                                        <span>All day</span>
+                                    </label>
+                                    {#if !clubWideEvents.addAllDay}
+                                        <div class="field">
+                                            <label class="field-label" for="club-ev-start">Start time</label>
+                                            <select id="club-ev-start" class="field-select" bind:value={clubWideEvents.addStart}>
+                                                <option value="">— Not set —</option>
+                                                {#each HALF_HOUR_OPTIONS as t}
+                                                    <option value={t}>{t}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="club-ev-end">End time</label>
+                                            <select id="club-ev-end" class="field-select" bind:value={clubWideEvents.addEnd}>
+                                                <option value="">— Not set —</option>
+                                                {#each HALF_HOUR_OPTIONS as t}
+                                                    <option value={t}>{t}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                    {/if}
+                                </div>
+                                {#if clubWideEvents.addError}<p class="field-error">{clubWideEvents.addError}</p>{/if}
+                                <div class="actions">
+                                    <button class="primary-button" type="button" disabled={clubWideEvents.adding} onclick={addClubWideEvent}>
+                                        {clubWideEvents.adding ? 'Adding…' : 'Add event'}
+                                    </button>
+                                </div>
+                            </div>
+                        </details>
                     {:else}
                         <p class="muted small">Loading…</p>
                     {/if}
@@ -3207,7 +3302,8 @@
                                 <p class="section-intro">
                                     How this system appears in the Systems carousel on the Club page — blurb,
                                     photo, and the accent colour that threads through its carousel card and
-                                    calendar entries.
+                                    calendar entries. Position in the carousel isn't set here — it's shuffled
+                                    for every visitor so no system is always shown first.
                                 </p>
 
                                 <div class="field">
@@ -3216,17 +3312,11 @@
                                         placeholder="A short line about how this system runs at your club…"
                                         bind:value={cs.blurb}></textarea>
                                 </div>
-                                <div class="form-grid">
-                                    <div class="field">
-                                        <label class="field-label" for="carousel-accent-{scope}">Accent colour</label>
-                                        <div class="accent-row">
-                                            <input id="carousel-accent-{scope}" type="color" class="accent-swatch" bind:value={cs.accent_color} />
-                                            <input class="field-input" type="text" bind:value={cs.accent_color} placeholder="#c9a14a" />
-                                        </div>
-                                    </div>
-                                    <div class="field">
-                                        <label class="field-label" for="carousel-order-{scope}">Carousel order</label>
-                                        <input id="carousel-order-{scope}" class="field-input" type="number" bind:value={cs.carousel_order} />
+                                <div class="field">
+                                    <label class="field-label" for="carousel-accent-{scope}">Accent colour</label>
+                                    <div class="accent-row">
+                                        <input id="carousel-accent-{scope}" type="color" class="accent-swatch" bind:value={cs.accent_color} />
+                                        <input class="field-input" type="text" bind:value={cs.accent_color} placeholder="#c9a14a" />
                                     </div>
                                 </div>
                                 {#if cs.error}<p class="field-error">{cs.error}</p>{/if}
@@ -3239,6 +3329,10 @@
 
                                 <div class="field carousel-photo-field">
                                     <label class="field-label" for="carousel-photo-{scope}">Carousel photo (optional)</label>
+                                    <p class="field-label-hint mission-guidelines">
+                                        <strong>Image guidelines:</strong> landscape, 16:9 (e.g. 800×450px). Accepted
+                                        formats: PNG, JPEG, WEBP. Max 5 MB. Leave unset to show the system's logo instead.
+                                    </p>
                                     {#if cs.photo_url}
                                         <div class="carousel-photo-preview">
                                             <img src={cs.photo_url} alt="" />
@@ -3256,7 +3350,7 @@
                                     {/key}
                                     {#if cs.uploadError}<p class="field-error">{cs.uploadError}</p>{/if}
                                     <div class="actions">
-                                        <button class="secondary-button" type="button" disabled={cs.uploading || !cs.uploadFile} onclick={() => uploadCarouselPhoto(scope)}>
+                                        <button class="primary-button" type="button" disabled={cs.uploading || !cs.uploadFile} onclick={() => uploadCarouselPhoto(scope)}>
                                             {cs.uploading ? 'Uploading…' : 'Upload photo'}
                                         </button>
                                     </div>
@@ -3301,11 +3395,21 @@
                                                 {#if !es.addAllDay}
                                                     <div class="field">
                                                         <label class="field-label" for="ev-start-{scope}">Start time</label>
-                                                        <input id="ev-start-{scope}" class="field-input" type="time" bind:value={es.addStart} />
+                                                        <select id="ev-start-{scope}" class="field-select" bind:value={es.addStart}>
+                                                            <option value="">— Not set —</option>
+                                                            {#each HALF_HOUR_OPTIONS as t}
+                                                                <option value={t}>{t}</option>
+                                                            {/each}
+                                                        </select>
                                                     </div>
                                                     <div class="field">
                                                         <label class="field-label" for="ev-end-{scope}">End time</label>
-                                                        <input id="ev-end-{scope}" class="field-input" type="time" bind:value={es.addEnd} />
+                                                        <select id="ev-end-{scope}" class="field-select" bind:value={es.addEnd}>
+                                                            <option value="">— Not set —</option>
+                                                            {#each HALF_HOUR_OPTIONS as t}
+                                                                <option value={t}>{t}</option>
+                                                            {/each}
+                                                        </select>
                                                     </div>
                                                 {/if}
                                             </div>
@@ -3517,6 +3621,7 @@
                         <span class="block-names"><strong>{row.system_name}</strong></span>
                         <span class="block-note">
                             {row.session_cadence} {row.session_day}
+                            {#if row.session_start_time} {row.session_start_time}{/if}
                             {#if row.cadence_anchor}(anchor {row.cadence_anchor}){/if}
                         </span>
                         <span class="status-badge" class:status-active={row.enabled} class:status-inactive={!row.enabled}>
@@ -3577,6 +3682,16 @@
                             <input id="cs-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
                         </div>
                     {/if}
+                    <div class="field field-narrow">
+                        <label class="field-label" for="cs-start-time">Start time (optional)</label>
+                        <select id="cs-start-time" class="field-select" bind:value={csSessionStartTime}>
+                            <option value="">— Not set —</option>
+                            {#each HALF_HOUR_OPTIONS as t}
+                                <option value={t}>{t}</option>
+                            {/each}
+                        </select>
+                        <p class="field-caption">Shown on the Club page calendar, e.g. "{csEditingName || 'System'} session {csSessionStartTime || '18:00'}".</p>
+                    </div>
                     <div class="field-row-break"></div>
                     <label class="check-row">
                         <input type="checkbox" bind:checked={csEnabled} />
@@ -4704,6 +4819,15 @@
         color: var(--color-text-faint);
     }
 
+    .field-label-hint .hint-link {
+        color: var(--color-accent);
+        text-decoration: underline;
+    }
+
+    .field-label-hint .hint-link:hover {
+        color: var(--color-accent-bright);
+    }
+
     /* Missions */
     .mission-guidelines {
         margin: 0.5rem 0 0.75rem;
@@ -4899,7 +5023,7 @@
 
     .club-hours-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 0.6rem;
         margin-bottom: 0.9rem;
     }
@@ -4911,21 +5035,32 @@
         padding: 0.6rem;
     }
 
+    /* Overrides only what .check-row doesn't already set (weight/size/
+       spacing) — must NOT touch display, or it cancels .check-row's flex
+       layout (same specificity, this rule comes later) and the checkbox +
+       day name wrap onto separate lines instead of sitting in a row. */
     .club-hours-day {
         font-weight: 700;
         font-size: 0.85rem;
-        margin-bottom: 0.4rem;
-        display: block;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
     }
 
     .club-hours-times {
         display: flex;
+        align-items: center;
         gap: 0.4rem;
         margin-top: 0.4rem;
     }
 
-    .club-hours-times input {
-        width: 100%;
+    .club-hours-times select {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .club-hours-times-sep {
+        color: var(--color-text-faint);
+        flex: 0 0 auto;
     }
 
     .club-logo-preview {

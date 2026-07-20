@@ -132,7 +132,10 @@
                     <span class="detail-marker"></span>
                     <div class="detail-body">
                         <div class="detail-title">{e.title}</div>
-                        {#if !e.all_day && (e.start_time || e.end_time)}
+                        {#if e.type === 'event' && !e.all_day && (e.start_time || e.end_time)}
+                            <!-- Sessions already carry their start time in the title
+                                 (e.g. "The Old World session 18:30"); only one-off
+                                 events need this separate time line. -->
                             <div class="detail-time">{e.start_time ?? ''}{e.end_time ? `–${e.end_time}` : ''}</div>
                         {/if}
                         {#if e.description}
