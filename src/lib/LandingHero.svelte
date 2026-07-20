@@ -1,6 +1,7 @@
 <script lang="ts">
     import { fly, fade } from 'svelte/transition';
     import ClubsMap from './ClubsMap.svelte';
+    import ClubRequestForm from './ClubRequestForm.svelte';
 
     let { loginUrl }: { loginUrl: string } = $props();
 
@@ -68,6 +69,7 @@
         </div>
 
         <ClubsMap />
+        <ClubRequestForm />
 
         <a class="hero-footer-link" href="/privacy">Privacy Policy</a>
     </div>

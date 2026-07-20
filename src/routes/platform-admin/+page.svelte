@@ -313,6 +313,53 @@
         auditLogLoading = false;
     }
 
+    // Club Requests
+    type ClubRequestRow = {
+        id: number; created_at: string; status: string;
+        requester_name: string; requester_email: string;
+        club_name: string; club_location: string; notes: string | null;
+        reviewed_at: string | null; reviewed_by_name: string | null;
+    };
+    let clubRequests = $state<ClubRequestRow[]>([]);
+    let clubRequestsLoading = $state(false);
+    let clubRequestError = $state<string | null>(null);
+    let clubRequestFilter = $state('pending');
+    let pendingClubRequestCount = $state(0);
+
+    async function loadClubRequests() {
+        clubRequestsLoading = true;
+        clubRequestError = null;
+        const qs = clubRequestFilter ? `?status=${clubRequestFilter}` : '';
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-requests${qs}`, { credentials: 'include' });
+        if (r.ok) {
+            clubRequests = await r.json();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubRequestError = body.detail || 'Failed to load requests.';
+        }
+        clubRequestsLoading = false;
+        await refreshPendingClubRequestCount();
+    }
+
+    async function refreshPendingClubRequestCount() {
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-requests?status=pending`, { credentials: 'include' });
+        if (r.ok) pendingClubRequestCount = (await r.json()).length;
+    }
+
+    async function reviewClubRequest(id: number, action: 'approve' | 'deny') {
+        clubRequestError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-requests/${id}/${action}`, {
+            method: 'POST',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            await loadClubRequests();
+        } else {
+            const body = await r.json().catch(() => ({}));
+            clubRequestError = body.detail || 'Failed to update request.';
+        }
+    }
+
     // Find a User
     type UserSearchResult = {
         user_id: number; discord_name: string; player_name: string | null;
@@ -344,7 +391,7 @@
         if (adminMe?.is_platform_admin) {
             await Promise.all([
                 loadClubs(), loadSystemsCatalogue(), loadGameSystems(),
-                loadSiteBanner(), loadJobRuns(), loadAuditLog(),
+                loadSiteBanner(), loadJobRuns(), loadAuditLog(), loadClubRequests(),
             ]);
         }
         pageLoading = false;
@@ -1177,6 +1224,66 @@
         </div>
     </details>
 
+    <!-- ══ Club Requests ══ -->
+    <details class="dash-group" open={clubRequests.some((r) => r.status === 'pending')}>
+        <summary class="dash-group-header">
+            <span class="dash-chevron" aria-hidden="true">▶</span>
+            <span class="dash-group-title">
+                Club Requests
+                {#if pendingClubRequestCount > 0}<span class="pending-count-badge">{pendingClubRequestCount}</span>{/if}
+            </span>
+        </summary>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <h3 class="section-heading">"Add My Club" Requests</h3>
+                <p class="section-intro">
+                    Submitted from the logged-out hero page. Approving or denying just marks it
+                    reviewed — create the actual club yourself via Club Management above once
+                    you've emailed them a getting-started pack.
+                </p>
+                <div class="field field-narrow">
+                    <label class="field-label" for="cr-status-filter">Filter</label>
+                    <select id="cr-status-filter" class="field-select" bind:value={clubRequestFilter} onchange={loadClubRequests}>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="denied">Denied</option>
+                        <option value="">All</option>
+                    </select>
+                </div>
+                {#if clubRequestsLoading}
+                    <p class="muted">Loading…</p>
+                {:else if clubRequests.length === 0}
+                    <p class="muted">No {clubRequestFilter || ''} requests.</p>
+                {:else}
+                    <ul class="block-list">
+                        {#each clubRequests as r (r.id)}
+                            <li class="block-row club-request-row">
+                                <span class="block-names">
+                                    <strong>{r.club_name}</strong>
+                                    <span class="block-note">{r.club_location}</span>
+                                </span>
+                                <span class="block-note">
+                                    {r.requester_name} — <a href={`mailto:${r.requester_email}`}>{r.requester_email}</a>
+                                </span>
+                                {#if r.notes}<span class="block-note club-request-notes">{r.notes}</span>{/if}
+                                <span class="status-badge" class:status-active={r.status === 'approved'} class:status-inactive={r.status !== 'approved'}>
+                                    {r.status}
+                                </span>
+                                {#if r.status === 'pending'}
+                                    <button class="primary-button" type="button" onclick={() => reviewClubRequest(r.id, 'approve')}>Approve</button>
+                                    <button class="secondary-button" type="button" onclick={() => reviewClubRequest(r.id, 'deny')}>Deny</button>
+                                {:else}
+                                    <span class="block-note">{r.reviewed_by_name ? `by ${r.reviewed_by_name}` : ''}</span>
+                                {/if}
+                            </li>
+                        {/each}
+                    </ul>
+                {/if}
+                {#if clubRequestError}<p class="field-error">{clubRequestError}</p>{/if}
+            </section>
+        </div>
+    </details>
+
     <!-- ══ Find a User ══ -->
     <details class="dash-group">
         <summary class="dash-group-header">
@@ -1945,5 +2052,30 @@
         border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
         padding: 0.4rem;
+    }
+
+    .pending-count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        margin-left: 0.4rem;
+        background: var(--color-accent);
+        color: #1b1206;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+
+    .club-request-row {
+        align-items: flex-start;
+    }
+
+    .club-request-notes {
+        font-style: italic;
+        color: var(--color-text-faint);
+        flex-basis: 100%;
     }
 </style>
