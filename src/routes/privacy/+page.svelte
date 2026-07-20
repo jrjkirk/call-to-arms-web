@@ -1,3 +1,4 @@
+<a class="back-link" href="/">&larr; Back</a>
 <h2 class="page-heading">Privacy Policy</h2>
 <p class="updated">Last updated: 19 July 2026</p>
 
@@ -86,6 +87,19 @@
 </div>
 
 <style>
+    .back-link {
+        display: inline-block;
+        margin-bottom: 1rem;
+        color: var(--color-text-faint);
+        font-size: 0.85rem;
+        text-decoration: none;
+    }
+
+    .back-link:hover {
+        color: var(--color-text-muted);
+        text-decoration: underline;
+    }
+
     .page-heading {
         font-size: 1.6rem;
         margin: 0 0 0.4rem;

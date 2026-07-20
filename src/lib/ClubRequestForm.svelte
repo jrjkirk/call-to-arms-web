@@ -13,8 +13,8 @@
 
     async function submit() {
         error = null;
-        if (!requesterName.trim() || !requesterEmail.trim() || !clubName.trim() || !clubLocation.trim()) {
-            error = 'Your name, email, club name, and location are all required.';
+        if (!requesterName.trim() || !requesterEmail.trim() || !clubName.trim() || !clubLocation.trim() || !notes.trim()) {
+            error = 'Your name, email, club name, location, and club details are all required.';
             return;
         }
         submitting = true;
@@ -27,7 +27,7 @@
                     requester_email: requesterEmail.trim(),
                     club_name: clubName.trim(),
                     club_location: clubLocation.trim(),
-                    notes: notes.trim() || null,
+                    notes: notes.trim(),
                 }),
             });
             if (r.ok) {
@@ -73,8 +73,8 @@
                 </div>
             </div>
             <div class="field">
-                <label class="field-label" for="req-notes">Anything else? (optional)</label>
-                <textarea id="req-notes" class="field-input" rows="2" bind:value={notes} placeholder="How many players, which systems you play…"></textarea>
+                <label class="field-label" for="req-notes">Tell us about your club</label>
+                <textarea id="req-notes" class="field-input" rows="2" bind:value={notes} placeholder="How many players, which systems you play…" required></textarea>
             </div>
             {#if error}<p class="request-error">{error}</p>{/if}
             <button class="request-button" type="submit" disabled={submitting}>

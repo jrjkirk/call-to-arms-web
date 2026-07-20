@@ -26,7 +26,7 @@
 
 <div class="hero">
     <div class="hero-inner">
-        <h1 class="hero-title" in:fly={{ y: 18, duration: 600, delay: 120 }}>Call to Arms</h1>
+        <img class="hero-logo" src="/logo.svg" alt="Call to Arms" in:fly={{ y: 18, duration: 600, delay: 120 }} />
 
         <p class="hero-tagline" in:fly={{ y: 14, duration: 550, delay: 240 }}>
             The home for your club's tabletop nights — sign-ups, pairings, and
@@ -61,13 +61,6 @@
             {/each}
         </div>
 
-        <div class="hero-cta" in:fly={{ y: 12, duration: 500, delay: 520 }}>
-            <a class="hero-button" href={loginUrl}>
-                <span>Sign in with Discord</span>
-            </a>
-            <p class="hero-cta-note">Free to join · Your club may already be here</p>
-        </div>
-
         <ClubsMap />
         <ClubRequestForm />
 
@@ -95,16 +88,11 @@
         max-width: 780px;
     }
 
-    .hero-title {
+    .hero-logo {
         width: 100%;
-        text-align: center;
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: clamp(2.2rem, 6vw, 3.6rem);
-        line-height: 1.15;
-        letter-spacing: 0.01em;
-        margin: 0;
-        color: var(--color-text-bright);
+        max-width: 420px;
+        height: auto;
+        display: block;
     }
 
     .hero-tagline {
@@ -171,43 +159,6 @@
         color: var(--color-text-dim);
         font-size: 0.83rem;
         line-height: 1.55;
-    }
-
-    .hero-cta {
-        margin-top: clamp(2.2rem, 5vw, 3rem);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .hero-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--color-accent);
-        border: 1px solid var(--color-accent);
-        color: #1b1206;
-        font-weight: 700;
-        font-size: 1.02rem;
-        letter-spacing: 0.01em;
-        padding: 0.85rem 2.2rem;
-        border-radius: var(--radius);
-        text-decoration: none;
-        cursor: pointer;
-        transition: background 0.18s ease, transform 0.15s ease;
-    }
-
-    .hero-button:hover {
-        background: var(--color-accent-soft);
-        transform: translateY(-1px);
-    }
-
-    .hero-cta-note {
-        margin: 0;
-        color: var(--color-text-faint);
-        font-size: 0.76rem;
-        letter-spacing: 0.02em;
     }
 
     .hero-footer-link {
