@@ -9,17 +9,17 @@
         {
             glyph: 'sign-up',
             title: 'Sign Up',
-            text: "Put your name down for this week's session — any system, any club, one place to do it."
+            text: "Put your name down for the week's session. Any club, any system, one place to do it."
         },
         {
             glyph: 'pairings',
             title: 'Get Paired',
-            text: 'Fair matchups, generated automatically — factions, experience, and history all taken into account.'
+            text: 'Matchups get worked out for you, weighing faction, experience, and who you played last time.'
         },
         {
             glyph: 'rankings',
             title: 'Climb the Ranks',
-            text: 'Every result tracked. Standings, streaks, and titles that follow you from week to week.'
+            text: "Wins and losses build into standings over time, so there's always a table to compare notes on."
         }
     ];
 </script>
@@ -29,8 +29,8 @@
         <img class="hero-logo" src="/logo-hero.svg" alt="Call to Arms" in:fly={{ y: 18, duration: 600, delay: 120 }} />
 
         <p class="hero-tagline" in:fly={{ y: 14, duration: 550, delay: 240 }}>
-            The home for your club's tabletop nights — sign-ups, pairings, and
-            rankings, built for any system.
+            Sign-ups, pairings, and rankings for your club's game nights.
+            Works with whatever you play.
         </p>
 
         <div class="hero-pillars" in:fade={{ duration: 500, delay: 360 }}>
