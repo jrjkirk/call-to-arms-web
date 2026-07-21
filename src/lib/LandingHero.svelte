@@ -32,9 +32,25 @@
             Rally. Pair. Play.
         </p>
 
-        <div class="hero-pillars" in:fade={{ duration: 500, delay: 360 }}>
+        <div class="hero-cta" in:fly={{ y: 12, duration: 500, delay: 320 }}>
+            <a class="hero-button" href={loginUrl}>
+                <span>Sign in with Discord</span>
+            </a>
+        </div>
+
+        <div class="hero-about" in:fade={{ duration: 500, delay: 400 }}>
+            <div class="hero-about-heading">What is Call to Arms?</div>
+            <p class="hero-about-text">
+                A sign-up and pairing tool for tabletop wargaming clubs. It's
+                built for organisers who run weekly game nights, want fair
+                matchups without doing the maths themselves, and want a
+                season-long record of who's playing what.
+            </p>
+        </div>
+
+        <div class="hero-pillars" in:fade={{ duration: 500, delay: 480 }}>
             {#each pillars as p, i}
-                <div class="pillar" style={`transition-delay: ${420 + i * 90}ms`}>
+                <div class="pillar" style={`transition-delay: ${540 + i * 90}ms`}>
                     <span class="pillar-icon">
                         {#if p.glyph === 'sign-up'}
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
@@ -58,12 +74,6 @@
                     <p class="pillar-text">{p.text}</p>
                 </div>
             {/each}
-        </div>
-
-        <div class="hero-cta" in:fly={{ y: 12, duration: 500, delay: 520 }}>
-            <a class="hero-button" href={loginUrl}>
-                <span>Sign in with Discord</span>
-            </a>
         </div>
 
         <ClubsMap />
@@ -108,12 +118,34 @@
         line-height: 1.6;
     }
 
+    .hero-about {
+        width: 100%;
+        max-width: 56ch;
+        margin-top: clamp(2.4rem, 6vw, 3.4rem);
+    }
+
+    .hero-about-heading {
+        color: var(--color-accent);
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 0.7rem;
+    }
+
+    .hero-about-text {
+        margin: 0;
+        color: var(--color-text-dim);
+        font-size: 0.95rem;
+        line-height: 1.65;
+    }
+
     .hero-pillars {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1.1rem;
         width: 100%;
-        margin-top: clamp(2.2rem, 5vw, 3.2rem);
+        margin-top: clamp(2rem, 4.5vw, 2.8rem);
     }
 
     .pillar {
@@ -167,7 +199,7 @@
     }
 
     .hero-cta {
-        margin-top: clamp(2.2rem, 5vw, 3rem);
+        margin-top: clamp(1.4rem, 3vw, 2rem);
         display: flex;
         flex-direction: column;
         align-items: center;
