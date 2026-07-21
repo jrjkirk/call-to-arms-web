@@ -131,19 +131,6 @@
 
 <SiteBanner />
 
-<!-- Mobile-only top bar: the logo doubles as the menu toggle, persisting
-     in the top-left corner instead of stacking a separate hamburger icon
-     on top of it. -->
-<div class="mobile-topbar">
-    <button class="hamburger" onclick={toggleDrawer} type="button" aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
-        {#if drawerOpen}
-            <span class="hamburger-icon">✕</span>
-        {:else}
-            <img class="hamburger-logo" src="/logo.svg" alt="" />
-        {/if}
-    </button>
-</div>
-
 <!-- Mobile-only dimmed overlay, shown when the drawer is open -->
 {#if drawerOpen}
     <div class="drawer-overlay" onclick={closeDrawer}></div>
@@ -151,6 +138,18 @@
 
 <div class="page-wrap" data-sveltekit-preload-data="hover">
     <header class="topbar" class:topbar-signed-out={authLoaded && !isAuthed}>
+        <!-- Mobile-only: the logo doubles as the menu toggle. It's a normal
+             flex child of the topbar row (not a floating fixed button), so
+             it sits cleanly beside the nav-tab ribbon instead of
+             overlapping it. -->
+        <button class="hamburger" onclick={toggleDrawer} type="button" aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
+            {#if drawerOpen}
+                <span class="hamburger-icon">✕</span>
+            {:else}
+                <img class="hamburger-logo" src="/logo.svg" alt="" />
+            {/if}
+        </button>
+
         {#if !showingHero}
             <a class="topbar-logo-link" href="/" aria-label="Call to Arms">
                 <img class="topbar-logo" src="/logo.svg" alt="Call to Arms" />
@@ -271,12 +270,10 @@
         100% { background-position: 150% 0; }
     }
 
-    /* Mobile-only top bar; hidden entirely on desktop */
-    .mobile-topbar {
-        display: none;
-    }
-
+    /* The logo/menu button only exists as a mobile affordance — on desktop
+       the nav tabs and .topbar-logo-link cover both jobs already. */
     .hamburger {
+        display: none;
         background: rgba(0, 0, 0, 0.25);
         border: 1px solid var(--color-accent-border-soft);
         color: var(--color-text-bright);
@@ -285,10 +282,10 @@
         border-radius: 8px;
         font-size: 1.2rem;
         line-height: 1;
-        display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
+        flex: 0 0 auto;
     }
 
     .hamburger-icon {
@@ -542,13 +539,11 @@
     }
 
     @media (max-width: 768px) {
-        /* Show the hamburger bar on mobile */
-        .mobile-topbar {
-            display: block;
-            position: fixed;
-            top: 0.6rem;
-            left: 0.6rem;
-            z-index: 960;
+        /* Show the logo/menu button, inline in the topbar row rather than
+           floating fixed over the page — that overlap was what made the
+           nav-tab ribbon look broken and scroll underneath it. */
+        .hamburger {
+            display: flex;
         }
 
         .page-wrap {
@@ -572,6 +567,14 @@
 
         .topbar {
             margin-bottom: 1rem;
+        }
+
+        /* On desktop, signed-out flips to flex-end because the auth-panel
+           is the only in-flow child then. On mobile the auth-panel is a
+           fixed drawer (out of flow) and the hamburger is the only child
+           instead — flex-end would wrongly push it to the right. */
+        .topbar-signed-out {
+            justify-content: flex-start;
         }
 
         /* The mobile hamburger button already doubles as the brand mark
@@ -625,7 +628,6 @@
             overflow-x: auto;
             white-space: nowrap;
             -webkit-overflow-scrolling: touch;
-            padding-left: 3rem;
         }
 
         /* Right-edge fade so a partially-hidden "Admin" tab reads as
