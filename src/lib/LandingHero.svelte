@@ -81,7 +81,7 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
-        padding: clamp(2.5rem, 6vw, 5rem) 1.5rem clamp(3rem, 7vw, 5.5rem);
+        padding: clamp(1.25rem, 3vw, 2.5rem) 1.5rem clamp(3rem, 7vw, 5.5rem);
         overflow: hidden;
         border-radius: 18px;
         isolation: isolate;

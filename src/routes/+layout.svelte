@@ -141,14 +141,17 @@
         <!-- Mobile-only: the logo doubles as the menu toggle. It's a normal
              flex child of the topbar row (not a floating fixed button), so
              it sits cleanly beside the nav-tab ribbon instead of
-             overlapping it. -->
-        <button class="hamburger" onclick={toggleDrawer} type="button" aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
-            {#if drawerOpen}
-                <span class="hamburger-icon">✕</span>
-            {:else}
-                <img class="hamburger-logo" src="/logo.svg" alt="" />
-            {/if}
-        </button>
+             overlapping it. Hidden on the hero page itself, same as the
+             desktop logo below — the hero already carries its own big logo. -->
+        {#if !showingHero}
+            <button class="hamburger" onclick={toggleDrawer} type="button" aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
+                {#if drawerOpen}
+                    <span class="hamburger-icon">✕</span>
+                {:else}
+                    <img class="hamburger-logo" src="/logo.svg" alt="" />
+                {/if}
+            </button>
+        {/if}
 
         {#if !showingHero}
             <a class="topbar-logo-link" href="/" aria-label="Call to Arms">
