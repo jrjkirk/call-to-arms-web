@@ -157,6 +157,35 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
             'Sons of Behemat'
         ],
         icon_folder: 'AOS'
+    },
+    {
+        slug: '40k',
+        name: 'Warhammer 40,000',
+        legacy_system_name: 'Warhammer 40,000',
+        uses_points: true,
+        default_points: 2000,
+        max_points: 3000,
+        vibe_options: ['Casual', 'Competitive'],
+        default_vibe: 'Casual',
+        uses_scenarios: false,
+        scenario_options: [],
+        default_scenario: '',
+        allows_demo: true,
+        has_league: false,
+        faction_list: [
+            'Adepta Sororitas', 'Adeptus Custodes', 'Adeptus Mechanicus',
+            'Adeptus Titanicus', 'Astra Militarum', 'Agents of the Imperium',
+            'Imperial Knights',
+            'Chaos Daemons', 'Chaos Knights', 'Chaos Space Marines', 'Death Guard',
+            "Emperor's Children", 'Iron Warriors', 'Red Corsairs', 'Thousand Sons',
+            'Titanicus Traitoris', 'World Eaters',
+            'Black Templars', 'Blood Angels', 'Dark Angels', 'Deathwatch',
+            'Grey Knights', 'Imperial Fists', 'Iron Hands', 'Raven Guard',
+            'Salamanders', 'Space Wolves', 'Ultramarines', 'White Scars',
+            'Aeldari', 'Drukhari', 'Genestealer Cults', 'Leagues of Votann',
+            'Necrons', 'Orks', "T'au Empire", 'Tyranids'
+        ],
+        icon_folder: '40K'
     }
 ];
 
