@@ -8,18 +8,18 @@
     const pillars = [
         {
             glyph: 'sign-up',
-            title: 'Sign Up',
-            text: "Put your name down for the week's session. Any club, any system, one place to do it."
+            title: 'Signup',
+            text: 'Select your game system, choose your faction, and you\'re in. All with Discord integrations to keep your club informed.'
         },
         {
             glyph: 'pairings',
             title: 'Get Paired',
-            text: 'Matchups get worked out for you, weighing faction, experience, and who you played last time.'
+            text: 'Smart pairings keep game nights moving, while organisers stay in complete control.'
         },
         {
             glyph: 'rankings',
-            title: 'Climb the Ranks',
-            text: "Wins and losses build into standings over time, so there's always a table to compare notes on."
+            title: 'Leagues',
+            text: "Record results, follow rankings, and watch your club's campaign unfold over the season."
         }
     ];
 </script>
@@ -29,8 +29,7 @@
         <img class="hero-logo" src="/logo-hero.svg" alt="Call to Arms" in:fly={{ y: 18, duration: 600, delay: 120 }} />
 
         <p class="hero-tagline" in:fly={{ y: 14, duration: 550, delay: 240 }}>
-            Sign-ups, pairings, and rankings for your club's game nights.
-            Works with whatever you play.
+            Rally. Pair. Play.
         </p>
 
         <div class="hero-pillars" in:fade={{ duration: 500, delay: 360 }}>
