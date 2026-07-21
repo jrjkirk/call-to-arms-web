@@ -28,11 +28,7 @@
     <div class="hero-inner">
         <img class="hero-logo" src="/logo-hero.svg" alt="Call to Arms" in:fly={{ y: 18, duration: 600, delay: 120 }} />
 
-        <p class="hero-tagline" in:fly={{ y: 14, duration: 550, delay: 240 }}>
-            Rally. Pair. Play.
-        </p>
-
-        <div class="hero-cta" in:fly={{ y: 12, duration: 500, delay: 320 }}>
+        <div class="hero-cta" in:fly={{ y: 12, duration: 500, delay: 240 }}>
             <a class="hero-button" href={loginUrl}>
                 <span>Sign in with Discord</span>
             </a>
@@ -108,14 +104,6 @@
         max-width: 580px;
         height: auto;
         display: block;
-    }
-
-    .hero-tagline {
-        margin: 0.4rem 0 0;
-        max-width: 46ch;
-        color: var(--color-text-muted);
-        font-size: clamp(1rem, 1.6vw, 1.15rem);
-        line-height: 1.6;
     }
 
     .hero-about {
@@ -199,7 +187,7 @@
     }
 
     .hero-cta {
-        margin-top: clamp(1.4rem, 3vw, 2rem);
+        margin-top: clamp(1rem, 2.4vw, 1.5rem);
         display: flex;
         flex-direction: column;
         align-items: center;
