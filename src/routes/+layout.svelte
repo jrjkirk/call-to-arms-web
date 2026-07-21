@@ -274,13 +274,11 @@
        the nav tabs and .topbar-logo-link cover both jobs already. */
     .hamburger {
         display: none;
-        background: rgba(0, 0, 0, 0.25);
-        border: 1px solid var(--color-accent-border-soft);
+        background: none;
+        border: none;
+        padding: 0;
         color: var(--color-text-bright);
-        width: 40px;
-        height: 40px;
-        border-radius: 8px;
-        font-size: 1.2rem;
+        font-size: 1.6rem;
         line-height: 1;
         align-items: center;
         justify-content: center;
@@ -293,7 +291,7 @@
     }
 
     .hamburger-logo {
-        height: 22px;
+        height: 32px;
         width: auto;
         display: block;
     }
@@ -474,10 +472,10 @@
         text-decoration: none;
         font-size: 0.95rem;
         padding-bottom: 0.4rem;
-        margin-bottom: -0.7rem;
         border-bottom: 3px solid transparent;
         transition: color 0.2s ease, border-bottom-color 0.25s ease;
         position: relative;
+        box-sizing: border-box;
     }
 
     .nav-tab:hover { color: var(--color-text-bright); }
@@ -492,7 +490,7 @@
         position: absolute;
         left: 0;
         right: 0;
-        bottom: -0.7rem;
+        bottom: 0;
         height: 3px;
         background: var(--color-accent-soft);
         border-radius: 2px;
