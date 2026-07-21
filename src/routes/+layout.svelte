@@ -131,13 +131,15 @@
 
 <SiteBanner />
 
-<!-- Mobile-only top bar with hamburger toggle -->
+<!-- Mobile-only top bar: the logo doubles as the menu toggle, persisting
+     in the top-left corner instead of stacking a separate hamburger icon
+     on top of it. -->
 <div class="mobile-topbar">
-    <button class="hamburger" onclick={toggleDrawer} type="button" aria-label="Open menu">
+    <button class="hamburger" onclick={toggleDrawer} type="button" aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
         {#if drawerOpen}
             <span class="hamburger-icon">✕</span>
         {:else}
-            <span class="hamburger-icon">☰</span>
+            <img class="hamburger-logo" src="/logo.svg" alt="" />
         {/if}
     </button>
 </div>
@@ -290,6 +292,12 @@
     }
 
     .hamburger-icon {
+        display: block;
+    }
+
+    .hamburger-logo {
+        height: 22px;
+        width: auto;
         display: block;
     }
 
@@ -564,6 +572,13 @@
 
         .topbar {
             margin-bottom: 1rem;
+        }
+
+        /* The mobile hamburger button already doubles as the brand mark
+           (see .hamburger-logo), so the inline header logo would just
+           duplicate it and throw off the nav-tabs spacing. */
+        .topbar-logo-link {
+            display: none;
         }
 
         /* The auth panel becomes a left slide-out drawer, hidden by default —
