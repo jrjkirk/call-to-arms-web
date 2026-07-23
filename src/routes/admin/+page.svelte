@@ -8,8 +8,11 @@
         EXPERIENCE_OPTIONS,
     } from '$lib/signupOptions';
     import {
-        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, CANONICAL_VIBES, type SystemConfig
+        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, CANONICAL_VIBES, systemLogoUrl, type SystemConfig
     } from '$lib/systemsConfig';
+    import LineChart from '$lib/charts/LineChart.svelte';
+    import BarChart from '$lib/charts/BarChart.svelte';
+    import HBarChart from '$lib/charts/HBarChart.svelte';
 
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
@@ -277,6 +280,85 @@
         uploadError: string | null;
         uploadMessage: string | null;
     };
+
+    // ── Command Table (dashboard overview) ──────────────────────────────
+    type OverviewSystem = {
+        system: string; slug: string; name: string;
+        next_session: string; session_day: string;
+        signups: number; pairing_count: number;
+        status: 'live' | 'drafted' | 'none';
+    };
+    type ChartPoint = { label: string; value: number };
+    type AnalyticsState = {
+        loading: boolean;
+        overview: OverviewSystem[];
+        // trends are per-system, lazily loaded when a system is focused
+        trendSystem: string | null;
+        signups: ChartPoint[];
+        games: ChartPoint[];
+        factions: ChartPoint[];
+        ratings: ChartPoint[];
+        trendsLoading: boolean;
+    };
+    let analytics = $state<AnalyticsState>({
+        loading: true, overview: [], trendSystem: null,
+        signups: [], games: [], factions: [], ratings: [], trendsLoading: false,
+    });
+
+    const STATUS_META: Record<string, { glyph: string; label: string; cls: string }> = {
+        live: { glyph: '●', label: 'Pairings live', cls: 'live' },
+        drafted: { glyph: '◐', label: 'Drafted — unpublished', cls: 'drafted' },
+        none: { glyph: '○', label: 'No pairings yet', cls: 'none' },
+    };
+    // "DD/MM/YYYY" → "DD/MM" for compact chart ticks.
+    const shortWeek = (w: string) => (w && w.length >= 5 ? w.slice(0, 5) : w);
+
+    // NOTE: this runs inside onMount's Promise.all(tasks), so it must NEVER
+    // reject — a thrown fetch would reject the whole batch and leave
+    // pageLoading stuck true, hanging the entire admin page (this bit us once
+    // when a backend endpoint 500'd). Analytics is non-essential chrome, so
+    // any failure degrades to an empty Command Table, never a broken page.
+    async function loadAnalytics() {
+        analytics.loading = true;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/admin/analytics/overview`, { credentials: 'include' });
+            if (r.ok) {
+                const body = await r.json();
+                analytics.overview = body.systems ?? [];
+                // Auto-focus the first system's trends so the charts aren't empty on load.
+                const first = analytics.overview.find((s) => isSystemScope(s.system));
+                if (first) await loadTrends(first.system);
+            }
+        } catch {
+            analytics.overview = [];
+        } finally {
+            analytics.loading = false;
+        }
+    }
+
+    async function loadTrends(system: string) {
+        analytics.trendSystem = system;
+        analytics.trendsLoading = true;
+        try {
+            const q = `system=${encodeURIComponent(system)}`;
+            const [su, ga, fa, ra] = await Promise.all([
+                fetch(`${PUBLIC_API_URL}/admin/analytics/signups-over-time?${q}`, { credentials: 'include' }),
+                fetch(`${PUBLIC_API_URL}/admin/analytics/games-over-time?${q}`, { credentials: 'include' }),
+                fetch(`${PUBLIC_API_URL}/admin/analytics/faction-popularity?${q}`, { credentials: 'include' }),
+                fetch(`${PUBLIC_API_URL}/admin/analytics/rating-distribution?${q}`, { credentials: 'include' }),
+            ]);
+            analytics.signups = su.ok ? (await su.json()).map((d: any) => ({ label: shortWeek(d.week), value: d.count })) : [];
+            analytics.games = ga.ok ? (await ga.json()).map((d: any) => ({ label: shortWeek(d.week), value: d.count })) : [];
+            analytics.factions = fa.ok ? (await fa.json()).map((d: any) => ({ label: d.faction, value: d.count })) : [];
+            analytics.ratings = ra.ok
+                ? ((await ra.json()).buckets ?? []).map((b: any) => ({ label: String(b.min), value: b.count }))
+                : [];
+        } catch {
+            analytics.signups = analytics.games = analytics.factions = analytics.ratings = [];
+        } finally {
+            analytics.trendsLoading = false;
+        }
+    }
 
     let adminMe = $state<AdminMe | null>(null);
     let adminClubSlug = $state<string | undefined>(undefined);
@@ -2104,6 +2186,8 @@
             // Shared player picker used by the League results grid and the
             // per-system "add signup" form, both inside system scopes.
             tasks.push(loadBlockPlayers());
+            // Command Table overview (status tiles + trend charts at the top).
+            tasks.push(loadAnalytics());
         }
         for (const scope of adminMe.scopes) {
             tasks.push(loadHistory(scope));
@@ -2210,6 +2294,76 @@
 {:else if !adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)}
     <p class="muted">You don't have admin access.</p>
 {:else}
+
+    <!-- ══ Command Table — at-a-glance dashboard overview ══ -->
+    <section class="command-table">
+        <header class="ct-head">
+            <span class="ct-eyebrow">Command Table</span>
+            <h3 class="ct-title">This week across the club</h3>
+        </header>
+
+        {#if analytics.loading}
+            <p class="muted small">Reading the board…</p>
+        {:else if analytics.overview.length === 0}
+            <p class="muted small">No systems to report on yet.</p>
+        {:else}
+            <!-- SITUATION: one status tile per system -->
+            <div class="ct-label">Situation</div>
+            <div class="status-grid">
+                {#each analytics.overview as s (s.system)}
+                    <button
+                        type="button"
+                        class="status-tile"
+                        class:selected={analytics.trendSystem === s.system}
+                        onclick={() => loadTrends(s.system)}
+                        title={`Show trends for ${s.name}`}
+                    >
+                        <div class="st-top">
+                            <img class="st-logo" src={systemLogoUrl(s.system, systemsConfig)} alt="" />
+                            <span class="st-name">{s.name}</span>
+                        </div>
+                        <div class="st-count">
+                            <span class="st-num">{s.signups}</span>
+                            <span class="st-num-label">signed up</span>
+                        </div>
+                        <div class="st-status {STATUS_META[s.status].cls}">
+                            <span class="st-led" aria-hidden="true">{STATUS_META[s.status].glyph}</span>
+                            <span>{STATUS_META[s.status].label}</span>
+                        </div>
+                        <div class="st-next">{s.session_day} · next {s.next_session}</div>
+                    </button>
+                {/each}
+            </div>
+
+            <!-- TRENDS: charts for the focused system -->
+            <div class="ct-label ct-label-trends">
+                Trends
+                {#if analytics.trendSystem}<span class="ct-trend-sys">· {analytics.trendSystem}</span>{/if}
+            </div>
+            {#if analytics.trendsLoading}
+                <p class="muted small">Loading trends…</p>
+            {:else}
+                <div class="trend-grid">
+                    <div class="chart-card">
+                        <div class="chart-card-title">Signups over time</div>
+                        <LineChart data={analytics.signups} yLabel="Signups" />
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-card-title">Games per session</div>
+                        <BarChart data={analytics.games} />
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-card-title">League rating spread</div>
+                        <BarChart data={analytics.ratings} />
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-card-title">Faction popularity</div>
+                        <HBarChart data={analytics.factions} />
+                    </div>
+                </div>
+            {/if}
+        {/if}
+    </section>
 
     {#if adminMe.is_super_admin}
         <!-- ══ Club Page (super-admin: club-wide profile) ══ -->
@@ -4464,6 +4618,169 @@
         margin: 0 0 1.5rem;
     }
 
+    /* ── Command Table (dashboard overview) ─────────────────────────────── */
+    .command-table {
+        margin-bottom: 2.25rem;
+        padding: 1.4rem 1.5rem 1.6rem;
+        background:
+            linear-gradient(180deg, rgba(201, 161, 74, 0.05), rgba(201, 161, 74, 0) 120px),
+            var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        /* the "gilt edge" of the command table — a single accent hairline on top */
+        border-top: 2px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.34);
+    }
+    .ct-head {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        margin-bottom: 1.25rem;
+    }
+    .ct-eyebrow {
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 2.5px;
+        color: var(--color-accent);
+    }
+    .ct-title {
+        margin: 0;
+        font-size: 1.25rem;
+        color: var(--color-text-bright);
+        letter-spacing: -0.01em;
+    }
+    .ct-label {
+        text-transform: uppercase;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 1.8px;
+        color: var(--color-steel);
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--color-steel-border-soft);
+        margin-bottom: 0.9rem;
+    }
+    .ct-label-trends {
+        margin-top: 1.6rem;
+    }
+    .ct-trend-sys {
+        color: var(--color-text-dim);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.85rem;
+    }
+    .status-tile {
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        padding: 0.85rem 0.95rem;
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        /* status-tile signature: a 3px gilt left rule, echoing the global .stat-card */
+        border-left: 3px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: border-color 0.14s ease, transform 0.08s ease, background 0.14s ease;
+    }
+    .status-tile:hover {
+        border-color: var(--color-accent-border);
+        background: var(--color-surface-hover);
+    }
+    .status-tile:active {
+        transform: translateY(1px);
+    }
+    .status-tile.selected {
+        border-color: var(--color-accent);
+        border-left-color: var(--color-accent);
+        box-shadow: 0 0 0 1px var(--color-accent-border) inset;
+    }
+    .st-top {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .st-logo {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+        flex-shrink: 0;
+    }
+    .st-name {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--color-text-bright);
+        line-height: 1.15;
+    }
+    .st-count {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+    }
+    .st-num {
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: var(--color-accent-bright);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+    }
+    .st-num-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-dim);
+    }
+    .st-status {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.76rem;
+        color: var(--color-text-muted);
+    }
+    .st-led {
+        font-size: 0.7rem;
+        line-height: 1;
+    }
+    .st-status.live .st-led {
+        color: var(--color-win);
+    }
+    .st-status.drafted .st-led {
+        color: var(--color-accent);
+    }
+    .st-status.none .st-led {
+        color: var(--color-steel);
+    }
+    .st-next {
+        font-size: 0.72rem;
+        color: var(--color-text-faint);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .trend-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+    }
+    .chart-card {
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border-soft);
+        border-radius: var(--radius);
+        padding: 0.95rem 1.05rem 1.05rem;
+    }
+    .chart-card-title {
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 1.4px;
+        color: var(--color-accent);
+        margin-bottom: 0.85rem;
+    }
+
     .muted {
         color: var(--color-text-muted);
         font-style: italic;
@@ -4502,8 +4819,21 @@
         color: var(--color-accent);
         background: rgba(0, 0, 0, 0.25);
         border-bottom: 1px solid transparent;
+        /* Gilt left rule — the shared dashboard-module signature, echoing the
+           Command Table's status tiles so every panel reads as one system. */
+        border-left: 3px solid var(--color-accent-border);
         user-select: none;
         list-style: none;
+        transition: border-left-color 0.15s ease, color 0.15s ease;
+    }
+
+    .dash-group-header:hover {
+        border-left-color: var(--color-accent);
+        color: var(--color-accent-bright);
+    }
+
+    .dash-group[open] .dash-group-header {
+        border-left-color: var(--color-accent);
     }
 
     .dash-group-header::-webkit-details-marker { display: none; }
@@ -4662,7 +4992,7 @@
     }
 
     .remove-btn:hover {
-        color: #f87171;
+        color: var(--color-loss);
     }
 
     /* ── Blocks ────────────────────────────────────────────────────────── */
@@ -4829,7 +5159,7 @@
 
     .field-error {
         font-size: 0.8rem;
-        color: #f87171;
+        color: var(--color-loss);
         margin: 0.25rem 0 0;
         width: 100%;
     }
@@ -5043,7 +5373,7 @@
 
     .pairing-message {
         font-size: 0.8rem;
-        color: #86efac;
+        color: var(--color-win);
         margin: 0 0 0.5rem;
     }
 
@@ -5220,7 +5550,7 @@
 
     .dirty-indicator {
         font-size: 0.78rem;
-        color: #fbbf24;
+        color: var(--color-accent-bright);
         font-style: italic;
     }
 
