@@ -459,6 +459,41 @@
         ?? ''
     );
 
+    // Table booking — super-admin-only oversight, not a per-system-admin
+    // self-service surface like Missions/League: venue emails are closer to
+    // a billing/venue relationship than day-to-day system admin work.
+    type TableBookingData = {
+        table_booking_enabled: boolean;
+        venue_name: string | null;
+        venue_email: string;
+        cc_emails: string[];
+        players_per_table: number;
+        include_player_names: boolean;
+        send_mode: string; // 'on_publish' | 'cutoff'
+        cutoff_day: string | null;
+        cutoff_time: string | null;
+        subject_template: string | null;
+        notes: string | null;
+    };
+    const TABLE_BOOKING_CUTOFF_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    let tbSelectScope = $state('');
+    let tbLoading = $state(false);
+    let tbSaving = $state(false);
+    let tbError = $state<string | null>(null);
+    let tbMessage = $state<string | null>(null);
+    let tbEnabled = $state(false);
+    let tbVenueName = $state('');
+    let tbVenueEmail = $state('');
+    let tbCcEmailsText = $state('');
+    let tbPlayersPerTable = $state(2);
+    let tbIncludeNames = $state(true);
+    let tbSendMode = $state('on_publish');
+    let tbCutoffDay = $state('Wednesday');
+    let tbCutoffTime = $state('17:00');
+    let tbSubjectTemplate = $state('');
+    let tbNotes = $state('');
+
     function factionsFor(system: string): string[] {
         return configFor(systemsConfig, system).faction_list;
     }
@@ -1654,6 +1689,80 @@
             ls.configError = body.detail || 'Failed to save config.';
         }
         ls.configSaving = false;
+    }
+
+    async function loadTableBooking(scope: string) {
+        tbSelectScope = scope;
+        tbLoading = true;
+        tbError = null;
+        tbMessage = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/admin/table-booking-settings?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
+            if (!r.ok) throw new Error('Failed to load.');
+            const d: TableBookingData = await r.json();
+            tbEnabled = d.table_booking_enabled;
+            tbVenueName = d.venue_name ?? '';
+            tbVenueEmail = d.venue_email;
+            tbCcEmailsText = (d.cc_emails ?? []).join(', ');
+            tbPlayersPerTable = d.players_per_table;
+            tbIncludeNames = d.include_player_names;
+            tbSendMode = d.send_mode;
+            tbCutoffDay = d.cutoff_day ?? 'Wednesday';
+            tbCutoffTime = d.cutoff_time ?? '17:00';
+            tbSubjectTemplate = d.subject_template ?? '';
+            tbNotes = d.notes ?? '';
+        } catch (e) {
+            tbError = e instanceof Error ? e.message : 'Failed to load.';
+        } finally {
+            tbLoading = false;
+        }
+    }
+
+    async function saveTableBooking() {
+        if (!tbSelectScope) return;
+        tbSaving = true;
+        tbError = null;
+        tbMessage = null;
+        try {
+            const settingsRes = await fetch(`${PUBLIC_API_URL}/admin/table-booking-settings`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: tbSelectScope, table_booking_enabled: tbEnabled }),
+            });
+            if (!settingsRes.ok) {
+                const body = await settingsRes.json().catch(() => ({}));
+                throw new Error(body.detail || 'Failed to save toggle.');
+            }
+
+            const configRes = await fetch(`${PUBLIC_API_URL}/admin/table-booking-config`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system: tbSelectScope,
+                    venue_name: tbVenueName.trim() || null,
+                    venue_email: tbVenueEmail.trim(),
+                    cc_emails: tbCcEmailsText.split(',').map((s) => s.trim()).filter(Boolean),
+                    players_per_table: tbPlayersPerTable,
+                    include_player_names: tbIncludeNames,
+                    send_mode: tbSendMode,
+                    cutoff_day: tbSendMode === 'cutoff' ? tbCutoffDay : null,
+                    cutoff_time: tbSendMode === 'cutoff' ? tbCutoffTime : null,
+                    subject_template: tbSubjectTemplate.trim() || null,
+                    notes: tbNotes.trim() || null,
+                }),
+            });
+            if (!configRes.ok) {
+                const body = await configRes.json().catch(() => ({}));
+                throw new Error(body.detail || 'Failed to save config.');
+            }
+            tbMessage = 'Saved.';
+        } catch (e) {
+            tbError = e instanceof Error ? e.message : 'Failed to save.';
+        } finally {
+            tbSaving = false;
+        }
     }
 
     async function loadLeagueSeasons(scope: string) {
@@ -3917,6 +4026,122 @@
                     </button>
                 </form>
             </div>
+        </section>
+            </div>
+        </details>
+
+        <!-- ══ Table Booking ══ -->
+        <details class="dash-group">
+            <summary class="dash-group-header">
+                <span class="dash-chevron" aria-hidden="true">▶</span>
+                <span class="dash-group-title">Table Booking</span>
+            </summary>
+            <div class="dash-group-body">
+        <section class="admin-section">
+            <h3 class="section-heading">Venue Table-Booking Emails</h3>
+            <p class="section-intro">
+                When enabled, this system automatically emails the venue how many tables and
+                players to expect for a session, so they can manage capacity. Super-admin only —
+                this is venue/billing configuration, not day-to-day system administration.
+            </p>
+
+            <div class="field field-narrow">
+                <label class="field-label" for="tb-scope">System</label>
+                <select
+                    id="tb-scope"
+                    class="field-select"
+                    value={tbSelectScope}
+                    onchange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) loadTableBooking(v); }}
+                >
+                    <option value="">— Select a system —</option>
+                    {#each adminMe.scopes as s}
+                        <option value={s}>{s}</option>
+                    {/each}
+                </select>
+            </div>
+
+            {#if tbLoading}
+                <p class="muted">Loading…</p>
+            {:else if tbSelectScope}
+                <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveTableBooking(); }}>
+                    <label class="check-row">
+                        <input type="checkbox" bind:checked={tbEnabled} />
+                        <span>Send table-booking emails for {tbSelectScope}</span>
+                    </label>
+                    <div class="field-row-break"></div>
+
+                    <div class="field field-narrow">
+                        <label class="field-label" for="tb-venue-name">Venue name</label>
+                        <input id="tb-venue-name" class="field-input" type="text" bind:value={tbVenueName} placeholder="e.g. EG NWGC" />
+                    </div>
+                    <div class="field field-narrow">
+                        <label class="field-label" for="tb-venue-email">Venue email</label>
+                        <input id="tb-venue-email" class="field-input" type="email" bind:value={tbVenueEmail} placeholder="bookings@venue.example" />
+                    </div>
+                    <div class="field field-narrow">
+                        <label class="field-label" for="tb-cc-emails">CC emails (comma-separated)</label>
+                        <input id="tb-cc-emails" class="field-input" type="text" bind:value={tbCcEmailsText} placeholder="manager@venue.example, you@calltoarms.app" />
+                    </div>
+                    <div class="field-row-break"></div>
+
+                    <div class="field field-narrow">
+                        <label class="field-label" for="tb-players-per-table">Players per table</label>
+                        <input id="tb-players-per-table" class="field-input" type="number" min="1" bind:value={tbPlayersPerTable} />
+                    </div>
+                    <label class="check-row">
+                        <input type="checkbox" bind:checked={tbIncludeNames} />
+                        <span>Include player names in the email</span>
+                    </label>
+                    <div class="field-row-break"></div>
+
+                    <div class="field field-narrow">
+                        <label class="field-label" for="tb-send-mode">Send trigger</label>
+                        <select id="tb-send-mode" class="field-select" bind:value={tbSendMode}>
+                            <option value="on_publish">When pairings are published (auto or manual)</option>
+                            <option value="cutoff">At a fixed day/time each week</option>
+                        </select>
+                    </div>
+                    {#if tbSendMode === 'cutoff'}
+                        <div class="field field-narrow">
+                            <label class="field-label" for="tb-cutoff-day">Cutoff day</label>
+                            <select id="tb-cutoff-day" class="field-select" bind:value={tbCutoffDay}>
+                                {#each TABLE_BOOKING_CUTOFF_DAYS as d}
+                                    <option>{d}</option>
+                                {/each}
+                            </select>
+                        </div>
+                        <div class="field field-narrow">
+                            <label class="field-label" for="tb-cutoff-time">Cutoff time</label>
+                            <input id="tb-cutoff-time" class="field-input" type="time" bind:value={tbCutoffTime} />
+                        </div>
+                        <p class="field-caption">
+                            Sent at this day/time (UK local) based on headcount so far — pairings may not exist yet.
+                        </p>
+                    {/if}
+                    <div class="field-row-break"></div>
+
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="tb-subject">Custom subject (optional)</label>
+                        <input id="tb-subject" class="field-input" type="text" bind:value={tbSubjectTemplate} placeholder="Leave blank for the default subject" />
+                    </div>
+                    <div class="field player-edit-wide">
+                        <label class="field-label" for="tb-notes">Notes (optional, internal)</label>
+                        <textarea id="tb-notes" class="field-input field-textarea" rows="2" bind:value={tbNotes}></textarea>
+                    </div>
+
+                    {#if tbError}
+                        <p class="field-error">{tbError}</p>
+                    {/if}
+                    {#if tbMessage}
+                        <p class="pairing-message">{tbMessage}</p>
+                    {/if}
+                    <div class="system-form-actions">
+                        <button type="submit" class="primary-button" disabled={tbSaving || !tbVenueEmail.trim()}>
+                            {tbSaving ? 'Saving…' : 'Save'}
+                        </button>
+                    </div>
+                </form>
+            {/if}
         </section>
             </div>
         </details>
