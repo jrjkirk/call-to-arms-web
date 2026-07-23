@@ -138,6 +138,24 @@
         points_loss: number;
         winloss_use_painting: boolean;
     };
+    type PairingWeightConfigData = {
+        uses_scenarios: boolean;
+        uses_points: boolean;
+        weight_mirror: number;
+        weight_rematch: number;
+        weight_vibe: number;
+        weight_experience: number;
+        weight_eta: number;
+        weight_scenario: number;
+        weight_points: number;
+    };
+    type PairingWeightState = {
+        config: PairingWeightConfigData | null;
+        loading: boolean;
+        saving: boolean;
+        error: string | null;
+        message: string | null;
+    };
     type LeagueChampion = { player_id: number; name: string; rating: number };
     type LeagueSeasonRow = {
         id: number;
@@ -272,6 +290,7 @@
     let blockPlayers = $state<BlockPlayer[]>([]);
     let historyByScope = $state<Record<string, any[]>>({});
     let leagueState = $state<Record<string, LeagueState>>({});
+    let pairingWeightState = $state<Record<string, PairingWeightState>>({});
 
     const PAINTING_OPTIONS = ['Partially Painted', 'Fully Painted'];
     const GAME_TYPE_OPTIONS = ['Casual', 'Competitive'];
@@ -1716,6 +1735,49 @@
         ls.configSaving = false;
     }
 
+    function initPairingWeightState(): PairingWeightState {
+        return { config: null, loading: false, saving: false, error: null, message: null };
+    }
+
+    async function loadPairingWeightConfig(scope: string) {
+        const ws = pairingWeightState[scope];
+        ws.loading = true;
+        ws.error = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/pairing-config?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
+        if (r.ok) {
+            ws.config = await r.json();
+        } else {
+            ws.error = 'Failed to load pairing weighting config.';
+        }
+        ws.loading = false;
+    }
+
+    async function savePairingWeightConfig(scope: string) {
+        const ws = pairingWeightState[scope];
+        if (!ws.config) return;
+        ws.saving = true;
+        ws.error = null;
+        ws.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/pairing-config`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, ...ws.config }),
+        });
+        if (r.ok) {
+            ws.message = 'Saved — takes effect on the next pairings preview/generate.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            ws.error = body.detail || 'Failed to save.';
+        }
+        ws.saving = false;
+    }
+
+    async function initPairingWeightForScope(scope: string) {
+        pairingWeightState[scope] = initPairingWeightState();
+        await loadPairingWeightConfig(scope);
+    }
+
     async function loadTableBooking(scope: string) {
         tbSelectScope = scope;
         tbLoading = true;
@@ -1983,7 +2045,7 @@
         pairings[scope] = initPairingsState(scope, week);
         await Promise.all([
             loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
-            loadMissions(scope), initLeagueForScope(scope),
+            loadMissions(scope), initLeagueForScope(scope), initPairingWeightForScope(scope),
             loadCarousel(scope), loadSystemEvents(scope),
         ]);
     }
@@ -2689,6 +2751,76 @@
                                             {/if}
                                         </div>
                                     {/if}
+                                {/if}
+                            </div>
+                        {/if}
+
+                        <!-- Pairing weighting (system scopes only) -->
+                        {#if isSystemScope(scope) && pairingWeightState[scope]}
+                            {@const ws = pairingWeightState[scope]}
+                            <div class="sub-section pairings-section">
+                                <h4 class="sub-heading">Pairing Weighting</h4>
+
+                                {#if ws.loading}
+                                    <p class="muted small">Loading…</p>
+                                {:else if ws.config}
+                                    <details class="league-settings-details">
+                                        <summary>Matchmaking weights</summary>
+                                        <div class="league-settings-body">
+                                            <p class="league-help-text">
+                                                Sliders control how much each factor matters when
+                                                pairing opponents for this system — higher means
+                                                the matcher works harder to satisfy that factor.
+                                                Set a slider to 0 to ignore it entirely. Admin
+                                                blocks and "don't repeat last week's opponent" are
+                                                always enforced first, regardless of these weights.
+                                            </p>
+
+                                            <div class="league-config-form">
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="pw-mirror-{scope}">Avoid same-faction rematch: {ws.config.weight_mirror}</label>
+                                                    <input id="pw-mirror-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_mirror} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="pw-rematch-{scope}">Avoid recent repeat opponent: {ws.config.weight_rematch}</label>
+                                                    <input id="pw-rematch-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_rematch} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="pw-vibe-{scope}">Match by vibe (casual/competitive): {ws.config.weight_vibe}</label>
+                                                    <input id="pw-vibe-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_vibe} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="pw-exp-{scope}">Match by experience: {ws.config.weight_experience}</label>
+                                                    <input id="pw-exp-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_experience} />
+                                                </div>
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="pw-eta-{scope}">Match by arrival time (ETA): {ws.config.weight_eta}</label>
+                                                    <input id="pw-eta-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_eta} />
+                                                </div>
+                                                {#if ws.config.uses_scenarios}
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="pw-scen-{scope}">Match by scenario pick: {ws.config.weight_scenario}</label>
+                                                        <input id="pw-scen-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_scenario} />
+                                                    </div>
+                                                {/if}
+                                                {#if ws.config.uses_points}
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="pw-pts-{scope}">Match by points closeness: {ws.config.weight_points}</label>
+                                                        <input id="pw-pts-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_points} />
+                                                    </div>
+                                                {/if}
+
+                                                {#if ws.message}<p class="pairing-message">{ws.message}</p>{/if}
+                                                {#if ws.error}<p class="field-error">{ws.error}</p>{/if}
+                                                <button
+                                                    class="primary-button"
+                                                    type="button"
+                                                    disabled={ws.saving}
+                                                    onclick={() => savePairingWeightConfig(scope)}
+                                                >{ws.saving ? 'Saving…' : 'Save weighting'}</button>
+                                            </div>
+                                        </div>
+                                    </details>
                                 {/if}
                             </div>
                         {/if}
