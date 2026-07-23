@@ -4622,9 +4622,7 @@
     .command-table {
         margin-bottom: 2.25rem;
         padding: 1.4rem 1.5rem 1.6rem;
-        background:
-            linear-gradient(180deg, rgba(201, 161, 74, 0.05), rgba(201, 161, 74, 0) 120px),
-            var(--color-surface);
+        background: var(--color-surface);
         border: 1px solid var(--color-steel-border);
         /* the "gilt edge" of the command table — a single accent hairline on top */
         border-top: 2px solid var(--color-accent-border);
