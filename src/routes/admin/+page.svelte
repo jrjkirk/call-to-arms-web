@@ -360,6 +360,32 @@
         }
     }
 
+    // ── Sidebar navigation (function-first console) ─────────────────────
+    // activeNav = which panel is shown; activeSystem = the focused system for
+    // system-scoped panels (a single var replacing the old per-scope loop).
+    let activeNav = $state('overview');
+    let activeSystem = $state<string | null>(null);
+
+    const SYSTEM_NAV = [
+        { id: 'pairings', label: 'Pairings' },
+        { id: 'league', label: 'League' },
+        { id: 'weighting', label: 'Weighting' },
+        { id: 'missions', label: 'Missions' },
+        { id: 'autopairings', label: 'Auto-pairings' },
+        { id: 'announcements', label: 'Announcements' },
+        { id: 'clubcard', label: 'Club card' },
+    ];
+    // super: true = super-admin only. Blocks are club-wide and matter to
+    // system admins too, so they stay visible to any admin.
+    const CLUB_NAV = [
+        { id: 'clubpage', label: 'Club page', super: true },
+        { id: 'blocks', label: 'Players & blocks', super: false },
+        { id: 'systems', label: 'Systems', super: true },
+        { id: 'discord', label: 'Discord', super: true },
+        { id: 'admins', label: 'Admins', super: true },
+        { id: 'booking', label: 'Table booking', super: true },
+    ];
+
     let adminMe = $state<AdminMe | null>(null);
     let adminClubSlug = $state<string | undefined>(undefined);
     let rolesData = $state<RolesData | null>(null);
@@ -2165,6 +2191,9 @@
         // different club's subdomain), so has_league/vibe overrides reflect
         // the club they actually administer.
         getSystemsConfig(adminClubSlug).then((c) => (systemsConfig = c));
+        if (adminMe && adminMe.scopes.length > 0) {
+            activeSystem = adminMe.scopes.find((s) => isSystemScope(s)) ?? adminMe.scopes[0];
+        }
         if (!adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)) {
             pageLoading = false;
             return;
@@ -2295,6 +2324,54 @@
     <p class="muted">You don't have admin access.</p>
 {:else}
 
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <button
+                type="button"
+                class="nav-item"
+                class:active={activeNav === 'overview'}
+                onclick={() => (activeNav = 'overview')}
+            >Overview</button>
+
+            {#if adminMe.scopes.length > 0}
+                <div class="nav-group-label">This system</div>
+                <select
+                    class="field-select nav-system-select"
+                    bind:value={activeSystem}
+                    aria-label="Select system"
+                >
+                    {#each adminMe.scopes.filter(isSystemScope) as s}
+                        <option value={s}>{s}</option>
+                    {/each}
+                </select>
+                {#each SYSTEM_NAV as item}
+                    <button
+                        type="button"
+                        class="nav-item"
+                        class:active={activeNav === item.id}
+                        onclick={() => (activeNav = item.id)}
+                    >{item.label}</button>
+                {/each}
+            {/if}
+
+            {#if adminMe.is_super_admin || adminMe.scopes.length > 0}
+                <div class="nav-group-label">Club admin</div>
+                {#each CLUB_NAV as item}
+                    {#if !item.super || adminMe.is_super_admin}
+                        <button
+                            type="button"
+                            class="nav-item"
+                            class:active={activeNav === item.id}
+                            onclick={() => (activeNav = item.id)}
+                        >{item.label}</button>
+                    {/if}
+                {/each}
+            {/if}
+        </aside>
+
+        <div class="admin-main">
+
+    {#if activeNav === 'overview'}
     <!-- ══ Command Table — at-a-glance dashboard overview ══ -->
     <section class="command-table">
         <header class="ct-head">
@@ -2364,14 +2441,14 @@
             {/if}
         {/if}
     </section>
+    {/if}
 
-    {#if adminMe.is_super_admin}
+    {#if activeNav === 'clubpage' && adminMe.is_super_admin}
         <!-- ══ Club Page (super-admin: club-wide profile) ══ -->
-        <details class="dash-group">
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+        <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Club Page</span>
-            </summary>
+            </div>
             <div class="dash-group-body">
                 <section class="admin-section">
                     <h3 class="section-heading">Club Profile</h3>
@@ -2564,26 +2641,18 @@
                     {/if}
                 </section>
             </div>
-        </details>
+        </div>
     {/if}
 
-    {#if adminMe.scopes.length > 0}
-        <!-- ══ Weekly Pairings & Games ══ -->
-        <details class="dash-group" open>
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
-                <span class="dash-group-title">Weekly Pairings &amp; Games</span>
-            </summary>
+    {#if activeNav === 'pairings' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Recent Games</span>
+            </div>
             <div class="dash-group-body">
         <section class="admin-section">
-            <div class="scope-cards">
-                {#each adminMe.scopes as scope}
-                    <div class="scope-card">
-                        <div class="scope-card-title">{scope}</div>
-
-                        <!-- Recent Games -->
                         <div class="sub-section">
-                            <h4 class="sub-heading">Recent Games</h4>
                             {#if historyLoading[scope]}
                                 <p class="muted small">Loading…</p>
                             {:else if !(historyByScope[scope]?.length)}
@@ -2607,13 +2676,24 @@
                                 </ul>
                             {/if}
                         </div>
+        </section>
+            </div>
+        </div>
+    {/if}
 
+    {#if activeNav === 'league' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">League</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
                         <!-- League (system scopes only) — enable toggle, scoring config,
                              seasons, and this season's editable results grid. -->
                         {#if isSystemScope(scope) && leagueState[scope]}
                             {@const ls = leagueState[scope]}
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">League</h4>
 
                                 {#if ls.configLoading}
                                     <p class="muted small">Loading…</p>
@@ -2924,12 +3004,23 @@
                                 {/if}
                             </div>
                         {/if}
+        </section>
+            </div>
+        </div>
+    {/if}
 
+    {#if activeNav === 'weighting' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Pairing Weighting</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
                         <!-- Pairing weighting (system scopes only) -->
                         {#if isSystemScope(scope) && pairingWeightState[scope]}
                             {@const ws = pairingWeightState[scope]}
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">Pairing Weighting</h4>
 
                                 {#if ws.loading}
                                     <p class="muted small">Loading…</p>
@@ -2994,14 +3085,24 @@
                                 {/if}
                             </div>
                         {/if}
+        </section>
+            </div>
+        </div>
+    {/if}
 
+    {#if activeNav === 'pairings' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">This Week's Signups</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
                         <!-- Weekly Pairings (system scopes only) -->
                         {#if isSystemScope(scope) && pairings[scope]}
                             {@const ps = pairings[scope]}
 
-                            <!-- This Week's Signups -->
                             <div class="sub-section">
-                                <h4 class="sub-heading">This Week's Signups</h4>
 
                                 {#if ps.signupsError}
                                     <p class="field-error">{ps.signupsError}</p>
@@ -3527,12 +3628,23 @@
                                 </div>
                             {/if}
                         {/if}
+        </section>
+            </div>
+        </div>
+    {/if}
 
+    {#if activeNav === 'autopairings' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Auto-Pairings</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
                         <!-- Auto-Pairings settings (system scopes only) -->
                         {#if isSystemScope(scope) && autoPairingsSettings[scope]}
                             {@const aps = autoPairingsSettings[scope]}
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">Auto-Pairings</h4>
                                 <div class="auto-pairings-form">
                                     <div class="field field-narrow">
                                         <label class="field-label" for="ap-day-{scope}">Day</label>
@@ -3571,7 +3683,19 @@
                                 >{aps.saving ? 'Saving…' : 'Save'}</button>
                             </div>
                         {/if}
+        </section>
+            </div>
+        </div>
+    {/if}
 
+    {#if activeNav === 'announcements' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Announcements</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
                         <!-- Call to Arms settings (system scopes only) -->
                         {#if isSystemScope(scope) && callToArmsSettings[scope]}
                             {@const cta = callToArmsSettings[scope]}
@@ -3670,7 +3794,19 @@
                                 >{cta.saving ? 'Saving…' : 'Save'}</button>
                             </div>
                         {/if}
+        </section>
+            </div>
+        </div>
+    {/if}
 
+    {#if activeNav === 'missions' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Missions</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
                         <!-- Missions pool (system scopes only) -->
                         {#if isSystemScope(scope) && missionsState[scope]}
                             {@const ms = missionsState[scope]}
@@ -3795,7 +3931,19 @@
                                 {/if}
                             </div>
                         {/if}
+        </section>
+            </div>
+        </div>
+    {/if}
 
+    {#if activeNav === 'clubcard' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Club Card</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
                         <!-- Club page carousel card + events (system scopes only) -->
                         {#if isSystemScope(scope) && carouselState[scope]}
                             {@const cs = carouselState[scope]}
@@ -3926,21 +4074,17 @@
                                 {/if}
                             </div>
                         {/if}
-
-                    </div>
-                {/each}
-            </div>
         </section>
             </div>
-        </details>
+        </div>
     {/if}
 
+    {#if activeNav === 'blocks'}
     <!-- ══ Players & Blocks ══ -->
-    <details class="dash-group">
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Players &amp; Blocks</span>
-            </summary>
+            </div>
         <div class="dash-group-body">
     {#if adminMe.is_super_admin}
         <!-- ── Edit Player Profile ───────────────────────────────────────────── -->
@@ -4096,15 +4240,15 @@
         {/if}
     </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
-    {#if adminMe.is_super_admin}
+    {#if activeNav === 'systems' && adminMe.is_super_admin}
         <!-- ══ Systems & Schedule ══ -->
-        <details class="dash-group">
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+        <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Systems &amp; Schedule</span>
-            </summary>
+            </div>
             <div class="dash-group-body">
         <section class="admin-section">
             <p class="section-intro">
@@ -4257,14 +4401,15 @@
             {/if}
         </section>
             </div>
-        </details>
+        </div>
+    {/if}
 
+    {#if activeNav === 'discord' && adminMe.is_super_admin}
         <!-- ══ Discord Integrations ══ -->
-        <details class="dash-group">
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+        <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Discord Integrations</span>
-            </summary>
+            </div>
             <div class="dash-group-body">
         <section class="admin-section">
             <h3 class="section-heading">Discord Webhooks</h3>
@@ -4330,14 +4475,15 @@
             {/if}
         </section>
             </div>
-        </details>
+        </div>
+    {/if}
 
+    {#if activeNav === 'admins' && adminMe.is_super_admin}
         <!-- ══ Admins & Delegates ══ -->
-        <details class="dash-group">
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+        <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Admins &amp; Delegates</span>
-            </summary>
+            </div>
             <div class="dash-group-body">
         <section class="admin-section">
 
@@ -4421,14 +4567,15 @@
             </div>
         </section>
             </div>
-        </details>
+        </div>
+    {/if}
 
+    {#if activeNav === 'booking' && adminMe.is_super_admin}
         <!-- ══ Table Booking ══ -->
-        <details class="dash-group">
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+        <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Table Booking</span>
-            </summary>
+            </div>
             <div class="dash-group-body">
         <section class="admin-section">
             <h3 class="section-heading">Venue Table-Booking Emails</h3>
@@ -4607,8 +4754,11 @@
             {/if}
         </section>
             </div>
-        </details>
+        </div>
     {/if}
+
+        </div>
+    </div>
 
 {/if}
 
@@ -4616,6 +4766,106 @@
     .page-heading {
         font-size: 1.5rem;
         margin: 0 0 1.5rem;
+    }
+
+    /* ── Console shell (sidebar + main panel) ────────────────────────────── */
+    .admin-shell {
+        display: grid;
+        grid-template-columns: minmax(180px, 220px) 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .admin-sidebar {
+        position: sticky;
+        top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        padding: 0.6rem;
+    }
+
+    .nav-group-label {
+        text-transform: uppercase;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 1.4px;
+        color: var(--color-steel);
+        margin: 0.8rem 0 0.35rem 0.5rem;
+    }
+
+    .nav-group-label:first-child {
+        margin-top: 0.2rem;
+    }
+
+    .nav-system-select {
+        margin: 0 0.15rem 0.35rem;
+        width: auto;
+    }
+
+    .nav-item {
+        text-align: left;
+        background: transparent;
+        border: none;
+        border-left: 3px solid transparent;
+        border-radius: 0;
+        color: var(--color-text-muted);
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.5rem 0.6rem;
+        cursor: pointer;
+        transition: background 0.12s ease, color 0.12s ease, border-left-color 0.12s ease;
+    }
+
+    .nav-item:hover {
+        background: var(--color-surface-hover);
+        color: var(--color-text-bright);
+    }
+
+    .nav-item.active {
+        background: var(--color-surface-hover);
+        border-left-color: var(--color-accent);
+        color: var(--color-accent-bright);
+    }
+
+    .admin-main {
+        min-width: 0;
+    }
+
+    @media (max-width: 860px) {
+        .admin-shell {
+            grid-template-columns: 1fr;
+        }
+        .admin-sidebar {
+            position: static;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .nav-group-label {
+            width: 100%;
+            margin: 0.4rem 0 0.1rem 0.2rem;
+        }
+        .nav-system-select {
+            width: 100%;
+        }
+        .nav-item {
+            border-left: none;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-item.active {
+            border-bottom-color: var(--color-accent);
+        }
+    }
+
+    /* Static (non-interactive) module header — used where a panel used to be
+       a collapsible <details> but is now shown standalone via the sidebar. */
+    .dash-group-header.static {
+        cursor: default;
+        border-left-color: var(--color-accent-border);
     }
 
     /* ── Command Table (dashboard overview) ─────────────────────────────── */
@@ -4828,27 +5078,6 @@
     .dash-group-header:hover {
         border-left-color: var(--color-accent);
         color: var(--color-accent-bright);
-    }
-
-    .dash-group[open] .dash-group-header {
-        border-left-color: var(--color-accent);
-    }
-
-    .dash-group-header::-webkit-details-marker { display: none; }
-
-    .dash-group[open] .dash-group-header {
-        border-bottom-color: var(--color-accent-border);
-    }
-
-    .dash-chevron {
-        font-size: 0.7rem;
-        line-height: 1;
-        transition: transform 0.15s;
-        display: inline-block;
-    }
-
-    .dash-group[open] .dash-chevron {
-        transform: rotate(90deg);
     }
 
     .dash-group-title {
@@ -5235,31 +5464,6 @@
 
     .publish-btn:hover {
         opacity: 0.85;
-    }
-
-    /* ── Scope cards ────────────────────────────────────────────────────── */
-
-    .scope-cards {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-
-    /* Member panel inside a group — a quieter square steel panel. */
-    .scope-card {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        padding: 1.2rem 1.4rem;
-    }
-
-    .scope-card-title {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: var(--color-accent);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 1rem;
     }
 
     /* ── History list ───────────────────────────────────────────────────── */
