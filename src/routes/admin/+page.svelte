@@ -13,6 +13,7 @@
     import LineChart from '$lib/charts/LineChart.svelte';
     import BarChart from '$lib/charts/BarChart.svelte';
     import HBarChart from '$lib/charts/HBarChart.svelte';
+    import PieChart from '$lib/charts/PieChart.svelte';
 
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
@@ -1859,6 +1860,25 @@
         return Math.round((Number(cfg[field]) / total) * 1000) / 10;
     }
 
+    // Validated 7-slot categorical order (dataviz skill) for the live donut —
+    // order is the CVD-safety mechanism, not cosmetic; matches the sliders'
+    // display order below (mirror, rematch, vibe, experience, eta, scenario,
+    // points). Do not reorder without re-validating with the palette script.
+    const PAIRING_WEIGHT_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9'];
+
+    function pairingWeightSlices(cfg: PairingWeightConfigData): { label: string; value: number; color: string }[] {
+        const rows: { label: string; value: number }[] = [
+            { label: 'Avoid same-faction rematch', value: cfg.weight_mirror },
+            { label: 'Avoid recent repeat opponent', value: cfg.weight_rematch },
+            { label: 'Vibe match', value: cfg.weight_vibe },
+            { label: 'Experience match', value: cfg.weight_experience },
+            { label: 'Arrival time (ETA) match', value: cfg.weight_eta },
+        ];
+        if (cfg.uses_scenarios) rows.push({ label: 'Scenario match', value: cfg.weight_scenario });
+        if (cfg.uses_points) rows.push({ label: 'Points closeness', value: cfg.weight_points });
+        return rows.map((r, i) => ({ ...r, color: PAIRING_WEIGHT_COLORS[i] }));
+    }
+
     function initPairingWeightState(): PairingWeightState {
         return { config: null, loading: false, saving: false, error: null, message: null };
     }
@@ -3037,35 +3057,36 @@
                                                 always enforced first, regardless of these weights.
                                             </p>
 
-                                            <div class="league-config-form">
-                                                <div class="field field-narrow">
+                                            <div class="pairing-weight-layout">
+                                            <div class="league-config-form pairing-weight-form">
+                                                <div class="field">
                                                     <label class="field-label" for="pw-mirror-{scope}">Avoid same-faction rematch: {ws.config.weight_mirror} ({pwPercent(ws.config, 'weight_mirror')}%)</label>
                                                     <input id="pw-mirror-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_mirror} />
                                                 </div>
-                                                <div class="field field-narrow">
+                                                <div class="field">
                                                     <label class="field-label" for="pw-rematch-{scope}">Avoid recent repeat opponent: {ws.config.weight_rematch} ({pwPercent(ws.config, 'weight_rematch')}%)</label>
                                                     <input id="pw-rematch-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_rematch} />
                                                 </div>
-                                                <div class="field field-narrow">
+                                                <div class="field">
                                                     <label class="field-label" for="pw-vibe-{scope}">Match by vibe (casual/competitive): {ws.config.weight_vibe} ({pwPercent(ws.config, 'weight_vibe')}%)</label>
                                                     <input id="pw-vibe-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_vibe} />
                                                 </div>
-                                                <div class="field field-narrow">
+                                                <div class="field">
                                                     <label class="field-label" for="pw-exp-{scope}">Match by experience: {ws.config.weight_experience} ({pwPercent(ws.config, 'weight_experience')}%)</label>
                                                     <input id="pw-exp-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_experience} />
                                                 </div>
-                                                <div class="field field-narrow">
+                                                <div class="field">
                                                     <label class="field-label" for="pw-eta-{scope}">Match by arrival time (ETA): {ws.config.weight_eta} ({pwPercent(ws.config, 'weight_eta')}%)</label>
                                                     <input id="pw-eta-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_eta} />
                                                 </div>
                                                 {#if ws.config.uses_scenarios}
-                                                    <div class="field field-narrow">
+                                                    <div class="field">
                                                         <label class="field-label" for="pw-scen-{scope}">Match by scenario pick: {ws.config.weight_scenario} ({pwPercent(ws.config, 'weight_scenario')}%)</label>
                                                         <input id="pw-scen-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_scenario} />
                                                     </div>
                                                 {/if}
                                                 {#if ws.config.uses_points}
-                                                    <div class="field field-narrow">
+                                                    <div class="field">
                                                         <label class="field-label" for="pw-pts-{scope}">Match by points closeness: {ws.config.weight_points} ({pwPercent(ws.config, 'weight_points')}%)</label>
                                                         <input id="pw-pts-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_points} />
                                                     </div>
@@ -3079,6 +3100,12 @@
                                                     disabled={ws.saving}
                                                     onclick={() => savePairingWeightConfig(scope)}
                                                 >{ws.saving ? 'Saving…' : 'Save weighting'}</button>
+                                            </div>
+
+                                            <div class="pairing-weight-chart">
+                                                <div class="chart-card-title">Share of total weighting</div>
+                                                <PieChart data={pairingWeightSlices(ws.config)} />
+                                            </div>
                                             </div>
                                         </div>
                                     </div>
@@ -5985,6 +6012,34 @@
         flex-direction: column;
         gap: 0.6rem;
         margin-top: 0.5rem;
+    }
+
+    /* ── Pairing weighting: sliders + live donut side by side ────────────── */
+    .pairing-weight-layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 420px) minmax(260px, 1fr);
+        gap: 1.75rem;
+        align-items: start;
+    }
+    .pairing-weight-form {
+        min-width: 0;
+    }
+    .pairing-weight-chart {
+        min-width: 0;
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border-soft);
+        border-radius: var(--radius);
+        padding: 0.95rem 1.05rem 1.05rem;
+        position: sticky;
+        top: 1rem;
+    }
+    @media (max-width: 760px) {
+        .pairing-weight-layout {
+            grid-template-columns: 1fr;
+        }
+        .pairing-weight-chart {
+            position: static;
+        }
     }
     .season-list {
         list-style: none;

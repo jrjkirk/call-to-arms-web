@@ -72,6 +72,18 @@
     let adminMe = $state<AdminMe | null>(null);
     let pageLoading = $state(true);
 
+    // ── Sidebar navigation ───────────────────────────────────────────────
+    let activeNav = $state('clubs');
+    const PLATFORM_NAV = [
+        { id: 'clubs', label: 'Club Management' },
+        { id: 'systems', label: 'Game Systems' },
+        { id: 'banner', label: 'Site Banner' },
+        { id: 'jobs', label: 'Scheduled Jobs' },
+        { id: 'audit', label: 'Audit Log' },
+        { id: 'requests', label: 'Club Requests' },
+        { id: 'finduser', label: 'Find a User' },
+    ];
+
     let clubs = $state<PlatformClub[]>([]);
     let clubsLoading = $state(false);
     let clubsError = $state<string | null>(null);
@@ -812,12 +824,31 @@
         club's own <a href="/admin">Admin</a> tools.
     </p>
 
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            {#each PLATFORM_NAV as item}
+                <button
+                    type="button"
+                    class="nav-item"
+                    class:active={activeNav === item.id}
+                    onclick={() => (activeNav = item.id)}
+                >
+                    {item.label}
+                    {#if item.id === 'requests' && pendingClubRequestCount > 0}
+                        <span class="pending-count-badge">{pendingClubRequestCount}</span>
+                    {/if}
+                </button>
+            {/each}
+        </aside>
+
+        <div class="admin-main">
+
+    {#if activeNav === 'clubs'}
     <!-- ══ Club Management ══ -->
-    <details class="dash-group" open>
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Club Management</span>
-            </summary>
+            </div>
         <div class="dash-group-body">
     <section class="admin-section">
         <h3 class="section-heading">Clubs</h3>
@@ -898,14 +929,15 @@
         </form>
     </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
+    {#if activeNav === 'systems'}
     <!-- ══ Game Systems ══ -->
-    <details class="dash-group">
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+            <div class="dash-group-header static">
                 <span class="dash-group-title">Game Systems</span>
-            </summary>
+            </div>
         <div class="dash-group-body">
     <section class="admin-section">
         <p class="section-intro">
@@ -1099,14 +1131,15 @@
         {/if}
     </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
+    {#if activeNav === 'banner'}
     <!-- ══ Site Banner ══ -->
-    <details class="dash-group">
-        <summary class="dash-group-header">
-            <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+        <div class="dash-group-header static">
             <span class="dash-group-title">Site Banner</span>
-        </summary>
+        </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">Announcement Banner</h3>
@@ -1143,14 +1176,15 @@
                 {/if}
             </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
+    {#if activeNav === 'jobs'}
     <!-- ══ Scheduled Jobs ══ -->
-    <details class="dash-group">
-        <summary class="dash-group-header">
-            <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+        <div class="dash-group-header static">
             <span class="dash-group-title">Scheduled Jobs</span>
-        </summary>
+        </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">Scheduled Job Health</h3>
@@ -1180,14 +1214,15 @@
                 {/if}
             </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
+    {#if activeNav === 'audit'}
     <!-- ══ Audit Log ══ -->
-    <details class="dash-group">
-        <summary class="dash-group-header">
-            <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+        <div class="dash-group-header static">
             <span class="dash-group-title">Audit Log</span>
-        </summary>
+        </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">Recent Platform Admin Actions</h3>
@@ -1222,17 +1257,18 @@
                 {/if}
             </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
+    {#if activeNav === 'requests'}
     <!-- ══ Club Requests ══ -->
-    <details class="dash-group" open={clubRequests.some((r) => r.status === 'pending')}>
-        <summary class="dash-group-header">
-            <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+        <div class="dash-group-header static">
             <span class="dash-group-title">
                 Club Requests
                 {#if pendingClubRequestCount > 0}<span class="pending-count-badge">{pendingClubRequestCount}</span>{/if}
             </span>
-        </summary>
+        </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">"Add My Club" Requests</h3>
@@ -1282,14 +1318,15 @@
                 {#if clubRequestError}<p class="field-error">{clubRequestError}</p>{/if}
             </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
+    {#if activeNav === 'finduser'}
     <!-- ══ Find a User ══ -->
-    <details class="dash-group">
-        <summary class="dash-group-header">
-            <span class="dash-chevron" aria-hidden="true">▶</span>
+    <div class="dash-group">
+        <div class="dash-group-header static">
             <span class="dash-group-title">Find a User</span>
-        </summary>
+        </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">Cross-club User Search</h3>
@@ -1333,15 +1370,18 @@
                 {/if}
             </section>
         </div>
-    </details>
+    </div>
+    {/if}
 
     {#if selectedClub}
-        <!-- ══ Managing (per-club) ══ -->
-        <details class="dash-group" open>
-            <summary class="dash-group-header">
-                <span class="dash-chevron" aria-hidden="true">▶</span>
+        <!-- ══ Managing (per-club) — pinned below the active tab regardless
+             of which tab triggered the selection (Club Management or Find a
+             User), so switching tabs doesn't lose the in-progress edit. ══ -->
+        <div class="dash-group managing-panel">
+            <div class="dash-group-header static managing-header">
                 <span class="dash-group-title">Managing: {selectedClub.name}</span>
-            </summary>
+                <button type="button" class="managing-close" onclick={() => (selectedClubId = null)}>Close ✕</button>
+            </div>
             <div class="dash-group-body">
         <section class="admin-section">
 
@@ -1603,14 +1643,122 @@
             {/if}
         </section>
             </div>
-        </details>
+        </div>
     {/if}
+
+        </div>
+    </div>
 {/if}
 
 <style>
     .page-heading {
         font-size: 1.5rem;
         margin: 0 0 1.5rem;
+    }
+
+    /* ── Console shell (sidebar + main panel) ────────────────────────────── */
+    .admin-shell {
+        display: grid;
+        grid-template-columns: minmax(180px, 220px) 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .admin-sidebar {
+        position: sticky;
+        top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        padding: 0.6rem;
+    }
+
+    .nav-item {
+        text-align: left;
+        background: transparent;
+        border: none;
+        border-left: 3px solid transparent;
+        border-radius: 0;
+        color: var(--color-text-muted);
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.5rem 0.6rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: background 0.12s ease, color 0.12s ease, border-left-color 0.12s ease;
+    }
+
+    .nav-item:hover {
+        background: var(--color-surface-hover);
+        color: var(--color-text-bright);
+    }
+
+    .nav-item.active {
+        background: var(--color-surface-hover);
+        border-left-color: var(--color-accent);
+        color: var(--color-accent-bright);
+    }
+
+    .admin-main {
+        min-width: 0;
+    }
+
+    @media (max-width: 860px) {
+        .admin-shell {
+            grid-template-columns: 1fr;
+        }
+        .admin-sidebar {
+            position: static;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .nav-item {
+            border-left: none;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-item.active {
+            border-bottom-color: var(--color-accent);
+        }
+    }
+
+    /* Static (non-interactive) module header — used where a panel used to be
+       a collapsible <details> but is now shown standalone via the sidebar. */
+    .dash-group-header.static {
+        cursor: default;
+        border-left-color: var(--color-accent-border);
+    }
+
+    .managing-panel {
+        margin-top: 1.25rem;
+        border-top: 2px solid var(--color-accent-border);
+    }
+
+    .managing-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .managing-close {
+        background: transparent;
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-muted);
+        font-size: 0.75rem;
+        padding: 0.25rem 0.6rem;
+        cursor: pointer;
+        transition: border-color 0.12s ease, color 0.12s ease;
+    }
+
+    .managing-close:hover {
+        border-color: var(--color-accent-border);
+        color: var(--color-accent-bright);
     }
 
     .muted {
@@ -1633,12 +1781,12 @@
         margin-bottom: 2rem;
     }
 
-    /* ── Dashboard groups (collapsible) ──────────────────────────────────── */
+    /* ── Dashboard groups ─────────────────────────────────────────────────── */
 
     .dash-group {
         margin-bottom: 1.25rem;
-        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
-        border: 1px solid var(--color-accent-border);
+        background: var(--color-surface);
+        border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
         overflow: hidden;
@@ -1649,33 +1797,14 @@
         align-items: center;
         gap: 0.6rem;
         padding: 14px 18px;
-        cursor: pointer;
         font-size: 0.95rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.8px;
         color: var(--color-accent);
         background: rgba(0, 0, 0, 0.25);
-        border-bottom: 1px solid transparent;
+        border-left: 3px solid var(--color-accent-border);
         user-select: none;
-        list-style: none;
-    }
-
-    .dash-group-header::-webkit-details-marker { display: none; }
-
-    .dash-group[open] .dash-group-header {
-        border-bottom-color: var(--color-accent-border);
-    }
-
-    .dash-chevron {
-        font-size: 0.7rem;
-        line-height: 1;
-        transition: transform 0.15s;
-        display: inline-block;
-    }
-
-    .dash-group[open] .dash-chevron {
-        transform: rotate(90deg);
     }
 
     .dash-group-title {
