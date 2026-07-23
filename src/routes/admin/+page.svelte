@@ -2536,8 +2536,8 @@
                         </div>
 
                         <!-- Opening Hours -->
-                        <details class="league-settings-details" open>
-                            <summary>Opening Hours</summary>
+                        <div class="league-settings-details">
+                            <div class="league-settings-heading">Opening Hours</div>
                             <div class="league-settings-body">
                                 <div class="club-hours-grid">
                                     {#each clubHours as row}
@@ -2570,11 +2570,11 @@
                                     </button>
                                 </div>
                             </div>
-                        </details>
+                        </div>
 
                         <!-- Club-wide Events -->
-                        <details class="league-settings-details">
-                            <summary>Club-wide Events</summary>
+                        <div class="league-settings-details">
+                            <div class="league-settings-heading">Club-wide Events</div>
                             <div class="league-settings-body">
                                 <p class="section-intro">
                                     Dates that apply to the whole club, not one system — closures, open days. For a
@@ -2635,7 +2635,7 @@
                                     </button>
                                 </div>
                             </div>
-                        </details>
+                        </div>
                     {:else}
                         <p class="muted small">Loading…</p>
                     {/if}
@@ -2710,10 +2710,10 @@
                                     {#if ls.configError}<p class="field-error">{ls.configError}</p>{/if}
 
                                     {#if ls.config.league_enabled}
-                                        <!-- League settings: scoring config + seasons, collapsed together
+                                        <!-- League settings: scoring config + seasons
                                              (results stay outside, always visible below). -->
-                                        <details class="league-settings-details">
-                                            <summary>League settings</summary>
+                                        <div class="league-settings-details">
+                                            <div class="league-settings-heading">League settings</div>
                                             <div class="league-settings-body">
                                                 <p class="league-help-text">
                                                     <strong>ELO rating</strong> gives every player a number (starting
@@ -2858,7 +2858,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                        </details>
+                                        </div>
 
                                         <!-- League Results (editing/deleting recalculates that season's ratings) -->
                                         <div class="league-results">
@@ -3025,8 +3025,8 @@
                                 {#if ws.loading}
                                     <p class="muted small">Loading…</p>
                                 {:else if ws.config}
-                                    <details class="league-settings-details">
-                                        <summary>Matchmaking weights</summary>
+                                    <div class="league-settings-details">
+                                        <div class="league-settings-heading">Matchmaking weights</div>
                                         <div class="league-settings-body">
                                             <p class="league-help-text">
                                                 Sliders control how much each factor matters when
@@ -3081,7 +3081,7 @@
                                                 >{ws.saving ? 'Saving…' : 'Save weighting'}</button>
                                             </div>
                                         </div>
-                                    </details>
+                                    </div>
                                 {/if}
                             </div>
                         {/if}
@@ -3831,8 +3831,8 @@
                                 {#if ms.error}<p class="field-error">{ms.error}</p>{/if}
 
                                 {#if ms.missions_enabled}
-                                <details class="league-settings-details">
-                                    <summary>Mission pool</summary>
+                                <div class="league-settings-details">
+                                    <div class="league-settings-heading">Mission pool</div>
                                     <div class="league-settings-body">
                                     {#if ms.guidelines}
                                         <p class="field-label-hint mission-guidelines">
@@ -3927,7 +3927,7 @@
                                         </p>
                                     {/if}
                                     </div>
-                                </details>
+                                </div>
                                 {/if}
                             </div>
                         {/if}
@@ -4008,8 +4008,8 @@
 
                                 {#if systemEventsState[scope]}
                                     {@const es = systemEventsState[scope]}
-                                    <details class="league-settings-details">
-                                        <summary>Events</summary>
+                                    <div class="league-settings-details">
+                                        <div class="league-settings-heading">Events</div>
                                         <div class="league-settings-body">
                                             <p class="section-intro">
                                                 One-off dates for this system — tournaments, campaign days — shown
@@ -4070,7 +4070,7 @@
                                                 </button>
                                             </div>
                                         </div>
-                                    </details>
+                                    </div>
                                 {/if}
                             </div>
                         {/if}
@@ -6041,13 +6041,16 @@
         padding: 0.6rem 0.75rem;
         background: var(--color-surface-dark);
     }
-    .league-settings-details summary {
-        cursor: pointer;
+    .league-settings-details summary,
+    .league-settings-heading {
         font-weight: 700;
         font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--color-text-muted);
+    }
+    .league-settings-details summary {
+        cursor: pointer;
     }
     .league-settings-body {
         margin-top: 0.75rem;
