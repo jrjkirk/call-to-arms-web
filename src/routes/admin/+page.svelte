@@ -1735,6 +1735,22 @@
         ls.configSaving = false;
     }
 
+    // Live "share of total" readout next to each slider — the sliders don't
+    // rebalance each other (independent magnitude units, matching the
+    // underlying linear-score formula in pairings_engine.py), but seeing
+    // each one's share of the current total makes their relative influence
+    // visible without that added complexity.
+    function pwPercent(cfg: PairingWeightConfigData, field: keyof PairingWeightConfigData): number {
+        const fields: (keyof PairingWeightConfigData)[] = [
+            'weight_mirror', 'weight_rematch', 'weight_vibe', 'weight_experience', 'weight_eta',
+        ];
+        if (cfg.uses_scenarios) fields.push('weight_scenario');
+        if (cfg.uses_points) fields.push('weight_points');
+        const total = fields.reduce((sum, f) => sum + (Number(cfg[f]) || 0), 0);
+        if (total <= 0) return 0;
+        return Math.round((Number(cfg[field]) / total) * 1000) / 10;
+    }
+
     function initPairingWeightState(): PairingWeightState {
         return { config: null, loading: false, saving: false, error: null, message: null };
     }
@@ -2778,35 +2794,35 @@
 
                                             <div class="league-config-form">
                                                 <div class="field field-narrow">
-                                                    <label class="field-label" for="pw-mirror-{scope}">Avoid same-faction rematch: {ws.config.weight_mirror}</label>
-                                                    <input id="pw-mirror-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_mirror} />
+                                                    <label class="field-label" for="pw-mirror-{scope}">Avoid same-faction rematch: {ws.config.weight_mirror} ({pwPercent(ws.config, 'weight_mirror')}%)</label>
+                                                    <input id="pw-mirror-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_mirror} />
                                                 </div>
                                                 <div class="field field-narrow">
-                                                    <label class="field-label" for="pw-rematch-{scope}">Avoid recent repeat opponent: {ws.config.weight_rematch}</label>
-                                                    <input id="pw-rematch-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_rematch} />
+                                                    <label class="field-label" for="pw-rematch-{scope}">Avoid recent repeat opponent: {ws.config.weight_rematch} ({pwPercent(ws.config, 'weight_rematch')}%)</label>
+                                                    <input id="pw-rematch-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_rematch} />
                                                 </div>
                                                 <div class="field field-narrow">
-                                                    <label class="field-label" for="pw-vibe-{scope}">Match by vibe (casual/competitive): {ws.config.weight_vibe}</label>
-                                                    <input id="pw-vibe-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_vibe} />
+                                                    <label class="field-label" for="pw-vibe-{scope}">Match by vibe (casual/competitive): {ws.config.weight_vibe} ({pwPercent(ws.config, 'weight_vibe')}%)</label>
+                                                    <input id="pw-vibe-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_vibe} />
                                                 </div>
                                                 <div class="field field-narrow">
-                                                    <label class="field-label" for="pw-exp-{scope}">Match by experience: {ws.config.weight_experience}</label>
-                                                    <input id="pw-exp-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_experience} />
+                                                    <label class="field-label" for="pw-exp-{scope}">Match by experience: {ws.config.weight_experience} ({pwPercent(ws.config, 'weight_experience')}%)</label>
+                                                    <input id="pw-exp-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_experience} />
                                                 </div>
                                                 <div class="field field-narrow">
-                                                    <label class="field-label" for="pw-eta-{scope}">Match by arrival time (ETA): {ws.config.weight_eta}</label>
-                                                    <input id="pw-eta-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_eta} />
+                                                    <label class="field-label" for="pw-eta-{scope}">Match by arrival time (ETA): {ws.config.weight_eta} ({pwPercent(ws.config, 'weight_eta')}%)</label>
+                                                    <input id="pw-eta-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_eta} />
                                                 </div>
                                                 {#if ws.config.uses_scenarios}
                                                     <div class="field field-narrow">
-                                                        <label class="field-label" for="pw-scen-{scope}">Match by scenario pick: {ws.config.weight_scenario}</label>
-                                                        <input id="pw-scen-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_scenario} />
+                                                        <label class="field-label" for="pw-scen-{scope}">Match by scenario pick: {ws.config.weight_scenario} ({pwPercent(ws.config, 'weight_scenario')}%)</label>
+                                                        <input id="pw-scen-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_scenario} />
                                                     </div>
                                                 {/if}
                                                 {#if ws.config.uses_points}
                                                     <div class="field field-narrow">
-                                                        <label class="field-label" for="pw-pts-{scope}">Match by points closeness: {ws.config.weight_points}</label>
-                                                        <input id="pw-pts-{scope}" type="range" min="0" max="100" step="1" bind:value={ws.config.weight_points} />
+                                                        <label class="field-label" for="pw-pts-{scope}">Match by points closeness: {ws.config.weight_points} ({pwPercent(ws.config, 'weight_points')}%)</label>
+                                                        <input id="pw-pts-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_points} />
                                                     </div>
                                                 {/if}
 
