@@ -191,6 +191,26 @@
         results: LeagueResultRow[];
         resultsLoading: boolean;
         resultsError: string | null;
+
+        // "Log results from pairings" — pulls a week's published pairings and
+        // lets the admin record just the outcome per game.
+        logWeek: string;
+        logRows: LogResultRow[];
+        logLoading: boolean;
+        logSaving: boolean;
+        logError: string | null;
+        logMessage: string | null;
+    };
+    type LogResultRow = {
+        pairing_id: number;
+        a_name: string;
+        a_faction: string | null;
+        b_name: string;
+        b_faction: string | null;
+        result: string;       // '' until picked
+        game_type: string;    // 'Competitive' | 'Casual'
+        a_painting: string;   // '' | 'Partially Painted' | 'Fully Painted'
+        b_painting: string;
     };
     type RearrangeForm = {
         player1Id: string;
@@ -199,11 +219,20 @@
         error: string | null;
         message: string | null;
     };
+    type PairingSummary = {
+        games: number;
+        byes: number;
+        rematches: number;
+        mirrors: number;
+        widest_eta_gap_mins: number;
+        vibe_mismatches: number;
+    };
     type PairingsState = {
         week: string;
         rows: DisplayRow[];
         editRows: EditRow[];
         published: boolean;
+        summary: PairingSummary | null;
         signups: SignupItem[];
         loading: boolean;
         saving: boolean;
@@ -703,6 +732,7 @@
             rows: [],
             editRows: [],
             published: false,
+            summary: null,
             signups: [],
             loading: false,
             saving: false,
@@ -732,6 +762,7 @@
             ps.rows = data.rows ?? [];
             ps.editRows = ps.rows.map(displayRowToEdit);
             ps.published = data.published ?? false;
+            ps.summary = data.summary ?? null;
             ps.dirty = false;
         } else {
             ps.error = 'Failed to load pairings.';
@@ -889,6 +920,7 @@
             const data = await r.json();
             ps.rows = data.rows ?? [];
             ps.editRows = ps.rows.map(displayRowToEdit);
+            ps.summary = data.summary ?? null;
             ps.dirty = false;
             ps.message = `Generated ${ps.rows.length} pairing(s).`;
         } else {
@@ -1785,7 +1817,79 @@
             newSeasonName: '', newSeasonStart: '', newSeasonEnd: '',
             viewingSeasonId: null,
             results: [], resultsLoading: false, resultsError: null,
+            logWeek: '', logRows: [], logLoading: false, logSaving: false, logError: null, logMessage: null,
         };
+    }
+
+    // Load a week's saved pairings and turn the two-player games into
+    // outcome-entry rows (BYEs skipped). Defaults the week to the scope's
+    // current pairings week.
+    async function loadLogResults(scope: string) {
+        const ls = leagueState[scope];
+        if (!ls.logWeek) ls.logWeek = pairings[scope]?.week ?? '';
+        if (!ls.logWeek) { ls.logError = 'Pick a week first.'; return; }
+        ls.logLoading = true;
+        ls.logError = null;
+        ls.logMessage = null;
+        const params = new URLSearchParams({ system: scope, week: ls.logWeek });
+        const r = await fetch(`${PUBLIC_API_URL}/admin/pairings?${params}`, { credentials: 'include' });
+        if (r.ok) {
+            const data = await r.json();
+            ls.logRows = (data.rows ?? [])
+                .filter((row: any) => row.id != null && row.b_signup_id != null)
+                .map((row: any) => ({
+                    pairing_id: row.id,
+                    a_name: row.a_name,
+                    a_faction: row.a_faction,
+                    b_name: row.b_name,
+                    b_faction: row.b_faction,
+                    result: '',
+                    game_type: 'Competitive',
+                    a_painting: '',
+                    b_painting: '',
+                }));
+            if (ls.logRows.length === 0) {
+                ls.logError = 'No two-player games found for that week (generate + publish pairings first).';
+            }
+        } else {
+            ls.logError = 'Failed to load pairings for that week.';
+        }
+        ls.logLoading = false;
+    }
+
+    async function saveLogResults(scope: string) {
+        const ls = leagueState[scope];
+        const chosen = ls.logRows.filter((row) => row.result);
+        if (chosen.length === 0) { ls.logError = 'Pick a winner (or draw) for at least one game.'; return; }
+        ls.logSaving = true;
+        ls.logError = null;
+        ls.logMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league/results/from-pairings`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system: scope,
+                week: ls.logWeek,
+                results: chosen.map((row) => ({
+                    pairing_id: row.pairing_id,
+                    result: row.result,
+                    game_type: row.game_type,
+                    player_1_painting_bonus: row.a_painting || null,
+                    player_2_painting_bonus: row.b_painting || null,
+                })),
+            }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (r.ok) {
+            const skipped = (body.skipped ?? []).length;
+            ls.logMessage = `Logged ${body.created} result${body.created === 1 ? '' : 's'}${skipped ? ` (${skipped} skipped)` : ''} — ratings updated.`;
+            ls.logRows = [];
+            await loadLeagueResults(scope);
+        } else {
+            ls.logError = body.detail || 'Failed to log results.';
+        }
+        ls.logSaving = false;
     }
 
     async function loadLeagueConfig(scope: string) {
@@ -2880,6 +2984,80 @@
                                             </div>
                                         </div>
 
+                                        <!-- Log results from a week's published pairings -->
+                                        <div class="league-log-results">
+                                            <h5 class="sub-heading-minor">Log results from pairings</h5>
+                                            <p class="muted small">
+                                                Pull a week's games straight from its pairings — players and factions
+                                                are already filled in, so you just record who won.
+                                            </p>
+                                            <div class="log-week-row">
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="log-week-{scope}">Week</label>
+                                                    <input id="log-week-{scope}" class="field-input" type="text" placeholder="DD/MM/YYYY" bind:value={ls.logWeek} />
+                                                </div>
+                                                <button class="secondary-button" type="button" disabled={ls.logLoading} onclick={() => loadLogResults(scope)}>
+                                                    {ls.logLoading ? 'Loading…' : 'Load pairings'}
+                                                </button>
+                                            </div>
+                                            {#if ls.logError}<p class="field-error">{ls.logError}</p>{/if}
+                                            {#if ls.logMessage}<p class="pairing-message">{ls.logMessage}</p>{/if}
+
+                                            {#if ls.logRows.length > 0}
+                                                <div class="grid-wrap">
+                                                    <table class="pairing-grid">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Game</th>
+                                                                <th>Outcome</th>
+                                                                <th>Type</th>
+                                                                <th>P1 painting</th>
+                                                                <th>P2 painting</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {#each ls.logRows as row (row.pairing_id)}
+                                                                <tr>
+                                                                    <td><span class="cell-text">{row.a_name}{row.a_faction ? ` (${row.a_faction})` : ''} vs {row.b_name}{row.b_faction ? ` (${row.b_faction})` : ''}</span></td>
+                                                                    <td>
+                                                                        <select class="field-select" bind:value={row.result}>
+                                                                            <option value="">— pick —</option>
+                                                                            <option value="Player 1 Victory">{row.a_name} won</option>
+                                                                            <option value="Draw">Draw</option>
+                                                                            <option value="Player 2 Victory">{row.b_name} won</option>
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <select class="field-select" bind:value={row.game_type}>
+                                                                            <option value="Competitive">Competitive</option>
+                                                                            <option value="Casual">Casual</option>
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <select class="field-select" bind:value={row.a_painting}>
+                                                                            <option value="">—</option>
+                                                                            <option value="Partially Painted">Partial</option>
+                                                                            <option value="Fully Painted">Full</option>
+                                                                        </select>
+                                                                    </td>
+                                                                    <td>
+                                                                        <select class="field-select" bind:value={row.b_painting}>
+                                                                            <option value="">—</option>
+                                                                            <option value="Partially Painted">Partial</option>
+                                                                            <option value="Fully Painted">Full</option>
+                                                                        </select>
+                                                                    </td>
+                                                                </tr>
+                                                            {/each}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <button class="primary-button" type="button" disabled={ls.logSaving} onclick={() => saveLogResults(scope)}>
+                                                    {ls.logSaving ? 'Saving…' : 'Save all results'}
+                                                </button>
+                                            {/if}
+                                        </div>
+
                                         <!-- League Results (editing/deleting recalculates that season's ratings) -->
                                         <div class="league-results">
                                             <h5 class="sub-heading-minor">
@@ -3400,6 +3578,17 @@
                                 {/if}
                                 {#if ps.message}
                                     <p class="pairing-message">{ps.message}</p>
+                                {/if}
+
+                                {#if ps.summary && (ps.summary.games > 0 || ps.summary.byes > 0)}
+                                    <div class="pairing-summary" title="How these pairings scored against your weighting. Lower rematch/mirror/mismatch counts mean the matcher satisfied your weights.">
+                                        <span class="ps-stat"><strong>{ps.summary.games}</strong> game{ps.summary.games === 1 ? '' : 's'}</span>
+                                        {#if ps.summary.byes > 0}<span class="ps-stat"><strong>{ps.summary.byes}</strong> BYE</span>{/if}
+                                        <span class="ps-stat" class:ps-flag={ps.summary.rematches > 0}><strong>{ps.summary.rematches}</strong> rematch{ps.summary.rematches === 1 ? '' : 'es'}</span>
+                                        <span class="ps-stat" class:ps-flag={ps.summary.mirrors > 0}><strong>{ps.summary.mirrors}</strong> mirror{ps.summary.mirrors === 1 ? '' : 's'}</span>
+                                        <span class="ps-stat" class:ps-flag={ps.summary.vibe_mismatches > 0}><strong>{ps.summary.vibe_mismatches}</strong> vibe mismatch{ps.summary.vibe_mismatches === 1 ? '' : 'es'}</span>
+                                        {#if ps.summary.widest_eta_gap_mins > 0}<span class="ps-stat">widest ETA gap <strong>{ps.summary.widest_eta_gap_mins}m</strong></span>{/if}
+                                    </div>
                                 {/if}
 
                                 {#if ps.editRows.length === 0 && !ps.loading}
@@ -5606,6 +5795,33 @@
         margin: 0 0 0.5rem;
     }
 
+    /* ── Pairing quality summary strip ──────────────────────────────────── */
+    .pairing-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1rem;
+        padding: 0.6rem 0.85rem;
+        margin: 0 0 0.85rem;
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border-soft);
+        border-left: 3px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+    }
+    .ps-stat {
+        white-space: nowrap;
+    }
+    .ps-stat strong {
+        color: var(--color-text-bright);
+        font-variant-numeric: tabular-nums;
+    }
+    /* Non-zero rematch/mirror/mismatch counts are the things a weighting tweak
+       is meant to reduce — tint them so they read as "worth a look". */
+    .ps-stat.ps-flag strong {
+        color: var(--color-tnt);
+    }
+
     /* ── Pairing grid ───────────────────────────────────────────────────── */
 
     .grid-wrap {
@@ -6012,6 +6228,21 @@
         flex-direction: column;
         gap: 0.6rem;
         margin-top: 0.5rem;
+    }
+
+    .league-log-results {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--color-steel-border-soft);
+    }
+    .log-week-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.75rem;
+        flex-wrap: wrap;
     }
 
     /* ── Pairing weighting: sliders + live donut side by side ────────────── */
