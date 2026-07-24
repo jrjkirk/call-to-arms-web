@@ -67,6 +67,7 @@
         type: string | null;
         eta: string | null;
         points: string | null;
+        table: string | null;
         prearranged: boolean;
     };
     type SignupItem = { id: number; name: string; faction: string | null; vibe: string | null };
@@ -262,6 +263,7 @@
         type: string;
         eta: string;
         points: string;
+        table: string;
         prearranged: boolean;
     };
     type AutoPairingsSettings = {
@@ -319,7 +321,7 @@
     type OverviewSystem = {
         system: string; slug: string; name: string;
         next_session: string; session_day: string;
-        signups: number; pairing_count: number;
+        signups: number; cap_max_players: number | null; pairing_count: number;
         status: 'live' | 'drafted' | 'none';
     };
     type ChartPoint = { label: string; value: number };
@@ -433,6 +435,48 @@
     let historyByScope = $state<Record<string, any[]>>({});
     let leagueState = $state<Record<string, LeagueState>>({});
     let pairingWeightState = $state<Record<string, PairingWeightState>>({});
+
+    type SignupCapState = {
+        enabled: boolean;
+        tables: number;
+        players_per_table: number;
+        max_players: number;
+        loading: boolean;
+        saving: boolean;
+        error: string | null;
+        message: string | null;
+    };
+    let signupCapState = $state<Record<string, SignupCapState>>({});
+
+    async function loadSignupCap(scope: string) {
+        signupCapState[scope] = { enabled: false, tables: 0, players_per_table: 2, max_players: 0, loading: true, saving: false, error: null, message: null };
+        const r = await fetch(`${PUBLIC_API_URL}/admin/signup-cap-settings?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
+        if (r.ok) {
+            const d = await r.json();
+            signupCapState[scope] = { ...signupCapState[scope], ...d, loading: false };
+        } else {
+            signupCapState[scope].loading = false;
+            signupCapState[scope].error = 'Failed to load signup cap.';
+        }
+    }
+
+    async function saveSignupCap(scope: string) {
+        const cap = signupCapState[scope];
+        cap.saving = true; cap.error = null; cap.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/signup-cap-settings`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, enabled: cap.enabled, tables: Number(cap.tables) || 0 }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (r.ok) {
+            signupCapState[scope] = { ...cap, ...body, saving: false, message: cap.enabled ? `Capped at ${body.tables} table(s) · ${body.max_players} players.` : 'Signup cap disabled.' };
+        } else {
+            cap.error = body.detail || 'Failed to save.';
+            cap.saving = false;
+        }
+    }
 
     const PAINTING_OPTIONS = ['Partially Painted', 'Fully Painted'];
     const GAME_TYPE_OPTIONS = ['Casual', 'Competitive'];
@@ -709,6 +753,7 @@
             type: r.type ?? '',
             eta: r.eta ?? '',
             points: r.points ?? '',
+            table: r.table ?? '',
             prearranged: r.prearranged,
         };
     }
@@ -2305,7 +2350,7 @@
         await Promise.all([
             loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
             loadMissions(scope), initLeagueForScope(scope), initPairingWeightForScope(scope),
-            loadCarousel(scope), loadSystemEvents(scope),
+            loadCarousel(scope), loadSystemEvents(scope), loadSignupCap(scope),
         ]);
     }
 
@@ -2535,7 +2580,7 @@
                             <span class="st-name">{s.name}</span>
                         </div>
                         <div class="st-count">
-                            <span class="st-num">{s.signups}</span>
+                            <span class="st-num">{s.signups}{#if s.cap_max_players}<span class="st-cap">/{s.cap_max_players}</span>{/if}</span>
                             <span class="st-num-label">signed up</span>
                         </div>
                         <div class="st-status {STATUS_META[s.status].cls}">
@@ -3329,6 +3374,34 @@
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
+                        {#if signupCapState[scope] && !signupCapState[scope].loading}
+                            {@const cap = signupCapState[scope]}
+                            <div class="sub-section signup-cap-section">
+                                <label class="check-row ap-toggle">
+                                    <input type="checkbox" bind:checked={cap.enabled} />
+                                    <span>Cap signups for this system</span>
+                                </label>
+                                {#if cap.enabled}
+                                    <div class="signup-cap-row">
+                                        <div class="field field-narrow">
+                                            <label class="field-label" for="cap-tables-{scope}">Tables</label>
+                                            <input id="cap-tables-{scope}" class="field-input" type="number" min="1" bind:value={cap.tables} />
+                                        </div>
+                                        <p class="muted small">
+                                            = up to <strong>{(Number(cap.tables) || 0) * cap.players_per_table}</strong> players
+                                            ({cap.players_per_table} per table). New sign-ups are blocked once full;
+                                            already-signed-up players can still edit.
+                                        </p>
+                                    </div>
+                                {/if}
+                                {#if cap.error}<p class="field-error">{cap.error}</p>{/if}
+                                {#if cap.message}<p class="pairing-message">{cap.message}</p>{/if}
+                                <button class="secondary-button" type="button" disabled={cap.saving} onclick={() => saveSignupCap(scope)}>
+                                    {cap.saving ? 'Saving…' : 'Save signup cap'}
+                                </button>
+                            </div>
+                        {/if}
+
                         <!-- Weekly Pairings (system scopes only) -->
                         {#if isSystemScope(scope) && pairings[scope]}
                             {@const ps = pairings[scope]}
@@ -3633,6 +3706,7 @@
                                                     <th>B Type</th>
                                                     <th>Type</th>
                                                     {#if showPoints(scope)}<th>ETA</th><th>Pts</th>{/if}
+                                                    <th>Table</th>
                                                     <th></th>
                                                 </tr>
                                             </thead>
@@ -3798,6 +3872,19 @@
                                                                 {/if}
                                                             </td>
                                                         {/if}
+                                                        <!-- Table (non-BYE only) -->
+                                                        <td>
+                                                            {#if er.b_signup_id !== null && ps.rows[idx]?.b_name !== 'BYE'}
+                                                                <input
+                                                                    class="cell-input cell-table"
+                                                                    type="text"
+                                                                    bind:value={er.table}
+                                                                    oninput={() => (ps.dirty = true)}
+                                                                />
+                                                            {:else}
+                                                                <span class="cell-text">—</span>
+                                                            {/if}
+                                                        </td>
                                                         <!-- Delete -->
                                                         <td class="cell-delete">
                                                             {#if er.id !== null}
@@ -5219,6 +5306,22 @@
         font-variant-numeric: tabular-nums;
         line-height: 1;
     }
+    .st-cap {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-text-dim);
+    }
+    .signup-cap-section {
+        border-bottom: 1px solid var(--color-steel-border-soft);
+        padding-bottom: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    .signup-cap-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.85rem;
+        flex-wrap: wrap;
+    }
     .st-num-label {
         font-size: 0.72rem;
         text-transform: uppercase;
@@ -5977,6 +6080,11 @@
     .cell-input:focus {
         outline: none;
         border-color: var(--color-accent);
+    }
+
+    .cell-table {
+        max-width: 52px;
+        text-align: center;
     }
 
     .add-signup-details {

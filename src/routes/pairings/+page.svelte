@@ -48,6 +48,7 @@
         game_type: string | null;
         eta: string | null;
         points: number | null;
+        table: string | null;
     };
     type PairingsData = {
         published: boolean;
@@ -277,6 +278,9 @@
                 class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
                 in:fly={{ y: 24, duration: 420, delay: cascadeDelay(i) }}
             >
+                {#if m.table}
+                    <div class="matchup-table">Table {m.table}</div>
+                {/if}
                 <div class="player-row player-a">
                     {#if factionIconUrl(m.player_a_faction, systemFolder(data.system, systemsConfig))}
                         <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system, systemsConfig))} alt="" />
@@ -385,6 +389,7 @@
     .matchups { display: flex; flex-direction: column; gap: 14px; margin-top: 0.5rem; }
 
     .matchup-card {
+        position: relative;
         background: linear-gradient(135deg, rgba(30, 30, 40, 0.92) 0%, rgba(20, 20, 30, 0.95) 100%);
         border: 1px solid rgba(180, 150, 90, 0.35);
         border-radius: 12px;
@@ -392,6 +397,20 @@
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
         color: #e8e4d8;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .matchup-table {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #1b1206;
+        background: var(--color-accent);
+        padding: 0.12rem 0.5rem;
+        border-radius: 999px;
     }
 
     .matchup-card:hover {

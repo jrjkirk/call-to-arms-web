@@ -27,7 +27,7 @@
     let system = $state(data.system);
     let week = $state(data.week);
 
-    let stats = $state({ signed_up: 0, newcomers: 0, veterans: 0 });
+    let stats = $state({ signed_up: 0, newcomers: 0, veterans: 0, cap_enabled: false, cap_max_players: null as number | null, cap_tables: null as number | null, is_full: false });
 
     async function loadStats(sys: string, wk: string) {
         try {
@@ -492,7 +492,7 @@
 <div class="stat-row">
     <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 0 }}>
         <div class="stat-label">Signed Up</div>
-        <div class="stat-value">{stats.signed_up}</div>
+        <div class="stat-value">{stats.signed_up}{#if stats.cap_enabled && stats.cap_max_players}<span class="stat-cap">/{stats.cap_max_players}</span>{/if}</div>
     </div>
     <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 70 }}>
         <div class="stat-label">Newcomers</div>
@@ -524,6 +524,10 @@
         {#if current}
             <div class="signed-up-note">
                 ✓ You're signed up for {data.week}. Submitting again updates your entry.
+            </div>
+        {:else if stats.is_full}
+            <div class="session-full-note">
+                🚫 This session is full ({stats.cap_tables} table{stats.cap_tables === 1 ? '' : 's'} · {stats.cap_max_players} players). Sign-ups are closed for {data.week}.
             </div>
         {/if}
 
@@ -609,8 +613,8 @@
         {/if}
 
         <div class="actions">
-            <button class="primary-button" onclick={submit} disabled={submitting || !mineLoaded} type="button">
-                {submitting ? 'Submitting…' : 'Submit'}
+            <button class="primary-button" onclick={submit} disabled={submitting || !mineLoaded || (stats.is_full && !current)} type="button">
+                {submitting ? 'Submitting…' : (stats.is_full && !current) ? 'Session full' : 'Submit'}
             </button>
         </div>
     </div>
@@ -850,6 +854,21 @@
         border-radius: var(--radius);
         margin-bottom: 1rem;
         font-size: 0.88rem;
+    }
+
+    .session-full-note {
+        background: rgba(207, 90, 84, 0.12);
+        border: 1px solid rgba(207, 90, 84, 0.45);
+        color: var(--color-text-bright);
+        padding: 0.55rem 0.9rem;
+        border-radius: var(--radius);
+        margin-bottom: 1rem;
+        font-size: 0.88rem;
+    }
+
+    .stat-cap {
+        color: var(--color-text-dim);
+        font-weight: 700;
     }
 
     .error {
