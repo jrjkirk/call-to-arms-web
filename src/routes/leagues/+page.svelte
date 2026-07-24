@@ -261,8 +261,6 @@
 {#if pageReady}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
-<h2 class="page-heading">Leagues</h2>
-
 {#if leagueSystemsList.length > 0}
     <SystemPicker
         systems={leagueSystemsList.map((s) => s.legacy_system_name)}

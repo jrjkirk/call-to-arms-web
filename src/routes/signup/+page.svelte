@@ -466,8 +466,6 @@
 {#if pageReady}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
-<h2 class="page-heading">Select a System</h2>
-
 <SystemPicker
     systems={tabSystems}
     {systemsConfig}

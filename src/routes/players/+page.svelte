@@ -62,8 +62,6 @@
 {#if systemsResolved}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
-<h2 class="page-heading">Player Profiles</h2>
-
 <SystemPicker
     systems={SYSTEMS}
     isActive={(s) => activeSystems.includes(s)}

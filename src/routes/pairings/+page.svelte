@@ -214,8 +214,6 @@
 {#if systemsResolved}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
-<h2 class="page-heading">Weekly Pairings</h2>
-
 <div class="system-picker-theme">
     <SystemPicker
         systems={tabSystems}

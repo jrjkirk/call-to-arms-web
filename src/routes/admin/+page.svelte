@@ -2493,8 +2493,6 @@
     }
 </script>
 
-<h2 class="page-heading">Admin</h2>
-
 {#if pageLoading}
     <p class="muted">Loading…</p>
 {:else if !adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)}

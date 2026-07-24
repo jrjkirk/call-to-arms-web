@@ -816,8 +816,6 @@
     }
 </script>
 
-<h2 class="page-heading">Platform Admin</h2>
-
 {#if pageLoading}
     <p class="muted">Loading…</p>
 {:else if !adminMe?.is_platform_admin}
