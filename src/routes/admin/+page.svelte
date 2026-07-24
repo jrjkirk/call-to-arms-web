@@ -145,6 +145,8 @@
     type PairingWeightConfigData = {
         uses_scenarios: boolean;
         uses_points: boolean;
+        default_recent_weeks: number;
+        default_extended_weeks: number;
         weight_mirror: number;
         weight_rematch: number;
         weight_vibe: number;
@@ -152,6 +154,8 @@
         weight_eta: number;
         weight_scenario: number;
         weight_points: number;
+        recent_weeks: number | null;
+        extended_weeks: number | null;
     };
     type PairingWeightState = {
         config: PairingWeightConfigData | null;
@@ -2006,11 +2010,18 @@
         ws.saving = true;
         ws.error = null;
         ws.message = null;
+        // Empty window inputs → null so the platform default is used.
+        const cleanWeeks = (v: number | null) => (v === null || Number.isNaN(v) || v < 1 ? null : Math.round(v));
         const r = await fetch(`${PUBLIC_API_URL}/admin/pairing-config`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ system: scope, ...ws.config }),
+            body: JSON.stringify({
+                ...ws.config,
+                system: scope,
+                recent_weeks: cleanWeeks(ws.config.recent_weeks),
+                extended_weeks: cleanWeeks(ws.config.extended_weeks),
+            }),
         });
         if (r.ok) {
             ws.message = 'Saved — takes effect on the next pairings preview/generate.';
@@ -3269,6 +3280,21 @@
                                                         <input id="pw-pts-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_points} />
                                                     </div>
                                                 {/if}
+
+                                                <div class="pw-window-block">
+                                                    <div class="pw-window-title">Rematch windows</div>
+                                                    <p class="muted small">How far back a repeat counts as a rematch. Leave blank to use the system default.</p>
+                                                    <div class="pw-window-row">
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="pw-recent-{scope}">Don't rematch within (weeks)</label>
+                                                            <input id="pw-recent-{scope}" class="field-input" type="number" min="1" placeholder={String(ws.config.default_recent_weeks)} bind:value={ws.config.recent_weeks} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="pw-extended-{scope}">Soft-avoid within (weeks)</label>
+                                                            <input id="pw-extended-{scope}" class="field-input" type="number" min="1" placeholder={String(ws.config.default_extended_weeks)} bind:value={ws.config.extended_weeks} />
+                                                        </div>
+                                                    </div>
+                                                </div>
 
                                                 {#if ws.message}<p class="pairing-message">{ws.message}</p>{/if}
                                                 {#if ws.error}<p class="field-error">{ws.error}</p>{/if}
@@ -6251,6 +6277,25 @@
         grid-template-columns: minmax(280px, 420px) minmax(260px, 1fr);
         gap: 1.75rem;
         align-items: start;
+    }
+    .pw-window-block {
+        margin-top: 0.6rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--color-steel-border-soft);
+    }
+    .pw-window-title {
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 1.4px;
+        color: var(--color-accent);
+        margin-bottom: 0.35rem;
+    }
+    .pw-window-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 0.4rem;
     }
     .pairing-weight-form {
         min-width: 0;

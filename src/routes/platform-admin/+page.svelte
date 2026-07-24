@@ -37,6 +37,7 @@
         scenario_options: string[] | null;
         default_scenario: string | null;
         allows_demo: boolean;
+        uses_standby: boolean;
         has_intro_prepass: boolean;
         has_league: boolean;
         recent_weeks: number;
@@ -110,6 +111,7 @@
     let gsScenarioOptionsStr = $state('');
     let gsDefaultScenario = $state('');
     let gsAllowsDemo = $state(false);
+    let gsUsesStandby = $state(false);
     let gsHasIntroPrepass = $state(false);
     let gsHasLeague = $state(false);
     let gsRecentWeeks = $state(3);
@@ -631,6 +633,7 @@
         gsUsesScenarios = false;
         gsScenarioOptionsStr = '';
         gsAllowsDemo = false;
+        gsUsesStandby = false;
         gsHasIntroPrepass = false;
         gsHasLeague = false;
         gsRecentWeeks = 3;
@@ -667,6 +670,7 @@
         gsUsesScenarios = existing.uses_scenarios;
         gsScenarioOptionsStr = (existing.scenario_options ?? []).join(', ');
         gsAllowsDemo = existing.allows_demo;
+        gsUsesStandby = existing.uses_standby;
         gsHasIntroPrepass = existing.has_intro_prepass;
         gsHasLeague = existing.has_league;
         gsRecentWeeks = existing.recent_weeks;
@@ -691,6 +695,7 @@
             scenario_options: gsUsesScenarios ? gsScenarioOptionsArr : null,
             default_scenario: gsUsesScenarios ? gsDefaultScenario || null : null,
             allows_demo: gsAllowsDemo,
+            uses_standby: gsUsesStandby,
             has_intro_prepass: gsHasIntroPrepass,
             has_league: gsHasLeague,
             recent_weeks: gsRecentWeeks,
@@ -1085,6 +1090,10 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsAllowsDemo} />
                 <span>Allows demo</span>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" bind:checked={gsUsesStandby} />
+                <span>Offers standby option</span>
             </label>
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsHasIntroPrepass} />
