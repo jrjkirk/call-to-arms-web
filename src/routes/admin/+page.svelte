@@ -67,7 +67,6 @@
         type: string | null;
         eta: string | null;
         points: string | null;
-        table: string | null;
         prearranged: boolean;
     };
     type SignupItem = { id: number; name: string; faction: string | null; vibe: string | null };
@@ -263,7 +262,6 @@
         type: string;
         eta: string;
         points: string;
-        table: string;
         prearranged: boolean;
     };
     type AutoPairingsSettings = {
@@ -753,7 +751,6 @@
             type: r.type ?? '',
             eta: r.eta ?? '',
             points: r.points ?? '',
-            table: r.table ?? '',
             prearranged: r.prearranged,
         };
     }
@@ -3706,7 +3703,6 @@
                                                     <th>B Type</th>
                                                     <th>Type</th>
                                                     {#if showPoints(scope)}<th>ETA</th><th>Pts</th>{/if}
-                                                    <th>Table</th>
                                                     <th></th>
                                                 </tr>
                                             </thead>
@@ -3872,19 +3868,6 @@
                                                                 {/if}
                                                             </td>
                                                         {/if}
-                                                        <!-- Table (non-BYE only) -->
-                                                        <td>
-                                                            {#if er.b_signup_id !== null && ps.rows[idx]?.b_name !== 'BYE'}
-                                                                <input
-                                                                    class="cell-input cell-table"
-                                                                    type="text"
-                                                                    bind:value={er.table}
-                                                                    oninput={() => (ps.dirty = true)}
-                                                                />
-                                                            {:else}
-                                                                <span class="cell-text">—</span>
-                                                            {/if}
-                                                        </td>
                                                         <!-- Delete -->
                                                         <td class="cell-delete">
                                                             {#if er.id !== null}
@@ -6080,11 +6063,6 @@
     .cell-input:focus {
         outline: none;
         border-color: var(--color-accent);
-    }
-
-    .cell-table {
-        max-width: 52px;
-        text-align: center;
     }
 
     .add-signup-details {
