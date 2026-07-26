@@ -218,35 +218,33 @@
             {#if !authLoaded}
                 <p class="auth-panel-note">…</p>
             {:else if isAuthed && auth.user}
+                {#if auth.player}
+                    <a class="user-pill user-pill-link" href={`/players/${auth.player.id}`} onclick={closeDrawer}>
+                        {#if auth.user.avatar_url}
+                            <img class="user-avatar" src={auth.user.avatar_url} alt="" />
+                        {/if}
+                        <div class="user-meta">
+                            <div class="user-name">{auth.user.discord_name}</div>
+                            <div class="user-sub">{auth.player.name}</div>
+                        </div>
+                    </a>
+                {:else}
+                    <div class="user-pill">
+                        {#if auth.user.avatar_url}
+                            <img class="user-avatar" src={auth.user.avatar_url} alt="" />
+                        {/if}
+                        <div class="user-meta">
+                            <div class="user-name">{auth.user.discord_name}</div>
+                            <div class="user-sub user-sub-warn">No profile linked</div>
+                        </div>
+                    </div>
+                {/if}
                 <ClubNetworkDropdown
                     compact
                     currentSlug={auth.active_club?.slug ?? null}
                     heading="Current Club"
                 />
-                <div class="account-cluster">
-                    {#if auth.player}
-                        <a class="user-pill user-pill-link" href={`/players/${auth.player.id}`} onclick={closeDrawer}>
-                            {#if auth.user.avatar_url}
-                                <img class="user-avatar" src={auth.user.avatar_url} alt="" />
-                            {/if}
-                            <div class="user-meta">
-                                <div class="user-name">{auth.user.discord_name}</div>
-                                <div class="user-sub">{auth.player.name}</div>
-                            </div>
-                        </a>
-                    {:else}
-                        <div class="user-pill">
-                            {#if auth.user.avatar_url}
-                                <img class="user-avatar" src={auth.user.avatar_url} alt="" />
-                            {/if}
-                            <div class="user-meta">
-                                <div class="user-name">{auth.user.discord_name}</div>
-                                <div class="user-sub user-sub-warn">No profile linked</div>
-                            </div>
-                        </div>
-                    {/if}
-                    <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
-                </div>
+                <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
             {/if}
         </aside>
     </header>
@@ -398,11 +396,6 @@
         flex: 0 0 auto;
     }
 
-    .account-cluster {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
 
     .auth-panel-note {
         font-size: 0.78rem;
@@ -666,13 +659,11 @@
             transform: translateX(0);
         }
 
-        /* In the slide-out drawer the identity + sign-out stack vertically and
-           the sign-out button goes full-width. */
-        .account-cluster {
-            flex-direction: column;
-            align-items: stretch;
-            width: 100%;
-            gap: 0.5rem;
+        /* Drawer items stack from the TOP (the desktop panel is justified to
+           the right of the topbar, which in a column would push them to the
+           bottom). */
+        .auth-panel {
+            justify-content: flex-start;
         }
 
         .auth-panel-note { text-align: left; }
