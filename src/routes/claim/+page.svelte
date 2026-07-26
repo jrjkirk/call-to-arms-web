@@ -104,12 +104,12 @@
 </script>
 
 {#if !loaded}
-<h2 class="page-heading">Link your player profile</h2>
+<h2 class="page-heading">Create your profile</h2>
 <p class="lead-sub">Loading…</p>
 {:else}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
-<h2 class="page-heading">Link your player profile</h2>
+<h2 class="page-heading">Create your profile</h2>
 
 {#if !auth.authenticated}
     <div class="empty-state">
@@ -122,71 +122,12 @@
     </div>
 {:else}
     <p class="lead">
-        Welcome, <strong>{auth.user?.discord_name}</strong>.
-        Pick your existing player profile from the list below so your previous signups,
-        games, and rankings are linked to your Discord account.
+        Welcome, <strong>{auth.user?.discord_name}</strong>{#if auth.active_club} to
+        <strong>{auth.active_club.name}</strong>{/if}.
+        Create your player profile below to sign up for sessions and submit league results.
     </p>
-    <p class="lead-sub">
-        Once linked, you'll be able to sign up for sessions and submit league results.
-    </p>
-
-    <div class="field">
-        <label class="field-label" for="filter">Filter players</label>
-        <input
-            id="filter"
-            class="field-input"
-            type="text"
-            placeholder="Type your name…"
-            bind:value={query}
-        />
-    </div>
-
-    <ul class="player-list">
-        {#each filtered as c}
-            <li class="player-row" class:selected={selectedId === c.id}>
-                <button class="player-link" onclick={() => (selectedId = c.id)} type="button">
-                    <span class="player-name">{c.name}</span>
-                    {#if c.default_faction}
-                        <span class="player-faction">— {c.default_faction}</span>
-                    {/if}
-                </button>
-            </li>
-        {/each}
-        {#if filtered.length === 0}
-            <li class="empty">No players match.</li>
-        {/if}
-    </ul>
-
-    {#if errorMsg}
-        <div class="error">{errorMsg}</div>
-    {/if}
-
-    <div class="actions">
-        <button
-            class="confirm-button"
-            onclick={claim}
-            disabled={selectedId == null || submitting}
-            type="button"
-        >
-            {#if submitting}
-                Linking…
-            {:else if selectedId == null}
-                Pick a player above
-            {:else}
-                {@const picked = candidates.find((c) => c.id === selectedId)}
-                Confirm: I am {picked?.name}
-            {/if}
-        </button>
-    </div>
-
-    <div class="divider"></div>
 
     <section class="new-player-section">
-        <h3 class="new-player-heading">New to the club?</h3>
-        <p class="lead-sub">
-            If you've never played with us before, create a fresh profile here.
-        </p>
-
         <div class="field">
             <label class="field-label" for="new-name">Your name</label>
             <input

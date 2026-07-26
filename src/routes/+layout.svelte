@@ -10,7 +10,7 @@
     import ClubNetworkDropdown from '$lib/ClubNetworkDropdown.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
-    import { getClubSlugFromHostname } from '$lib/clubSlug';
+    import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
 
     let { children } = $props();
 
@@ -73,6 +73,15 @@
     }
 
     onMount(() => {
+        // Renamed-club subdomains (manchester -> egnwgc, yorkshire -> theoutpost):
+        // bounce legacy links to the new host before anything club-scoped runs.
+        const legacyHost = legacyRedirectHost(window.location.hostname);
+        if (legacyHost) {
+            window.location.replace(
+                `https://${legacyHost}${window.location.pathname}${window.location.search}`
+            );
+            return;
+        }
         refreshAuth().then(redirectBareToHomeClub);
         const club = getClubSlugFromHostname(window.location.hostname);
         getSystemsConfig(club).then((cfg) => {
@@ -254,10 +263,10 @@
                         <strong>Welcome, {auth.user.discord_name}.</strong>
                         {#if auth.active_club}
                             You don't have a profile at <strong>{auth.active_club.name}</strong> yet —
-                            <a href="/claim">claim or create one here</a> to play.
+                            <a href="/claim">create one here</a> to play.
                         {:else}
                             Before you can use the app, please
-                            <a href="/claim">link your existing player profile</a>.
+                            <a href="/claim">create your player profile</a>.
                         {/if}
                     </div>
                 {/if}
