@@ -464,7 +464,7 @@
 
     /* ---------- call outs (ad-hoc, can't-make-club-night games) ---------- */
     type CallOut = {
-        id: number; creator_name: string; location: string;
+        id: number; creator_name: string;
         game_at: string; game_date: string; game_time: string; when_label: string;
         vibe: string | null; faction: string | null; points: number | null;
         notes: string | null; status: string; is_mine: boolean;
@@ -481,7 +481,6 @@
         }
     }
 
-    let coLocation = $state('');
     let coDate = $state('');
     let coTime = $state('18:30');
     let coVibe = $state('Casual');
@@ -507,7 +506,6 @@
         if (coSubmitting) return;
         coError = null;
         coSuccess = null;
-        if (!coLocation.trim()) { coError = 'Please say where the game will be.'; return; }
         if (!coDate) { coError = 'Please pick a date.'; return; }
         if (!coTime) { coError = 'Please pick a time.'; return; }
         if (coFaction === NONE_FACTION) { coError = `Please pick ${prePlayerFactionLabel.toLowerCase()}.`; return; }
@@ -520,7 +518,6 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     system: data.system,
-                    location: coLocation.trim(),
                     game_date: coDate,
                     game_time: coTime,
                     vibe: coVibe,
@@ -534,7 +531,6 @@
                 coError = body.detail || 'Could not post the call-out.';
             } else {
                 coSuccess = 'Call-out posted — it stays here and in Discord until someone takes it up or the time passes.';
-                coLocation = '';
                 coDate = '';
                 coNotes = '';
                 await loadCallOuts(data.system);
@@ -895,7 +891,7 @@
                         <span class="callout-when">🗓️ {co.when_label}</span>
                     </div>
                     <div class="callout-meta">
-                        📍 {co.location}{#if co.faction} • ⚔️ {co.faction}{/if}{#if co.vibe} • 🎭 {co.vibe}{/if}{#if co.points != null} • 🛡️ {co.points} pts{/if}
+                        {#if co.faction}⚔️ {co.faction}{/if}{#if co.vibe} • 🎭 {co.vibe}{/if}{#if co.points != null} • 🛡️ {co.points} pts{/if}
                     </div>
                     {#if co.notes}
                         <div class="callout-notes">📝 {co.notes}</div>
@@ -918,18 +914,11 @@
     <details class="card prearranged-card callout-card">
         <summary>Post a call-out</summary>
         <p class="prompt-body small">
-            Can't make regular club night but still fancy a game? Post a call-out and it
-            stays visible here — and in Discord, with a daily nudge — until someone takes
-            it up or the date passes. As soon as someone accepts, everyone's told and it
-            closes automatically.
+            Want a game but not on a session day? Use this form to sign up and publicise
+            your availability.
         </p>
 
         <div class="form-grid">
-            <div class="field field-full">
-                <label class="field-label" for="co-location">Where</label>
-                <input id="co-location" class="field-input" type="text" maxlength="200" placeholder="e.g. Element Games, Stockport" bind:value={coLocation} />
-            </div>
-
             <div class="field">
                 <label class="field-label" for="co-date">Date</label>
                 <input id="co-date" class="field-input" type="date" bind:value={coDate} />
