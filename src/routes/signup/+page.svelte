@@ -956,7 +956,7 @@
 
             <div class="field field-full">
                 <label class="field-label" for="co-notes">Notes (optional)</label>
-                <textarea id="co-notes" class="field-input callout-notes-input" maxlength="500" rows="2" placeholder="Anything else — parking, terrain, what you're after…" bind:value={coNotes}></textarea>
+                <textarea id="co-notes" class="field-input callout-notes-input" maxlength="500" rows="2" placeholder="Recommended: SBC. Plus anything else — parking, what you're after…" bind:value={coNotes}></textarea>
             </div>
         </div>
 
