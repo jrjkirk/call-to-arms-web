@@ -54,8 +54,26 @@
         }
     }
 
+    // On the bare/default domain (calltoarms.app / www), a LOGGED-IN visitor is
+    // sent to their home club's own subdomain (path preserved) so every session
+    // has a real club context. Anonymous visitors stay on the bare domain and
+    // get the marketing hero. Only the bare/www host triggers this — a real
+    // subdomain never matches, so there's no redirect loop.
+    function redirectBareToHomeClub() {
+        if (typeof window === 'undefined') return;
+        const host = window.location.hostname.toLowerCase();
+        const isBare = host === 'calltoarms.app' || host === 'www.calltoarms.app';
+        if (!isBare) return;
+        const slug = auth.active_club?.slug;
+        if (auth.authenticated === true && slug) {
+            window.location.replace(
+                `https://${slug}.calltoarms.app${window.location.pathname}${window.location.search}`
+            );
+        }
+    }
+
     onMount(() => {
-        refreshAuth();
+        refreshAuth().then(redirectBareToHomeClub);
         const club = getClubSlugFromHostname(window.location.hostname);
         getSystemsConfig(club).then((cfg) => {
             hasAnyLeague = leagueSystems(cfg).length > 0;
