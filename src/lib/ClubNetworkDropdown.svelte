@@ -9,12 +9,16 @@
 		region: string | null;
 	};
 
-	// Optional: highlight the club the visitor is currently on, and let the
-	// caller reuse this as a "My Clubs" switcher later (Phase 4) by tweaking
-	// the heading. Defaults suit the logged-out discovery use.
-	let { currentSlug = null, heading = 'Jump to a club' }: {
+	// `compact` renders a small inline label + narrow select for the topbar;
+	// the default (full-width block) suits the logged-out hero's vertical stack.
+	let {
+		currentSlug = null,
+		heading = 'Jump to a club',
+		compact = false
+	}: {
 		currentSlug?: string | null;
 		heading?: string;
+		compact?: boolean;
 	} = $props();
 
 	let clubs = $state<Club[]>([]);
@@ -40,15 +44,21 @@
 </script>
 
 {#if loaded && clubs.length > 1}
-	<div class="club-network">
-		<label class="club-network-heading" for="club-network-select">{heading}</label>
-		<select id="club-network-select" class="club-network-select" onchange={go}>
-			<option value="" selected={currentSlug === null}>Choose a club…</option>
+	<div class="club-network" class:compact>
+		<span class="club-network-heading" id="club-network-label">{heading}</span>
+		<select
+			class="club-network-select"
+			aria-labelledby="club-network-label"
+			onchange={go}
+		>
+			{#if currentSlug === null}
+				<option value="" selected>Choose a club…</option>
+			{/if}
 			{#each grouped as group}
 				<optgroup label={group.region}>
 					{#each group.items as club}
 						<option value={club.slug} selected={club.slug === currentSlug}>
-							{club.name}{club.slug === currentSlug ? ' (here)' : ''}
+							{club.name}
 						</option>
 					{/each}
 				</optgroup>
@@ -87,5 +97,28 @@
 	.club-network-select:focus {
 		outline: none;
 		border-color: var(--color-accent);
+	}
+
+	/* Compact topbar variant: tiny caption above a narrow, truncating select. */
+	.club-network.compact {
+		width: auto;
+		margin-top: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		align-items: flex-start;
+	}
+
+	.club-network.compact .club-network-heading {
+		margin-bottom: 0;
+		font-size: 0.6rem;
+		letter-spacing: 1.2px;
+	}
+
+	.club-network.compact .club-network-select {
+		width: auto;
+		max-width: 220px;
+		padding: 0.35rem 0.55rem;
+		font-size: 0.82rem;
 	}
 </style>
