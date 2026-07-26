@@ -121,4 +121,23 @@
 		padding: 0.35rem 0.55rem;
 		font-size: 0.82rem;
 	}
+
+	/* On mobile the compact switcher lives in the hamburger drawer — make it
+	   full-width and clearly readable there rather than a tiny inline control. */
+	@media (max-width: 768px) {
+		.club-network.compact {
+			width: 100%;
+		}
+
+		.club-network.compact .club-network-heading {
+			font-size: 0.72rem;
+		}
+
+		.club-network.compact .club-network-select {
+			width: 100%;
+			max-width: none;
+			padding: 0.6rem 0.7rem;
+			font-size: 0.95rem;
+		}
+	}
 </style>
