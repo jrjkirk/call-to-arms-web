@@ -7,6 +7,7 @@
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import LandingHero from '$lib/LandingHero.svelte';
+    import ClubNetworkDropdown from '$lib/ClubNetworkDropdown.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
@@ -17,6 +18,7 @@
         authenticated: boolean;
         user?: { id: number; discord_name: string; avatar_url: string | null; player_id: number | null; club_id: number };
         player?: { id: number; name: string } | null;
+        active_club?: { id: number; slug: string; name: string } | null;
         claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
     };
 
@@ -82,7 +84,12 @@
     }
 
     const isAuthed = $derived(auth.authenticated === true);
-    const needsClaim = $derived(isAuthed && auth.user?.player_id == null);
+    // Multi-club network model: "needs to claim" is about the ACTIVE club, so
+    // it keys off auth.player (the active-club player /auth/me returns), NOT
+    // auth.user.player_id (the legacy home-club link). A user with a player at
+    // their home club but none at the club whose subdomain they're visiting
+    // correctly sees the claim/create prompt for THIS club.
+    const needsClaim = $derived(isAuthed && auth.player == null);
     const isAdminRoute = $derived(
         page.url.pathname.startsWith('/admin') || page.url.pathname.startsWith('/platform-admin')
     );
@@ -205,6 +212,12 @@
                         </div>
                     </div>
                 {/if}
+                <div class="switch-club">
+                    <ClubNetworkDropdown
+                        currentSlug={auth.active_club?.slug ?? null}
+                        heading="Switch club"
+                    />
+                </div>
                 <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
             {/if}
         </aside>
@@ -220,8 +233,13 @@
                 {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
                     <div class="claim-banner">
                         <strong>Welcome, {auth.user.discord_name}.</strong>
-                        Before you can use the app, please
-                        <a href="/claim">link your existing player profile</a>.
+                        {#if auth.active_club}
+                            You don't have a profile at <strong>{auth.active_club.name}</strong> yet —
+                            <a href="/claim">claim or create one here</a> to play.
+                        {:else}
+                            Before you can use the app, please
+                            <a href="/claim">link your existing player profile</a>.
+                        {/if}
                     </div>
                 {/if}
                 {#key page.url.pathname}
@@ -348,6 +366,10 @@
         align-items: center;
         gap: 0.75rem;
         flex: 0 0 auto;
+    }
+
+    .switch-club {
+        margin-top: 0.4rem;
     }
 
     .auth-panel-note {

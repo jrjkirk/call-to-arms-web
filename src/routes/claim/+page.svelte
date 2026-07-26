@@ -9,6 +9,7 @@
         authenticated: boolean;
         user?: { id: number; discord_name: string; player_id: number | null };
         player?: { name: string } | null;
+        active_club?: { id: number; slug: string; name: string } | null;
         claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
     };
 
@@ -38,7 +39,10 @@
     });
 
     const candidates = $derived(auth.claim_candidates ?? []);
-    const alreadyLinked = $derived(auth.user?.player_id != null);
+    // Multi-club network model: "already linked" is per active club — keyed off
+    // auth.player (the active-club player /auth/me returns), not the legacy
+    // home-club auth.user.player_id.
+    const alreadyLinked = $derived(auth.player != null);
     const filtered = $derived(
         candidates.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
     );

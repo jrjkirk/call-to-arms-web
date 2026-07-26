@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchWeekId } from '$lib/weekId';
+    import { UK_REGIONS } from '$lib/regions';
     import {
         NONE_FACTION,
         ETA_OPTIONS,
@@ -530,6 +531,7 @@
         address: string;
         latitude: number | null;
         longitude: number | null;
+        region: string | null;
     };
 
     function googleMapsSearchUrl(address: string): string {
@@ -1326,6 +1328,7 @@
             address: data.club.address ?? '',
             latitude: data.club.latitude ?? null,
             longitude: data.club.longitude ?? null,
+            region: data.club.region ?? null,
         };
         const byDay = new Map((data.club.opening_hours ?? []).map((h: any) => [h.day, h]));
         clubHours = DAYS.map((d) => {
@@ -1356,6 +1359,7 @@
                 address: clubProfile.address,
                 latitude: clubProfile.latitude,
                 longitude: clubProfile.longitude,
+                region: clubProfile.region,
             }),
         });
         if (r.ok) {
@@ -2656,6 +2660,18 @@
                         <div class="field">
                             <label class="field-label" for="club-address">Address</label>
                             <input id="club-address" class="field-input" type="text" placeholder="123 Example St, Manchester, UK" bind:value={clubProfile.address} />
+                        </div>
+                        <div class="field">
+                            <label class="field-label" for="club-region">Region</label>
+                            <select id="club-region" class="field-input" bind:value={clubProfile.region}>
+                                <option value={null}>— Not set —</option>
+                                {#each UK_REGIONS as region}
+                                    <option value={region}>{region}</option>
+                                {/each}
+                            </select>
+                            <p class="field-label-hint">
+                                Groups your club under a region heading when players browse the club network.
+                            </p>
                         </div>
                         <div class="form-grid">
                             <div class="field">

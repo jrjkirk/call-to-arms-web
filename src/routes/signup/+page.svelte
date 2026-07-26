@@ -109,7 +109,10 @@
         }
     });
 
-    const isClaimed = $derived(auth.authenticated && auth.user?.player_id != null);
+    // Multi-club network model: claimed-ness and "my player" are per active
+    // club — use auth.player (active-club player from /auth/me), not the legacy
+    // home-club auth.user.player_id.
+    const isClaimed = $derived(auth.authenticated && auth.player != null);
 
     /* ---------- my signup for this week ---------- */
     type SignupRow = {
@@ -267,7 +270,7 @@
     let swapError = $state<string | null>(null);
 
     async function loadPairings(sys: string, wk: string) {
-        const myPlayerId = auth.user?.player_id;
+        const myPlayerId = auth.player?.id;
         if (!myPlayerId) return;
         try {
             // No club param needed — the backend resolves the caller's own
@@ -320,7 +323,7 @@
 
     const myOpponentName = $derived(
         myPairing && !myPairing.is_bye
-            ? (myPairing.player_a_id === auth.user?.player_id
+            ? (myPairing.player_a_id === auth.player?.id
                 ? myPairing.player_b_name
                 : myPairing.player_a_name)
             : null
