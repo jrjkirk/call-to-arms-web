@@ -41,6 +41,7 @@
         system = data.system;
         week = data.week;
         loadStats(data.system, data.week);
+        loadCallOuts(data.system);
     });
 
     const cfg = $derived(formConfig(data.system, systemsConfig));
@@ -460,6 +461,113 @@
         }
         preSubmitting = false;
     }
+
+    /* ---------- call outs (ad-hoc, can't-make-club-night games) ---------- */
+    type CallOut = {
+        id: number; creator_name: string; location: string;
+        game_at: string; game_date: string; game_time: string; when_label: string;
+        vibe: string | null; faction: string | null; points: number | null;
+        notes: string | null; status: string; is_mine: boolean;
+    };
+    let callOuts = $state<CallOut[]>([]);
+
+    async function loadCallOuts(sys: string) {
+        try {
+            const params = new URLSearchParams({ system: sys });
+            const r = await fetch(`${PUBLIC_API_URL}/call-outs?${params}`, { credentials: 'include' });
+            callOuts = r.ok ? ((await r.json()).call_outs ?? []) : [];
+        } catch (_) {
+            callOuts = [];
+        }
+    }
+
+    let coLocation = $state('');
+    let coDate = $state('');
+    let coTime = $state('18:30');
+    let coVibe = $state('Casual');
+    let coFaction = $state(NONE_FACTION);
+    let coPoints = $state(2000);
+    let coNotes = $state('');
+    let coSubmitting = $state(false);
+    let coSuccess = $state<string | null>(null);
+    let coError = $state<string | null>(null);
+
+    // Reset the per-system fields when the system changes (mirrors the
+    // pre-arranged form's reset). Location/date/notes are left alone so a
+    // config reload can't wipe what the user is mid-way through typing.
+    $effect(() => {
+        coVibe = configFor(systemsConfig, data.system).default_vibe || preVibeOptions[0] || 'Casual';
+        coFaction = NONE_FACTION;
+        coPoints = cfg.defaultPoints;
+        coSuccess = null;
+        coError = null;
+    });
+
+    async function submitCallOut() {
+        if (coSubmitting) return;
+        coError = null;
+        coSuccess = null;
+        if (!coLocation.trim()) { coError = 'Please say where the game will be.'; return; }
+        if (!coDate) { coError = 'Please pick a date.'; return; }
+        if (!coTime) { coError = 'Please pick a time.'; return; }
+        if (coFaction === NONE_FACTION) { coError = `Please pick ${prePlayerFactionLabel.toLowerCase()}.`; return; }
+
+        coSubmitting = true;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/call-outs`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system: data.system,
+                    location: coLocation.trim(),
+                    game_date: coDate,
+                    game_time: coTime,
+                    vibe: coVibe,
+                    faction: coFaction === NONE_FACTION ? null : coFaction,
+                    points: preShowPoints ? coPoints : null,
+                    notes: coNotes.trim() || null
+                })
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                coError = body.detail || 'Could not post the call-out.';
+            } else {
+                coSuccess = 'Call-out posted — it stays here and in Discord until someone takes it up or the time passes.';
+                coLocation = '';
+                coDate = '';
+                coNotes = '';
+                await loadCallOuts(data.system);
+            }
+        } catch (_) {
+            coError = 'Network error. Please try again.';
+        }
+        coSubmitting = false;
+    }
+
+    async function takeCallOut(id: number) {
+        coError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/call-outs/${id}/take`, { method: 'POST', credentials: 'include' });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) coError = body.detail || 'Could not take up this call-out.';
+            else await loadCallOuts(data.system);
+        } catch (_) {
+            coError = 'Network error. Please try again.';
+        }
+    }
+
+    async function cancelCallOut(id: number) {
+        coError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/call-outs/${id}/cancel`, { method: 'POST', credentials: 'include' });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) coError = body.detail || 'Could not cancel this call-out.';
+            else await loadCallOuts(data.system);
+        } catch (_) {
+            coError = 'Network error. Please try again.';
+        }
+    }
 </script>
 
 <svelte:head>
@@ -775,6 +883,107 @@
             </div>
         {/if}
     </details>
+
+    <div class="section-title">Call Outs</div>
+
+    {#if callOuts.length > 0}
+        <div class="callout-list">
+            {#each callOuts as co (co.id)}
+                <div class="card callout-item">
+                    <div class="callout-head">
+                        <strong>{co.creator_name}</strong> is looking for a game
+                        <span class="callout-when">🗓️ {co.when_label}</span>
+                    </div>
+                    <div class="callout-meta">
+                        📍 {co.location}{#if co.faction} • ⚔️ {co.faction}{/if}{#if co.vibe} • 🎭 {co.vibe}{/if}{#if co.points != null} • 🛡️ {co.points} pts{/if}
+                    </div>
+                    {#if co.notes}
+                        <div class="callout-notes">📝 {co.notes}</div>
+                    {/if}
+                    <div class="actions callout-actions">
+                        {#if co.is_mine}
+                            <span class="muted callout-own">This is your call-out</span>
+                            <button class="drop-button" onclick={() => cancelCallOut(co.id)} type="button">Cancel</button>
+                        {:else if isClaimed}
+                            <button class="primary-button" onclick={() => takeCallOut(co.id)} type="button">I'll take this game</button>
+                        {/if}
+                    </div>
+                </div>
+            {/each}
+        </div>
+    {:else}
+        <p class="muted">No open call-outs for this system right now. Post one below if you're after an ad-hoc game.</p>
+    {/if}
+
+    <details class="card prearranged-card callout-card">
+        <summary>Post a call-out</summary>
+        <p class="prompt-body small">
+            Can't make regular club night but still fancy a game? Post a call-out and it
+            stays visible here — and in Discord, with a daily nudge — until someone takes
+            it up or the date passes. As soon as someone accepts, everyone's told and it
+            closes automatically.
+        </p>
+
+        <div class="form-grid">
+            <div class="field field-full">
+                <label class="field-label" for="co-location">Where</label>
+                <input id="co-location" class="field-input" type="text" maxlength="200" placeholder="e.g. Element Games, Stockport" bind:value={coLocation} />
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="co-date">Date</label>
+                <input id="co-date" class="field-input" type="date" bind:value={coDate} />
+            </div>
+            <div class="field">
+                <label class="field-label" for="co-time">Time</label>
+                <input id="co-time" class="field-input" type="time" bind:value={coTime} />
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="co-fac">Your {prePlayerFactionLabel}</label>
+                <select id="co-fac" class="field-select" bind:value={coFaction}>
+                    <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                    {#each cfg.factions as f}
+                        <option value={f}>{f}</option>
+                    {/each}
+                </select>
+            </div>
+
+            <div class="field">
+                <label class="field-label" for="co-vibe">Type of Game</label>
+                <select id="co-vibe" class="field-select" bind:value={coVibe}>
+                    {#each preVibeOptions as v}
+                        <option value={v}>{v}</option>
+                    {/each}
+                </select>
+            </div>
+
+            {#if preShowPoints}
+                <div class="field">
+                    <label class="field-label" for="co-pts">Army Points</label>
+                    <input id="co-pts" class="field-input" type="number" min="0" max={cfg.maxPoints} step="50" bind:value={coPoints} />
+                </div>
+            {/if}
+
+            <div class="field field-full">
+                <label class="field-label" for="co-notes">Notes (optional)</label>
+                <textarea id="co-notes" class="field-input callout-notes-input" maxlength="500" rows="2" placeholder="Anything else — parking, terrain, what you're after…" bind:value={coNotes}></textarea>
+            </div>
+        </div>
+
+        {#if coError}
+            <div class="error fade-in">{coError}</div>
+        {/if}
+        {#if coSuccess}
+            <div class="success fade-in">{coSuccess}</div>
+        {/if}
+
+        <div class="actions">
+            <button class="primary-button" onclick={submitCallOut} disabled={coSubmitting} type="button">
+                {coSubmitting ? 'Posting…' : 'Post call-out'}
+            </button>
+        </div>
+    </details>
 {/if}
 
 </div>
@@ -964,4 +1173,56 @@
         font-size: 0.85rem;
         margin-top: 0.75rem;
     }
+
+    .field-full { grid-column: 1 / -1; }
+
+    .callout-notes-input {
+        resize: vertical;
+        min-height: 2.4rem;
+        font-family: inherit;
+    }
+
+    .callout-card { margin-top: 0.75rem; }
+
+    .callout-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .callout-item { padding: 1rem 1.25rem; }
+
+    .callout-head {
+        color: var(--color-text-bright);
+        margin-bottom: 0.35rem;
+    }
+
+    .callout-when {
+        display: inline-block;
+        margin-left: 0.5rem;
+        color: var(--color-accent);
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .callout-meta {
+        color: var(--color-text-base);
+        font-size: 0.9rem;
+    }
+
+    .callout-notes {
+        margin-top: 0.4rem;
+        color: var(--color-text-dim);
+        font-size: 0.88rem;
+    }
+
+    .callout-actions {
+        margin-top: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+
+    .callout-own { font-size: 0.85rem; }
 </style>
