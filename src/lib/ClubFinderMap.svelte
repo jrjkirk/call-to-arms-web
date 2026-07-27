@@ -27,6 +27,7 @@
     let L: any = null;
     let markerLayer: any = null;
     let ready = $state(false);
+    let resizeObserver: ResizeObserver | null = null;
 
     onMount(async () => {
         // Leaflet touches window/document at import time — browser-only, so
@@ -38,18 +39,39 @@
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
-        map = L.map(container, { center: [54.5, -3], zoom: 5, scrollWheelZoom: false });
+        map = L.map(container, {
+            center: [54.5, -3],
+            zoom: 5,
+            minZoom: 4,
+            scrollWheelZoom: false,
+            worldCopyJump: false,
+        });
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution:
                 '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
                 '&copy; <a href="https://carto.com/attributions">CARTO</a>',
             maxZoom: 19,
+            // Stop the basemap tiling infinitely sideways (the repeated-world
+            // look) when zoomed out — a common source of odd map artefacts.
+            noWrap: true,
         }).addTo(map);
         markerLayer = L.layerGroup().addTo(map);
         ready = true;
+
+        // The map frequently initialises inside the page's fly-in transform and
+        // a grid cell whose size isn't settled, which makes Leaflet lay tiles
+        // out at the wrong offsets (mis-placed / half-loaded tiles). Recompute
+        // once things settle, again after the page transition, and on resize.
+        requestAnimationFrame(() => map?.invalidateSize());
+        setTimeout(() => map?.invalidateSize(), 650);
+        resizeObserver = new ResizeObserver(() => map?.invalidateSize());
+        resizeObserver.observe(container);
     });
 
-    onDestroy(() => map?.remove());
+    onDestroy(() => {
+        resizeObserver?.disconnect();
+        map?.remove();
+    });
 
     // Re-draw pins whenever the (filtered) club list changes, then fit the view
     // to the pins so the map always frames what's currently shown.

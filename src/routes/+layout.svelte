@@ -8,7 +8,6 @@
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import LandingHero from '$lib/LandingHero.svelte';
-    import ClubNetworkDropdown from '$lib/ClubNetworkDropdown.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
@@ -252,11 +251,7 @@
                         </div>
                     </div>
                 {/if}
-                <ClubNetworkDropdown
-                    compact
-                    currentSlug={auth.active_club?.slug ?? null}
-                    heading="Current Club"
-                />
+                <a class="sidebar-button" href="/find" onclick={closeDrawer}>Change club</a>
                 <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
             {/if}
         </aside>

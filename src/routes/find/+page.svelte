@@ -129,6 +129,7 @@
     <div class="loading-state"></div>
 {:else}
     <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+        <a class="back-home" href="/">← Home</a>
         <header class="finder-head">
             <h1 class="finder-title">Find a club</h1>
             <p class="finder-sub">
@@ -158,9 +159,11 @@
                             class="chip"
                             class:on={selected.has(s.legacy_system_name)}
                             aria-pressed={selected.has(s.legacy_system_name)}
+                            title={s.name}
                             onclick={() => toggleSystem(s.legacy_system_name)}
                         >
-                            {s.name}
+                            <img class="chip-icon" src={`/logos/${s.slug}.png`} alt="" loading="lazy" />
+                            <span>{s.name}</span>
                         </button>
                     {/each}
                     {#if selected.size > 0}
@@ -221,6 +224,16 @@
 {/if}
 
 <style>
+    .back-home {
+        display: inline-block;
+        margin-bottom: 0.9rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-text-dim);
+        text-decoration: none;
+    }
+    .back-home:hover { color: var(--color-accent); }
+
     .finder-head { margin-bottom: 1.25rem; }
     .finder-title {
         font-family: var(--font-display);
@@ -275,16 +288,28 @@
 
     .system-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
     .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
         font-size: 0.8rem;
         font-weight: 600;
         color: var(--color-text-dim);
         background: var(--color-surface-dark);
         border: 1px solid var(--color-steel-border);
         border-radius: 999px;
-        padding: 0.3rem 0.75rem;
+        padding: 0.3rem 0.75rem 0.3rem 0.4rem;
         cursor: pointer;
         font-family: inherit;
         transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .chip-icon {
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.25);
+        padding: 2px;
+        flex: 0 0 auto;
     }
     .chip:hover { color: var(--color-text-bright); border-color: var(--color-accent-border); }
     .chip.on {
@@ -292,7 +317,7 @@
         background: var(--color-accent);
         border-color: var(--color-accent);
     }
-    .chip-clear { color: var(--color-text-faint); }
+    .chip-clear { color: var(--color-text-faint); padding-left: 0.75rem; }
 
     .finder-count { color: var(--color-text-dim); font-size: 0.85rem; margin: 0 0 1rem; }
 
