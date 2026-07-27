@@ -8,7 +8,7 @@
         SYSTEMS, NONE_FACTION, EXPERIENCE_OPTIONS, ETA_OPTIONS, formConfig
     } from '$lib/signupOptions';
     import {
-        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
+        getSystemsConfig, vibeOptionsFor, usesPoints, defaultVibeFor, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
     } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { fetchMySystems } from '$lib/mySystems';
@@ -390,8 +390,8 @@
 
     // The prearranged form reads the backend's vibe_options for the system,
     // sorted for display.
-    const preVibeOptions = $derived(sortVibeOptions(configFor(systemsConfig, data.system).vibe_options));
-    const preShowPoints = $derived(configFor(systemsConfig, data.system).uses_points);
+    const preVibeOptions = $derived(vibeOptionsFor(systemsConfig, data.system));
+    const preShowPoints = $derived(usesPoints(systemsConfig, data.system));
     const prePlayerFactionLabel = $derived(cfg.factionLabel.replace('Your ', ''));
 
     // Reset the prearranged form's per-system fields when the system changes.
@@ -400,7 +400,7 @@
     // indexing into it picked the wrong default for HH ("Intro" before
     // "Standard") when tested against live data.
     $effect(() => {
-        preVibe = configFor(systemsConfig, data.system).default_vibe || preVibeOptions[0] || 'Casual';
+        preVibe = defaultVibeFor(systemsConfig, data.system);
         preAFaction = NONE_FACTION;
         preBFaction = NONE_FACTION;
         preA = '';
@@ -518,7 +518,7 @@
     // pre-arranged form's reset). Location/date/notes are left alone so a
     // config reload can't wipe what the user is mid-way through typing.
     $effect(() => {
-        coVibe = configFor(systemsConfig, data.system).default_vibe || preVibeOptions[0] || 'Casual';
+        coVibe = defaultVibeFor(systemsConfig, data.system);
         coFaction = NONE_FACTION;
         coPoints = cfg.defaultPoints;
         coSuccess = null;

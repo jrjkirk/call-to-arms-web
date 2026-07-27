@@ -11,7 +11,7 @@
         EXPERIENCE_OPTIONS,
     } from '$lib/signupOptions';
     import {
-        getSystemsConfig, configFor, sortVibeOptions, FALLBACK_SYSTEMS_CONFIG, CANONICAL_VIBES, systemLogoUrl, type SystemConfig
+        getSystemsConfig, configFor, vibeOptionsFor, usesPoints, FALLBACK_SYSTEMS_CONFIG, CANONICAL_VIBES, systemLogoUrl, type SystemConfig
     } from '$lib/systemsConfig';
     import LineChart from '$lib/charts/LineChart.svelte';
     import BarChart from '$lib/charts/BarChart.svelte';
@@ -728,19 +728,6 @@
 
     function factionsFor(system: string): string[] {
         return configFor(systemsConfig, system).faction_list;
-    }
-
-    // Vibe options offered in the pairings-grid "Type" dropdowns — sourced
-    // purely from the catalogue, same as the main signup form and the
-    // pre-arranged sub-form. (Previously this grid hardcoded a KT-excludes-
-    // "Intro" rule that diverged from the other two surfaces; removed so all
-    // three agree on whatever the catalogue says for each system.)
-    function vibeOptionsFor(system: string): string[] {
-        return sortVibeOptions(configFor(systemsConfig, system).vibe_options);
-    }
-
-    function showPoints(system: string): boolean {
-        return configFor(systemsConfig, system).uses_points;
     }
 
     function displayRowToEdit(r: DisplayRow): EditRow {
@@ -3720,7 +3707,7 @@
                                                     <th>B Faction</th>
                                                     <th>B Type</th>
                                                     <th>Type</th>
-                                                    {#if showPoints(scope)}<th>ETA</th><th>Pts</th>{/if}
+                                                    {#if usesPoints(systemsConfig, scope)}<th>ETA</th><th>Pts</th>{/if}
                                                     <th></th>
                                                 </tr>
                                             </thead>
@@ -3775,7 +3762,7 @@
                                                                     onchange={() => (ps.dirty = true)}
                                                                 >
                                                                     <option value="">—</option>
-                                                                    {#each vibeOptionsFor(scope) as v}
+                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}
                                                                         <option>{v}</option>
                                                                     {/each}
                                                                 </select>
@@ -3830,7 +3817,7 @@
                                                                     onchange={() => (ps.dirty = true)}
                                                                 >
                                                                     <option value="">—</option>
-                                                                    {#each vibeOptionsFor(scope) as v}
+                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}
                                                                         <option>{v}</option>
                                                                     {/each}
                                                                 </select>
@@ -3847,14 +3834,14 @@
                                                                     onchange={() => (ps.dirty = true)}
                                                                 >
                                                                     <option value="">—</option>
-                                                                    {#each vibeOptionsFor(scope) as v}
+                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}
                                                                         <option>{v}</option>
                                                                     {/each}
                                                                 </select>
                                                             {/if}
                                                         </td>
                                                         <!-- ETA + Points (points-bearing systems) -->
-                                                        {#if showPoints(scope)}
+                                                        {#if usesPoints(systemsConfig, scope)}
                                                             <td>
                                                                 {#if er.id === null}
                                                                     <span class="cell-text">{er.eta || '—'}</span>

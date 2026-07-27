@@ -289,3 +289,25 @@ export function sortVibeOptions(options: string[]): string[] {
         return ia - ib;
     });
 }
+
+// Small per-system derivations shared by the signup, admin, and prearranged
+// forms. Previously each screen re-derived these from configFor() inline (or
+// as its own local helper), which meant a change to how vibe order or the
+// points flag is computed had to be made in several places. Keep them here.
+
+/** A system's vibe options, sorted into canonical display order. */
+export function vibeOptionsFor(systemsConfig: SystemConfig[], legacySystemName: string): string[] {
+    return sortVibeOptions(configFor(systemsConfig, legacySystemName).vibe_options);
+}
+
+/** Whether a system is points-based (i.e. show the army-points field). */
+export function usesPoints(systemsConfig: SystemConfig[], legacySystemName: string): boolean {
+    return configFor(systemsConfig, legacySystemName).uses_points;
+}
+
+/** A system's default vibe, with safe fallbacks for the pre-fetch / empty
+ *  case (backend default_vibe → first sorted option → 'Casual'). */
+export function defaultVibeFor(systemsConfig: SystemConfig[], legacySystemName: string): string {
+    const entry = configFor(systemsConfig, legacySystemName);
+    return entry.default_vibe || sortVibeOptions(entry.vibe_options)[0] || 'Casual';
+}
