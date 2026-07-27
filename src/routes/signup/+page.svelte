@@ -376,6 +376,10 @@
     let preAFaction = $state(NONE_FACTION);
     let preB = $state<number | ''>('');
     let preBFaction = $state(NONE_FACTION);
+    // Player B can be a guest / +1 who isn't on the system: type a name instead
+    // of picking a roster player. The backend stores them with no profile.
+    let preBIsGuest = $state(false);
+    let preBGuestName = $state('');
     let prePoints = $state(2000);
     let preEta = $state('18:30');
     let preVibe = $state('Casual');
@@ -401,6 +405,8 @@
         preBFaction = NONE_FACTION;
         preA = '';
         preB = '';
+        preBIsGuest = false;
+        preBGuestName = '';
         prePoints = cfg.defaultPoints;
         preSuccess = null;
         preError = null;
@@ -411,13 +417,25 @@
         preError = null;
         preSuccess = null;
 
-        if (preA === '' || preB === '') {
-            preError = 'Please select both players.';
+        const guestName = preBGuestName.trim();
+        if (preA === '') {
+            preError = preBIsGuest ? 'Please select Player A.' : 'Please select both players.';
             return;
         }
-        if (preA === preB) {
-            preError = 'Player A and Player B must be different.';
-            return;
+        if (preBIsGuest) {
+            if (!guestName) {
+                preError = "Please enter the guest's name.";
+                return;
+            }
+        } else {
+            if (preB === '') {
+                preError = 'Please select both players.';
+                return;
+            }
+            if (preA === preB) {
+                preError = 'Player A and Player B must be different.';
+                return;
+            }
         }
         if (preAFaction === NONE_FACTION || preBFaction === NONE_FACTION) {
             preError = 'Please pick a faction for both players.';
@@ -434,7 +452,8 @@
                     system: data.system,
                     week: data.week,
                     player_a_id: preA,
-                    player_b_id: preB,
+                    player_b_id: preBIsGuest ? null : preB,
+                    guest_b_name: preBIsGuest ? guestName : null,
                     faction_a: preAFaction,
                     faction_b: preBFaction,
                     eta: preEta,
@@ -447,10 +466,14 @@
                 preError = body.detail || 'Could not submit the pre-arranged game.';
             } else {
                 const aName = players.find((p) => p.id === preA)?.name ?? 'Player A';
-                const bName = players.find((p) => p.id === preB)?.name ?? 'Player B';
+                const bName = preBIsGuest
+                    ? `${guestName} (+1)`
+                    : (players.find((p) => p.id === preB)?.name ?? 'Player B');
                 preSuccess = `Pre-arranged game submitted: ${aName} vs ${bName}.`;
                 preA = '';
                 preB = '';
+                preBIsGuest = false;
+                preBGuestName = '';
                 preAFaction = NONE_FACTION;
                 preBFaction = NONE_FACTION;
                 await invalidateAll();
@@ -792,13 +815,15 @@
         <summary>Set up a pre-arranged game</summary>
         <p class="prompt-body small">
             Use this if you've already arranged a game with someone outside the regular
-            signup process. Both players need an existing profile, and neither can already
-            be signed up for {data.week} — drop first using the form above if needed. If one
-            player later drops out, the other remains in the weekly pairings pool.
+            signup process. Bringing someone who isn't on the system? Tick
+            <em>“Player B is a guest / +1”</em> and just type their name — no profile needed.
+            Neither player can already be signed up for {data.week} — drop first using the
+            form above if needed. If one player later drops out, the other remains in the
+            weekly pairings pool.
         </p>
 
-        {#if players.length < 2}
-            <p class="muted">Pre-arranged games need at least two active players in the system.</p>
+        {#if players.length < 1}
+            <p class="muted">Pre-arranged games need at least one active player in the system.</p>
         {:else}
             <div class="form-grid">
                 <div class="field">
@@ -822,12 +847,27 @@
 
                 <div class="field">
                     <label class="field-label" for="pre-b">Player B</label>
-                    <select id="pre-b" class="field-select" bind:value={preB}>
-                        <option value="">— Select —</option>
-                        {#each players as p}
-                            <option value={p.id}>{p.name}</option>
-                        {/each}
-                    </select>
+                    {#if preBIsGuest}
+                        <input
+                            id="pre-b"
+                            class="field-input"
+                            type="text"
+                            maxlength="80"
+                            placeholder="Guest's name"
+                            bind:value={preBGuestName}
+                        />
+                    {:else}
+                        <select id="pre-b" class="field-select" bind:value={preB}>
+                            <option value="">— Select —</option>
+                            {#each players as p}
+                                <option value={p.id}>{p.name}</option>
+                            {/each}
+                        </select>
+                    {/if}
+                    <label class="guest-toggle">
+                        <input type="checkbox" bind:checked={preBIsGuest} />
+                        Player B is a guest / +1 (not on the system)
+                    </label>
                 </div>
                 <div class="field">
                     <label class="field-label" for="pre-b-fac">Player B's {prePlayerFactionLabel}</label>
@@ -1138,6 +1178,24 @@
     .prearranged-card {
         padding: 1.25rem 1.5rem;
         margin-bottom: 0.5rem;
+    }
+
+    .guest-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.4rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+        cursor: pointer;
+    }
+
+    .guest-toggle input[type='checkbox'] {
+        width: auto;
+        margin: 0;
+        cursor: pointer;
+        accent-color: var(--color-gold, #c9a14a);
     }
 
     .prearranged-card summary {

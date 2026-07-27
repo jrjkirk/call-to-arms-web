@@ -41,8 +41,10 @@
     // the hostname / subdomain) resolves the shared-link club exactly as before.
     type Matchup = {
         player_a_name: string;
+        player_a_id: number | null;
         player_a_faction: string | null;
         player_b_name: string | null;
+        player_b_id: number | null;
         player_b_faction: string | null;
         is_bye: boolean;
         game_type: string | null;
@@ -300,7 +302,12 @@
                         <div class="matchup-icon-empty"></div>
                     {/if}
                     <div class="player-text">
-                        <div class="player-name">{m.player_b_name ?? 'BYE / Standby'}</div>
+                        <div class="player-name">
+                            {m.player_b_name ?? 'BYE / Standby'}
+                            {#if m.player_b_name && !m.is_bye && m.player_b_id == null}
+                                <span class="guest-badge">+1</span>
+                            {/if}
+                        </div>
                         {#if m.player_b_name}
                             <div class="player-faction">{m.player_b_faction ?? '—'}</div>
                         {/if}
@@ -417,6 +424,20 @@
         color: #b8a878;
         font-style: italic;
         text-align: left;
+    }
+
+    /* Marks a guest / +1 opponent (someone not on the system) */
+    .guest-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        vertical-align: middle;
+        color: #161620;
+        background: #c9a14a;
+        letter-spacing: 0.3px;
     }
 
     .matchup-icon {
