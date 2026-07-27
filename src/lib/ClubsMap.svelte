@@ -15,6 +15,7 @@
     let map: any = null;
     let pinCount = $state(0);
     let ready = $state(false);
+    let resizeObserver: ResizeObserver | null = null;
 
     onMount(async () => {
         let clubs: ClubPin[] = [];
@@ -40,7 +41,7 @@
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
-        map = L.map(container, { scrollWheelZoom: false });
+        map = L.map(container, { scrollWheelZoom: false, minZoom: 4, worldCopyJump: false });
         // CARTO's free dark basemap (no API key) — matches the app's dark
         // theme instead of the default light/colourful OSM tile style.
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -48,6 +49,8 @@
                 '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
                 '&copy; <a href="https://carto.com/attributions">CARTO</a>',
             maxZoom: 19,
+            // Stop the basemap tiling infinitely sideways when zoomed out.
+            noWrap: true,
         }).addTo(map);
 
         const bounds = L.latLngBounds(pins.map((c) => [c.latitude as number, c.longitude as number]));
@@ -60,12 +63,22 @@
         if (pins.length === 1) {
             map.setView(bounds.getCenter(), 12);
         } else {
-            map.fitBounds(bounds, { padding: [30, 30] });
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 });
         }
         ready = true;
+
+        // The map initialises while the hero's fly-in animations are still
+        // running (a CSS transform on ancestors), so Leaflet lays tiles out at
+        // the wrong offsets — the "weird artefacts". Recompute once things
+        // settle, again after the animations, and on any resize.
+        requestAnimationFrame(() => map?.invalidateSize());
+        setTimeout(() => map?.invalidateSize(), 700);
+        resizeObserver = new ResizeObserver(() => map?.invalidateSize());
+        resizeObserver.observe(container);
     });
 
     onDestroy(() => {
+        resizeObserver?.disconnect();
         map?.remove();
     });
 </script>

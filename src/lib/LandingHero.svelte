@@ -97,7 +97,12 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        max-width: 780px;
+        /* Match the main content container (.container, 1100px) so the hero —
+           and especially the shared "Don't see your club?" form — wraps the
+           same width as the /find page. The marketing bits (logo, about text)
+           keep their own narrower caps below, so they stay readable/centred. */
+        max-width: 1100px;
+        width: 100%;
     }
 
     .hero-logo {
