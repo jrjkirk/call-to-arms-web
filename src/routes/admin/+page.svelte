@@ -2551,6 +2551,8 @@
         </aside>
 
         <div class="admin-main">
+        {#key activeNav}
+        <div class="admin-section-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
     {#if activeNav === 'overview'}
     <!-- ══ Command Table — at-a-glance dashboard overview ══ -->
@@ -5085,6 +5087,8 @@
         </div>
     {/if}
 
+        </div>
+        {/key}
         </div>
     </div>
 

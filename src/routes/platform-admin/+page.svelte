@@ -847,6 +847,8 @@
         </aside>
 
         <div class="admin-main">
+        {#key activeNav}
+        <div class="admin-section-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
     {#if activeNav === 'clubs'}
     <!-- ══ Club Management ══ -->
@@ -1655,6 +1657,8 @@
         </div>
     {/if}
 
+        </div>
+        {/key}
         </div>
     </div>
 {/if}
