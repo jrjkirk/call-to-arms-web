@@ -4,6 +4,7 @@
     import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { CANONICAL_VIBES } from '$lib/systemsConfig';
+    import { UK_REGIONS } from '$lib/regions';
 
     type AdminMe = { is_super_admin: boolean; is_platform_admin: boolean; scopes: string[] };
     type PlatformClub = {
@@ -335,12 +336,49 @@
         requester_name: string; requester_email: string;
         club_name: string; club_location: string; notes: string | null;
         reviewed_at: string | null; reviewed_by_name: string | null;
+        suggested_slug: string; provisioned_club_id: number | null;
     };
     let clubRequests = $state<ClubRequestRow[]>([]);
     let clubRequestsLoading = $state(false);
     let clubRequestError = $state<string | null>(null);
     let clubRequestFilter = $state('pending');
     let pendingClubRequestCount = $state(0);
+
+    // One-click provision: which request's inline form is open, plus its fields.
+    let provisioningId = $state<number | null>(null);
+    let provisionSlug = $state('');
+    let provisionRegion = $state('');
+    let provisionBusy = $state(false);
+    let provisionDone = $state<{ id: number; name: string; slug: string } | null>(null);
+
+    function openProvision(r: ClubRequestRow) {
+        provisioningId = r.id;
+        provisionSlug = r.suggested_slug;
+        provisionRegion = '';
+        provisionDone = null;
+        clubRequestError = null;
+    }
+
+    async function provisionClubRequest(id: number) {
+        if (provisionBusy) return;
+        provisionBusy = true;
+        clubRequestError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-requests/${id}/provision`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: provisionSlug.trim(), region: provisionRegion || null })
+        });
+        const body = await r.json().catch(() => ({}));
+        if (r.ok) {
+            provisionDone = { id: body.club.id, name: body.club.name, slug: body.club.slug };
+            provisioningId = null;
+            await loadClubRequests();
+        } else {
+            clubRequestError = body.detail || 'Could not provision the club.';
+        }
+        provisionBusy = false;
+    }
 
     async function loadClubRequests() {
         clubRequestsLoading = true;
@@ -1284,10 +1322,20 @@
             <section class="admin-section">
                 <h3 class="section-heading">"Add My Club" Requests</h3>
                 <p class="section-intro">
-                    Submitted from the logged-out hero page. Approving or denying just marks it
-                    reviewed — create the actual club yourself via Club Management above once
-                    you've emailed them a getting-started pack.
+                    Submitted from the logged-out hero page. <strong>Provision</strong> creates the
+                    club in one step (name, contact, and address come straight from the request);
+                    you just confirm the subdomain slug. Deny to dismiss. Provisioning doesn't
+                    enable systems or appoint the admin — the club's own onboarding checklist walks
+                    them through that.
                 </p>
+                {#if provisionDone}
+                    <p class="pairing-message">
+                        ✓ Provisioned <strong>{provisionDone.name}</strong> at
+                        <code>{provisionDone.slug}.calltoarms.app</code>. Next: once
+                        {provisionDone.name}'s admin has signed in with Discord, appoint them as
+                        super-admin via <strong>Club Management → Super-admins</strong>.
+                    </p>
+                {/if}
                 <div class="field field-narrow">
                     <label class="field-label" for="cr-status-filter">Filter</label>
                     <select id="cr-status-filter" class="field-select" bind:value={clubRequestFilter} onchange={loadClubRequests}>
@@ -1316,11 +1364,39 @@
                                 <span class="status-badge" class:status-active={r.status === 'approved'} class:status-inactive={r.status !== 'approved'}>
                                     {r.status}
                                 </span>
-                                {#if r.status === 'pending'}
-                                    <button class="primary-button" type="button" onclick={() => reviewClubRequest(r.id, 'approve')}>Approve</button>
+                                {#if r.provisioned_club_id != null}
+                                    <span class="block-note">✓ club created</span>
+                                {:else if provisioningId === r.id}
+                                    <div class="provision-form">
+                                        <div class="field">
+                                            <label class="field-label" for={`prov-slug-${r.id}`}>Subdomain slug</label>
+                                            <div class="slug-input-wrap">
+                                                <input id={`prov-slug-${r.id}`} class="field-input" type="text" bind:value={provisionSlug} placeholder="my-club" />
+                                                <span class="slug-suffix">.calltoarms.app</span>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for={`prov-region-${r.id}`}>Region (optional)</label>
+                                            <select id={`prov-region-${r.id}`} class="field-select" bind:value={provisionRegion}>
+                                                <option value="">— None —</option>
+                                                {#each UK_REGIONS as reg}
+                                                    <option value={reg}>{reg}</option>
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        <div class="provision-actions">
+                                            <button class="primary-button" type="button" disabled={provisionBusy || !provisionSlug.trim()} onclick={() => provisionClubRequest(r.id)}>
+                                                {provisionBusy ? 'Creating…' : 'Create club'}
+                                            </button>
+                                            <button class="secondary-button" type="button" disabled={provisionBusy} onclick={() => (provisioningId = null)}>Cancel</button>
+                                        </div>
+                                    </div>
+                                {:else if r.status === 'pending'}
+                                    <button class="primary-button" type="button" onclick={() => openProvision(r)}>Provision club →</button>
                                     <button class="secondary-button" type="button" onclick={() => reviewClubRequest(r.id, 'deny')}>Deny</button>
                                 {:else}
-                                    <span class="block-note">{r.reviewed_by_name ? `by ${r.reviewed_by_name}` : ''}</span>
+                                    <button class="secondary-button" type="button" onclick={() => openProvision(r)}>Provision club →</button>
+                                    <span class="block-note">{r.reviewed_by_name ? `${r.status} by ${r.reviewed_by_name}` : r.status}</span>
                                 {/if}
                             </li>
                         {/each}
@@ -2219,5 +2295,37 @@
         font-style: italic;
         color: var(--color-text-faint);
         flex-basis: 100%;
+    }
+
+    .provision-form {
+        flex-basis: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1rem;
+        align-items: flex-end;
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        border: 1px solid var(--color-accent-border-soft, rgba(201, 161, 74, 0.3));
+        border-radius: var(--radius);
+        background: rgba(201, 161, 74, 0.05);
+    }
+
+    .provision-form .field { margin: 0; min-width: 180px; }
+
+    .slug-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .slug-suffix {
+        font-size: 0.82rem;
+        color: var(--color-text-faint);
+        white-space: nowrap;
+    }
+
+    .provision-actions {
+        display: flex;
+        gap: 0.5rem;
     }
 </style>

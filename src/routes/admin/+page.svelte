@@ -424,6 +424,42 @@
     ];
 
     let adminMe = $state<AdminMe | null>(null);
+
+    // First-run onboarding checklist (GET /admin/onboarding). Each item is a
+    // real-state boolean, so it ticks itself off as the admin does the setup.
+    type OnboardingItems = {
+        profile_blurb: boolean; logo: boolean; systems_enabled: boolean;
+        discord_webhook: boolean; co_admin: boolean; first_pairings_published: boolean;
+    };
+    type Onboarding = {
+        club: { id: number; name: string; slug: string; active: boolean };
+        items: OnboardingItems; complete: boolean;
+    };
+    let onboarding = $state<Onboarding | null>(null);
+    const ONBOARDING_STEPS: { key: keyof OnboardingItems; label: string; hint: string; nav: string }[] = [
+        { key: 'systems_enabled', label: 'Enable your game systems', hint: 'Turn on the systems you run and set their club nights.', nav: 'systems' },
+        { key: 'profile_blurb', label: 'Write your club blurb', hint: 'A short welcome shown on your public club page.', nav: 'clubpage' },
+        { key: 'logo', label: 'Upload your club logo', hint: 'Shown on your club page and pairings posts.', nav: 'clubpage' },
+        { key: 'discord_webhook', label: 'Connect Discord', hint: 'Post signups and pairings to your club’s Discord.', nav: 'discord' },
+        { key: 'co_admin', label: 'Appoint a co-admin', hint: 'Share the load — grant another member admin rights.', nav: 'admins' },
+        { key: 'first_pairings_published', label: 'Publish your first pairings', hint: 'Generate and publish a week of pairings.', nav: 'pairings' }
+    ];
+    const onboardingDoneCount = $derived(
+        onboarding ? ONBOARDING_STEPS.filter((s) => onboarding!.items[s.key]).length : 0
+    );
+
+    async function loadOnboarding() {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/admin/onboarding`, { credentials: 'include' });
+            if (r.ok) onboarding = await r.json();
+        } catch (_) {}
+    }
+
+    // Re-check whenever the admin lands back on the Overview, so items tick off
+    // as they finish setup in the other sections during the same visit.
+    $effect(() => {
+        if (activeNav === 'overview') loadOnboarding();
+    });
     let adminClubSlug = $state<string | undefined>(undefined);
     let rolesData = $state<RolesData | null>(null);
     let grantableUsers = $state<GrantableUser[]>([]);
@@ -2542,6 +2578,33 @@
         <div class="admin-section-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
     {#if activeNav === 'overview'}
+    {#if onboarding && !onboarding.complete}
+        <!-- ══ First-run onboarding checklist ══ -->
+        <section class="onboarding-card">
+            <header class="ob-head">
+                <div>
+                    <span class="ob-eyebrow">Getting started</span>
+                    <h3 class="ob-title">Set up {onboarding.club.name}</h3>
+                </div>
+                <span class="ob-progress">{onboardingDoneCount}/{ONBOARDING_STEPS.length}</span>
+            </header>
+            <ul class="ob-list">
+                {#each ONBOARDING_STEPS as step}
+                    {@const done = onboarding.items[step.key]}
+                    <li class="ob-item" class:done>
+                        <span class="ob-tick" aria-hidden="true">{done ? '✓' : '○'}</span>
+                        <div class="ob-text">
+                            <span class="ob-label">{step.label}</span>
+                            <span class="ob-hint">{step.hint}</span>
+                        </div>
+                        {#if !done}
+                            <button class="ob-go" type="button" onclick={() => (activeNav = step.nav)}>Set up →</button>
+                        {/if}
+                    </li>
+                {/each}
+            </ul>
+        </section>
+    {/if}
     <!-- ══ Command Table — at-a-glance dashboard overview ══ -->
     <section class="command-table">
         <header class="ct-head">
@@ -5188,6 +5251,100 @@
     }
 
     /* ── Command Table (dashboard overview) ─────────────────────────────── */
+    .onboarding-card {
+        margin-bottom: 1.75rem;
+        padding: 1.25rem 1.5rem 1.4rem;
+        background: linear-gradient(135deg, rgba(201, 161, 74, 0.08), var(--color-surface) 60%);
+        border: 1px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.34);
+    }
+
+    .ob-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .ob-eyebrow {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--color-accent);
+    }
+
+    .ob-title {
+        margin: 0.15rem 0 0;
+        font-size: 1.2rem;
+        color: var(--color-text-bright);
+    }
+
+    .ob-progress {
+        flex: 0 0 auto;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--color-accent);
+        background: rgba(201, 161, 74, 0.12);
+        border: 1px solid var(--color-accent-border);
+        border-radius: 999px;
+        padding: 0.2rem 0.7rem;
+    }
+
+    .ob-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .ob-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        background: var(--color-surface-dark);
+    }
+
+    .ob-item.done { opacity: 0.6; }
+
+    .ob-tick {
+        flex: 0 0 auto;
+        width: 1.5rem; height: 1.5rem;
+        display: grid; place-items: center;
+        border-radius: 50%;
+        font-size: 0.9rem; font-weight: 700;
+        color: var(--color-text-faint);
+        border: 1px solid var(--color-steel-border);
+    }
+
+    .ob-item.done .ob-tick {
+        color: #1b1206;
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+    }
+
+    .ob-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+    .ob-label { font-weight: 600; color: var(--color-text-bright); }
+    .ob-item.done .ob-label { text-decoration: line-through; }
+    .ob-hint { font-size: 0.82rem; color: var(--color-text-dim); }
+
+    .ob-go {
+        flex: 0 0 auto;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--color-accent);
+        background: none;
+        border: 1px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        padding: 0.35rem 0.7rem;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .ob-go:hover { background: var(--color-surface-hover); border-color: var(--color-accent); }
+
     .command-table {
         margin-bottom: 2.25rem;
         padding: 1.4rem 1.5rem 1.6rem;
