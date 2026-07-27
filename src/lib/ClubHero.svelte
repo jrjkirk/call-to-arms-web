@@ -72,7 +72,6 @@
         color: var(--color-text-muted);
         font-size: 1rem;
         line-height: 1.5;
-        max-width: 62ch;
     }
 
     .club-links {
