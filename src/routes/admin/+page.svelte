@@ -441,7 +441,7 @@
         { key: 'profile_blurb', label: 'Write your club blurb', hint: 'A short welcome shown on your public club page.', nav: 'clubpage' },
         { key: 'logo', label: 'Upload your club logo', hint: 'Shown on your club page and pairings posts.', nav: 'clubpage' },
         { key: 'discord_webhook', label: 'Connect Discord', hint: 'Post signups and pairings to your club’s Discord.', nav: 'discord' },
-        { key: 'co_admin', label: 'Appoint a co-admin', hint: 'Share the load — grant another member admin rights.', nav: 'admins' },
+        { key: 'co_admin', label: 'Appoint a game-system admin', hint: 'Optional — delegate a specific system to another member.', nav: 'admins' },
         { key: 'first_pairings_published', label: 'Publish your first pairings', hint: 'Generate and publish a week of pairings.', nav: 'pairings' }
     ];
     const onboardingDoneCount = $derived(
