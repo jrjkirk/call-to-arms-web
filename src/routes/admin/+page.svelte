@@ -1852,6 +1852,14 @@
             const meResp = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
             if (!meResp.ok) return;
             const me = await meResp.json();
+            // Admin now follows the ACTIVE club (the subdomain), so the systems /
+            // week config must be that club's — a platform admin administering
+            // another club needs its config, not their home club's.
+            if (me?.active_club?.slug) {
+                adminClubSlug = me.active_club.slug;
+                return;
+            }
+            // Fallback (older server without active_club): derive from home club.
             const clubId = me?.user?.club_id;
             if (clubId == null) return;
             const clubsResp = await fetch(`${PUBLIC_API_URL}/clubs`);
