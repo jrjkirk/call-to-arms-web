@@ -125,10 +125,15 @@
     );
     // The hero page carries its own large logo, so the header shouldn't
     // duplicate it there — only show the header logo everywhere else.
-    const showingHero = $derived(
-        authLoaded && !isAuthed && !page.url.pathname.startsWith('/pairings') &&
-        page.url.pathname !== '/join' && page.url.pathname !== '/privacy'
+    // Routes a signed-out visitor can see without being bounced to the hero:
+    // public pairings, the club finder, the join/add-my-club form, and privacy.
+    const isPublicRoute = $derived(
+        page.url.pathname.startsWith('/pairings') ||
+        page.url.pathname.startsWith('/find') ||
+        page.url.pathname === '/join' ||
+        page.url.pathname === '/privacy'
     );
+    const showingHero = $derived(authLoaded && !isAuthed && !isPublicRoute);
 
     function loginUrl(): string {
         return `${PUBLIC_API_URL}/auth/discord/login`;
@@ -250,7 +255,7 @@
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
-            {:else if !isAuthed && !page.url.pathname.startsWith('/pairings') && page.url.pathname !== '/join' && page.url.pathname !== '/privacy'}
+            {:else if !isAuthed && !isPublicRoute}
                 <LandingHero loginUrl={loginUrl()} />
             {:else}
                 {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
