@@ -117,9 +117,6 @@
     // their home club but none at the club whose subdomain they're visiting
     // correctly sees the claim/create prompt for THIS club.
     const needsClaim = $derived(isAuthed && auth.player == null);
-    const isAdminRoute = $derived(
-        page.url.pathname.startsWith('/admin') || page.url.pathname.startsWith('/platform-admin')
-    );
     const hasAdminAccess = $derived(
         authLoaded && adminState !== null && (adminState.is_super_admin || adminState.scopes.length > 0)
     );
@@ -269,28 +266,21 @@
                     </div>
                 {/if}
                 {#key page.url.pathname}
-                    {#if isAdminRoute}
-                        <div class="page-transition" in:fly={{ y: 10, duration: 220 }}>
-                            {@render children()}
-                        </div>
-                    {:else}
-                        <!-- Same fly-in feel as LandingHero's title/tagline (fly
-                             animates position AND opacity, so this reads as a
-                             fade+rise) — admin pages keep the snappier transition
-                             above since dense tables/forms don't want the extra
-                             motion on every navigation. Deliberately in-only, no
-                             out: transition: an out+in pair here would overlap
-                             the outgoing and incoming blocks in normal document
-                             flow for the transition's duration (this div has no
-                             fixed height to position them absolutely within),
-                             which reads as a worse jump than an instant cut. -->
-                        <div
-                            class="page-transition"
-                            in:fly={{ y: 24, duration: 550, easing: cubicOut }}
-                        >
-                            {@render children()}
-                        </div>
-                    {/if}
+                    <!-- Same fly-in feel as LandingHero's title/tagline (fly
+                         animates position AND opacity, so this reads as a
+                         fade+rise), applied to every route including admin /
+                         platform-admin. Deliberately in-only, no out:
+                         transition: an out+in pair here would overlap the
+                         outgoing and incoming blocks in normal document flow
+                         for the transition's duration (this div has no fixed
+                         height to position them absolutely within), which reads
+                         as a worse jump than an instant cut. -->
+                    <div
+                        class="page-transition"
+                        in:fly={{ y: 24, duration: 550, easing: cubicOut }}
+                    >
+                        {@render children()}
+                    </div>
                 {/key}
             {/if}
         </div>

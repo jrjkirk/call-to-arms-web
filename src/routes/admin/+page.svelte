@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchWeekId } from '$lib/weekId';
     import { UK_REGIONS } from '$lib/regions';
@@ -2503,7 +2505,7 @@
     <p class="muted">You don't have admin access.</p>
 {:else}
 
-    <div class="admin-shell">
+    <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
         <aside class="admin-sidebar">
             <button
                 type="button"

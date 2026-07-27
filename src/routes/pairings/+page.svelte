@@ -305,7 +305,7 @@
                         <div class="player-name">
                             {m.player_b_name ?? 'BYE / Standby'}
                             {#if m.player_b_name && !m.is_bye && m.player_b_id == null}
-                                <span class="guest-badge">+1</span>
+                                <span class="guest-badge">guest</span>
                             {/if}
                         </div>
                         {#if m.player_b_name}
@@ -426,7 +426,7 @@
         text-align: left;
     }
 
-    /* Marks a guest / +1 opponent (someone not on the system) */
+    /* Marks a guest opponent (someone not on the system) */
     .guest-badge {
         display: inline-block;
         margin-left: 6px;

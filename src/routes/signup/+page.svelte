@@ -376,7 +376,7 @@
     let preAFaction = $state(NONE_FACTION);
     let preB = $state<number | ''>('');
     let preBFaction = $state(NONE_FACTION);
-    // Player B can be a guest / +1 who isn't on the system: type a name instead
+    // Player B can be a guest who isn't on the system: type a name instead
     // of picking a roster player. The backend stores them with no profile.
     let preBIsGuest = $state(false);
     let preBGuestName = $state('');
@@ -467,7 +467,7 @@
             } else {
                 const aName = players.find((p) => p.id === preA)?.name ?? 'Player A';
                 const bName = preBIsGuest
-                    ? `${guestName} (+1)`
+                    ? `${guestName} (guest)`
                     : (players.find((p) => p.id === preB)?.name ?? 'Player B');
                 preSuccess = `Pre-arranged game submitted: ${aName} vs ${bName}.`;
                 preA = '';
@@ -816,7 +816,7 @@
         <p class="prompt-body small">
             Use this if you've already arranged a game with someone outside the regular
             signup process. Bringing someone who isn't on the system? Tick
-            <em>“Player B is a guest / +1”</em> and just type their name — no profile needed.
+            <em>“Player B is a guest”</em> and just type their name — no profile needed.
             Neither player can already be signed up for {data.week} — drop first using the
             form above if needed. If one player later drops out, the other remains in the
             weekly pairings pool.
@@ -866,7 +866,7 @@
                     {/if}
                     <label class="guest-toggle">
                         <input type="checkbox" bind:checked={preBIsGuest} />
-                        Player B is a guest / +1 (not on the system)
+                        Player B is a guest (not on the system)
                     </label>
                 </div>
                 <div class="field">

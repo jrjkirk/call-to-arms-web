@@ -1,5 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { fly } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { CANONICAL_VIBES } from '$lib/systemsConfig';
 
@@ -821,13 +823,13 @@
 {:else if !adminMe?.is_platform_admin}
     <p class="muted">You don't have platform admin access.</p>
 {:else}
-    <p class="section-intro platform-banner">
+    <p class="section-intro platform-banner" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
         Cross-club management — creating clubs, configuring their systems, appointing their
         delegates, and toggling which clubs are live. Separate from, and more powerful than, a
         club's own <a href="/admin">Admin</a> tools.
     </p>
 
-    <div class="admin-shell">
+    <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
         <aside class="admin-sidebar">
             {#each PLATFORM_NAV as item}
                 <button
