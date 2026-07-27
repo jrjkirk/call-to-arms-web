@@ -10,15 +10,10 @@
         user?: { id: number; discord_name: string; player_id: number | null };
         player?: { name: string } | null;
         active_club?: { id: number; slug: string; name: string } | null;
-        claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
     };
 
     let auth = $state<AuthState>({ authenticated: false });
     let loaded = $state(false);
-    let query = $state('');
-    let selectedId = $state<number | null>(null);
-    let submitting = $state(false);
-    let errorMsg = $state<string | null>(null);
 
     // New-player form
     let newName = $state('');
@@ -38,40 +33,10 @@
         loadAuth();
     });
 
-    const candidates = $derived(auth.claim_candidates ?? []);
     // Multi-club network model: "already linked" is per active club — keyed off
     // auth.player (the active-club player /auth/me returns), not the legacy
     // home-club auth.user.player_id.
     const alreadyLinked = $derived(auth.player != null);
-    const filtered = $derived(
-        candidates.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
-    );
-
-    async function claim() {
-        if (selectedId == null || submitting) return;
-        submitting = true;
-        errorMsg = null;
-        try {
-            const response = await fetch(`${PUBLIC_API_URL}/auth/claim/${selectedId}`, {
-                method: 'POST',
-                credentials: 'include'
-            });
-            if (!response.ok) {
-                const body = await response.json().catch(() => ({}));
-                errorMsg = body.detail || 'Could not claim that profile.';
-                submitting = false;
-                return;
-            }
-            // Trigger the layout to refresh its auth state so the sidebar updates,
-            // then navigate home.
-            const refresh = (window as any).__refreshAuth;
-            if (typeof refresh === 'function') await refresh();
-            goto('/');
-        } catch (_) {
-            errorMsg = 'Network error. Please try again.';
-            submitting = false;
-        }
-    }
 
     async function createProfile() {
         if (newSubmitting) return;
@@ -177,40 +142,6 @@
     .page-heading { font-size: 1.5rem; margin: 0 0 0.75rem; }
     .lead { color: var(--color-text-base); margin: 0 0 0.4rem; line-height: 1.5; }
     .lead-sub { color: var(--color-text-dim); font-size: 0.88rem; font-style: italic; margin: 0 0 1.25rem; }
-    .player-list {
-        list-style: none;
-        padding: 0;
-        margin: 0.5rem 0;
-        max-height: 360px;
-        overflow-y: auto;
-        background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-surface-dark) 100%);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-    }
-    .player-row { border-bottom: 1px dashed var(--color-accent-border-soft); }
-    .player-row:last-child { border-bottom: none; }
-    .player-row.selected { background: rgba(201, 161, 74, 0.15); }
-    .player-link {
-        display: block;
-        width: 100%;
-        text-align: left;
-        padding: 0.7rem 1rem;
-        color: var(--color-text-bright);
-        background: none;
-        border: none;
-        font-family: inherit;
-        font-size: 0.95rem;
-        cursor: pointer;
-    }
-    .player-link:hover { background: var(--color-surface-hover); }
-    .player-faction {
-        color: var(--color-text-dim);
-        font-style: italic;
-        font-weight: 400;
-        font-size: 0.9em;
-        margin-left: 0.4rem;
-    }
-    .empty { padding: 1rem; color: var(--color-text-dim); font-style: italic; text-align: center; }
     .error {
         background: rgba(210, 80, 80, 0.12);
         border: 1px solid rgba(210, 80, 80, 0.5);
@@ -239,19 +170,6 @@
     }
     .confirm-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .divider {
-        border: none;
-        border-top: 1px solid var(--color-accent-border-soft);
-        margin: 2rem 0 1.5rem;
-    }
-    .new-player-section { }
-    .new-player-heading {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--color-text-bright);
-        margin: 0 0 0.25rem;
-    }
-    .optional { font-weight: 400; color: var(--color-text-dim); font-size: 0.85em; }
     .privacy-notice {
         background: rgba(201, 161, 74, 0.06);
         border: 1px solid var(--color-accent-border-soft);
