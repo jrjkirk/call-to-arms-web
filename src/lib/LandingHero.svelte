@@ -1,7 +1,6 @@
 <script lang="ts">
     import { fly, fade } from 'svelte/transition';
     import ClubsMap from './ClubsMap.svelte';
-    import ClubNetworkDropdown from './ClubNetworkDropdown.svelte';
     import ClubRequestForm from './ClubRequestForm.svelte';
 
     let { loginUrl }: { loginUrl: string } = $props();
@@ -74,7 +73,7 @@
         </div>
 
         <ClubsMap />
-        <ClubNetworkDropdown heading="Find a club by region" />
+        <a class="find-club-cta" href="/find">🗺️ Find a club near you →</a>
         <ClubRequestForm />
 
         <a class="hero-footer-link" href="/privacy">Privacy Policy</a>
@@ -214,6 +213,29 @@
 
     .hero-button:hover {
         background: var(--color-accent-soft);
+        transform: translateY(-1px);
+    }
+
+    .find-club-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        margin: 0.25rem auto 0;
+        padding: 0.7rem 1.6rem;
+        font-weight: 700;
+        font-size: 0.98rem;
+        color: var(--color-accent);
+        background: transparent;
+        border: 1px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        text-decoration: none;
+        transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+    }
+
+    .find-club-cta:hover {
+        background: var(--color-surface-hover);
+        border-color: var(--color-accent);
         transform: translateY(-1px);
     }
 

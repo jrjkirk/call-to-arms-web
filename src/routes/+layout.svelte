@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
+    import { goto } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -18,6 +19,7 @@
         authenticated: boolean;
         user?: { id: number; discord_name: string; avatar_url: string | null; player_id: number | null; club_id: number };
         player?: { id: number; name: string } | null;
+        has_club?: boolean;
         active_club?: { id: number; slug: string; name: string } | null;
         claim_candidates?: Array<{ id: number; name: string; default_faction: string | null }>;
     };
@@ -64,8 +66,17 @@
         const host = window.location.hostname.toLowerCase();
         const isBare = host === 'calltoarms.app' || host === 'www.calltoarms.app';
         if (!isBare) return;
+        if (auth.authenticated !== true) return;
+        // A brand-new player with no club anywhere yet lands on the club finder
+        // to choose one, rather than being dropped onto a default club. Only
+        // intercept the bare root — leave other public bare routes (/find,
+        // /pairings, /join, /privacy) alone.
+        if (auth.has_club === false) {
+            if (window.location.pathname === '/') goto('/find');
+            return;
+        }
         const slug = auth.active_club?.slug;
-        if (auth.authenticated === true && slug) {
+        if (slug) {
             window.location.replace(
                 `https://${slug}.calltoarms.app${window.location.pathname}${window.location.search}`
             );
