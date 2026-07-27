@@ -41,6 +41,13 @@
     --radius: 5px;
 }
 
+html {
+    /* Always reserve the vertical scrollbar's space, so pages of different
+       heights (e.g. switching admin sidebar tabs) don't shift left/right as
+       the scrollbar appears and disappears. */
+    scrollbar-gutter: stable;
+}
+
 body {
     background: var(--color-bg-deep);
     color: var(--color-text-base);
