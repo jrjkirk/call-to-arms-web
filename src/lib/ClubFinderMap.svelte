@@ -10,7 +10,17 @@
         address?: string | null;
     };
 
-    let { clubs, onselect }: { clubs: FinderClub[]; onselect?: (slug: string) => void } = $props();
+    let {
+        clubs,
+        userLat = null,
+        userLng = null,
+        onselect
+    }: {
+        clubs: FinderClub[];
+        userLat?: number | null;
+        userLng?: number | null;
+        onselect?: (slug: string) => void;
+    } = $props();
 
     let container: HTMLDivElement;
     let map: any = null;
@@ -59,6 +69,19 @@
             if (onselect) m.on('click', () => onselect(c.slug));
             m.addTo(markerLayer);
             pts.push([c.latitude, c.longitude]);
+        }
+        // The visitor's own location, if shared — a distinct accent dot.
+        if (userLat != null && userLng != null) {
+            L.circleMarker([userLat, userLng], {
+                radius: 8,
+                color: '#c9a14a',
+                fillColor: '#c9a14a',
+                fillOpacity: 0.9,
+                weight: 2,
+            })
+                .bindPopup('You are here')
+                .addTo(markerLayer);
+            pts.push([userLat, userLng]);
         }
         if (pts.length === 1) {
             map.setView(pts[0], 12);

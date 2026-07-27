@@ -4,6 +4,7 @@
     import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import ClubFinderMap from '$lib/ClubFinderMap.svelte';
+    import ClubRequestForm from '$lib/ClubRequestForm.svelte';
 
     type FinderSystem = { slug: string; name: string; legacy_system_name: string };
     type FinderClub = {
@@ -22,6 +23,45 @@
     let search = $state('');
     // Selected systems (by legacy_system_name). Empty = no system filter.
     let selected = $state<Set<string>>(new Set());
+    let userLoc = $state<{ lat: number; lng: number } | null>(null);
+    let geoBusy = $state(false);
+    let geoError = $state<string | null>(null);
+
+    function useMyLocation() {
+        if (!navigator.geolocation) {
+            geoError = "Location isn't available in this browser.";
+            return;
+        }
+        geoBusy = true;
+        geoError = null;
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                geoBusy = false;
+            },
+            () => {
+                geoError = "Couldn't get your location — check the browser permission.";
+                geoBusy = false;
+            },
+            { timeout: 10000, maximumAge: 60000 }
+        );
+    }
+
+    function haversineMi(lat1: number, lon1: number, lat2: number, lon2: number): number {
+        const R = 3958.8;
+        const toRad = (d: number) => (d * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function distanceMi(c: FinderClub): number | null {
+        if (!userLoc || c.latitude == null || c.longitude == null) return null;
+        return haversineMi(userLoc.lat, userLoc.lng, c.latitude, c.longitude);
+    }
 
     onMount(async () => {
         try {
@@ -61,6 +101,20 @@
         });
     });
 
+    // Once we have the visitor's location, put the nearest clubs first (clubs
+    // without coordinates sink to the bottom).
+    const sorted = $derived.by(() => {
+        if (!userLoc) return filtered;
+        return [...filtered].sort((a, b) => {
+            const da = distanceMi(a);
+            const db = distanceMi(b);
+            if (da == null && db == null) return 0;
+            if (da == null) return 1;
+            if (db == null) return -1;
+            return da - db;
+        });
+    });
+
     function clubUrl(slug: string): string {
         return `https://${slug}.calltoarms.app`;
     }
@@ -84,12 +138,18 @@
         </header>
 
         <div class="finder-controls">
-            <input
-                class="finder-search"
-                type="search"
-                placeholder="Search by club name or town…"
-                bind:value={search}
-            />
+            <div class="finder-row">
+                <input
+                    class="finder-search"
+                    type="search"
+                    placeholder="Search by club name or town…"
+                    bind:value={search}
+                />
+                <button class="loc-btn" type="button" onclick={useMyLocation} disabled={geoBusy} class:on={userLoc != null}>
+                    {geoBusy ? 'Locating…' : userLoc ? '✓ Sorted by distance' : '📍 Use my location'}
+                </button>
+            </div>
+            {#if geoError}<p class="geo-error">{geoError}</p>{/if}
             {#if allSystems.length > 0}
                 <div class="system-chips" role="group" aria-label="Filter by system">
                     {#each allSystems as s}
@@ -118,21 +178,26 @@
 
         <div class="finder-layout">
             <div class="finder-map-col">
-                <ClubFinderMap clubs={filtered} />
+                <ClubFinderMap clubs={sorted} userLat={userLoc?.lat ?? null} userLng={userLoc?.lng ?? null} />
             </div>
 
             <div class="finder-list">
-                {#if filtered.length === 0}
+                {#if sorted.length === 0}
                     <div class="empty-state">
                         No clubs match. Try clearing filters — or <a href="#add-club">add your club</a>.
                     </div>
                 {:else}
-                    {#each filtered as c (c.id)}
+                    {#each sorted as c (c.id)}
+                        {@const dist = distanceMi(c)}
                         <article class="club-card">
                             <div class="club-card-body">
                                 <h3 class="club-name">{c.name}</h3>
                                 {#if c.address || c.region}
-                                    <p class="club-loc">{c.address ?? c.region}</p>
+                                    <p class="club-loc">
+                                        {c.address ?? c.region}{#if dist != null} · <span class="dist">{dist.toFixed(dist < 10 ? 1 : 0)} mi away</span>{/if}
+                                    </p>
+                                {:else if dist != null}
+                                    <p class="club-loc"><span class="dist">{dist.toFixed(dist < 10 ? 1 : 0)} mi away</span></p>
                                 {/if}
                                 {#if c.systems.length > 0}
                                     <div class="club-systems">
@@ -148,6 +213,10 @@
                 {/if}
             </div>
         </div>
+
+        <section id="add-club" class="add-club-section">
+            <ClubRequestForm />
+        </section>
     </div>
 {/if}
 
@@ -164,6 +233,31 @@
     .finder-sub a, .empty-state a { color: var(--color-accent); }
 
     .finder-controls { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+    .finder-row { display: flex; gap: 0.5rem; }
+    .finder-row .finder-search { flex: 1; }
+
+    .loc-btn {
+        flex: 0 0 auto;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-accent);
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        padding: 0 0.9rem;
+        cursor: pointer;
+        font-family: inherit;
+        white-space: nowrap;
+        transition: background 0.12s ease;
+    }
+    .loc-btn:hover:not(:disabled) { background: var(--color-surface-hover); }
+    .loc-btn:disabled { opacity: 0.6; cursor: default; }
+    .loc-btn.on { color: #1b1206; background: var(--color-accent); border-color: var(--color-accent); }
+
+    .geo-error { color: var(--color-danger, #d25050); font-size: 0.82rem; margin: 0; }
+    .dist { color: var(--color-accent); font-weight: 600; }
+
+    .add-club-section { margin-top: 2.5rem; scroll-margin-top: 1rem; }
 
     .finder-search {
         width: 100%;
