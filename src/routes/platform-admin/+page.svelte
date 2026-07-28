@@ -347,6 +347,36 @@
         siteBannerSaving = false;
     }
 
+    // Community / support Discord link (global; shown on every admin page)
+    let communityDiscordUrl = $state('');
+    let communityDiscordSaving = $state(false);
+    let communityDiscordError = $state<string | null>(null);
+    let communityDiscordOk = $state<string | null>(null);
+
+    async function loadCommunityDiscord() {
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/community-discord`, { credentials: 'include' });
+        if (r.ok) communityDiscordUrl = (await r.json()).url ?? '';
+    }
+
+    async function saveCommunityDiscord() {
+        communityDiscordSaving = true;
+        communityDiscordError = null;
+        communityDiscordOk = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/community-discord`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: communityDiscordUrl.trim() || null }),
+        });
+        if (r.ok) {
+            communityDiscordOk = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            communityDiscordError = body.detail || 'Save failed.';
+        }
+        communityDiscordSaving = false;
+    }
+
     // Scheduled Jobs
     type JobRun = { job_name: string; ran_at: string; status: string; detail: string | null };
     type JobEntry = { job_name: string; latest: JobRun | null };
@@ -490,7 +520,7 @@
         if (adminMe?.is_platform_admin) {
             await Promise.all([
                 loadClubsHealth(), loadClubs(), loadSystemsCatalogue(), loadGameSystems(),
-                loadSiteBanner(), loadJobRuns(), loadAuditLog(), loadClubRequests(),
+                loadSiteBanner(), loadCommunityDiscord(), loadJobRuns(), loadAuditLog(), loadClubRequests(),
             ]);
         }
         pageLoading = false;
@@ -1330,6 +1360,29 @@
                         {siteBannerSaving ? 'Saving…' : 'Save'}
                     </button>
                 {/if}
+            </section>
+        </div>
+    </div>
+
+    <div class="dash-group">
+        <div class="dash-group-header static">
+            <span class="dash-group-title">Community Discord link</span>
+        </div>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <p class="section-intro">
+                    A support / community Discord server, shown as a button on every club's admin
+                    page so admins can request features and report bugs. Leave blank to hide it.
+                </p>
+                <div class="field">
+                    <label class="field-label" for="community-discord">Invite URL</label>
+                    <input id="community-discord" class="field-input" type="text" placeholder="https://discord.gg/…" bind:value={communityDiscordUrl} />
+                </div>
+                {#if communityDiscordError}<p class="field-error">{communityDiscordError}</p>{/if}
+                {#if communityDiscordOk}<p class="pairing-message">{communityDiscordOk}</p>{/if}
+                <button class="primary-button" type="button" disabled={communityDiscordSaving} onclick={saveCommunityDiscord}>
+                    {communityDiscordSaving ? 'Saving…' : 'Save'}
+                </button>
             </section>
         </div>
     </div>
