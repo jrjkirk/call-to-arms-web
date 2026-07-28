@@ -83,6 +83,10 @@
     }
 
     onMount(() => {
+        // We mounted cleanly, so clear the stale-chunk reload guard (see
+        // hooks.client.ts) — a future deploy can then trigger its own one-shot
+        // recovery reload.
+        try { sessionStorage.removeItem('cta_reloaded_for_stale_chunk'); } catch (_) {}
         // Renamed-club subdomains (manchester -> egnwgc, yorkshire -> theoutpost):
         // bounce legacy links to the new host before anything club-scoped runs.
         const legacyHost = legacyRedirectHost(window.location.hostname);
