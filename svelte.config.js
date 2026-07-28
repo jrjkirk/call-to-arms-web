@@ -14,6 +14,13 @@ const config = {
 		// slash, which can leave a browser wedged on a stale document referencing
 		// dead asset URLs. Absolute paths are unambiguous everywhere.
 		paths: { relative: false },
+		// No service worker. A caching SW wedged some Chrome clients on stale
+		// assets after deploys (dead hydration / "site won't load"); the PWA
+		// installability isn't worth that fragility. register:false guarantees no
+		// registration is injected; the SW module is also deleted, so
+		// /service-worker.js 404s — which makes any already-registered old SW
+		// unregister itself, self-healing wedged browsers.
+		serviceWorker: { register: false },
 		version: {
 			// Use commit SHA on Vercel for a stable, per-commit hash; fall back to
 			// a fixed string locally so repeated builds don't get new file names.
