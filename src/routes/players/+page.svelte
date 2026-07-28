@@ -57,6 +57,19 @@
                   return matchesQuery && matchesSystem;
               })
     );
+
+    // Paginate the filtered roster so a big club doesn't render hundreds of
+    // rows at once. Client-side — the list is already fetched.
+    const PAGE_SIZE = 30;
+    let page = $state(1);
+    const totalPages = $derived(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
+    const pageItems = $derived(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+    // Back to page 1 whenever the search / system filter changes.
+    $effect(() => {
+        query;
+        activeSystems;
+        page = 1;
+    });
 </script>
 
 {#if systemsResolved}
@@ -80,7 +93,7 @@
 </div>
 
 <ul class="player-list">
-    {#each filtered as player, i}
+    {#each pageItems as player, i (player.id)}
         <li class="player-row" in:fly={{ y: 12, duration: 350, delay: Math.min(i, 8) * 45 }}>
             <a href="/players/{player.id}" class="player-link">
                 <span class="player-name">{player.name}</span>
@@ -96,6 +109,16 @@
         <li class="empty">No players match.</li>
     {/if}
 </ul>
+
+{#if filtered.length > PAGE_SIZE}
+    <div class="pager">
+        <button class="pager-btn" type="button" disabled={page <= 1} onclick={() => (page = Math.max(1, page - 1))}>← Prev</button>
+        <span class="pager-info">
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+        </span>
+        <button class="pager-btn" type="button" disabled={page >= totalPages} onclick={() => (page = Math.min(totalPages, page + 1))}>Next →</button>
+    </div>
+{/if}
 
 </div>
 {/if}

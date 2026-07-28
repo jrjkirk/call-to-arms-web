@@ -46,6 +46,20 @@
     let rankings = $state<any[]>([]);
     let allPlayers = $state<{ id: number; name: string }[]>([]);
 
+    // Paginate the leaderboard so a large league doesn't render every rank at
+    // once. Only the rankings table paginates — the submit-result form and
+    // faction stats are separate sections and stay put. Client-side.
+    const RANK_PAGE_SIZE = 25;
+    let rankPage = $state(1);
+    const rankTotalPages = $derived(Math.max(1, Math.ceil(rankings.length / RANK_PAGE_SIZE)));
+    const pagedRankings = $derived(rankings.slice((rankPage - 1) * RANK_PAGE_SIZE, rankPage * RANK_PAGE_SIZE));
+    // Reset to the top page when the system or faction filter changes.
+    $effect(() => {
+        selectedSystem;
+        selectedFaction;
+        rankPage = 1;
+    });
+
     /* ---------- seasons ---------- */
     type Champion = { player_id: number; name: string; rating: number };
     type SeasonRow = { id: number; name: string; start_date: string; end_date: string | null; current: boolean; champion: Champion | null };
@@ -333,7 +347,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each rankings as row, i}
+                {#each pagedRankings as row, i (row.player_id)}
                     <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`} in:fade={{ duration: 300, delay: Math.min(i, 10) * 40 }}>
                         <td class="center rank-col">
                             {#if medal(row.rank)}
@@ -373,6 +387,15 @@
             </tbody>
         </table>
     </div>
+    {#if rankings.length > RANK_PAGE_SIZE}
+        <div class="pager">
+            <button class="pager-btn" type="button" disabled={rankPage <= 1} onclick={() => (rankPage = Math.max(1, rankPage - 1))}>← Prev</button>
+            <span class="pager-info">
+                Ranks {(rankPage - 1) * RANK_PAGE_SIZE + 1}–{Math.min(rankPage * RANK_PAGE_SIZE, rankings.length)} of {rankings.length}
+            </span>
+            <button class="pager-btn" type="button" disabled={rankPage >= rankTotalPages} onclick={() => (rankPage = Math.min(rankTotalPages, rankPage + 1))}>Next →</button>
+        </div>
+    {/if}
 {:else}
     <p class="faction-filter-label faction-showing-label">Showing results for {selectedFaction}</p>
     <div class="table-wrap">
