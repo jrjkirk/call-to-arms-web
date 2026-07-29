@@ -28,6 +28,9 @@ export type SystemConfig = {
     // are only the offline safety-net copy — same role as the vibe/points
     // fallbacks above — not a second editable source of truth.
     faction_list: string[];
+    // Grouped factions (e.g. Middle Earth's Good/Evil), for optgroup dropdowns.
+    // null for systems with a flat list — callers fall back to faction_list.
+    faction_groups?: { label: string; factions: string[] }[] | null;
     icon_folder: string;
 };
 
@@ -186,6 +189,27 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
             'Necrons', 'Orks', "T'au Empire", 'Tyranids'
         ],
         icon_folder: '40K'
+    },
+    {
+        // Middle Earth has ~95 army lists (grouped Good/Evil) — the full set is
+        // served live from GET /systems (systems/middle_earth.py); this offline
+        // net only needs the system to exist with its points/vibe config.
+        slug: 'mesbg',
+        name: 'Middle Earth',
+        legacy_system_name: 'Middle Earth',
+        uses_points: true,
+        default_points: 700,
+        max_points: 1500,
+        vibe_options: ['Casual', 'Competitive'],
+        default_vibe: 'Casual',
+        uses_scenarios: false,
+        scenario_options: [],
+        default_scenario: '',
+        allows_demo: true,
+        has_league: false,
+        faction_list: [],
+        faction_groups: null,
+        icon_folder: 'MESBG'
     }
 ];
 
@@ -209,8 +233,18 @@ function normalize(raw: any): SystemConfig {
         allows_demo: !!raw.allows_demo,
         has_league: !!raw.has_league,
         faction_list: raw.faction_list ?? [],
+        faction_groups: raw.faction_groups ?? null,
         icon_folder: raw.icon_folder ?? ''
     };
+}
+
+/** Grouped factions for a system (Good/Evil optgroups), or null if it uses a
+ *  flat list — in which case callers render faction_list directly. */
+export function factionGroupsFor(
+    systemsConfig: SystemConfig[],
+    legacySystemName: string
+): { label: string; factions: string[] }[] | null {
+    return configFor(systemsConfig, legacySystemName).faction_groups ?? null;
 }
 
 /** Logo asset URL for a system, derived from its catalogue slug

@@ -13,6 +13,7 @@
     import {
         getSystemsConfig, configFor, vibeOptionsFor, usesPoints, FALLBACK_SYSTEMS_CONFIG, CANONICAL_VIBES, systemLogoUrl, type SystemConfig
     } from '$lib/systemsConfig';
+    import FactionOptions from '$lib/FactionOptions.svelte';
     import LineChart from '$lib/charts/LineChart.svelte';
     import BarChart from '$lib/charts/BarChart.svelte';
     import HBarChart from '$lib/charts/HBarChart.svelte';
@@ -762,10 +763,6 @@
     let tbSendMessage = $state<string | null>(null);
     let tbHistory = $state<TableBookingHistoryRow[]>([]);
     let tbHistoryLoading = $state(false);
-
-    function factionsFor(system: string): string[] {
-        return configFor(systemsConfig, system).faction_list;
-    }
 
     function displayRowToEdit(r: DisplayRow): EditRow {
         return {
@@ -3527,9 +3524,7 @@
                                                                 onchange={() => patchSignup(scope, su, 'faction', su.faction)}
                                                             >
                                                                 <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                                                                {#each factionsFor(scope) as f}
-                                                                    <option>{f}</option>
-                                                                {/each}
+                                                                <FactionOptions {systemsConfig} system={scope} />
                                                             </select>
                                                         </td>
                                                         {#if ps.signupConfig?.show_points}
@@ -3642,9 +3637,7 @@
                                             <label class="field-label" for="add-faction-{scope}">Faction</label>
                                             <select id="add-faction-{scope}" class="field-select" bind:value={ps.addSignup.faction}>
                                                 <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                                                {#each factionsFor(scope) as f}
-                                                    <option>{f}</option>
-                                                {/each}
+                                                <FactionOptions {systemsConfig} system={scope} />
                                             </select>
                                         </div>
                                         {#if ps.signupConfig?.show_points}
@@ -3826,9 +3819,7 @@
                                                                     onchange={() => (ps.dirty = true)}
                                                                 >
                                                                     <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                                                                    {#each factionsFor(scope) as f}
-                                                                        <option>{f}</option>
-                                                                    {/each}
+                                                                    <FactionOptions {systemsConfig} system={scope} />
                                                                 </select>
                                                             {/if}
                                                         </td>
@@ -3881,9 +3872,7 @@
                                                                     onchange={() => (ps.dirty = true)}
                                                                 >
                                                                     <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                                                                    {#each factionsFor(scope) as f}
-                                                                        <option>{f}</option>
-                                                                    {/each}
+                                                                    <FactionOptions {systemsConfig} system={scope} />
                                                                 </select>
                                                             {/if}
                                                         </td>

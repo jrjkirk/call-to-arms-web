@@ -12,6 +12,7 @@
     } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { fetchMySystems } from '$lib/mySystems';
+    import FactionOptions from '$lib/FactionOptions.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
 
     let { data } = $props();
@@ -664,9 +665,7 @@
                 <label class="field-label" for="su-faction">{cfg.factionLabel}</label>
                 <select id="su-faction" class="field-select" bind:value={faction}>
                     <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                    {#each cfg.factions as f}
-                        <option value={f}>{f}</option>
-                    {/each}
+                    <FactionOptions {systemsConfig} system={data.system} />
                 </select>
             </div>
 
@@ -839,9 +838,7 @@
                     <label class="field-label" for="pre-a-fac">Player A's {prePlayerFactionLabel}</label>
                     <select id="pre-a-fac" class="field-select" bind:value={preAFaction}>
                         <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                        {#each cfg.factions as f}
-                            <option value={f}>{f}</option>
-                        {/each}
+                        <FactionOptions {systemsConfig} system={data.system} />
                     </select>
                 </div>
 
@@ -873,9 +870,7 @@
                     <label class="field-label" for="pre-b-fac">Player B's {prePlayerFactionLabel}</label>
                     <select id="pre-b-fac" class="field-select" bind:value={preBFaction}>
                         <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                        {#each cfg.factions as f}
-                            <option value={f}>{f}</option>
-                        {/each}
+                        <FactionOptions {systemsConfig} system={data.system} />
                     </select>
                 </div>
 
@@ -972,9 +967,7 @@
                 <label class="field-label" for="co-fac">Your {prePlayerFactionLabel}</label>
                 <select id="co-fac" class="field-select" bind:value={coFaction}>
                     <option value={NONE_FACTION}>{NONE_FACTION}</option>
-                    {#each cfg.factions as f}
-                        <option value={f}>{f}</option>
-                    {/each}
+                    <FactionOptions {systemsConfig} system={data.system} />
                 </select>
             </div>
 
