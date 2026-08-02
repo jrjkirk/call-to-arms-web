@@ -14,6 +14,23 @@
     import { fetchMySystems } from '$lib/mySystems';
     import FactionOptions from '$lib/FactionOptions.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
+    import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
+    import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
+
+    // Discord membership gate. Held per form area so the prompt appears next
+    // to whatever the player was actually trying to do, and remembers that
+    // action so "try again" re-runs it after they join.
+    let signupGate = $state<DiscordGateBlock | null>(null);
+    let preGate = $state<DiscordGateBlock | null>(null);
+    let coGate = $state<DiscordGateBlock | null>(null);
+    let gateRetry = $state<null | (() => void | Promise<void>)>(null);
+    let gateRetrying = $state(false);
+
+    async function retryGate() {
+        if (!gateRetry) return;
+        gateRetrying = true;
+        try { await gateRetry(); } finally { gateRetrying = false; }
+    }
 
     let { data } = $props();
 
@@ -190,6 +207,7 @@
         submitting = true;
         successMsg = null;
         errorMsg = null;
+        signupGate = null;
         try {
             const r = await fetch(`${PUBLIC_API_URL}/signups`, {
                 method: 'POST',
@@ -210,7 +228,9 @@
             });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
-                errorMsg = body.detail || 'Could not submit your signup.';
+                const g = discordGateFrom(body);
+                if (g) { signupGate = g; gateRetry = submit; }
+                else errorMsg = detailText(body, 'Could not submit your signup.');
             } else {
                 successMsg = body.created
                     ? "Thanks! You're on the list."
@@ -237,7 +257,7 @@
             });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
-                errorMsg = body.detail || 'Could not drop your signup.';
+                errorMsg = detailText(body, 'Could not drop your signup.');
             } else if (body.dropped) {
                 successMsg = 'Your signup for this week has been dropped.';
                 dropConfirm = false;
@@ -349,7 +369,7 @@
             });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
-                swapError = body.detail || 'Could not arrange the game.';
+                swapError = detailText(body, 'Could not arrange the game.');
             } else {
                 swapSuccess = 'Done! Check Discord for the update.';
                 swapTarget = '';
@@ -444,6 +464,7 @@
         }
 
         preSubmitting = true;
+        preGate = null;
         try {
             const r = await fetch(`${PUBLIC_API_URL}/signups/prearranged`, {
                 method: 'POST',
@@ -464,7 +485,9 @@
             });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
-                preError = body.detail || 'Could not submit the pre-arranged game.';
+                const g = discordGateFrom(body);
+                if (g) { preGate = g; gateRetry = submitPrearranged; }
+                else preError = detailText(body, 'Could not submit the pre-arranged game.');
             } else {
                 const aName = players.find((p) => p.id === preA)?.name ?? 'Player A';
                 const bName = preBIsGuest
@@ -535,6 +558,7 @@
         if (coFaction === NONE_FACTION) { coError = `Please pick ${prePlayerFactionLabel.toLowerCase()}.`; return; }
 
         coSubmitting = true;
+        coGate = null;
         try {
             const r = await fetch(`${PUBLIC_API_URL}/call-outs`, {
                 method: 'POST',
@@ -552,7 +576,9 @@
             });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
-                coError = body.detail || 'Could not post the call-out.';
+                const g = discordGateFrom(body);
+                if (g) { coGate = g; gateRetry = postCallOut; }
+                else coError = detailText(body, 'Could not post the call-out.');
             } else {
                 coSuccess = 'Call-out posted — it stays here and in Discord until someone takes it up or the time passes.';
                 coDate = '';
@@ -567,10 +593,15 @@
 
     async function takeCallOut(id: number) {
         coError = null;
+        coGate = null;
         try {
             const r = await fetch(`${PUBLIC_API_URL}/call-outs/${id}/take`, { method: 'POST', credentials: 'include' });
             const body = await r.json().catch(() => ({}));
-            if (!r.ok) coError = body.detail || 'Could not take up this call-out.';
+            if (!r.ok) {
+                const g = discordGateFrom(body);
+                if (g) { coGate = g; gateRetry = () => takeCallOut(id); }
+                else coError = detailText(body, 'Could not take up this call-out.');
+            }
             else await loadCallOuts(data.system);
         } catch (_) {
             coError = 'Network error. Please try again.';
@@ -582,7 +613,7 @@
         try {
             const r = await fetch(`${PUBLIC_API_URL}/call-outs/${id}/cancel`, { method: 'POST', credentials: 'include' });
             const body = await r.json().catch(() => ({}));
-            if (!r.ok) coError = body.detail || 'Could not cancel this call-out.';
+            if (!r.ok) coError = detailText(body, 'Could not cancel this call-out.');
             else await loadCallOuts(data.system);
         } catch (_) {
             coError = 'Network error. Please try again.';
@@ -732,6 +763,9 @@
             </label>
         {/if}
 
+        {#if signupGate}
+            <DiscordGateNotice gate={signupGate} onRetry={retryGate} retrying={gateRetrying} />
+        {/if}
         {#if errorMsg}
             <div class="error fade-in">{errorMsg}</div>
         {/if}
@@ -900,6 +934,9 @@
                 </div>
             </div>
 
+            {#if preGate}
+                <DiscordGateNotice gate={preGate} onRetry={retryGate} retrying={gateRetrying} />
+            {/if}
             {#if preError}
                 <div class="error fade-in">{preError}</div>
             {/if}
@@ -993,6 +1030,9 @@
             </div>
         </div>
 
+        {#if coGate}
+            <DiscordGateNotice gate={coGate} onRetry={retryGate} retrying={gateRetrying} />
+        {/if}
         {#if coError}
             <div class="error fade-in">{coError}</div>
         {/if}
