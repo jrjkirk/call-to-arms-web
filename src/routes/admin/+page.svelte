@@ -664,6 +664,73 @@
     let webhookError = $state<Record<string, string | null>>({});
     let webhookMessage = $state<Record<string, string | null>>({});
 
+    // Discord membership gate state. Setup is two independent halves — picking
+    // the server (any app admin) and adding the bot (needs Manage Server on the
+    // Discord, which at some clubs belongs to someone outside the admin team) —
+    // so the panel has to make clear which half is still outstanding.
+    type DiscordGate = {
+        bot_configured: boolean;
+        bot_username: string | null;
+        bot_invite_url: string | null;
+        guild_id: string | null;
+        guild_name: string | null;
+        connected: boolean;
+        mode: string;
+        can_enforce: boolean;
+        suggested_guild_id: string | null;
+        club_discord_url: string | null;
+        available_guilds: { id: string; name: string }[] | null;
+    };
+    let gate = $state<DiscordGate | null>(null);
+    let gateGuildInput = $state('');
+    let gateSaving = $state(false);
+    let gateError = $state<string | null>(null);
+    let gateMessage = $state<string | null>(null);
+    let gateInviteCopied = $state(false);
+
+    async function loadDiscordGate() {
+        gateError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/discord-gate`, { credentials: 'include' });
+        if (r.ok) {
+            gate = await r.json();
+            gateGuildInput = gate?.guild_id ?? '';
+        } else {
+            gateError = 'Failed to load Discord gate settings.';
+        }
+    }
+
+    async function saveDiscordGate(body: { guild_id?: string; mode?: string }) {
+        gateSaving = true;
+        gateError = null;
+        gateMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/discord-gate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(body)
+        });
+        if (r.ok) {
+            gate = await r.json();
+            gateGuildInput = gate?.guild_id ?? '';
+            gateMessage = 'Saved.';
+        } else {
+            const b = await r.json().catch(() => ({}));
+            gateError = typeof b.detail === 'string' ? b.detail : 'Save failed.';
+        }
+        gateSaving = false;
+    }
+
+    async function copyBotInvite() {
+        if (!gate?.bot_invite_url) return;
+        try {
+            await navigator.clipboard.writeText(gate.bot_invite_url);
+            gateInviteCopied = true;
+            setTimeout(() => (gateInviteCopied = false), 2000);
+        } catch {
+            gateError = 'Could not copy — select the link and copy it manually.';
+        }
+    }
+
     // Club self-service Systems state
     type ClubSystemMineRow = {
         system_id: number;
@@ -2417,6 +2484,7 @@
                 loadGrantableUsers(),
                 loadEditPlayerList(),
                 loadClubWebhooks(),
+                loadDiscordGate(),
                 loadClubSystemsMine(),
                 loadFullCatalogue(),
                 loadClubProfile(),
@@ -4859,6 +4927,162 @@
                         </ul>
                     </div>
                 {/each}
+            {/if}
+        </section>
+
+        <section class="admin-section">
+            <h3 class="section-heading">Discord Membership Gate</h3>
+            <p class="section-intro">
+                Optionally require players to be in your club's Discord server before they can
+                sign up. Pairings, drops and call-outs are all announced there, so someone
+                outside the server can't find out they've been paired. Only ever checked once,
+                the first time a new player commits to a game — existing members are unaffected.
+            </p>
+
+            {#if gateError}
+                <p class="field-error">{gateError}</p>
+            {/if}
+            {#if gateMessage}
+                <p class="block-note">{gateMessage}</p>
+            {/if}
+
+            {#if !gate}
+                <p class="section-intro">Loading…</p>
+            {:else if !gate.bot_configured}
+                <p class="field-error">
+                    The Call to Arms Discord bot isn't set up on this platform yet. Contact the
+                    platform admin — this isn't something your club can fix.
+                </p>
+            {:else}
+                <!-- Half 1 of setup: which server. Any app admin can do this. -->
+                <div class="sub-section">
+                    <h4 class="sub-heading">1. Your Discord server</h4>
+
+                    {#if gate.available_guilds && gate.available_guilds.length > 0}
+                        <div class="field field-narrow">
+                            <label class="field-label" for="gate-guild-picker">Pick your server</label>
+                            <select
+                                id="gate-guild-picker"
+                                class="field-select"
+                                value={gate.guild_id ?? ''}
+                                onchange={(e) => saveDiscordGate({ guild_id: e.currentTarget.value })}
+                                disabled={gateSaving}
+                            >
+                                <option value="">— not set —</option>
+                                {#each gate.available_guilds as g}
+                                    <option value={g.id}>{g.name}</option>
+                                {/each}
+                            </select>
+                            <p class="block-note">Servers the bot has been added to.</p>
+                        </div>
+                    {/if}
+
+                    <div class="field field-narrow">
+                        <label class="field-label" for="gate-guild-id">Server ID</label>
+                        <input
+                            id="gate-guild-id"
+                            class="field-input"
+                            bind:value={gateGuildInput}
+                            placeholder="e.g. 123456789012345678"
+                            disabled={gateSaving}
+                        />
+                        <p class="block-note">
+                            You can paste a server invite link here instead and we'll work it out.
+                            <a
+                                href="https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >How do I find my Server ID?</a>
+                        </p>
+                        {#if gate.suggested_guild_id}
+                            <p class="block-note">
+                                We found a server from your club's Discord invite link.
+                                <button
+                                    class="primary-button"
+                                    type="button"
+                                    disabled={gateSaving}
+                                    onclick={() => saveDiscordGate({ guild_id: gate?.suggested_guild_id ?? '' })}
+                                >Use it</button>
+                            </p>
+                        {/if}
+                        <button
+                            class="primary-button"
+                            type="button"
+                            disabled={gateSaving}
+                            onclick={() => saveDiscordGate({ guild_id: gateGuildInput })}
+                        >{gateSaving ? 'Saving…' : 'Save server'}</button>
+                    </div>
+                </div>
+
+                <!-- Half 2: the bot has to be added by someone with Manage Server,
+                     who may not be an app admin at all — so this is a link to
+                     forward, not an action to take. -->
+                <div class="sub-section">
+                    <h4 class="sub-heading">2. Add the bot to that server</h4>
+
+                    {#if gate.connected}
+                        <p class="block-note">
+                            ✅ <strong>Connected to “{gate.guild_name}”.</strong>
+                            If that's not your club's server, change the Server ID above.
+                        </p>
+                    {:else if gate.guild_id}
+                        <p class="field-error">
+                            ⏳ Not connected — the bot hasn't been added to that server yet.
+                        </p>
+                    {:else}
+                        <p class="block-note">Set your server above first.</p>
+                    {/if}
+
+                    <p class="section-intro">
+                        Adding the bot needs the <strong>Manage Server</strong> permission on your
+                        Discord. If that isn't you, send this link to whoever runs it. The bot asks
+                        for no permissions — it can't read messages, post, or see your member list.
+                        It only checks whether a given person has joined.
+                    </p>
+
+                    {#if gate.bot_invite_url}
+                        <div class="field">
+                            <code class="muted">{gate.bot_invite_url}</code>
+                            <button class="primary-button" type="button" onclick={copyBotInvite}>
+                                {gateInviteCopied ? 'Copied!' : 'Copy invite link'}
+                            </button>
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Enforcement is deliberately locked until the check can actually
+                     run: a club sitting on "enforce" with no working connection
+                     would fail open on every signup while the UI claimed the gate
+                     was on, which is worse than being plainly off. -->
+                <div class="sub-section">
+                    <h4 class="sub-heading">3. Turn it on</h4>
+
+                    {#if !gate.can_enforce}
+                        <p class="block-note">
+                            Locked until the bot is connected — otherwise the check can't run and
+                            the gate would look active while letting everyone through.
+                        </p>
+                    {/if}
+
+                    <div class="field field-narrow">
+                        <label class="field-label" for="gate-mode">Mode</label>
+                        <select
+                            id="gate-mode"
+                            class="field-select"
+                            value={gate.mode}
+                            onchange={(e) => saveDiscordGate({ mode: e.currentTarget.value })}
+                            disabled={gateSaving || !gate.can_enforce}
+                        >
+                            <option value="off">Off — anyone can sign up</option>
+                            <option value="monitor">Monitor — log who would be blocked, block nobody</option>
+                            <option value="enforce">Enforce — require Discord membership</option>
+                        </select>
+                        <p class="block-note">
+                            Start on <strong>Monitor</strong> for a couple of weeks to see who would
+                            be caught before anyone actually is.
+                        </p>
+                    </div>
+                </div>
             {/if}
         </section>
             </div>
