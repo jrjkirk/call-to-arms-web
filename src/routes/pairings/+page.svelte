@@ -316,21 +316,24 @@
                         <div class="matchup-icon-empty"></div>
                     {/if}
                     <div class="player-text">
+                        <!-- Level and tier lead on the left and trail on the
+                             right, so the two halves mirror each other around
+                             the VS rather than both reading left-to-right. -->
                         <div class="player-name">
-                            {m.player_a_name}
                             {#if m.player_a_level}
-                                <span class="lvl-chip" style={`color: ${levelColour(m.player_a_level)}`}>
+                                <span class="lvl-chip lvl-chip-lead" style={`color: ${levelColour(m.player_a_level)}`}>
                                     Lv {m.player_a_level}
                                 </span>
                             {/if}
+                            {m.player_a_name}
                         </div>
                         <div class="player-faction">
-                            {m.player_a_faction ?? '—'}
                             {#if experienceClass(m.player_a_experience)}
-                                <span class={`exp-badge ${experienceClass(m.player_a_experience)}`}>
+                                <span class={`exp-badge exp-badge-lead ${experienceClass(m.player_a_experience)}`}>
                                     {m.player_a_experience}
                                 </span>
                             {/if}
+                            {m.player_a_faction ?? '—'}
                         </div>
                     </div>
                 </div>
@@ -510,11 +513,22 @@
        an outline and two chips would fight. */
     .lvl-chip {
         margin-left: 6px;
+    }
+    /* Leading variants for the left-hand player: the gap goes on the other
+       side so the chip hugs the name from the outside. */
+    .lvl-chip-lead {
+        margin-left: 0;
+        margin-right: 6px;
         font-family: var(--font-display);
         font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.02em;
         white-space: nowrap;
+    }
+
+    .exp-badge-lead {
+        margin-left: 0;
+        margin-right: 6px;
     }
 
     .exp-badge {
