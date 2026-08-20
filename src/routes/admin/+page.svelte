@@ -681,6 +681,17 @@
         league_rankings: 'League rankings post',
         achievement: 'Achievement announcements',
     };
+    // What each webhook actually posts, so an admin can pick the right channel
+    // instead of guessing from the label. Verified against the call sites —
+    // note `signup` carries call-outs too, which its name does not suggest.
+    const WEBHOOK_TYPE_HELP: Record<string, string> = {
+        signup: 'Every signup and drop-out for this system, plus any call-outs players post.',
+        pairings: "The pairings image, each time a week's pairings are published.",
+        call_to_arms: 'The weekly “signups are open” announcement.',
+        league_result: 'Each league result as it gets submitted.',
+        league_rankings: 'The league standings image.',
+        achievement: 'When a player unlocks an achievement.',
+    };
     // All webhook types are per-system now (league_result/achievement/
     // league_rankings moved off the old club-level path when leagues went
     // modular — a club webhook can post to a different Discord channel per
@@ -5040,10 +5051,55 @@
                 <section class="admin-section">
                     <h3 class="section-heading">Webhooks</h3>
                     <p class="section-intro">
-                        Which Discord channel each of this system's posts goes to. Once saved, a URL
-                        is never shown again — only its last four characters, so you can tell one
-                        from another without the secret being readable.
+                        Which Discord channel each of this system's posts goes to. They're
+                        independent — you can send pairings to one channel and chatter to another,
+                        or point them all at the same one. Any left unset simply post nothing.
                     </p>
+
+                    <!-- Open by default until something is configured, then out of
+                         the way. A first-time admin shouldn't have to find the
+                         instructions; someone on their fourth system shouldn't have
+                         to scroll past them. -->
+                    <details class="wh-help" open={webhookRows.filter((r) => r.legacy_system_name === scope).every((r) => !r.configured)}>
+                        <summary>How do I create a webhook?</summary>
+                        <p class="section-intro">
+                            A webhook is a per-channel address Discord gives you that lets an app
+                            post into that channel. You make one in Discord, then paste it here.
+                            You'll need the <strong>Manage Webhooks</strong> permission on that
+                            server.
+                        </p>
+                        <ol class="wh-steps">
+                            <li>In Discord, open <strong>Server Settings → Integrations</strong>.</li>
+                            <li>
+                                Choose <strong>Webhooks</strong>, then <strong>New Webhook</strong>.
+                                <span class="wh-note">
+                                    You can also do it per channel: hover the channel →
+                                    <strong>Edit Channel → Integrations</strong>.
+                                </span>
+                            </li>
+                            <li>
+                                Pick the channel it should post into, and give it a name you'll
+                                recognise later — e.g. “{scope} pairings”.
+                                <span class="wh-note">
+                                    The name and avatar are what members see on the post, so it's
+                                    worth setting.
+                                </span>
+                            </li>
+                            <li>Press <strong>Copy Webhook URL</strong>.</li>
+                            <li>Paste it into the matching row below and hit Save.</li>
+                        </ol>
+                        <p class="field-label-hint">
+                            <strong>Treat the URL as a password.</strong> Anyone holding it can post
+                            into that channel as this app. We store it write-only — once saved it's
+                            never shown again, only its last four characters so you can tell two
+                            apart. If one leaks, delete it in Discord and make a new one.
+                            <a
+                                href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"
+                                target="_blank"
+                                rel="noopener noreferrer">Discord's own guide to webhooks</a
+                            >
+                        </p>
+                    </details>
                     {#if webhookListError}
                         <p class="field-error">{webhookListError}</p>
                     {:else}
@@ -5055,8 +5111,11 @@
                                 {#each rows as row (row.webhook_type + ':' + row.system_id)}
                                     {@const key = webhookKey(row.webhook_type, row.system_id)}
                                     <li class="block-row webhook-row">
-                                        <span class="block-names">
+                                        <span class="block-names wh-name">
                                             <strong>{WEBHOOK_TYPE_LABELS[row.webhook_type] ?? row.webhook_type}</strong>
+                                            {#if WEBHOOK_TYPE_HELP[row.webhook_type]}
+                                                <span class="wh-what">{WEBHOOK_TYPE_HELP[row.webhook_type]}</span>
+                                            {/if}
                                         </span>
                                         <span class="block-note">
                                             {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
@@ -6157,6 +6216,67 @@
        wrapped in a .field div. Here it sits directly in a flex row, so
        override to a bounded, flexible width — otherwise it fills the
        whole row and pushes Save/Remove onto a disconnected trailing line. */
+    /* Collapsible "how do I make one of these" help above the webhook grid.
+       Mirrors the add-the-bot walkthrough in SystemDiscordGatePanel: the person
+       doing this is often following instructions for a site they rarely touch,
+       so the steps are numbered and name what they'll actually see. */
+    .wh-help {
+        margin: 0 0 1.2rem;
+        padding: 0.7rem 0.9rem;
+        max-width: 68ch;
+        background: var(--color-surface-dark);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+    }
+    .wh-help summary {
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: var(--color-accent);
+    }
+    .wh-help[open] summary {
+        margin-bottom: 0.6rem;
+    }
+    .wh-steps {
+        margin: 0 0 0.9rem;
+        padding-left: 1.3rem;
+        color: var(--color-text-base);
+        font-size: 0.88rem;
+        line-height: 1.55;
+    }
+    .wh-steps li {
+        margin-bottom: 0.45rem;
+    }
+    /* The "or do it this other way" aside under a step — subordinate, so the
+       happy path still reads as a straight sequence. */
+    .wh-note {
+        display: block;
+        margin-top: 0.15rem;
+        color: var(--color-text-muted);
+        font-size: 0.85em;
+    }
+    /* .block-names is a flex ROW, so the description would otherwise sit beside
+       the label instead of under it. Stack just the webhook rows, and top-align
+       the row so a two-line name column doesn't centre against the controls. */
+    .wh-name {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+    }
+    .webhook-row {
+        align-items: flex-start;
+    }
+
+    /* What this particular webhook posts, under its name in the grid. */
+    .wh-what {
+        display: block;
+        margin-top: 0.15rem;
+        font-weight: 400;
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+        line-height: 1.4;
+    }
+
     .webhook-actions {
         display: flex;
         align-items: center;
