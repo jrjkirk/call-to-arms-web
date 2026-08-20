@@ -12,6 +12,18 @@ export type DiscordGateBlock = {
 	code: 'discord_membership_required';
 	message: string;
 	club_name: string | null;
+	/** Which game night was refused — a club can gate each of its systems on a
+	 *  different Discord server, so "you need the Discord" is ambiguous without
+	 *  it. Null for the club-level fallback gate. */
+	system: string | null;
+	/** How to refer to the server the player must join, e.g. "the Kill Team
+	 *  Discord" or "EGNWGC's Discord". Resolved server-side because only the
+	 *  backend knows whether this system has its own server or is borrowing the
+	 *  club's. */
+	server_label: string | null;
+	/** The invite for THAT server specifically — never the club-wide one when
+	 *  the system has its own, or the player joins somewhere that won't let
+	 *  them past the gate. */
 	discord_url: string | null;
 };
 
@@ -28,8 +40,10 @@ export function discordGateFrom(body: unknown): DiscordGateBlock | null {
 		message:
 			typeof d.message === 'string' && d.message
 				? d.message
-				: "You need to join this club's Discord to sign up.",
+				: 'You need to join the right Discord server to take part.',
 		club_name: typeof d.club_name === 'string' ? d.club_name : null,
+		system: typeof d.system === 'string' ? d.system : null,
+		server_label: typeof d.server_label === 'string' ? d.server_label : null,
 		discord_url: typeof d.discord_url === 'string' ? d.discord_url : null
 	};
 }

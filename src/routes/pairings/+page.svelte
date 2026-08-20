@@ -20,6 +20,19 @@
         return `${m.player_a_name}|${m.player_b_name ?? 'BYE'}`;
     }
 
+    /**
+     * The CSS modifier for an experience tag, or null to render nothing.
+     *
+     * Unknown values render nothing rather than showing the raw string: this
+     * comes off a signup row, so a system that grows a fourth level should stay
+     * silent until this list is updated, not display an unstyled mystery tag.
+     */
+    const EXPERIENCE_LEVELS = ['new', 'some', 'veteran'];
+    function experienceClass(value: string | null): string | null {
+        const key = (value ?? '').trim().toLowerCase();
+        return EXPERIENCE_LEVELS.includes(key) ? `exp-${key}` : null;
+    }
+
     function cascadeDelay(i: number): number {
         return Math.min(i, 10) * 90;
     }
@@ -43,9 +56,12 @@
         player_a_name: string;
         player_a_id: number | null;
         player_a_faction: string | null;
+        // Self-reported experience off the signup ("New" / "Some" / "Veteran").
+        player_a_experience: string | null;
         player_b_name: string | null;
         player_b_id: number | null;
         player_b_faction: string | null;
+        player_b_experience: string | null;
         is_bye: boolean;
         game_type: string | null;
         eta: string | null;
@@ -285,7 +301,14 @@
                     {/if}
                     <div class="player-text">
                         <div class="player-name">{m.player_a_name}</div>
-                        <div class="player-faction">{m.player_a_faction ?? '—'}</div>
+                        <div class="player-faction">
+                            {m.player_a_faction ?? '—'}
+                            {#if experienceClass(m.player_a_experience)}
+                                <span class={`exp-badge ${experienceClass(m.player_a_experience)}`}>
+                                    {m.player_a_experience}
+                                </span>
+                            {/if}
+                        </div>
                     </div>
                 </div>
 
@@ -309,7 +332,14 @@
                             {/if}
                         </div>
                         {#if m.player_b_name}
-                            <div class="player-faction">{m.player_b_faction ?? '—'}</div>
+                            <div class="player-faction">
+                                {m.player_b_faction ?? '—'}
+                                {#if experienceClass(m.player_b_experience)}
+                                    <span class={`exp-badge ${experienceClass(m.player_b_experience)}`}>
+                                        {m.player_b_experience}
+                                    </span>
+                                {/if}
+                            </div>
                         {/if}
                     </div>
                 </div>
@@ -438,6 +468,37 @@
         color: #161620;
         background: #c9a14a;
         letter-spacing: 0.3px;
+    }
+
+    /* Self-reported experience, sat beside the faction so a player can see what
+       they're walking into before the game rather than across the table.
+       Deliberately outlined rather than filled like .guest-badge: there's one
+       of these on almost every player, and two solid chips per card would
+       out-shout the names they're annotating. The colours are their own scale,
+       NOT the card's game-type accents — experience and competitiveness are
+       different axes and sharing a palette would imply they're the same one. */
+    .exp-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+        font-size: 0.65rem;
+        font-weight: 700;
+        font-style: normal;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .exp-badge.exp-new {
+        color: #6eb46e;
+    }
+    .exp-badge.exp-some {
+        color: #b8a878;
+    }
+    .exp-badge.exp-veteran {
+        color: #d08a50;
     }
 
     .matchup-icon {

@@ -30,6 +30,7 @@
             blurb: string | null;
             photo_url: string | null;
             accent_color: string;
+            discord_url: string | null;
         }[];
         calendar: { month: string; entries: any[] };
     };

@@ -3,6 +3,8 @@
     import { fly, fade } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
+    import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, configFor, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
@@ -162,6 +164,12 @@
     };
     let auth = $state<AuthState>({ authenticated: false });
     let authLoaded = $state(false);
+    // Scopes the caller can administer at this club. The backend lets a
+    // system's admin log a result on someone else's behalf (paper sheets from
+    // club night); everyone else may only log their own games. Mirrored here
+    // so the form offers exactly what the API will accept, rather than letting
+    // someone build a submission that's guaranteed to 403.
+    let adminScopes = $state<string[]>([]);
     let systemsConfigLoaded = $state(false);
     const pageReady = $derived(authLoaded && systemsConfigLoaded);
 
@@ -178,6 +186,11 @@
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
             if (r.ok) auth = await r.json();
+        } catch (_) {}
+        try {
+            // Always 200, even signed-out — no need to gate the call on auth.
+            const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
+            if (r.ok) adminScopes = (await r.json()).scopes ?? [];
         } catch (_) {}
         authLoaded = true;
         // Club slug is required here (unlike the old single-league page) so
@@ -216,12 +229,25 @@
     let submitting = $state(false);
     let submitSuccess = $state<{ duplicate: boolean; result?: any } | null>(null);
     let submitError = $state<string | null>(null);
+    // The Discord membership gate now covers result submission, and it's the
+    // one API error carrying a structured body rather than a string — it needs
+    // an invite link and a retry, not just a sentence.
+    let submitGate = $state<DiscordGateBlock | null>(null);
+    let gateRetrying = $state(false);
 
-    // Default Player 1 to the logged-in user's own player, once auth resolves.
+    // Whether the caller may log a game they didn't play in. Only that
+    // system's admin can, matching league.submit_result's ownership check —
+    // everyone else submits their own results, which is the whole point of the
+    // form auto-filling Player 1 with them.
+    const canLogForOthers = $derived(!!selectedSystem && adminScopes.includes(selectedSystem));
+
+    // Player 1 is the logged-in user's own player. Re-asserted rather than
+    // just defaulted: an admin who picks someone else and then loses the scope
+    // (or switches to a system they don't administer) would otherwise be left
+    // holding a submission the API will refuse.
     $effect(() => {
-        if (auth.player && p1IdStr === '') {
-            p1IdStr = String(auth.player.id);
-        }
+        if (!auth.player) return;
+        if (!canLogForOthers || p1IdStr === '') p1IdStr = String(auth.player.id);
     });
 
     const canSubmit = $derived(
@@ -239,6 +265,7 @@
         submitting = true;
         submitSuccess = null;
         submitError = null;
+        submitGate = null;
         try {
             const r = await fetch(`${PUBLIC_API_URL}/league/results`, {
                 method: 'POST',
@@ -258,7 +285,10 @@
             });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
-                submitError = body.detail || 'Could not submit the result.';
+                // detailText, never body.detail: a structured detail (the
+                // Discord gate's) renders as "[object Object]" otherwise.
+                submitGate = discordGateFrom(body);
+                if (!submitGate) submitError = detailText(body, 'Could not submit the result.');
             } else {
                 submitSuccess = body;
                 if (!body.duplicate) {
@@ -269,6 +299,13 @@
             submitError = 'Network error. Please try again.';
         }
         submitting = false;
+    }
+
+    /** Re-run the submission after the player says they've joined the Discord. */
+    async function retryGate() {
+        gateRetrying = true;
+        await submitLeagueResult();
+        gateRetrying = false;
     }
 </script>
 
@@ -480,22 +517,41 @@
                 <div class="result-msg result-msg--error">{submitError}</div>
             {/if}
 
+            {#if submitGate}
+                <DiscordGateNotice gate={submitGate} onRetry={retryGate} retrying={gateRetrying} />
+            {/if}
+
             <form class="submit-form" onsubmit={(e) => { e.preventDefault(); submitLeagueResult(); }}>
                 <div class="form-row">
                     <div class="field">
-                        <label class="field-label" for="lr-p1">Player 1</label>
-                        <select id="lr-p1" class="field-select" bind:value={p1IdStr}>
-                            <option value="">— None —</option>
-                            {#each sortedPlayers as p}
-                                <option value={String(p.id)}>#{p.id} — {p.name}</option>
-                            {/each}
-                        </select>
+                        {#if canLogForOthers}
+                            <label class="field-label" for="lr-p1">Player 1</label>
+                            <select id="lr-p1" class="field-select" bind:value={p1IdStr}>
+                                <option value="">— None —</option>
+                                {#each sortedPlayers as p}
+                                    <option value={String(p.id)}>#{p.id} — {p.name}</option>
+                                {/each}
+                            </select>
+                        {:else}
+                            <!-- Fixed, not a disabled <select>: you can only submit
+                                 results for your own games, so offering a list you
+                                 can't choose from would just invite the question of
+                                 why it's greyed out. Plain text rather than a
+                                 labelled control, so no `for` pointing at a
+                                 non-form element. -->
+                            <span class="field-label">Player 1</span>
+                            <div class="field-fixed">{auth.player?.name ?? 'You'}</div>
+                        {/if}
                     </div>
                     <div class="field">
                         <label class="field-label" for="lr-p2">Player 2</label>
+                        <!-- Player 1 is excluded: the API rejects a result against
+                             yourself, so offering it is a guaranteed error. Filters
+                             on p1IdStr rather than the logged-in player, so it stays
+                             correct for an admin who has picked someone else. -->
                         <select id="lr-p2" class="field-select" bind:value={p2IdStr}>
                             <option value="">— None —</option>
-                            {#each sortedPlayers as p}
+                            {#each sortedPlayers.filter((p) => String(p.id) !== p1IdStr) as p}
                                 <option value={String(p.id)}>#{p.id} — {p.name}</option>
                             {/each}
                         </select>

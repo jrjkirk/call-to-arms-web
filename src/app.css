@@ -163,6 +163,23 @@ h1, h2, h3, h4, h5, h6 {
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
+/* A form value the caller isn't allowed to change — e.g. "Player A" on the
+   pre-arranged form and "Player 1" on the league-result form, both of which are
+   always the logged-in player. Deliberately NOT a disabled <select>: offering a
+   list you can't choose from only invites the question of why it's greyed out.
+   Shares .field-input/.field-select's box so it lines up with the real controls
+   beside it, but reads as inert — muted text, no hover, no focus ring. */
+.field-fixed {
+    width: 100%;
+    background: var(--color-surface-dark);
+    border: 1px solid var(--color-steel-border);
+    border-radius: var(--radius);
+    color: var(--color-text-muted);
+    padding: 0.55rem 0.75rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
 .field-input:hover,
 .field-select:hover {
     border-color: var(--color-steel);

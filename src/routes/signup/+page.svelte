@@ -87,6 +87,12 @@
     };
     let auth = $state<AuthState>({ authenticated: false });
     let authLoaded = $state(false);
+    // Scopes the caller can administer at this club. The backend lets a
+    // system's admin arrange a game on two members' behalf; everyone else may
+    // only arrange games they're playing in. Mirrored here so the form offers
+    // exactly what the API will accept, rather than letting someone build a
+    // submission that's guaranteed to 403.
+    let adminScopes = $state<string[]>([]);
 
     // The caller's own club's actually-enabled systems (GET /systems/mine,
     // authenticated). null until resolved or if unauthenticated/failed —
@@ -109,6 +115,11 @@
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
             if (r.ok) auth = await r.json();
+        } catch (_) {}
+        try {
+            // Always 200, even signed-out — no need to gate the call on auth.
+            const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
+            if (r.ok) adminScopes = (await r.json()).scopes ?? [];
         } catch (_) {}
         authLoaded = true;
         if (auth.authenticated) {
@@ -420,11 +431,27 @@
     // order isn't guaranteed by the backend (observed alphabetical), so
     // indexing into it picked the wrong default for HH ("Intro" before
     // "Standard") when tested against live data.
+    // Whether the caller may arrange a game they aren't playing in. Only this
+    // system's admin can, matching signups.submit_prearranged's ownership
+    // check — everyone else is Player A by definition.
+    const preCanArrangeForOthers = $derived(adminScopes.includes(data.system));
+
+    /** Who Player A starts as: the caller, unless they administer this system
+     *  and may therefore arrange a game between two other people. Used by both
+     *  reset paths — clearing it to '' after a successful submission would
+     *  leave a non-admin with an empty, unfixable Player A, since the field is
+     *  no longer a control they can set. */
+    function defaultPlayerA(): number | '' {
+        return preCanArrangeForOthers ? '' : (auth.player?.id ?? '');
+    }
+
     $effect(() => {
         preVibe = defaultVibeFor(systemsConfig, data.system);
         preAFaction = NONE_FACTION;
         preBFaction = NONE_FACTION;
-        preA = '';
+        // Reset per system because the admin scope is per system too —
+        // switching tabs can change who Player A is allowed to be.
+        preA = defaultPlayerA();
         preB = '';
         preBIsGuest = false;
         preBGuestName = '';
@@ -494,7 +521,7 @@
                     ? `${guestName} (guest)`
                     : (players.find((p) => p.id === preB)?.name ?? 'Player B');
                 preSuccess = `Pre-arranged game submitted: ${aName} vs ${bName}.`;
-                preA = '';
+                preA = defaultPlayerA();
                 preB = '';
                 preBIsGuest = false;
                 preBGuestName = '';
@@ -860,13 +887,23 @@
         {:else}
             <div class="form-grid">
                 <div class="field">
-                    <label class="field-label" for="pre-a">Player A</label>
-                    <select id="pre-a" class="field-select" bind:value={preA}>
-                        <option value="">— Select —</option>
-                        {#each players as p}
-                            <option value={p.id}>{p.name}</option>
-                        {/each}
-                    </select>
+                    {#if preCanArrangeForOthers}
+                        <label class="field-label" for="pre-a">Player A</label>
+                        <select id="pre-a" class="field-select" bind:value={preA}>
+                            <option value="">— Select —</option>
+                            {#each players as p}
+                                <option value={p.id}>{p.name}</option>
+                            {/each}
+                        </select>
+                    {:else}
+                        <!-- Fixed, not a disabled <select>: you can only arrange
+                             games you're playing in, so offering a list you can't
+                             choose from would just invite the question of why it's
+                             greyed out. Plain text rather than a labelled control,
+                             so no `for` pointing at a non-form element. -->
+                        <span class="field-label">Player A</span>
+                        <div class="field-fixed">{auth.player?.name ?? 'You'}</div>
+                    {/if}
                 </div>
                 <div class="field">
                     <label class="field-label" for="pre-a-fac">Player A's {prePlayerFactionLabel}</label>
@@ -888,9 +925,13 @@
                             bind:value={preBGuestName}
                         />
                     {:else}
+                        <!-- Player A is excluded: the API rejects a game against
+                             yourself, so offering it is a guaranteed error. Filters
+                             on preA rather than the logged-in player, so it stays
+                             correct for an admin who has picked someone else. -->
                         <select id="pre-b" class="field-select" bind:value={preB}>
                             <option value="">— Select —</option>
-                            {#each players as p}
+                            {#each players.filter((p) => p.id !== preA) as p}
                                 <option value={p.id}>{p.name}</option>
                             {/each}
                         </select>

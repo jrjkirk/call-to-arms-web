@@ -27,7 +27,10 @@
 	{#if gate.discord_url}
 		<div class="gate-actions">
 			<a class="gate-join" href={gate.discord_url} target="_blank" rel="noopener noreferrer">
-				Join the Discord
+				<!-- Names the specific server, because a club can gate each game
+				     night on a different one and "Join the Discord" would be
+				     ambiguous the moment a player is in one but not the other. -->
+				{gate.server_label ? `Join ${gate.server_label}` : 'Join the Discord'}
 			</a>
 			<button class="gate-retry" type="button" onclick={onRetry} disabled={retrying}>
 				{retrying ? 'Checking…' : "I've joined — try again"}
@@ -39,7 +42,7 @@
 		     player can do about it, so point them at a human rather than
 		     leaving a dead end. -->
 		<p class="gate-hint">
-			Ask a club admin for the Discord invite, then
+			Ask a club admin for the {gate.system ? `${gate.system} ` : ''}Discord invite, then
 			<button class="gate-inline" type="button" onclick={onRetry} disabled={retrying}>
 				{retrying ? 'checking…' : 'try again'}
 			</button>.

@@ -5,6 +5,10 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchWeekId } from '$lib/weekId';
     import DiscordGatePanel, { type DiscordGate } from '$lib/DiscordGatePanel.svelte';
+    import SystemDiscordGatePanel, { type SystemDiscordGate } from '$lib/SystemDiscordGatePanel.svelte';
+    // Any structured error detail must go through detailText or it renders as
+    // "[object Object]" — see the note in $lib/discordGate.ts.
+    import { detailText } from '$lib/discordGate';
     import { UK_REGIONS } from '$lib/regions';
     import {
         NONE_FACTION,
@@ -607,6 +611,21 @@
     };
     let carouselState = $state<Record<string, CarouselState>>({});
     let systemEventsState = $state<Record<string, EventsFormState>>({});
+
+    // Per-system Discord membership gate (each system's own admin). Separate
+    // from the club-level `gate` state below: a club's game nights can each
+    // run out of a different Discord server, so these are independent configs
+    // that happen to share a bot.
+    type SystemGateState = {
+        gate: SystemDiscordGate | null;
+        guildInput: string;
+        inviteInput: string;
+        saving: boolean;
+        error: string | null;
+        message: string | null;
+        copied: boolean;
+    };
+    let systemGateState = $state<Record<string, SystemGateState>>({});
 
     // Appoint form state
     let grantUserIdStr = $state('');
@@ -1535,6 +1554,72 @@
         if (r.ok) clubWideEvents.events = clubWideEvents.events.filter((e) => e.id !== id);
     }
 
+    // ── Per-system Discord membership gate ─────────────────────────────
+    async function loadSystemGate(scope: string) {
+        systemGateState[scope] ??= {
+            gate: null, guildInput: '', inviteInput: '',
+            saving: false, error: null, message: null, copied: false,
+        };
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/club-systems/discord-gate?system=${encodeURIComponent(scope)}`,
+            { credentials: 'include' }
+        );
+        if (!r.ok) return;
+        const g: SystemDiscordGate = await r.json();
+        const st = systemGateState[scope];
+        st.gate = g;
+        // Only ever seed the OWN values into the inputs. Pre-filling the
+        // inherited club values would make an admin who hits Save without
+        // touching anything silently pin this system to the club's server —
+        // turning "inherits" into a hard-coded copy that then stops tracking
+        // the club setting.
+        st.guildInput = g.guild_id_own ?? '';
+        st.inviteInput = g.discord_url_own ?? '';
+    }
+
+    async function saveSystemGate(
+        scope: string,
+        body: { enabled?: boolean; mode?: string; guild_id?: string; discord_url?: string }
+    ) {
+        const st = systemGateState[scope];
+        if (!st) return;
+        st.saving = true;
+        st.error = null;
+        st.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club-systems/discord-gate`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, ...body }),
+        });
+        const payload = await r.json().catch(() => ({}));
+        if (r.ok) {
+            st.gate = payload as SystemDiscordGate;
+            st.guildInput = payload.guild_id_own ?? '';
+            st.inviteInput = payload.discord_url_own ?? '';
+            st.message = 'Saved.';
+        } else {
+            st.error = detailText(payload, 'Save failed.');
+            // Re-read on failure so a refused change (e.g. enforce without a
+            // connected bot) doesn't leave the controls showing a state the
+            // server rejected.
+            await loadSystemGate(scope);
+        }
+        st.saving = false;
+    }
+
+    async function copySystemGateInvite(scope: string) {
+        const st = systemGateState[scope];
+        if (!st?.gate?.bot_invite_url) return;
+        try {
+            await navigator.clipboard.writeText(st.gate.bot_invite_url);
+            st.copied = true;
+            setTimeout(() => (st.copied = false), 2000);
+        } catch {
+            st.error = 'Could not copy — select the link and copy it manually.';
+        }
+    }
+
     // ── Club landing page: per-system carousel card ────────────────────
     async function loadCarousel(scope: string) {
         const r = await fetch(`${PUBLIC_API_URL}/club`, { credentials: 'include' });
@@ -2438,6 +2523,7 @@
             loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
             loadMissions(scope), initLeagueForScope(scope), initPairingWeightForScope(scope),
             loadCarousel(scope), loadSystemEvents(scope), loadSignupCap(scope),
+            loadSystemGate(scope),
         ]);
     }
 
@@ -2780,6 +2866,11 @@
                             <div class="field">
                                 <label class="field-label" for="club-discord">Discord invite</label>
                                 <input id="club-discord" class="field-input" type="text" placeholder="https://discord.gg/…" bind:value={clubProfile.discord_url} />
+                                <p class="field-label-hint">
+                                    Your club-wide server. Each system's carousel card links this by
+                                    default — if a game night runs out of its own separate Discord,
+                                    set that system's own invite under its admin section instead.
+                                </p>
                             </div>
                         </div>
                         <div class="field">
@@ -4387,6 +4478,28 @@
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
+                        <!-- Per-system Discord gate (system scopes only). Sits
+                             above the carousel card because the invite link it
+                             sets is what that card's "Join the Discord" button
+                             uses. -->
+                        {#if isSystemScope(scope) && systemGateState[scope]}
+                            {@const sg = systemGateState[scope]}
+                            <div class="sub-section pairings-section">
+                                <SystemDiscordGatePanel
+                                    gate={sg.gate}
+                                    system={scope}
+                                    bind:guildInput={sg.guildInput}
+                                    bind:inviteInput={sg.inviteInput}
+                                    saving={sg.saving}
+                                    error={sg.error}
+                                    message={sg.message}
+                                    copied={sg.copied}
+                                    onSave={(body) => saveSystemGate(scope, body)}
+                                    onCopy={() => copySystemGateInvite(scope)}
+                                />
+                            </div>
+                        {/if}
+
                         <!-- Club page carousel card + events (system scopes only) -->
                         {#if isSystemScope(scope) && carouselState[scope]}
                             {@const cs = carouselState[scope]}
