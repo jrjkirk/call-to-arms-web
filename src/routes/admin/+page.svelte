@@ -1461,6 +1461,7 @@
         });
         if (r.ok) {
             clubProfileMessage = 'Saved.';
+            invalidateClubPayload();
         } else {
             const body = await r.json().catch(() => ({}));
             clubProfileError = body.detail || 'Save failed.';
@@ -1555,13 +1556,17 @@
     }
 
     // ── Per-system Discord membership gate ─────────────────────────────
-    async function loadSystemGate(scope: string) {
+    async function loadSystemGate(scope: string, refresh = false) {
         systemGateState[scope] ??= {
             gate: null, guildInput: '', inviteInput: '',
             saving: false, error: null, message: null, copied: false,
         };
+        // refresh=true only on the admin's explicit "Check connection" press.
+        // The page-load path must stay cached: Discord allows one bot_guilds
+        // call per second and this runs once per system.
         const r = await fetch(
-            `${PUBLIC_API_URL}/admin/club-systems/discord-gate?system=${encodeURIComponent(scope)}`,
+            `${PUBLIC_API_URL}/admin/club-systems/discord-gate?system=${encodeURIComponent(scope)}`
+                + (refresh ? '&refresh=true' : ''),
             { credentials: 'include' }
         );
         if (!r.ok) return;
@@ -1617,7 +1622,7 @@
         st.saving = true;
         st.error = null;
         st.message = null;
-        await loadSystemGate(scope);
+        await loadSystemGate(scope, true);
         st.message = systemGateState[scope]?.gate?.connected
             ? 'Connected — the bot can see that server.'
             : "Still can't see that server. Give Discord a moment, then try again.";
@@ -1637,10 +1642,28 @@
     }
 
     // ── Club landing page: per-system carousel card ────────────────────
+    // GET /club returns the WHOLE club payload — profile, every system, and a
+    // month of calendar entries — but initSystemScope runs once per system, so
+    // this was refetching all of it once per game night (six times at EGNWGC)
+    // just to pick out one carousel card. One in-flight request is now shared
+    // by every scope; the promise is cached, not the JSON, so concurrent
+    // callers all await the same fetch instead of racing to start their own.
+    let clubPayloadPromise: Promise<any> | null = null;
+    function fetchClubPayload(): Promise<any> {
+        clubPayloadPromise ??= fetch(`${PUBLIC_API_URL}/club`, { credentials: 'include' })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+        return clubPayloadPromise;
+    }
+    /** Drop the shared payload so the next read is fresh — after any edit that
+     *  changes what /club returns. */
+    function invalidateClubPayload() {
+        clubPayloadPromise = null;
+    }
+
     async function loadCarousel(scope: string) {
-        const r = await fetch(`${PUBLIC_API_URL}/club`, { credentials: 'include' });
-        if (!r.ok) return;
-        const data = await r.json();
+        const data = await fetchClubPayload();
+        if (!data) return;
         const sys = (data.systems ?? []).find((s: any) => s.legacy_system_name === scope);
         carouselState[scope] = {
             blurb: sys?.blurb ?? '',
@@ -1669,6 +1692,7 @@
         });
         if (r.ok) {
             cs.message = 'Saved.';
+            invalidateClubPayload();
         } else {
             const body = await r.json().catch(() => ({}));
             cs.error = body.detail || 'Save failed.';
@@ -1695,6 +1719,7 @@
         if (r.ok) {
             const data = await r.json();
             cs.photo_url = data.photo_url;
+            invalidateClubPayload();
             cs.uploadFile = null;
             cs.uploadFileKey += 1;
         } else {
@@ -1712,7 +1737,10 @@
             `${PUBLIC_API_URL}/admin/club-systems/carousel/photo?system=${encodeURIComponent(scope)}`,
             { method: 'DELETE', credentials: 'include' }
         );
-        if (r.ok) cs.photo_url = null;
+        if (r.ok) {
+            cs.photo_url = null;
+            invalidateClubPayload();
+        }
     }
 
     async function loadSystemEvents(scope: string) {
