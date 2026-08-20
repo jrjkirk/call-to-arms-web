@@ -9,6 +9,7 @@
     // Any structured error detail must go through detailText or it renders as
     // "[object Object]" — see the note in $lib/discordGate.ts.
     import { detailText } from '$lib/discordGate';
+    import HelpTip from '$lib/HelpTip.svelte';
     import { UK_REGIONS } from '$lib/regions';
     import {
         NONE_FACTION,
@@ -2037,6 +2038,22 @@
     // Populated by an effect over already-loaded state rather than a fetch —
     // initSystemScope runs once per game night, so anything fetched in there
     // is silently multiplied by the number of systems the club runs.
+    /**
+     * The active system's accent colour, as a CSS custom property for the panel
+     * wrapper.
+     *
+     * It's the same value that tints that system's carousel card, its calendar
+     * entries and its pairing cards — so the admin panel joins the identity
+     * thread the rest of the app already uses, and "which game night am I
+     * editing?" is answerable at a glance rather than by reading the header.
+     * Falls back to the platform gold when a system has no colour set.
+     */
+    const panelAccentStyle = $derived(
+        activeSystem && carouselState[activeSystem]?.accent_color
+            ? `--panel-accent: ${carouselState[activeSystem].accent_color}`
+            : ''
+    );
+
     const activeClubSystemRow = $derived(
         activeSystem
             ? clubSystemsMine.find((r) => r.legacy_system_name === activeSystem) ?? null
@@ -3032,10 +3049,9 @@
             <div class="dash-group-body">
                 <section class="admin-section">
                     <h3 class="section-heading">Club Profile</h3>
-                    <p class="section-intro">
-                        The blurb, logo, links, and opening hours shown at the top of the Club page.
-                        Each system's own admin manages that system's carousel card and events from
-                        its own section below.
+                    <p class="a-note">
+                        What visitors see at the top of your Club page.
+                        <HelpTip label="the Club page" text="Your blurb, logo, links and opening hours. Each system's own carousel card is edited separately, on that system's Game System Config tab, by that system's admin." />
                     </p>
                     {#if clubProfile}
                         <!-- Profile -->
@@ -3173,10 +3189,9 @@
                         <div class="league-settings-details">
                             <div class="league-settings-heading">Club-wide Events</div>
                             <div class="league-settings-body">
-                                <p class="section-intro">
-                                    Dates that apply to the whole club, not one system — closures, open days. For a
-                                    single system's own event (a tournament, a campaign day), use that system's
-                                    Events section instead.
+                                <p class="a-note">
+                                    One-off dates for the whole club.
+                                    <HelpTip label="club events" text="Closures, open days, anything that isn't tied to one game night. For a single system's tournament or campaign day, use that system's own events instead so it shows in the right colour." />
                                 </p>
                                 {#if clubWideEvents.events.length === 0 && !clubWideEvents.loading}
                                     <p class="muted small">No club-wide events yet — add one below.</p>
@@ -3243,7 +3258,7 @@
 
     {#if activeNav === 'pairings' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Recent Games</span>
             </div>
@@ -3280,7 +3295,7 @@
 
     {#if activeNav === 'league' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">League</span>
             </div>
@@ -3682,7 +3697,7 @@
 
     {#if activeNav === 'weighting' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Pairing Weighting</span>
             </div>
@@ -3785,7 +3800,7 @@
 
     {#if activeNav === 'pairings' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">This Week's Signups</span>
             </div>
@@ -4314,7 +4329,10 @@
                             {#if ps.published}
                                 <div class="sub-section pairings-section">
                                     <h4 class="sub-heading">Re-arrange a Game</h4>
-                                    <p class="section-intro">Select the two players to pair together. Their current opponents will receive a bye.</p>
+                                    <p class="a-note">
+                                        Pair two players together by hand.
+                                        <HelpTip label="manual pairing" text="Overrides the matcher for these two players. Whoever they were each paired with becomes a bye, so you may need to re-pair those players too." />
+                                    </p>
                                     <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); rearrangeGame(scope); }}>
                                         <div class="field">
                                             <label class="field-label" for="rearrange-p1-{scope}">Player 1</label>
@@ -4359,7 +4377,7 @@
 
     {#if activeNav === 'autopairings' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Auto-Pairings</span>
             </div>
@@ -4414,7 +4432,7 @@
 
     {#if activeNav === 'announcements' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Announcements</span>
             </div>
@@ -4425,10 +4443,9 @@
                             {@const cta = callToArmsSettings[scope]}
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">Call to Arms</h4>
-                                <p class="section-intro">
-                                    Automatically post the sign-up “Call to Arms” to Discord a set number of
-                                    days before this system's session day. Posts to this system's Call to Arms
-                                    webhook (set under Discord Integrations).
+                                <p class="a-note">
+                                    Post the Call to Arms to Discord on a schedule.
+                                    <HelpTip label="the automatic Call to Arms" text="Posts the sign-up announcement a set number of days before each session, so you don't have to remember. Needs this system's Call to Arms webhook to be set on its Discord tab." />
                                 </p>
                                 <div class="auto-pairings-form">
                                     <div class="field field-narrow">
@@ -4525,7 +4542,7 @@
 
     {#if activeNav === 'missions' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Missions</span>
             </div>
@@ -4536,10 +4553,9 @@
                             {@const ms = missionsState[scope]}
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">Missions</h4>
-                                <p class="section-intro">
-                                    Curate a pool of missions for this system. When enabled, the weekly Call to
-                                    Arms post picks one at random and shows its image (plus secondary objectives,
-                                    if this system uses them) — replacing the built-in list with your club's own.
+                                <p class="a-note">
+                                    A pool of missions to pick from each week.
+                                    <HelpTip label="mission pools" text="When enabled, the weekly Call to Arms post picks one of these missions at random. Turn it off and the post falls back to the built-in scenario text." />
                                 </p>
 
                                 <div class="auto-pairings-form">
@@ -4662,7 +4678,7 @@
 
     {#if activeNav === 'systemconfig' && activeSystem}
         {@const scope = activeSystem}
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Game System Config</span>
             </div>
@@ -4677,10 +4693,9 @@
                         {#if activeClubSystemRow}
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">Schedule &amp; Vibes</h4>
-                                <p class="section-intro">
-                                    When {activeSystem} runs and what game types players can pick when
-                                    they sign up. The schedule drives the Club page calendar and the
-                                    week each signup lands in.
+                                <p class="a-note">
+                                    When this game night runs, and how players sign up for it.
+                                    <HelpTip label="schedule and vibes" text="The schedule drives the Club page calendar and decides which week a signup lands in. Vibes are the game types players choose from — leave it on the platform default unless your club runs something different." />
                                 </p>
                                 <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveSystemConfig(); }}>
                                     <div class="field field-narrow">
@@ -4706,14 +4721,19 @@
                                         </div>
                                     {/if}
                                     <div class="field field-narrow">
-                                        <label class="field-label" for="sc-start-time">Start time (optional)</label>
+                                        <label class="field-label" for="sc-start-time">
+                                            Start time
+                                            <HelpTip
+                                                label="the start time"
+                                                text={`Optional. Shown on the Club page calendar, e.g. "${activeSystem} session ${csSessionStartTime || '18:00'}". Leave it unset and the session appears as an all-day entry.`}
+                                            />
+                                        </label>
                                         <select id="sc-start-time" class="field-select" bind:value={csSessionStartTime}>
                                             <option value="">— Not set —</option>
                                             {#each HALF_HOUR_OPTIONS as t}
                                                 <option value={t}>{t}</option>
                                             {/each}
                                         </select>
-                                        <p class="field-caption">Shown on the Club page calendar, e.g. "{activeSystem} session {csSessionStartTime || '18:00'}".</p>
                                     </div>
                                     <div class="field-row-break"></div>
 
@@ -4780,11 +4800,9 @@
                             {@const cs = carouselState[scope]}
                             <div class="sub-section pairings-section">
                                 <h4 class="sub-heading">Club Page</h4>
-                                <p class="section-intro">
-                                    How this system appears in the Systems carousel on the Club page — blurb,
-                                    photo, and the accent colour that threads through its carousel card and
-                                    calendar entries. Position in the carousel isn't set here — it's shuffled
-                                    for every visitor so no system is always shown first.
+                                <p class="a-note">
+                                    How this system looks on your Club page.
+                                    <HelpTip label="the carousel card" text="Blurb, photo and the accent colour that threads through this system's carousel card, its calendar entries and its pairing cards. Position isn't settable — the carousel is shuffled for every visitor so no system is always first." />
                                 </p>
 
                                 <div class="field">
@@ -4842,10 +4860,9 @@
                                     <div class="league-settings-details">
                                         <div class="league-settings-heading">Events</div>
                                         <div class="league-settings-body">
-                                            <p class="section-intro">
-                                                One-off dates for this system — tournaments, campaign days — shown
-                                                on the Club page calendar in this system's accent colour, alongside
-                                                its regular weekly/fortnightly sessions.
+                                            <p class="a-note">
+                                                Tournaments, campaign days, one-off sessions.
+                                                <HelpTip label="system events" text="Shown on the Club page calendar in this system's accent colour, alongside its regular weekly or fortnightly sessions." />
                                             </p>
                                             {#if es.events.length === 0 && !es.loading}
                                                 <p class="muted small">No events yet — add one below.</p>
@@ -4984,7 +5001,10 @@
     {/if}
     <section class="admin-section">
         <h3 class="section-heading">Pairing Blocks</h3>
-        <p class="section-intro">Blocks prevent two players from being paired. They apply across all systems.</p>
+        <p class="a-note">
+            Stop two players being paired together.
+            <HelpTip label="player blocks" text="A block stops the matcher ever pairing those two players. It applies across every system your club runs, not just one game night." />
+        </p>
 
         {#if adminMe.is_super_admin}
             <div class="sub-section">
@@ -5082,18 +5102,24 @@
              were previously on the club-level Discord tab, which was wrong on
              two counts — every webhook type is per-system in the schema, and a
              club can run each night out of a different server entirely. -->
-        <div class="dash-group">
+        <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Discord — {scope}</span>
             </div>
             <div class="dash-group-body">
-                <section class="admin-section">
-                    <h3 class="section-heading">Webhooks</h3>
-                    <p class="section-intro">
-                        Which Discord channel each of this system's posts goes to. They're
-                        independent — you can send pairings to one channel and chatter to another,
-                        or point them all at the same one. Any left unset simply post nothing.
-                    </p>
+                <section class="a-card">
+                    <div class="a-head">
+                        <h4 class="a-title">Webhooks</h4>
+                        <HelpTip label="webhooks" text="Each row is independent — send pairings to one channel and chatter to another, or point them all at the same place. Any left unset simply post nothing." />
+                        <span class="a-head-end">
+                            <span class="a-state" class:is-on={webhookRows.filter((r) => r.legacy_system_name === scope).some((r) => r.configured)}>
+                                {webhookRows.filter((r) => r.legacy_system_name === scope && r.configured).length}
+                                of
+                                {webhookRows.filter((r) => r.legacy_system_name === scope).length} set
+                            </span>
+                        </span>
+                    </div>
+                    <p class="a-note">Where this system's posts go.</p>
 
                     <!-- Open by default until something is configured, then out of
                          the way. A first-time admin shouldn't have to find the
@@ -5224,10 +5250,9 @@
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
-            <p class="section-intro">
-                Which systems your club runs. Disabling a system stops new signups and pairing
-                generation for it, and hides it from league standings — it does not touch any
-                existing signups, pairings, or results.
+            <p class="a-note">
+                The game nights your club runs.
+                <HelpTip label="enabling systems" text="Disabling a system stops new signups and pairing generation and hides it from league standings. It does not touch existing signups, pairings or results." />
             </p>
             <p class="section-intro">
                 How each one runs — day, cadence, start time, vibes — is set in that system's own
@@ -5429,10 +5454,9 @@
             <div class="dash-group-body">
         <section class="admin-section">
             <h3 class="section-heading">Venue Table-Booking Emails</h3>
-            <p class="section-intro">
-                When enabled, this system automatically emails the venue how many tables and
-                players to expect for a session, so they can manage capacity. Super-admin only —
-                this is venue/billing configuration, not day-to-day system administration.
+            <p class="a-note">
+                Email the venue how many tables to set out.
+                <HelpTip label="table booking" text="Sends the venue a table and player count ahead of each session, once signups are in. Set the address and timing below." />
             </p>
 
             <div class="field field-narrow">
@@ -6026,7 +6050,10 @@
     /* ── Dashboard groups (collapsible) ──────────────────────────────────── */
 
     /* Clean squared panel — matches .card in app.css for cross-page consistency. */
+    /* The group's edge picks up the active system's colour as well, so the tab
+       reads as one tinted panel rather than a gold frame around coloured cards. */
     .dash-group {
+        border-left: 3px solid var(--panel-accent);
         margin-bottom: 1.25rem;
         background: var(--color-surface);
         border: 1px solid var(--color-steel-border);
@@ -6045,7 +6072,7 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.8px;
-        color: var(--color-accent);
+        color: var(--panel-accent);
         background: rgba(0, 0, 0, 0.25);
         border-bottom: 1px solid transparent;
         /* Gilt left rule — the shared dashboard-module signature, echoing the
@@ -6101,12 +6128,17 @@
         margin-bottom: 1.5rem;
     }
 
+    /* Was 0.8rem in --color-text-muted: smaller AND dimmer than the body copy
+       beneath it, so a heading read as less important than its own paragraph.
+       Now brighter and larger than body text, and sentence case — a second
+       row of uppercase competes with .section-heading instead of ranking
+       below it. */
     .sub-heading {
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-transform: uppercase;
+        font-size: 0.92rem;
+        font-weight: 600;
+        text-transform: none;
         letter-spacing: 0.6px;
-        color: var(--color-text-muted);
+        color: var(--color-text-bright);
         margin: 0 0 0.6rem;
         display: flex;
         align-items: center;
@@ -6297,7 +6329,13 @@
     /* .block-names is a flex ROW, so the description would otherwise sit beside
        the label instead of under it. Stack just the webhook rows, and top-align
        the row so a two-line name column doesn't centre against the controls. */
+    /* .block-names is `flex: 1`, which against the 320px-basis input column
+       collapsed the label to ~110px — the description then wrapped to four
+       lines beside a huge empty field. Give the name column a real basis so
+       the two read as a pair. */
     .wh-name {
+        flex: 1 1 260px;
+        min-width: 200px;
         flex-direction: column;
         align-items: flex-start;
         gap: 0;
@@ -6364,6 +6402,15 @@
         margin-top: 0.5rem;
     }
 
+    /* .appoint-form is align-items: flex-end, which is right for a row of bare
+       inputs with a trailing button — but wrong here. One field carries a
+       caption under it, so bottom-alignment shoved Day and Cadence to the
+       bottom of that taller column and left a gap above them. Top-align so the
+       labels line up as a row. */
+    .system-form.cs-edit-form {
+        align-items: flex-start;
+    }
+
     .status-badge {
         display: inline-block;
         font-size: 0.72rem;
@@ -6384,12 +6431,20 @@
         border: 1px solid rgba(148, 163, 184, 0.25);
     }
 
+    /* Was --color-accent, the same gold as .section-heading, so every label
+       competed with the section title above it. Muted keeps the labels legible
+       while letting the section headings actually lead. */
+    /* Labels can carry a HelpTip, so they lay out as a row rather than a bare
+       text node. */
     .field-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
         font-size: 0.72rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.6px;
-        color: var(--color-accent);
+        color: var(--color-text-muted);
     }
 
     .field-select {

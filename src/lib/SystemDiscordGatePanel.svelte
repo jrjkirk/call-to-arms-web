@@ -1,4 +1,6 @@
 <script lang="ts">
+	import HelpTip from './HelpTip.svelte';
+
 	/**
 	 * Per-system Discord membership gate, owned by that system's own admin —
 	 * same ownership model as the carousel card and mission pool beside it.
@@ -73,15 +75,6 @@
 	} = $props();
 </script>
 
-<h4 class="sub-heading">Discord Membership Gate</h4>
-<p class="section-intro">
-	Optionally require players to be in <strong>{system}</strong>'s Discord server before they can
-	sign up, arrange a game, post a call-out or submit a result. Pairings, drops and call-outs are
-	all announced there, so someone outside the server can't find out they've been paired.
-	Only ever checked once, the first time a new player commits to a game — existing members are
-	unaffected.
-</p>
-
 {#if error}
 	<p class="field-error">{error}</p>
 {/if}
@@ -90,42 +83,28 @@
 {/if}
 
 {#if !gate}
-	<p class="muted small">Loading…</p>
+	<p class="a-note">Loading…</p>
 {:else}
-	<!-- Status first: the single thing an admin opens this panel to check,
-	     especially while waiting on someone else to add the bot. -->
-	<div class="gate-status" class:is-on={gate.enabled && gate.connected}>
-		{#if !gate.enabled}
-			<span class="gate-dot off"></span>
-			<span>Off — anyone can sign up for {system}</span>
-		{:else if gate.connected}
-			<span class="gate-dot on"></span>
-			<span>
-				On ({gate.mode}) — checking <strong>{gate.guild_name}</strong>
-				{#if gate.inherits_guild}<em class="gate-inherit">(your club's server)</em>{/if}
-			</span>
-		{:else if gate.guild_id}
-			<span class="gate-dot off"></span>
-			<span>Server set, but the bot hasn't been added to it yet — nobody is being checked</span>
-		{:else}
-			<span class="gate-dot off"></span>
-			<span>On, but no server set — nobody is being checked</span>
-		{/if}
-	</div>
-
 	<!-- The invite link is deliberately OUTSIDE the gate opt-in below. It is
 	     primarily a Club-page setting — the "Join the … Discord" button on this
 	     system's carousel card — and only secondarily what a blocked player is
 	     pointed at. It was originally nested inside the gate, which meant a club
 	     that wanted per-night Discord links but no membership check couldn't set
 	     one at all. -->
-	<section class="gate-step">
-		<h4 class="sub-heading">Discord invite</h4>
-		<p class="section-intro">
-			Shown as the <strong>“Join the {system} Discord”</strong> button on this system's card on
-			your Club page. Set one here if this game night runs out of its own Discord; leave it
-			empty to use your club's link.
-		</p>
+	<section class="a-card">
+		<div class="a-head">
+			<h4 class="a-title">Discord invite</h4>
+			<HelpTip
+				label="the Discord invite"
+				text="This is the “Join the {system} Discord” button on your Club page. Set a link here only if this game night has its own Discord server — otherwise it uses your club's link. If you switch the membership gate on, blocked players are sent here too, so it must point at the same server the gate checks."
+			/>
+			<span class="a-head-end">
+				<span class="a-state" class:is-on={!!gate.discord_url}>
+					{gate.discord_url ? (gate.inherits_url ? "Club's link" : 'Own link') : 'No link'}
+				</span>
+			</span>
+		</div>
+		<p class="a-note">The button players tap on your Club page to join.</p>
 		<label class="field-label" for="sysgate-invite-{system}">Invite link</label>
 		<div class="gate-row">
 			<input
@@ -144,17 +123,39 @@
 		</div>
 		<p class="field-label-hint">
 			{#if gate.inherits_url}
-				Currently using your club's link — <code>{gate.discord_url}</code>.
+				Using your club's link — <code>{gate.discord_url}</code>. Leave empty to keep it.
 			{:else if !gate.discord_url}
-				No link set for this system or your club, so no button is shown on the carousel.
+				Nothing set here or on your club, so no button appears.
 			{/if}
-			If you switch the membership gate on below, this is also what a blocked player is sent
-			to — so it must point at the same server the gate checks, or you'll send them somewhere
-			that won't let them past.
 		</p>
 	</section>
 
-	<h4 class="sub-heading">Membership gate</h4>
+	<section class="a-card">
+		<div class="a-head">
+			<h4 class="a-title">Membership gate</h4>
+			<HelpTip
+				label="the membership gate"
+				text="Requires players to be in this system's Discord before they can sign up, arrange a game, post a call-out or submit a result. Pairings and drops are announced there, so someone outside the server can't find out they've been paired. Each player is only ever checked once — existing members are never affected."
+			/>
+			<span class="a-head-end">
+				<span class="a-state" class:is-on={gate.enabled && gate.connected}>
+					{#if !gate.enabled}Off
+					{:else if gate.connected}On · {gate.mode}
+					{:else}On · not checking{/if}
+				</span>
+			</span>
+		</div>
+		<p class="a-note">
+			{#if !gate.enabled}
+				Anyone can sign up for {system}.
+			{:else if gate.connected}
+				Checking <strong>{gate.guild_name}</strong>{#if gate.inherits_guild} (your club's server){/if}.
+			{:else if gate.guild_id}
+				Server set, but the bot isn't in it yet — nobody is being checked.
+			{:else}
+				No server set — nobody is being checked.
+			{/if}
+		</p>
 	{#if !gate.bot_configured}
 		<!-- Scoped to the gate only. The invite link above works regardless —
 		     it's just a link on your Club page and needs no bot. -->
@@ -163,7 +164,7 @@
 			can't run. Contact the platform admin — this isn't something your club can fix.
 		</p>
 	{/if}
-	<div class="field">
+	<div class="field gate-optin">
 		<label class="check-row">
 			<input
 				type="checkbox"
@@ -181,7 +182,7 @@
 
 	{#if gate.enabled}
 		<div class="gate-step">
-			<div class="league-settings-heading">1. {system}'s Discord server</div>
+			<div class="a-step-title">1. {system}'s Discord server</div>
 
 			{#if gate.inherits_guild}
 				<p class="field-label-hint">
@@ -236,15 +237,15 @@
 		</div>
 
 		<div class="gate-step">
-			<div class="league-settings-heading">2. Add the bot to that server</div>
+			<div class="a-step-title">2. Add the bot to that server</div>
 
 			{#if gate.connected}
-				<p class="section-intro">
+				<p class="a-note">
 					Already done — the bot is in <strong>{gate.guild_name}</strong> and can see who's a
 					member. Nothing to do here unless you point this system at a different server.
 				</p>
 			{:else}
-				<p class="section-intro">
+				<p class="a-note">
 					<strong>Someone with the “Manage Server” permission on that Discord has to do this</strong>,
 					and at a lot of clubs that isn't the same person who runs the app. If it isn't you,
 					send them the link below — they don't need an account here or any involvement beyond
@@ -303,7 +304,7 @@
 		</div>
 
 		<div class="gate-step">
-			<div class="league-settings-heading">3. Monitor or enforce</div>
+			<div class="a-step-title">3. Monitor or enforce</div>
 			{#if !gate.can_enforce}
 				<p class="field-label-hint">
 					Enforce is locked until the bot is connected — otherwise the check can't run and the
@@ -320,49 +321,15 @@
 				<option value="enforce">Enforce — require Discord membership</option>
 			</select>
 			<p class="field-label-hint">
-				Starts on <strong>Monitor</strong>. Leave it there for a couple of club nights to see
-				who would be caught before anyone actually is.
+				Starts on <strong>Monitor</strong>. Leave it there for a couple of club nights before
+				anyone is actually blocked.
 			</p>
 		</div>
 	{/if}
+	</section>
 {/if}
 
 <style>
-	/* Status pill — mirrors DiscordGatePanel's, since an admin who has seen the
-	   club-level one should recognise this at a glance. */
-	.gate-status {
-		display: flex;
-		align-items: center;
-		gap: 0.55rem;
-		padding: 0.6rem 0.85rem;
-		margin-bottom: 1.1rem;
-		border-radius: var(--radius);
-		background: var(--color-surface-dark);
-		border: 1px solid var(--color-steel-border);
-		font-size: 0.88rem;
-		color: var(--color-text-base);
-		max-width: 68ch;
-	}
-	.gate-status.is-on {
-		border-color: var(--color-accent-border);
-	}
-	.gate-dot {
-		width: 9px;
-		height: 9px;
-		border-radius: 50%;
-		flex: 0 0 auto;
-	}
-	.gate-dot.on {
-		background: var(--color-win);
-	}
-	.gate-dot.off {
-		background: var(--color-text-faint);
-	}
-	.gate-inherit {
-		color: var(--color-text-muted);
-		font-style: normal;
-		font-size: 0.85em;
-	}
 
 	.gate-step {
 		margin-bottom: 1.4rem;
@@ -389,6 +356,12 @@
 		margin-top: 0.15rem;
 		color: var(--color-text-muted);
 		font-size: 0.85em;
+	}
+
+	/* Breathing room between the bot warning above and the opt-in, which
+	   otherwise ran together as one block of text. */
+	.gate-optin {
+		margin-top: 0.9rem;
 	}
 
 	.check-row {

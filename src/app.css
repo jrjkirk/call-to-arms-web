@@ -246,3 +246,181 @@ h1, h2, h3, h4, h5, h6 {
 .pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .pager-info { font-size: 0.82rem; color: var(--color-text-dim); white-space: nowrap; }
+
+/* ── Admin panel hierarchy ────────────────────────────────────────────────
+   The admin panel read as one flat wall because its four text levels all
+   competed: section headings, sub-headings and field labels were ALL uppercase
+   gold, and .sub-heading (0.8rem, muted) was smaller and dimmer than the body
+   copy it introduced — a heading quieter than its own paragraph.
+
+   These primitives give each level one job and one weight. Uppercase is spent
+   only at the top level, so it means "new section" instead of meaning nothing.
+
+   --panel-accent is set per system from that system's own accent_color (the
+   same value threading through its carousel card, calendar entries and pairing
+   cards), so the admin panel is tinted by whichever game night you're editing.
+   It falls back to the platform gold, so anything that doesn't set it is
+   unchanged. */
+:root {
+    --panel-accent: var(--color-accent);
+}
+
+/* One card per idea. Previously sections ran together with only margin between
+   them, which is most of why the page felt like an undifferentiated wall. */
+.a-card {
+    border: 1px solid var(--color-steel-border);
+    border-left: 3px solid var(--panel-accent);
+    border-radius: var(--radius);
+    background: var(--color-surface-dark);
+    padding: 0.95rem 1.1rem;
+    margin-bottom: 1rem;
+}
+
+/* Title row: name on the left, help affordance beside it, status on the right.
+   Keeping status in the header means an admin can answer "is this on?" without
+   reading the body at all. */
+.a-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.15rem;
+}
+
+.a-title {
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--panel-accent);
+    margin: 0;
+}
+
+/* Brighter and larger than body copy — the fix for the inverted scale. Sentence
+   case on purpose: a second row of uppercase turns hierarchy back into noise. */
+.a-subtitle {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--color-text-bright);
+    margin: 1.1rem 0 0.3rem;
+}
+.a-subtitle:first-child {
+    margin-top: 0;
+}
+
+/* The one line a section is allowed on screen. Anything longer belongs in a
+   HelpTip. */
+.a-note {
+    margin: 0 0 0.75rem;
+    max-width: 64ch;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+/* Pushes the status pill to the far end of .a-head. */
+.a-head-end {
+    margin-left: auto;
+}
+
+/* Compact on/off state, readable at a glance without colour alone carrying it
+   (the words differ too). */
+.a-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-steel-border);
+    background: rgba(0, 0, 0, 0.25);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+.a-state.is-on {
+    border-color: var(--color-accent-border);
+    color: var(--color-text-bright);
+}
+.a-state::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-text-faint);
+}
+.a-state.is-on::before {
+    background: var(--color-win);
+}
+
+/* Shared admin primitives, promoted from the admin page's SCOPED <style>.
+   Svelte scoped styles don't cross component boundaries, so panels extracted
+   into $lib (SystemDiscordGatePanel, DiscordGatePanel) were rendering these
+   classes completely UNSTYLED — which is why they looked oversized and flat
+   while the same markup looked correct inline on the admin page. The admin
+   page keeps its own scoped copies; those win on specificity, so nothing there
+   changes. These are the fallback that makes extracted panels match. */
+.field-label-hint {
+    font-size: 0.72rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    line-height: 1.5;
+    color: var(--color-text-faint);
+    margin: 0.3rem 0 0;
+    max-width: 64ch;
+}
+
+.field-error {
+    font-size: 0.8rem;
+    color: var(--color-loss);
+    margin: 0.25rem 0 0;
+}
+
+.pairing-message {
+    font-size: 0.8rem;
+    color: var(--color-win);
+    margin: 0.25rem 0 0;
+}
+
+.primary-button,
+.secondary-button {
+    border-radius: var(--radius);
+    padding: 0 14px;
+    height: 2.2rem;
+    box-sizing: border-box;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+}
+.primary-button {
+    background: var(--color-accent);
+    color: #111;
+    border: none;
+    font-weight: 700;
+    transition: opacity 0.15s;
+}
+.primary-button:hover:not(:disabled) { opacity: 0.88; }
+.primary-button:disabled,
+.secondary-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.secondary-button {
+    background: transparent;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent-border);
+    font-weight: 600;
+    transition: background 0.15s;
+}
+.secondary-button:hover:not(:disabled) { background: var(--color-accent-soft); }
+
+/* Step heading inside a card — ranks below .a-title, above body copy. */
+.a-step-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--color-text-bright);
+    margin: 1.1rem 0 0.35rem;
+}
+.a-step-title:first-child { margin-top: 0; }
