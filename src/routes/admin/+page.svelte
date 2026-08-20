@@ -5386,14 +5386,7 @@
                 <span class="dash-group-title">Discord Integrations</span>
             </div>
             <div class="dash-group-body">
-        <section class="admin-section">
-            <p class="section-intro">
-                Webhooks moved: each game night's Discord channels are set in that system's own
-                <strong>Discord</strong> tab, alongside its membership gate. Every webhook type is
-                per-system, and a club can run each night out of a different server — so a single
-                club-wide grid was the wrong shape for them.
-            </p>
-
+        <section class="admin-section sub-section">
         <section class="admin-section">
             <DiscordGatePanel
                 {gate}
@@ -6208,6 +6201,9 @@
         margin-bottom: 1rem;
     }
 
+    /* The no-nested-cards rule lives in app.css — it has to cross component
+       boundaries, and a scoped :has() can't. */
+
     /* .pairings-section adds a top rule to separate stacked blocks. Inside a
        card that rule is redundant — the border already separates them. */
     .sub-section.pairings-section {
@@ -6245,6 +6241,11 @@
         border-radius: 4px;
     }
 
+    .block-list > *:last-child,
+    .name-list > *:last-child {
+        border-bottom: none;
+    }
+
     .name-list {
         list-style: none;
         padding: 0;
@@ -6257,10 +6258,11 @@
     .name-list li {
         font-size: 0.9rem;
         color: var(--color-text-base);
-        padding: 4px 8px;
-        background: rgba(0, 0, 0, 0.15);
-        border-radius: var(--radius);
-        border: 1px solid var(--color-accent-border-soft);
+        padding: 6px 0;
+        background: none;
+        border-radius: 0;
+        border: none;
+        border-bottom: 1px solid var(--color-steel-border);
         display: inline-block;
         width: fit-content;
     }
@@ -6338,10 +6340,11 @@
         display: flex;
         align-items: center;
         gap: 0.6rem;
-        padding: 5px 10px;
-        background: rgba(0, 0, 0, 0.15);
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: var(--radius);
+        padding: 7px 0;
+        background: none;
+        border: none;
+        border-bottom: 1px solid var(--color-steel-border);
+        border-radius: 0;
         font-size: 0.88rem;
         flex-wrap: wrap;
     }
@@ -6380,12 +6383,10 @@
        doing this is often following instructions for a site they rarely touch,
        so the steps are numbered and name what they'll actually see. */
     .wh-help {
-        margin: 0 0 1.2rem;
-        padding: 0.7rem 0.9rem;
+        margin: 0 0 1.1rem;
         max-width: 68ch;
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
+        border-left: 2px solid var(--color-steel-border);
+        padding-left: 0.8rem;
     }
     .wh-help summary {
         cursor: pointer;
@@ -6430,6 +6431,12 @@
     }
     .webhook-row {
         align-items: flex-start;
+        background: none;
+        border: none;
+        border-bottom: 1px solid var(--color-steel-border);
+        border-radius: 0;
+        padding-left: 0;
+        padding-right: 0;
     }
 
     /* What this particular webhook posts, under its name in the grid. */

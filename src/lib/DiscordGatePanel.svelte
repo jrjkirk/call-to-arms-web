@@ -1,4 +1,6 @@
 <script lang="ts">
+	import HelpTip from './HelpTip.svelte';
+
 	/**
 	 * The club-wide DEFAULT Discord server — the one a game night uses when it
 	 * hasn't been given its own.
@@ -49,18 +51,21 @@
 	} = $props();
 </script>
 
-<h3 class="gate-title">Club-wide Discord Server</h3>
-<p class="gate-intro">
-	The default server for your club. Any game night that hasn't been given its own Discord
-	uses this one — so if everything at your club runs out of a single server, set it here once
-	and you're done.
-</p>
-<p class="gate-alert gate-alert-info">
-	<strong>Switching the membership gate on happens per game night</strong>, not here — open a
-	system's <strong>Club card</strong> tab to opt it in and choose monitor or enforce. That's
-	because a club can run each night out of a different Discord server, so “require the
-	Discord” has to mean a specific one.
-</p>
+<div class="a-head">
+	<h3 class="a-title">Club-wide Discord server</h3>
+	<HelpTip
+		label="the club-wide server"
+		text="The default any game night uses when it hasn't been given its own Discord. If everything at your club runs out of one server, set it here once and you're done. Switching the membership gate ON happens per game night, on that system's own Discord tab — a club can run each night out of a different server, so “require the Discord” has to mean a specific one."
+	/>
+	{#if gate}
+		<span class="a-head-end">
+			<span class="a-state" class:is-on={gate.connected}>
+				{gate.connected ? 'Connected' : gate.guild_id ? 'Bot not added' : 'Not set'}
+			</span>
+		</span>
+	{/if}
+</div>
+<p class="a-note">The default server your game nights inherit.</p>
 
 {#if error}
 	<p class="gate-alert gate-alert-bad">{error}</p>
@@ -70,30 +75,20 @@
 {/if}
 
 {#if !gate}
-	<p class="gate-hint">Loading…</p>
-{:else if !gate.bot_configured}
-	<p class="gate-alert gate-alert-bad">
-		The Call to Arms Discord bot isn't set up on this platform yet. Contact the platform
-		admin — this isn't something your club can fix.
-	</p>
+	<p class="a-note">Loading…</p>
 {:else}
+	{#if !gate.bot_configured}
+		<p class="field-error">
+			The Call to Arms Discord bot isn't set up on this platform yet, so membership checks
+			can't run anywhere. Contact the platform admin — this isn't something your club can
+			fix. Setting your server below still works.
+		</p>
+	{/if}
 	<!-- Status first: the single thing an admin opens this panel to check,
 	     especially while waiting on someone else to add the bot. -->
-	<div class="gate-status" class:is-on={gate.connected}>
-		{#if gate.connected}
-			<span class="gate-dot on"></span>
-			<span>Connected to <strong>{gate.guild_name}</strong></span>
-		{:else if gate.guild_id}
-			<span class="gate-dot off"></span>
-			<span>Server set, but the bot hasn't been added to it yet</span>
-		{:else}
-			<span class="gate-dot off"></span>
-			<span>No club-wide server set</span>
-		{/if}
-	</div>
 
 	<section class="gate-step">
-		<h4 class="gate-step-title">1. Your Discord server</h4>
+		<h4 class="a-step-title">Which server</h4>
 
 		{#if gate.available_guilds && gate.available_guilds.length > 0}
 			<label class="gate-label" for="gate-guild-picker">Pick your server</label>
@@ -109,7 +104,7 @@
 					<option value={g.id}>{g.name}</option>
 				{/each}
 			</select>
-			<p class="gate-hint">Servers the bot has been added to.</p>
+			<p class="field-label-hint">Servers the bot has been added to.</p>
 		{/if}
 
 		<label class="gate-label" for="gate-guild-id">Server ID</label>
@@ -125,7 +120,7 @@
 				{saving ? 'Saving…' : 'Save'}
 			</button>
 		</div>
-		<p class="gate-hint">
+		<p class="field-label-hint">
 			You can paste a server invite link here instead and we'll work it out.
 			<a
 				href="https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID"
@@ -145,20 +140,20 @@
 	</section>
 
 	<section class="gate-step">
-		<h4 class="gate-step-title">2. Add the bot to that server</h4>
+		<h4 class="a-step-title">Add the bot to that server</h4>
 
 		{#if gate.connected}
-			<p class="gate-body">
+			<p class="a-note">
 				Already done — the bot is in <strong>{gate.guild_name}</strong> and can see who's a
 				member.
 			</p>
 		{:else}
-			<p class="gate-body">
-				<strong>Someone with the “Manage Server” permission on that Discord has to do this</strong>,
-				and at a lot of clubs that isn't the same person who runs the app. If it isn't you, send
-				them the link below — they need no account here and no involvement beyond this one step.
+			<p class="a-note">
+Needs the <strong>Manage Server</strong> permission — often not the app admin.
+				Send them the link; they need no account here.
 			</p>
-
+			<details class="a-disclosure">
+				<summary>Show me how</summary>
 			<ol class="gate-steps">
 				<li>Open the link below while signed in to Discord as someone with Manage Server.</li>
 				<li>
@@ -178,6 +173,7 @@
 				<li>Solve the captcha if Discord shows one.</li>
 				<li>Come back here and reload the page to confirm it worked.</li>
 			</ol>
+			</details>
 		{/if}
 
 		{#if gate.bot_invite_url}
@@ -193,7 +189,7 @@
 		     bot is often outside the club's admin team and is being asked to put
 		     an unknown app into their server — a vague reassurance is not enough
 		     to get a reasonable person to say yes. -->
-		<p class="gate-hint">
+		<p class="field-label-hint">
 			<strong>What the bot can do:</strong> nothing except check whether a named person has
 			joined. The invite requests <em>zero</em> permissions, which is why the authorize screen
 			looks empty — it can't read or post messages, can't see your channels, and can't list your
@@ -209,24 +205,6 @@
 {/if}
 
 <style>
-	.gate-title {
-		font-size: 1rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--color-accent);
-		margin: 0 0 0.6rem;
-	}
-	.gate-intro,
-	.gate-body {
-		margin: 0 0 1rem;
-		max-width: 68ch;
-		color: var(--color-text-base);
-		line-height: 1.5;
-		font-size: 0.9rem;
-	}
-	.gate-body {
-		margin-bottom: 0.7rem;
-	}
 
 	.gate-alert {
 		margin: 0 0 0.9rem;
@@ -246,42 +224,9 @@
 		color: var(--color-text-bright);
 	}
 
-	.gate-status {
-		display: flex;
-		align-items: center;
-		gap: 0.55rem;
-		padding: 0.6rem 0.85rem;
-		margin-bottom: 1.4rem;
-		border-radius: var(--radius);
-		background: var(--color-surface-dark);
-		border: 1px solid var(--color-steel-border);
-		font-size: 0.88rem;
-		color: var(--color-text-base);
-		max-width: 68ch;
-	}
-	.gate-status.is-on {
-		border-color: var(--color-accent-border);
-	}
-	.gate-dot {
-		width: 9px;
-		height: 9px;
-		border-radius: 50%;
-		flex: 0 0 auto;
-	}
-	.gate-dot.on {
-		background: var(--color-win);
-	}
-	.gate-dot.off {
-		background: var(--color-text-faint);
-	}
 
 	/* Distinct from .gate-alert-bad/-ok: this one is a signpost, not a problem
 	   or a success. */
-	.gate-alert-info {
-		background: rgba(88, 101, 242, 0.1);
-		border: 1px solid rgba(88, 101, 242, 0.5);
-		color: var(--color-text-base);
-	}
 
 	/* The add-the-bot walkthrough. Numbered because it's a sequence performed on
 	   another site, often by someone who has never seen this app — prose would
@@ -308,13 +253,6 @@
 
 	.gate-step {
 		margin-bottom: 1.6rem;
-	}
-	.gate-step-title {
-		font-size: 0.8rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--color-text-bright);
-		margin: 0 0 0.6rem;
 	}
 
 	.gate-label {
@@ -407,13 +345,6 @@
 		user-select: all;
 	}
 
-	.gate-hint {
-		margin: 0 0 0.5rem;
-		max-width: 68ch;
-		font-size: 0.8rem;
-		color: var(--color-text-dim);
-		line-height: 1.45;
-	}
 	.gate-hint a {
 		color: var(--color-accent);
 	}

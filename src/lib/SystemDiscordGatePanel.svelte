@@ -246,12 +246,11 @@
 				</p>
 			{:else}
 				<p class="a-note">
-					<strong>Someone with the “Manage Server” permission on that Discord has to do this</strong>,
-					and at a lot of clubs that isn't the same person who runs the app. If it isn't you,
-					send them the link below — they don't need an account here or any involvement beyond
-					this one step.
+Needs the <strong>Manage Server</strong> permission — often not the app admin.
+				Send them the link; they need no account here.
 				</p>
-
+				<details class="a-disclosure">
+					<summary>Show me how</summary>
 				<ol class="gate-steps">
 					<li>Open the link below while signed in to Discord as someone with Manage Server.</li>
 					<li>
@@ -272,6 +271,7 @@
 					<li>Solve the captcha if Discord shows one.</li>
 					<li>Come back here and press <strong>Check connection</strong>.</li>
 				</ol>
+				</details>
 			{/if}
 
 			{#if gate.bot_invite_url}
