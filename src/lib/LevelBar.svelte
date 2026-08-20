@@ -42,10 +42,13 @@
 	 * driven by server data should be applied this way.
 	 */
 	const BAND_COLOURS: Record<string, string> = {
-		common: 'var(--color-text-bright)',
-		rare: '#4a9eda',
-		epic: '#a335ee',
-		legendary: '#ff8000'
+		common: '#3fb950',    // 1-9    green
+		uncommon: '#17c3b2',  // 10-19  teal
+		rare: '#4a9eda',      // 20-29  blue
+		epic: '#8b7cf6',      // 30-39  violet
+		mythic: '#e05fa8',    // 40-49  pink
+		ascendant: '#a335ee', // 50-59  purple
+		legendary: '#ff8000'  // 60     orange
 	};
 	const bandColour = $derived(BAND_COLOURS[lv.band] ?? BAND_COLOURS.common);
 	const isLegendary = $derived(lv.band === 'legendary');
