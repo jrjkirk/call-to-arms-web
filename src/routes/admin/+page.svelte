@@ -2660,6 +2660,44 @@
         }
     }
 
+    // Which system scopes have already been loaded. The admin page shows ONE
+    // system at a time (activeSystem, bound to a picker), but used to prefetch
+    // every scope on load — ~10 requests each, so six game nights meant ~60
+    // parallel requests where the code reads as ten.
+    //
+    // That was the root cause of the pool exhaustion: a connection is acquired
+    // during DEPENDENCY resolution (require_user queries users) and held for
+    // the whole request, so concurrent connections track in-flight requests,
+    // not the threadpool. 60 concurrent requests wanted 60 connections.
+    //
+    // Now: load the system being looked at, and the others only if they're
+    // selected. Five sixths of that burst simply stops happening.
+    const initialisedScopes = new Set<string>();
+    const scopeInitInFlight = new Map<string, Promise<void>>();
+
+    function ensureSystemScope(scope: string | null): Promise<void> {
+        if (!scope || !isSystemScope(scope)) return Promise.resolve();
+        if (initialisedScopes.has(scope)) return Promise.resolve();
+        // Dedupe: the bootstrap and the activeSystem effect can both ask at
+        // once, and racing two full inits would double the burst we're cutting.
+        const inFlight = scopeInitInFlight.get(scope);
+        if (inFlight) return inFlight;
+        const p = (async () => {
+            await Promise.all([initSystemScope(scope), loadHistory(scope)]);
+            initialisedScopes.add(scope);
+            scopeInitInFlight.delete(scope);
+        })();
+        scopeInitInFlight.set(scope, p);
+        return p;
+    }
+
+    // Load whichever system the admin switches to, first time only.
+    $effect(() => {
+        const scope = activeSystem;
+        if (!adminMe || !scope) return;
+        ensureSystemScope(scope);
+    });
+
     async function initSystemScope(scope: string) {
         const week = await fetchWeekId(scope, fetch, adminClubSlug);
         pairings[scope] = initPairingsState(scope, week);
@@ -2723,11 +2761,12 @@
             // Command Table overview (status tiles + trend charts at the top).
             tasks.push(loadAnalytics());
         }
+        // ONLY the system being shown. The rest load when selected — see
+        // ensureSystemScope. Non-system scopes (e.g. 'League') still need their
+        // history up front since nothing else triggers it.
+        tasks.push(ensureSystemScope(activeSystem));
         for (const scope of adminMe.scopes) {
-            tasks.push(loadHistory(scope));
-            if (isSystemScope(scope)) {
-                tasks.push(initSystemScope(scope));
-            }
+            if (!isSystemScope(scope)) tasks.push(loadHistory(scope));
         }
         await Promise.all(tasks);
         pageLoading = false;
