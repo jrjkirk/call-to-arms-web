@@ -57,15 +57,27 @@
 		<span class="lvl-num">Level {lv.level}</span>
 	</div>
 
+	<!-- Segments, not a continuous bar. Progress here moves a whole game at a
+	     time and early levels cost just two games — which a percentage bar can
+	     only ever render as 0% or 50%, i.e. empty or half, never anything in
+	     between. Two pips, one lit, says "one more game" exactly. -->
 	<div
 		class="lvl-track"
 		role="progressbar"
-		aria-valuenow={lv.percent}
+		aria-valuenow={lv.at_cap ? lv.games_for_level : lv.games_into_level}
 		aria-valuemin="0"
-		aria-valuemax="100"
-		aria-label={`Level ${lv.level} progress in ${lv.system}`}
+		aria-valuemax={lv.at_cap ? lv.games_for_level : lv.games_for_level}
+		aria-label={lv.at_cap
+			? `Maximum level in ${lv.system}`
+			: `${lv.games_into_level} of ${lv.games_for_level} games toward level ${lv.level + 1} in ${lv.system}`}
 	>
-		<div class="lvl-fill" style={`width: ${lv.at_cap ? 100 : lv.percent}%`}></div>
+		{#if lv.at_cap}
+			<span class="lvl-pip is-on"></span>
+		{:else}
+			{#each { length: lv.games_for_level } as _, i}
+				<span class="lvl-pip" class:is-on={i < lv.games_into_level}></span>
+			{/each}
+		{/if}
 	</div>
 
 	<div class="lvl-foot">
@@ -111,20 +123,22 @@
 	}
 
 	.lvl-track {
-		height: 7px;
-		border-radius: 999px;
-		background: rgba(0, 0, 0, 0.35);
-		overflow: hidden;
+		display: flex;
+		gap: 3px;
+		height: 8px;
 	}
-	.lvl-fill {
-		height: 100%;
+
+	/* Each pip is one game. Unlit pips stay visible so the cost of the level is
+	   readable at a glance — "two pips" means "two games", whether or not
+	   you've played either. */
+	.lvl-pip {
+		flex: 1 1 0;
 		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.09);
+		transition: background 0.35s ease;
+	}
+	.lvl-pip.is-on {
 		background: var(--band);
-		/* A level just started is genuinely at 0%, which renders as no bar at
-		   all and reads as broken. A minimum sliver shows the bar exists and
-		   which colour the player is. */
-		min-width: 4px;
-		transition: width 0.5s ease;
 	}
 
 	.lvl-foot {
@@ -146,11 +160,11 @@
 	.is-legendary .lvl-num {
 		text-shadow: 0 0 12px rgba(255, 128, 0, 0.55);
 	}
-	.is-legendary .lvl-fill {
+	.is-legendary .lvl-pip.is-on {
 		box-shadow: 0 0 10px rgba(255, 128, 0, 0.6);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.lvl-fill { transition: none; }
+		.lvl-pip { transition: none; }
 	}
 </style>
