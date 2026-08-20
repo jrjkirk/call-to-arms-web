@@ -795,20 +795,6 @@
                 </select>
             </div>
 
-            <div class="field">
-                <span class="field-label">Experience</span>
-                {#if myExperience}
-                    <ExperienceBadge
-                        exp={myExperience}
-                        saving={expSaving}
-                        error={expError}
-                        onSaveExtra={saveExperienceExtra}
-                    />
-                {:else}
-                    <p class="muted small">Counting your games…</p>
-                {/if}
-            </div>
-
             {#if cfg.vibeOptions}
                 <div class="field">
                     <label class="field-label" for="su-vibe">Type of Game</label>
@@ -832,17 +818,35 @@
             {/if}
         </div>
 
-        <label class="check-row">
-            <input type="checkbox" bind:checked={standby} />
-            <span>I Can Be on Standby</span>
-        </label>
+        <div class="signup-footer">
+            <div class="signup-checks">
+                <label class="check-row">
+                    <input type="checkbox" bind:checked={standby} />
+                    <span>I Can Be on Standby</span>
+                </label>
 
-        {#if cfg.showCanDemo}
-            <label class="check-row">
-                <input type="checkbox" bind:checked={canDemo} />
-                <span>I Can Lead an Intro Game</span>
-            </label>
-        {/if}
+                {#if cfg.showCanDemo}
+                    <label class="check-row">
+                        <input type="checkbox" bind:checked={canDemo} />
+                        <span>I Can Lead an Intro Game</span>
+                    </label>
+                {/if}
+            </div>
+
+            <div class="field">
+                <span class="field-label">Experience</span>
+                {#if myExperience}
+                    <ExperienceBadge
+                        exp={myExperience}
+                        saving={expSaving}
+                        error={expError}
+                        onSaveExtra={saveExperienceExtra}
+                    />
+                {:else}
+                    <p class="muted small">Counting your games…</p>
+                {/if}
+            </div>
+        </div>
 
         {#if signupGate}
             <DiscordGateNotice gate={signupGate} onRetry={retryGate} retrying={gateRetrying} />
@@ -1185,8 +1189,26 @@
         gap: 0 1rem;
     }
 
+    /* Preferences above, then facts about the player alongside the things
+       they're opting into — the badge isn't a preference and reads oddly
+       wedged between two dropdowns. Same two columns as the grid above it, so
+       the form keeps one spine. */
+    .signup-footer {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem 1rem;
+        align-items: start;
+        margin-top: 0.35rem;
+    }
+    .signup-checks {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
     @media (max-width: 600px) {
-        .form-grid { grid-template-columns: 1fr; }
+        .form-grid,
+        .signup-footer { grid-template-columns: 1fr; }
     }
 
     .field-caption {

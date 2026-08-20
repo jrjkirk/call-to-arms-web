@@ -91,11 +91,6 @@
 						Cancel
 					</button>
 				</div>
-				<p class="field-label-hint">
-					Games of {exp.system} you played before joining, or outside the club. Added to the
-					{exp.tracked_games} we've tracked — we keep counting yours underneath, so this
-					won't go stale.
-				</p>
 				{#if error}<p class="field-error">{error}</p>{/if}
 			</div>
 		{:else}

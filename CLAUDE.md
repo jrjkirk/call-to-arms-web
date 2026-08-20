@@ -16,6 +16,22 @@ Browser → Vercel (SvelteKit, this repo) → Fly.io (FastAPI, ~/projects/call-t
   - Interactive docs: https://call-to-arms-api.fly.dev/docs
 - **Auth:** Discord OAuth on the backend, `cta_session` cookie. Claim-profile flow links a Discord user to a `players` row.
 
+## UI copy: no unnecessary descriptors
+
+**Write the label and stop.** A control that is self-evident from its label
+and its value does not need a sentence underneath explaining it, and a
+sentence that restates what the user can already see is noise they have to
+read past every time.
+
+Before adding any hint, caption or helper line, ask what a reader could not
+work out without it. If the answer is "nothing", cut it. If the answer is a
+genuine non-obvious consequence — where a value shows up, what happens on
+save, a limit they'd otherwise hit — put it in a `HelpTip` rather than on the
+page, so it's there when wanted and out of the way when not.
+
+Applies equally to section intros: one line, or none. Anything longer belongs
+in a tooltip.
+
 ## Conventions
 
 - `PUBLIC_API_URL` env var holds the backend base URL (set in `.env` locally, as a Vercel env var in production).
