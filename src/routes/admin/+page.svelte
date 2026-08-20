@@ -3047,8 +3047,11 @@
                 <span class="dash-group-title">Club Page</span>
             </div>
             <div class="dash-group-body">
-                <section class="admin-section">
-                    <h3 class="section-heading">Club Profile</h3>
+                <section class="admin-section sub-section">
+                    <div class="a-head">
+                <h3 class="section-heading">Club profile</h3>
+                <HelpTip label="the club profile" text="Your blurb, logo, links, address and opening hours, shown at the top of your Club page. Each system's own carousel card is edited separately, on that system's Game System Config tab." />
+            </div>
                     <p class="a-note">
                         What visitors see at the top of your Club page.
                         <HelpTip label="the Club page" text="Your blurb, logo, links and opening hours. Each system's own carousel card is edited separately, on that system's Game System Config tab, by that system's admin." />
@@ -3063,7 +3066,10 @@
                         </div>
 
                         <!-- Links & Location -->
-                        <h4 class="sub-heading">Links &amp; Location</h4>
+                        <div class="a-head club-page-subhead">
+                            <h4 class="a-title">Links &amp; location</h4>
+                            <HelpTip label="links and location" text="Your website, Discord invite and address. The address drives the map pin on your Club page and your marker on the club finder — set latitude and longitude to place it precisely." />
+                        </div>
                         <div class="form-grid">
                             <div class="field">
                                 <label class="field-label" for="club-website">Website</label>
@@ -3122,7 +3128,10 @@
                         </div>
 
                         <!-- Logo -->
-                        <h4 class="sub-heading">Logo</h4>
+                        <div class="a-head club-page-subhead">
+                            <h4 class="a-title">Logo</h4>
+                            <HelpTip label="the club logo" text="Shown beside your club name at the top of the Club page, and on posted pairings images. A square image works best." />
+                        </div>
                         <p class="field-label-hint mission-guidelines">
                             <strong>Image guidelines:</strong> square, at least 400×400px. Transparent PNG
                             works best against the dark background. Accepted formats: PNG, JPEG, WEBP. Max 5 MB.
@@ -3256,42 +3265,6 @@
         </div>
     {/if}
 
-    {#if activeNav === 'pairings' && activeSystem}
-        {@const scope = activeSystem}
-        <div class="dash-group" style={panelAccentStyle}>
-            <div class="dash-group-header static">
-                <span class="dash-group-title">Recent Games</span>
-            </div>
-            <div class="dash-group-body">
-        <section class="admin-section">
-                        <div class="sub-section">
-                            {#if historyLoading[scope]}
-                                <p class="muted small">Loading…</p>
-                            {:else if !(historyByScope[scope]?.length)}
-                                <p class="muted small">No games recorded yet.</p>
-                            {:else}
-                                <ul class="history-list">
-                                    {#each historyByScope[scope] as entry}
-                                        <li class="history-row">
-                                            <span class="history-date">{entry.week}</span>
-                                            {#if entry.player_b_name}
-                                                <span class="history-matchup">
-                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) vs {entry.player_b_name} ({fmt(entry.player_b_faction)})
-                                                </span>
-                                            {:else}
-                                                <span class="history-matchup">
-                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) — bye
-                                                </span>
-                                            {/if}
-                                        </li>
-                                    {/each}
-                                </ul>
-                            {/if}
-                        </div>
-        </section>
-            </div>
-        </div>
-    {/if}
 
     {#if activeNav === 'league' && activeSystem}
         {@const scope = activeSystem}
@@ -3306,6 +3279,19 @@
                         {#if isSystemScope(scope) && leagueState[scope]}
                             {@const ls = leagueState[scope]}
                             <div class="sub-section pairings-section">
+                                <div class="a-head">
+                                    <h4 class="a-title">League</h4>
+                                    <HelpTip
+                                        label="the league"
+                                        text="Tracks ratings and standings for this system across a season. Players submit their own results; ratings recalculate from scratch on every submission, so a corrected result fixes the table. Seasons reset ratings — start a new one when you want a clean slate."
+                                    />
+                                    <span class="a-head-end">
+                                        <span class="a-state" class:is-on={ls.config?.league_enabled}>
+                                            {ls.config?.league_enabled ? 'Running' : 'Off'}
+                                        </span>
+                                    </span>
+                                </div>
+                                <p class="a-note">Ratings and standings for {scope}.</p>
 
                                 {#if ls.configLoading}
                                     <p class="muted small">Loading…</p>
@@ -3712,16 +3698,14 @@
                                     <p class="muted small">Loading…</p>
                                 {:else if ws.config}
                                     <div class="league-settings-details">
-                                        <div class="league-settings-heading">Matchmaking weights</div>
+                                        <div class="a-head">
+                                            <div class="a-title">Matchmaking weights</div>
+                                            <HelpTip
+                                                label="matchmaking weights"
+                                                text="How hard the matcher works to satisfy each factor when pairing this system. Higher means it matters more; set one to 0 to ignore it entirely. Admin blocks and “don't repeat last week's opponent” are always enforced first, whatever these say."
+                                            />
+                                        </div>
                                         <div class="league-settings-body">
-                                            <p class="league-help-text">
-                                                Sliders control how much each factor matters when
-                                                pairing opponents for this system — higher means
-                                                the matcher works harder to satisfy that factor.
-                                                Set a slider to 0 to ignore it entirely. Admin
-                                                blocks and "don't repeat last week's opponent" are
-                                                always enforced first, regardless of these weights.
-                                            </p>
 
                                             <div class="pairing-weight-layout">
                                             <div class="league-config-form pairing-weight-form">
@@ -3809,6 +3793,13 @@
                         {#if signupCapState[scope] && !signupCapState[scope].loading}
                             {@const cap = signupCapState[scope]}
                             <div class="sub-section signup-cap-section">
+                                <div class="a-head">
+                                    <h4 class="a-title">Signups</h4>
+                                    <HelpTip
+                                        label="the signup cap"
+                                        text="Caps how many players can sign up for this system in a week. Once the cap is reached, later players can still join as standby and get paired if someone drops. Leave it off for unlimited signups."
+                                    />
+                                </div>
                                 <label class="check-row ap-toggle">
                                     <input type="checkbox" bind:checked={cap.enabled} />
                                     <span>Cap signups for this system</span>
@@ -4057,8 +4048,8 @@
                             </div>
 
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">
-                                    Weekly Pairings
+                                <h4 class="a-title">
+                                    Weekly pairings
                                     {#if ps.published}
                                         <span class="pub-badge pub-live">● Published</span>
                                     {:else}
@@ -4328,7 +4319,7 @@
 
                             {#if ps.published}
                                 <div class="sub-section pairings-section">
-                                    <h4 class="sub-heading">Re-arrange a Game</h4>
+                                    <h4 class="a-title">Re-arrange a game</h4>
                                     <p class="a-note">
                                         Pair two players together by hand.
                                         <HelpTip label="manual pairing" text="Overrides the matcher for these two players. Whoever they were each paired with becomes a bye, so you may need to re-pair those players too." />
@@ -4374,6 +4365,42 @@
             </div>
         </div>
     {/if}
+    {#if activeNav === 'pairings' && activeSystem}
+        {@const scope = activeSystem}
+        <div class="dash-group" style={panelAccentStyle}>
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Recent games</span>
+            </div>
+            <div class="dash-group-body">
+        <section class="admin-section">
+                        <div class="sub-section">
+                            {#if historyLoading[scope]}
+                                <p class="muted small">Loading…</p>
+                            {:else if !(historyByScope[scope]?.length)}
+                                <p class="muted small">No games recorded yet.</p>
+                            {:else}
+                                <ul class="history-list">
+                                    {#each historyByScope[scope] as entry}
+                                        <li class="history-row">
+                                            <span class="history-date">{entry.week}</span>
+                                            {#if entry.player_b_name}
+                                                <span class="history-matchup">
+                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) vs {entry.player_b_name} ({fmt(entry.player_b_faction)})
+                                                </span>
+                                            {:else}
+                                                <span class="history-matchup">
+                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) — bye
+                                                </span>
+                                            {/if}
+                                        </li>
+                                    {/each}
+                                </ul>
+                            {/if}
+                        </div>
+        </section>
+            </div>
+        </div>
+    {/if}
 
     {#if activeNav === 'autopairings' && activeSystem}
         {@const scope = activeSystem}
@@ -4387,6 +4414,21 @@
                         {#if isSystemScope(scope) && autoPairingsSettings[scope]}
                             {@const aps = autoPairingsSettings[scope]}
                             <div class="sub-section pairings-section">
+                                <div class="a-head">
+                                    <h4 class="a-title">Generate pairings automatically</h4>
+                                    <HelpTip
+                                        label="auto-pairings"
+                                        text="Runs the matcher for you at a set day and time each week, then publishes and posts the pairings — so you don't have to be at a computer on club night. Leave it off to keep generating them by hand from the Pairings tab."
+                                    />
+                                    <span class="a-head-end">
+                                        <span class="a-state" class:is-on={aps.enabled}>{aps.enabled ? 'On' : 'Off'}</span>
+                                    </span>
+                                </div>
+                                <p class="a-note">
+                                    {aps.enabled
+                                        ? `Runs every ${aps.day} at ${aps.time}.`
+                                        : 'Pairings are generated by hand from the Pairings tab.'}
+                                </p>
                                 <div class="auto-pairings-form">
                                     <div class="field field-narrow">
                                         <label class="field-label" for="ap-day-{scope}">Day</label>
@@ -4434,7 +4476,7 @@
         {@const scope = activeSystem}
         <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
-                <span class="dash-group-title">Announcements</span>
+                <span class="dash-group-title">Call to Arms Post</span>
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
@@ -4442,10 +4484,17 @@
                         {#if isSystemScope(scope) && callToArmsSettings[scope]}
                             {@const cta = callToArmsSettings[scope]}
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">Call to Arms</h4>
+                                <div class="a-head">
+                                    <h4 class="a-title">Call to Arms post</h4>
+                                    <HelpTip label="the Call to Arms post" text="The weekly “signups are open” announcement. Posts a set number of days before each session so you don't have to remember. Needs this system's Call to Arms webhook set on its Discord tab, or it posts nowhere." />
+                                    <span class="a-head-end">
+                                        <span class="a-state" class:is-on={cta.enabled}>{cta.enabled ? 'Scheduled' : 'Off'}</span>
+                                    </span>
+                                </div>
                                 <p class="a-note">
-                                    Post the Call to Arms to Discord on a schedule.
-                                    <HelpTip label="the automatic Call to Arms" text="Posts the sign-up announcement a set number of days before each session, so you don't have to remember. Needs this system's Call to Arms webhook to be set on its Discord tab." />
+                                    {cta.enabled
+                                        ? `Posts ${cta.days_before} day${cta.days_before === 1 ? '' : 's'} before each session, at ${cta.time}.`
+                                        : 'Not posting automatically.'}
                                 </p>
                                 <div class="auto-pairings-form">
                                     <div class="field field-narrow">
@@ -4552,11 +4601,14 @@
                         {#if isSystemScope(scope) && missionsState[scope]}
                             {@const ms = missionsState[scope]}
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">Missions</h4>
-                                <p class="a-note">
-                                    A pool of missions to pick from each week.
+                                <div class="a-head">
+                                    <h4 class="a-title">Missions</h4>
                                     <HelpTip label="mission pools" text="When enabled, the weekly Call to Arms post picks one of these missions at random. Turn it off and the post falls back to the built-in scenario text." />
-                                </p>
+                                    <span class="a-head-end">
+                                        <span class="a-state" class:is-on={ms.missions_enabled}>{ms.missions_enabled ? 'On' : 'Off'}</span>
+                                    </span>
+                                </div>
+                                <p class="a-note">A pool of missions to pick from each week.</p>
 
                                 <div class="auto-pairings-form">
                                     <label class="check-row ap-toggle">
@@ -4692,7 +4744,7 @@
                              that decides what the club runs, not how. -->
                         {#if activeClubSystemRow}
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">Schedule &amp; Vibes</h4>
+                                <h4 class="a-title">Schedule &amp; vibes</h4>
                                 <p class="a-note">
                                     When this game night runs, and how players sign up for it.
                                     <HelpTip label="schedule and vibes" text="The schedule drives the Club page calendar and decides which week a signup lands in. Vibes are the game types players choose from — leave it on the platform default unless your club runs something different." />
@@ -4799,7 +4851,7 @@
                         {#if isSystemScope(scope) && carouselState[scope]}
                             {@const cs = carouselState[scope]}
                             <div class="sub-section pairings-section">
-                                <h4 class="sub-heading">Club Page</h4>
+                                <h4 class="a-title">Club page card</h4>
                                 <p class="a-note">
                                     How this system looks on your Club page.
                                     <HelpTip label="the carousel card" text="Blurb, photo and the accent colour that threads through this system's carousel card, its calendar entries and its pairing cards. Position isn't settable — the carousel is shuffled for every visitor so no system is always first." />
@@ -5000,15 +5052,18 @@
         </section>
     {/if}
     <section class="admin-section">
-        <h3 class="section-heading">Pairing Blocks</h3>
-        <p class="a-note">
-            Stop two players being paired together.
+        <div class="a-head">
+            <h3 class="section-heading">Pairing blocks</h3>
             <HelpTip label="player blocks" text="A block stops the matcher ever pairing those two players. It applies across every system your club runs, not just one game night." />
-        </p>
+            <span class="a-head-end">
+                <span class="a-state" class:is-on={blocks.length > 0}>{blocks.length} active</span>
+            </span>
+        </div>
+        <p class="a-note">Stop two players being paired together.</p>
 
         {#if adminMe.is_super_admin}
             <div class="sub-section">
-                <h4 class="sub-heading">Add block</h4>
+                <h4 class="a-title">Add a block</h4>
                 <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); addBlock(); }}>
                     <div class="field">
                         <label class="field-label" for="block-p1">Player A</label>
@@ -5246,18 +5301,20 @@
         <!-- ══ Systems & Schedule ══ -->
         <div class="dash-group">
             <div class="dash-group-header static">
-                <span class="dash-group-title">Systems &amp; Schedule</span>
+                <span class="dash-group-title">Systems</span>
             </div>
             <div class="dash-group-body">
-        <section class="admin-section">
-            <p class="a-note">
-                The game nights your club runs.
-                <HelpTip label="enabling systems" text="Disabling a system stops new signups and pairing generation and hides it from league standings. It does not touch existing signups, pairings or results." />
-            </p>
-            <p class="section-intro">
-                How each one runs — day, cadence, start time, vibes — is set in that system's own
-                <strong>Game System Config</strong> tab, by its admin.
-            </p>
+        <section class="admin-section sub-section">
+            <div class="a-head">
+                <h3 class="section-heading">Game nights</h3>
+                <HelpTip label="enabling systems" text="Disabling a system stops new signups and pairing generation and hides it from league standings — it does not touch existing signups, pairings or results. How each one runs (day, cadence, start time, vibes) is set on that system's own Game System Config tab, by its admin." />
+                <span class="a-head-end">
+                    <span class="a-state" class:is-on={clubSystemsMine.some((r) => r.enabled)}>
+                        {clubSystemsMine.filter((r) => r.enabled).length} running
+                    </span>
+                </span>
+            </div>
+            <p class="a-note">What your club runs, and whether it's taking signups.</p>
 
             {#if clubSystemsMineError}
                 <p class="field-error">{clubSystemsMineError}</p>
@@ -5360,10 +5417,14 @@
                 <span class="dash-group-title">Admins &amp; Delegates</span>
             </div>
             <div class="dash-group-body">
-        <section class="admin-section">
+        <section class="admin-section sub-section">
 
             <div class="sub-section">
-                <h4 class="sub-heading">Super-admins <span class="badge">managed via SQL</span></h4>
+                <div class="a-head">
+                    <h4 class="a-title">Super-admins</h4>
+                    <HelpTip label="super-admins" text="Full control of the club: every system, plus club-level settings like the Club page, admins and table booking. Set directly in the database — a club super-admin can't appoint another one from here." />
+                    <span class="a-head-end"><span class="a-state">managed via SQL</span></span>
+                </div>
                 {#if rolesData && rolesData.super_admins.length > 0}
                     <ul class="name-list">
                         {#each rolesData.super_admins as sa}
@@ -5378,7 +5439,10 @@
             </div>
 
             <div class="sub-section">
-                <h4 class="sub-heading">Scope roles</h4>
+                <div class="a-head">
+                    <h4 class="a-title">Scope roles</h4>
+                    <HelpTip label="scope roles" text="A scope role makes someone the admin of one game night. They can run its pairings, league, missions, Discord and schedule — but not club-level settings, and not any other system." />
+                </div>
                 {#if rolesLoading}
                     <p class="muted">Loading…</p>
                 {:else if rolesByUser.length === 0}
@@ -5408,7 +5472,7 @@
             </div>
 
             <div class="sub-section">
-                <h4 class="sub-heading">Appoint admin</h4>
+                <h4 class="a-title">Appoint an admin</h4>
                 <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); grantRole(); }}>
                     <div class="field">
                         <label class="field-label" for="grant-user">User</label>
@@ -5452,8 +5516,11 @@
                 <span class="dash-group-title">Table Booking</span>
             </div>
             <div class="dash-group-body">
-        <section class="admin-section">
-            <h3 class="section-heading">Venue Table-Booking Emails</h3>
+        <section class="admin-section sub-section">
+            <div class="a-head">
+                <h3 class="section-heading">Venue table-booking emails</h3>
+                <HelpTip label="table booking" text="Sends your venue a table and player count ahead of each session, once signups are in, so they know how much to set out. Configured per system — pick one below." />
+            </div>
             <p class="a-note">
                 Email the venue how many tables to set out.
                 <HelpTip label="table booking" text="Sends the venue a table and player count ahead of each session, once signups are in. Set the address and timing below." />
@@ -5557,7 +5624,7 @@
                 </form>
 
                 <div class="sub-section">
-                    <h4 class="sub-heading">Preview / send for a specific week</h4>
+                    <h4 class="a-title">Preview or send a specific week</h4>
                     <div class="field field-narrow">
                         <label class="field-label" for="tb-preview-week">Week (DD/MM/YYYY)</label>
                         <input id="tb-preview-week" class="field-input" type="text" bind:value={tbPreviewWeek} placeholder="e.g. 05/03/2026" />
@@ -5602,7 +5669,7 @@
                 </div>
 
                 <div class="sub-section">
-                    <h4 class="sub-heading">Recent sends</h4>
+                    <h4 class="a-title">Recent sends</h4>
                     {#if tbHistoryLoading}
                         <p class="muted">Loading…</p>
                     {:else if tbHistory.length === 0}
@@ -6107,15 +6174,18 @@
         margin-bottom: 0;
     }
 
+    /* Matched to .a-title in app.css. It was 1.1rem gold with an underline rule
+       while .a-title was 0.82rem — two different "section" looks on the same
+       page, so a Discord tab and a Club page tab didn't feel like one product.
+       The card border now does the separating the rule used to. */
     .section-heading {
-        font-size: 1.1rem;
+        font-family: var(--font-display);
+        font-size: 0.82rem;
         font-weight: 700;
-        color: var(--color-accent);
+        color: var(--panel-accent);
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin: 0 0 0.75rem;
-        padding-bottom: 0.4rem;
-        border-bottom: 1px solid var(--color-accent-border);
+        letter-spacing: 0.09em;
+        margin: 0 0 0.15rem;
     }
 
     .section-intro {
@@ -6124,8 +6194,26 @@
         margin: 0 0 1rem;
     }
 
+    /* Every section is a card. This was margin-only, which is why 20 sections
+       across the panel ran together as one undifferentiated column — the single
+       biggest reason the page read as flat. The left edge carries the active
+       system's colour, matching .a-card in app.css so hand-built cards and
+       these are indistinguishable. */
     .sub-section {
-        margin-bottom: 1.5rem;
+        border: 1px solid var(--color-steel-border);
+        border-left: 3px solid var(--panel-accent);
+        border-radius: var(--radius);
+        background: var(--color-surface-dark);
+        padding: 0.95rem 1.1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* .pairings-section adds a top rule to separate stacked blocks. Inside a
+       card that rule is redundant — the border already separates them. */
+    .sub-section.pairings-section {
+        border-top: 1px solid var(--color-steel-border);
+        padding-top: 0.95rem;
+        margin-top: 0;
     }
 
     /* Was 0.8rem in --color-text-muted: smaller AND dimmer than the body copy
@@ -6927,8 +7015,19 @@
         margin: 0 0.3rem 0.25rem 0;
     }
 
+    /* It sits in a flex-column container, so a bare button stretched to the
+       full card width and read as a disabled input rather than an action. */
     .cta-reset {
         margin-top: 0.5rem;
+        align-self: flex-start;
+    }
+
+    /* Sub-headings within the Club profile card need air above them, since they
+       divide one long form rather than starting a new card. */
+    .club-page-subhead {
+        margin-top: 1.4rem;
+        padding-top: 1.1rem;
+        border-top: 1px solid var(--color-steel-border);
     }
 
     .cs-add {

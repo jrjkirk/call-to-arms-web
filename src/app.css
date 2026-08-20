@@ -424,3 +424,44 @@ h1, h2, h3, h4, h5, h6 {
     margin: 1.1rem 0 0.35rem;
 }
 .a-step-title:first-child { margin-top: 0; }
+
+/* Range inputs were the browser default blue — the one control on the page not
+   speaking the app's language, and doubly odd on a panel tinted with the
+   system's own colour. */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-steel-border);
+    outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--panel-accent);
+    border: none;
+    cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--panel-accent);
+    border: none;
+    cursor: pointer;
+}
+input[type="range"]:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+/* Checkboxes likewise: accent-color is one line and makes every tick match. */
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: var(--panel-accent);
+}
