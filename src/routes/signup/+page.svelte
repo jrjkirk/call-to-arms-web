@@ -163,21 +163,17 @@
     // shows it; the API derives it again on submit, so the value posted here
     // is ignored and can't be tampered with.
     let myExperience = $state<ExperienceSummary | null>(null);
-    let myLevel = $state<{ level: number; band: string } | null>(null);
     let expSaving = $state(false);
     let expError = $state<string | null>(null);
 
     async function loadMyExperience(system: string) {
         myExperience = null;
-        myLevel = null;
-        const qs = `system=${encodeURIComponent(system)}`;
         try {
-            const [e, l] = await Promise.all([
-                fetch(`${PUBLIC_API_URL}/signups/experience?${qs}`, { credentials: 'include' }),
-                fetch(`${PUBLIC_API_URL}/signups/level?${qs}`, { credentials: 'include' })
-            ]);
-            if (e.ok) myExperience = await e.json();
-            if (l.ok) myLevel = await l.json();
+            const r = await fetch(
+                `${PUBLIC_API_URL}/signups/experience?system=${encodeURIComponent(system)}`,
+                { credentials: 'include' }
+            );
+            if (r.ok) myExperience = await r.json();
         } catch (_) {}
     }
 
@@ -820,29 +816,12 @@
                     </select>
                 </div>
             {/if}
-        </div>
-
-        <div class="signup-footer">
-            <div class="signup-checks">
-                <label class="check-row">
-                    <input type="checkbox" bind:checked={standby} />
-                    <span>I Can Be on Standby</span>
-                </label>
-
-                {#if cfg.showCanDemo}
-                    <label class="check-row">
-                        <input type="checkbox" bind:checked={canDemo} />
-                        <span>I Can Lead an Intro Game</span>
-                    </label>
-                {/if}
-            </div>
 
             <div class="field">
                 <span class="field-label">Experience</span>
                 {#if myExperience}
                     <ExperienceBadge
                         exp={myExperience}
-                        lv={myLevel}
                         saving={expSaving}
                         error={expError}
                         onSaveExtra={saveExperienceExtra}
@@ -852,6 +831,18 @@
                 {/if}
             </div>
         </div>
+
+        <label class="check-row">
+            <input type="checkbox" bind:checked={standby} />
+            <span>I Can Be on Standby</span>
+        </label>
+
+        {#if cfg.showCanDemo}
+            <label class="check-row">
+                <input type="checkbox" bind:checked={canDemo} />
+                <span>I Can Lead an Intro Game</span>
+            </label>
+        {/if}
 
         {#if signupGate}
             <DiscordGateNotice gate={signupGate} onRetry={retryGate} retrying={gateRetrying} />
@@ -1194,26 +1185,8 @@
         gap: 0 1rem;
     }
 
-    /* Preferences above, then facts about the player alongside the things
-       they're opting into — the badge isn't a preference and reads oddly
-       wedged between two dropdowns. Same two columns as the grid above it, so
-       the form keeps one spine. */
-    .signup-footer {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem 1rem;
-        align-items: start;
-        margin-top: 0.35rem;
-    }
-    .signup-checks {
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-    }
-
     @media (max-width: 600px) {
-        .form-grid,
-        .signup-footer { grid-template-columns: 1fr; }
+        .form-grid { grid-template-columns: 1fr; }
     }
 
     .field-caption {

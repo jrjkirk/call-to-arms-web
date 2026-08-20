@@ -24,29 +24,16 @@
 
 	let {
 		exp,
-		lv = null,
 		saving = false,
 		error = null,
 		onSaveExtra
 	}: {
 		exp: ExperienceSummary | null;
-		lv?: { level: number; band: string } | null;
 		saving?: boolean;
 		error?: string | null;
 		onSaveExtra: (extra: number) => void;
 	} = $props();
 
-	// Same ladder as LevelBar and the posted pairings image.
-	const BAND_COLOURS: Record<string, string> = {
-		common: '#3fb950',
-		uncommon: '#17c3b2',
-		rare: '#4a9eda',
-		epic: '#8b7cf6',
-		mythic: '#e05fa8',
-		ascendant: '#a335ee',
-		legendary: '#ff8000'
-	};
-	const levelColour = $derived(lv ? BAND_COLOURS[lv.band] ?? BAND_COLOURS.common : '');
 
 	let editing = $state(false);
 	let extraInput = $state('');
@@ -67,15 +54,15 @@
 	<div class="exp">
 		<div class="exp-row">
 			<span class="exp-badge {tierClass}">{tierLabel}</span>
-			{#if lv}
-				<span class="exp-level" style={`color: ${levelColour}`}>Level {lv.level}</span>
-			{/if}
 			<HelpTip
 				label="experience"
 				text={`${exp.total_games} games of ${exp.system}
 • ${exp.experienced_at}+ games — Experienced
 • ${exp.veteran_at}+ games — Veteran`}
 			/>
+			{#if !editing}
+				<button class="exp-link" type="button" onclick={open}>Edit</button>
+			{/if}
 		</div>
 
 		{#if editing}
@@ -103,8 +90,6 @@
 				</div>
 				{#if error}<p class="field-error">{error}</p>{/if}
 			</div>
-		{:else}
-			<button class="exp-link" type="button" onclick={open}>Edit</button>
 		{/if}
 	</div>
 {/if}
@@ -140,18 +125,10 @@
 	.exp-experienced { color: #b8a878; }
 	.exp-veteran { color: #d08a50; }
 
-	/* The level carries its band colour — the same colour the profile bar and
-	   the posted pairing show, so they read as one thing. */
-	.exp-level {
-		font-family: var(--font-display);
-		font-size: 0.95rem;
-		font-weight: 700;
-	}
 
 	/* A quiet text button: correcting the count is rare, so it shouldn't look
 	   like one of the form's real actions. */
 	.exp-link {
-		align-self: flex-start;
 		background: none;
 		border: none;
 		padding: 0;
