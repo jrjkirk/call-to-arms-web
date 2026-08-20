@@ -409,17 +409,27 @@
     let activeNav = $state('overview');
     let activeSystem = $state<string | null>(null);
 
+    // Named for what an admin is trying to DO, not for the table it writes to.
+    // "Announcements" and "Club card" both failed that: the first hid the
+    // Call-to-Arms post behind a generic word, the second described where the
+    // output appears rather than what you configure there.
     const SYSTEM_NAV = [
         { id: 'pairings', label: 'Pairings' },
         { id: 'league', label: 'League' },
         { id: 'weighting', label: 'Weighting' },
         { id: 'missions', label: 'Missions' },
         { id: 'autopairings', label: 'Auto-pairings' },
-        { id: 'announcements', label: 'Announcements' },
-        { id: 'clubcard', label: 'Club card' },
+        { id: 'announcements', label: 'Call to Arms Post' },
+        { id: 'systemconfig', label: 'Game System Config' },
+        { id: 'systemdiscord', label: 'Discord' },
     ];
     // super: true = super-admin only. Blocks are club-wide and matter to
     // system admins too, so they stay visible to any admin.
+    //
+    // Systems is deliberately SLIM: add / enable / disable only. Everything
+    // about how a game night actually runs — cadence, day, start time, vibes —
+    // moved to that system's own Game System Config tab, because it's the
+    // system admin's decision. What the club runs at all stays the club's.
     const CLUB_NAV = [
         { id: 'clubpage', label: 'Club page', super: true },
         { id: 'blocks', label: 'Players & blocks', super: false },
@@ -658,6 +668,8 @@
         webhook_type: string;
         system_id: number | null;
         system_name: string | null;
+        /** The scope key this row is addressed by — see ClubSystemMineRow. */
+        legacy_system_name: string | null;
         configured: boolean;
         last_four?: string;
     };
@@ -673,7 +685,6 @@
     // league_rankings moved off the old club-level path when leagues went
     // modular — a club webhook can post to a different Discord channel per
     // system). Every row in webhookRows carries a real system_id/system_name.
-    const PER_SYSTEM_WEBHOOK_TYPES = ['signup', 'pairings', 'call_to_arms', 'league_result', 'achievement', 'league_rankings'];
     function webhookKey(webhookType: string, systemId: number | null): string {
         return `${webhookType}:${systemId ?? 'null'}`;
     }
@@ -742,6 +753,8 @@
     type ClubSystemMineRow = {
         system_id: number;
         system_name: string;
+        /** The scope string this system is addressed by everywhere else. */
+        legacy_system_name: string;
         enabled: boolean;
         session_day: string;
         session_cadence: string;
@@ -772,11 +785,6 @@
     let csError = $state<string | null>(null);
     let csMessage = $state<string | null>(null);
     // Name shown in the edit-system form header (existing row or catalogue add).
-    const csEditingName = $derived(
-        clubSystemsMine.find((s) => String(s.system_id) === csSelectId)?.system_name
-        ?? fullCatalogue.find((s) => String(s.id) === csSelectId)?.legacy_system_name
-        ?? ''
-    );
 
     // Table booking — super-admin-only oversight, not a per-system-admin
     // self-service surface like Missions/League: venue emails are closer to
@@ -1963,7 +1971,86 @@
         }
     }
 
-    async function saveClubSystemMine() {
+    /**
+     * Add a catalogue system to this club with sensible defaults, then hand off
+     * to its own config tab.
+     *
+     * The club Systems list no longer carries a schedule form — that lives in
+     * Game System Config — so this creates the row rather than opening an
+     * editor. Defaults match what the old inline form pre-filled for a new
+     * system, and the admin lands on the tab where they can change them.
+     */
+    async function addClubSystem(systemId: string) {
+        csError = null;
+        csMessage = null;
+        csSaving = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/club-systems`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_id: Number(systemId),
+                enabled: true,
+                session_day: 'Wednesday',
+                session_cadence: 'weekly',
+                cadence_anchor: null,
+                session_start_time: null,
+                vibe_options: [],
+                default_vibe: null
+            })
+        });
+        if (r.ok) {
+            await loadClubSystemsMine();
+            const added = clubSystemsMine.find((x) => String(x.system_id) === String(systemId));
+            if (added) {
+                csMessage = `${added.system_name} added — set its day and cadence below.`;
+                // Only jump if the caller can actually administer it; a
+                // super-admin without that scope would land on an empty tab.
+                if (adminMe?.scopes.includes(added.legacy_system_name)) {
+                    activeSystem = added.legacy_system_name;
+                    activeNav = 'systemconfig';
+                }
+            }
+        } else {
+            const body = await r.json().catch(() => ({}));
+            csError = detailText(body, 'Failed to add the system.');
+        }
+        csSaving = false;
+    }
+
+    // ── Per-system schedule + vibes (Game System Config tab) ───────────
+    // Reuses the cs* form state the club-level editor used, but keyed off
+    // activeSystem instead of a picker: inside a system's own tab, which
+    // system you're editing is never in question.
+    //
+    // Populated by an effect over already-loaded state rather than a fetch —
+    // initSystemScope runs once per game night, so anything fetched in there
+    // is silently multiplied by the number of systems the club runs.
+    const activeClubSystemRow = $derived(
+        activeSystem
+            ? clubSystemsMine.find((r) => r.legacy_system_name === activeSystem) ?? null
+            : null
+    );
+
+    $effect(() => {
+        if (activeNav !== 'systemconfig') return;
+        const row = activeClubSystemRow;
+        if (!row) return;
+        csSelectId = String(row.system_id);
+        onClubSystemPick();
+    });
+
+    async function saveSystemConfig() {
+        if (!activeClubSystemRow) return;
+        csSelectId = String(activeClubSystemRow.system_id);
+        // enabled is NOT editable here — only a club super-admin may change
+        // whether a system runs (the API refuses it too). Send the row's
+        // current value so the upsert doesn't flip it.
+        csEnabled = activeClubSystemRow.enabled;
+        await saveClubSystemMine({ keepSelection: true });
+    }
+
+    async function saveClubSystemMine(opts: { keepSelection?: boolean } = {}) {
         if (!csSelectId) return;
         csSaving = true;
         csError = null;
@@ -1988,10 +2075,12 @@
         if (r.ok) {
             csMessage = 'Saved.';
             await loadClubSystemsMine();
-            csSelectId = '';
+            // The club-level list closes its edit form on save; the per-system
+            // tab has no picker to return to, so it keeps its selection.
+            if (!opts.keepSelection) csSelectId = '';
         } else {
             const body = await r.json().catch(() => ({}));
-            csError = body.detail || 'Failed to save.';
+            csError = detailText(body, 'Failed to save.');
         }
         csSaving = false;
     }
@@ -2601,15 +2690,22 @@
                 loadRoles(),
                 loadGrantableUsers(),
                 loadEditPlayerList(),
-                loadClubWebhooks(),
+                // Club-wide default Discord server. Genuinely club-level, so
+                // it stays super-admin-only — unlike the webhooks below.
                 loadDiscordGate(),
-                loadClubSystemsMine(),
+                // Powers the "add a system" dropdown, which only a super-admin
+                // gets: what the club runs is a club decision.
                 loadFullCatalogue(),
                 loadClubProfile(),
                 loadClubWideEvents()
             );
         }
         if (adminMe.is_super_admin || adminMe.scopes.length > 0) {
+            // Both of these now feed PER-SYSTEM tabs (Game System Config and
+            // Discord), so a system admin needs them too — they used to be
+            // super-admin-only because the panels lived on club-level pages.
+            // Each endpoint filters itself to the caller's scopes server-side.
+            tasks.push(loadClubSystemsMine(), loadClubWebhooks());
             // Shared player picker used by the League results grid and the
             // per-system "add signup" form, both inside system scopes.
             tasks.push(loadBlockPlayers());
@@ -4514,34 +4610,118 @@
         </div>
     {/if}
 
-    {#if activeNav === 'clubcard' && activeSystem}
+    {#if activeNav === 'systemconfig' && activeSystem}
         {@const scope = activeSystem}
         <div class="dash-group">
             <div class="dash-group-header static">
-                <span class="dash-group-title">Club Card</span>
+                <span class="dash-group-title">Game System Config</span>
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
-                        <!-- Per-system Discord gate (system scopes only). Sits
-                             above the carousel card because the invite link it
-                             sets is what that card's "Join the Discord" button
-                             uses. -->
-                        {#if isSystemScope(scope) && systemGateState[scope]}
-                            {@const sg = systemGateState[scope]}
+                        <!-- How this game night runs. Moved here from the
+                             club-level Systems list: cadence, day and vibes are
+                             this system admin's call, and queueing behind a
+                             super-admin for a time change was pure friction.
+                             Enabling/disabling stays on the club Systems tab —
+                             that decides what the club runs, not how. -->
+                        {#if activeClubSystemRow}
                             <div class="sub-section pairings-section">
-                                <SystemDiscordGatePanel
-                                    gate={sg.gate}
-                                    system={scope}
-                                    bind:guildInput={sg.guildInput}
-                                    bind:inviteInput={sg.inviteInput}
-                                    saving={sg.saving}
-                                    error={sg.error}
-                                    message={sg.message}
-                                    copied={sg.copied}
-                                    onSave={(body) => saveSystemGate(scope, body)}
-                                    onCopy={() => copySystemGateInvite(scope)}
-                                    onRecheck={() => recheckSystemGate(scope)}
-                                />
+                                <h4 class="sub-heading">Schedule &amp; Vibes</h4>
+                                <p class="section-intro">
+                                    When {activeSystem} runs and what game types players can pick when
+                                    they sign up. The schedule drives the Club page calendar and the
+                                    week each signup lands in.
+                                </p>
+                                <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveSystemConfig(); }}>
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="sc-day">Day</label>
+                                        <select id="sc-day" class="field-select" bind:value={csSessionDay}>
+                                            {#each DAYS as d}
+                                                <option>{d}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="sc-cadence">Cadence</label>
+                                        <select id="sc-cadence" class="field-select" bind:value={csSessionCadence}>
+                                            {#each CADENCES as c}
+                                                <option>{c}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
+                                    {#if csSessionCadence === 'fortnightly'}
+                                        <div class="field field-narrow">
+                                            <label class="field-label" for="sc-anchor">Anchor date</label>
+                                            <input id="sc-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
+                                        </div>
+                                    {/if}
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="sc-start-time">Start time (optional)</label>
+                                        <select id="sc-start-time" class="field-select" bind:value={csSessionStartTime}>
+                                            <option value="">— Not set —</option>
+                                            {#each HALF_HOUR_OPTIONS as t}
+                                                <option value={t}>{t}</option>
+                                            {/each}
+                                        </select>
+                                        <p class="field-caption">Shown on the Club page calendar, e.g. "{activeSystem} session {csSessionStartTime || '18:00'}".</p>
+                                    </div>
+                                    <div class="field-row-break"></div>
+
+                                    <div class="field cs-vibes-field">
+                                        <span class="field-label">Vibes</span>
+                                        <label class="check-row">
+                                            <input type="checkbox" bind:checked={csUseDefaultVibes} />
+                                            <span>Use the platform default vibes for this system</span>
+                                        </label>
+                                        {#if !csUseDefaultVibes}
+                                            <div class="vibe-checkboxes">
+                                                {#each CANONICAL_VIBES as v}
+                                                    <label class="check-row">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={csVibeOptions.includes(v)}
+                                                            onchange={(e) => {
+                                                                const set = new Set(csVibeOptions);
+                                                                if ((e.target as HTMLInputElement).checked) set.add(v);
+                                                                else set.delete(v);
+                                                                csVibeOptions = CANONICAL_VIBES.filter((x) => set.has(x));
+                                                                if (!csVibeOptions.includes(csDefaultVibe)) csDefaultVibe = csVibeOptions[0] ?? '';
+                                                            }}
+                                                        />
+                                                        <span>{v}</span>
+                                                    </label>
+                                                {/each}
+                                            </div>
+                                            {#if csVibeOptions.length > 0}
+                                                <div class="field field-narrow">
+                                                    <label class="field-label" for="sc-default-vibe">Default vibe</label>
+                                                    <select id="sc-default-vibe" class="field-select" bind:value={csDefaultVibe}>
+                                                        {#each csVibeOptions as v}
+                                                            <option value={v}>{v}</option>
+                                                        {/each}
+                                                    </select>
+                                                </div>
+                                            {:else}
+                                                <p class="field-error">Pick at least one vibe, or use the platform default.</p>
+                                            {/if}
+                                        {/if}
+                                    </div>
+
+                                    {#if !activeClubSystemRow.enabled}
+                                        <p class="field-label-hint">
+                                            This system is currently <strong>disabled</strong> for your club, so it
+                                            takes no signups. Only a club super-admin can re-enable it, from the
+                                            club's Systems tab.
+                                        </p>
+                                    {/if}
+                                    {#if csError}<p class="field-error">{csError}</p>{/if}
+                                    {#if csMessage}<p class="pairing-message">{csMessage}</p>{/if}
+                                    <div class="system-form-actions">
+                                        <button type="submit" class="primary-button" disabled={csSaving || (!csUseDefaultVibes && csVibeOptions.length === 0)}>
+                                            {csSaving ? 'Saving…' : 'Save schedule & vibes'}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         {/if}
 
@@ -4844,6 +5024,100 @@
     </div>
     {/if}
 
+    {#if activeNav === 'systemdiscord' && activeSystem}
+        {@const scope = activeSystem}
+        <!-- ══ Per-system Discord ══
+             Everything Discord for one game night in one place: where its posts
+             go, and whether players must be in that server to take part. Both
+             were previously on the club-level Discord tab, which was wrong on
+             two counts — every webhook type is per-system in the schema, and a
+             club can run each night out of a different server entirely. -->
+        <div class="dash-group">
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Discord — {scope}</span>
+            </div>
+            <div class="dash-group-body">
+                <section class="admin-section">
+                    <h3 class="section-heading">Webhooks</h3>
+                    <p class="section-intro">
+                        Which Discord channel each of this system's posts goes to. Once saved, a URL
+                        is never shown again — only its last four characters, so you can tell one
+                        from another without the secret being readable.
+                    </p>
+                    {#if webhookListError}
+                        <p class="field-error">{webhookListError}</p>
+                    {:else}
+                        {@const rows = webhookRows.filter((r) => r.legacy_system_name === scope)}
+                        {#if rows.length === 0}
+                            <p class="muted">No webhooks are configurable for this system yet.</p>
+                        {:else}
+                            <ul class="block-list">
+                                {#each rows as row (row.webhook_type + ':' + row.system_id)}
+                                    {@const key = webhookKey(row.webhook_type, row.system_id)}
+                                    <li class="block-row webhook-row">
+                                        <span class="block-names">
+                                            <strong>{WEBHOOK_TYPE_LABELS[row.webhook_type] ?? row.webhook_type}</strong>
+                                        </span>
+                                        <span class="block-note">
+                                            {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
+                                        </span>
+                                        <span class="webhook-actions">
+                                            <input
+                                                class="field-input"
+                                                type="text"
+                                                placeholder="https://discord.com/api/webhooks/…"
+                                                bind:value={webhookInputs[key]}
+                                            />
+                                            <button
+                                                class="primary-button"
+                                                type="button"
+                                                disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
+                                                onclick={() => saveClubWebhook(row.webhook_type, row.system_id)}
+                                            >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
+                                            {#if row.configured}
+                                                <button
+                                                    class="remove-btn"
+                                                    type="button"
+                                                    title="Remove webhook"
+                                                    disabled={webhookSaving[key]}
+                                                    onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
+                                                >×</button>
+                                            {/if}
+                                        </span>
+                                        {#if webhookError[key]}<p class="field-error">{webhookError[key]}</p>{/if}
+                                        {#if webhookMessage[key]}<p class="pairing-message webhook-message">{webhookMessage[key]}</p>{/if}
+                                    </li>
+                                {/each}
+                            </ul>
+                        {/if}
+                    {/if}
+                </section>
+
+                <section class="admin-section">
+                                                {#if isSystemScope(scope) && systemGateState[scope]}
+                            {@const sg = systemGateState[scope]}
+                            <div class="sub-section pairings-section">
+                                <SystemDiscordGatePanel
+                                    gate={sg.gate}
+                                    system={scope}
+                                    bind:guildInput={sg.guildInput}
+                                    bind:inviteInput={sg.inviteInput}
+                                    saving={sg.saving}
+                                    error={sg.error}
+                                    message={sg.message}
+                                    copied={sg.copied}
+                                    onSave={(body) => saveSystemGate(scope, body)}
+                                    onCopy={() => copySystemGateInvite(scope)}
+                                    onRecheck={() => recheckSystemGate(scope)}
+                                />
+                            </div>
+                        {/if}
+
+                </section>
+            </div>
+        </div>
+    {/if}
+
     {#if activeNav === 'systems' && adminMe.is_super_admin}
         <!-- ══ Systems & Schedule ══ -->
         <div class="dash-group">
@@ -4853,9 +5127,13 @@
             <div class="dash-group-body">
         <section class="admin-section">
             <p class="section-intro">
-                Enable or disable which systems your club runs. Disabling a system stops new
-                signups and pairing generation for it, and hides it from league standings —
-                it does not touch any existing signups, pairings, or results.
+                Which systems your club runs. Disabling a system stops new signups and pairing
+                generation for it, and hides it from league standings — it does not touch any
+                existing signups, pairings, or results.
+            </p>
+            <p class="section-intro">
+                How each one runs — day, cadence, start time, vibes — is set in that system's own
+                <strong>Game System Config</strong> tab, by its admin.
             </p>
 
             {#if clubSystemsMineError}
@@ -4874,8 +5152,18 @@
                         <span class="status-badge" class:status-active={row.enabled} class:status-inactive={!row.enabled}>
                             {row.enabled ? 'Enabled' : 'Disabled'}
                         </span>
-                        <button class="primary-button" type="button" onclick={() => { csSelectId = String(row.system_id); onClubSystemPick(); }}>
-                            Edit
+                        <!-- Schedule/vibes live in that system's own tab now, so
+                             this jumps there rather than duplicating the form. -->
+                        <button
+                            class="primary-button"
+                            type="button"
+                            disabled={!adminMe.scopes.includes(row.legacy_system_name)}
+                            title={adminMe.scopes.includes(row.legacy_system_name)
+                                ? 'Open this system\'s config'
+                                : 'You do not administer this system'}
+                            onclick={() => { activeSystem = row.legacy_system_name; activeNav = 'systemconfig'; }}
+                        >
+                            Configure
                         </button>
                         <button class="secondary-button" type="button" onclick={() => toggleClubSystemMine(row)}>
                             {row.enabled ? 'Disable' : 'Enable'}
@@ -4894,7 +5182,7 @@
                         id="cs-add"
                         class="field-select"
                         value=""
-                        onchange={(e) => { const v = (e.target as HTMLSelectElement).value; (e.target as HTMLSelectElement).value = ''; if (v) { csSelectId = v; onClubSystemPick(); } }}
+                        onchange={(e) => { const v = (e.target as HTMLSelectElement).value; (e.target as HTMLSelectElement).value = ''; if (v) addClubSystem(v); }}
                     >
                         <option value="">— Add a system —</option>
                         {#each fullCatalogue.filter((s) => !clubSystemsMine.some((cs) => cs.system_id === s.id)) as s}
@@ -4904,102 +5192,8 @@
                 </div>
             {/if}
 
-            {#if csSelectId}
-                <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveClubSystemMine(); }}>
-                    <h4 class="sub-heading">Edit system: {csEditingName}</h4>
-                    <div class="field field-narrow">
-                        <label class="field-label" for="cs-day">Day</label>
-                        <select id="cs-day" class="field-select" bind:value={csSessionDay}>
-                            {#each DAYS as d}
-                                <option>{d}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    <div class="field field-narrow">
-                        <label class="field-label" for="cs-cadence">Cadence</label>
-                        <select id="cs-cadence" class="field-select" bind:value={csSessionCadence}>
-                            {#each CADENCES as c}
-                                <option>{c}</option>
-                            {/each}
-                        </select>
-                    </div>
-                    {#if csSessionCadence === 'fortnightly'}
-                        <div class="field field-narrow">
-                            <label class="field-label" for="cs-anchor">Anchor date</label>
-                            <input id="cs-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
-                        </div>
-                    {/if}
-                    <div class="field field-narrow">
-                        <label class="field-label" for="cs-start-time">Start time (optional)</label>
-                        <select id="cs-start-time" class="field-select" bind:value={csSessionStartTime}>
-                            <option value="">— Not set —</option>
-                            {#each HALF_HOUR_OPTIONS as t}
-                                <option value={t}>{t}</option>
-                            {/each}
-                        </select>
-                        <p class="field-caption">Shown on the Club page calendar, e.g. "{csEditingName || 'System'} session {csSessionStartTime || '18:00'}".</p>
-                    </div>
-                    <div class="field-row-break"></div>
-                    <label class="check-row">
-                        <input type="checkbox" bind:checked={csEnabled} />
-                        <span>Enabled</span>
-                    </label>
-                    <div class="field-row-break"></div>
-
-                    <div class="field cs-vibes-field">
-                        <span class="field-label">Vibes</span>
-                        <label class="check-row">
-                            <input type="checkbox" bind:checked={csUseDefaultVibes} />
-                            <span>Use the platform default vibes for this system</span>
-                        </label>
-                        {#if !csUseDefaultVibes}
-                            <div class="vibe-checkboxes">
-                                {#each CANONICAL_VIBES as v}
-                                    <label class="check-row">
-                                        <input
-                                            type="checkbox"
-                                            checked={csVibeOptions.includes(v)}
-                                            onchange={(e) => {
-                                                const set = new Set(csVibeOptions);
-                                                if ((e.target as HTMLInputElement).checked) set.add(v);
-                                                else set.delete(v);
-                                                csVibeOptions = CANONICAL_VIBES.filter((x) => set.has(x));
-                                                if (!csVibeOptions.includes(csDefaultVibe)) csDefaultVibe = csVibeOptions[0] ?? '';
-                                            }}
-                                        />
-                                        <span>{v}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                            {#if csVibeOptions.length > 0}
-                                <div class="field field-narrow">
-                                    <label class="field-label" for="cs-default-vibe">Default vibe</label>
-                                    <select id="cs-default-vibe" class="field-select" bind:value={csDefaultVibe}>
-                                        {#each csVibeOptions as v}
-                                            <option value={v}>{v}</option>
-                                        {/each}
-                                    </select>
-                                </div>
-                            {:else}
-                                <p class="field-error">Pick at least one vibe, or use the platform default.</p>
-                            {/if}
-                        {/if}
-                    </div>
-
-                    {#if csError}
-                        <p class="field-error">{csError}</p>
-                    {/if}
-                    {#if csMessage}
-                        <p class="pairing-message">{csMessage}</p>
-                    {/if}
-                    <div class="system-form-actions">
-                        <button type="submit" class="primary-button" disabled={csSaving || (!csUseDefaultVibes && csVibeOptions.length === 0)}>
-                            {csSaving ? 'Saving…' : 'Save system'}
-                        </button>
-                        <button type="button" class="secondary-button" onclick={() => { csSelectId = ''; csError = null; csMessage = null; }}>Cancel</button>
-                    </div>
-                </form>
-            {/if}
+            {#if csError}<p class="field-error">{csError}</p>{/if}
+            {#if csMessage}<p class="pairing-message">{csMessage}</p>{/if}
         </section>
             </div>
         </div>
@@ -5013,68 +5207,12 @@
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
-            <h3 class="section-heading">Discord Webhooks</h3>
             <p class="section-intro">
-                Configure this club's Discord webhook URLs. Once saved, a URL is never shown again —
-                only the last 4 characters, so you can confirm you saved the right one.
+                Webhooks moved: each game night's Discord channels are set in that system's own
+                <strong>Discord</strong> tab, alongside its membership gate. Every webhook type is
+                per-system, and a club can run each night out of a different server — so a single
+                club-wide grid was the wrong shape for them.
             </p>
-
-            {#if webhookListError}
-                <p class="field-error">{webhookListError}</p>
-            {:else if webhookRows.length === 0}
-                <p class="muted">Loading…</p>
-            {:else}
-                {#each PER_SYSTEM_WEBHOOK_TYPES.filter((t) => webhookRows.some((r) => r.webhook_type === t)) as webhookType}
-                    <div class="sub-section">
-                        <h4 class="sub-heading">
-                            {WEBHOOK_TYPE_LABELS[webhookType]}
-                        </h4>
-                        <ul class="block-list">
-                            {#each webhookRows.filter((r) => r.webhook_type === webhookType) as row (row.system_id)}
-                                {@const key = webhookKey(row.webhook_type, row.system_id)}
-                                <li class="block-row webhook-row">
-                                    <span class="block-names">
-                                        <strong>{row.system_name}</strong>
-                                    </span>
-                                    <span class="block-note">
-                                        {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
-                                    </span>
-                                    <span class="webhook-actions">
-                                        <input
-                                            class="field-input"
-                                            type="url"
-                                            placeholder="https://discord.com/api/webhooks/…"
-                                            bind:value={webhookInputs[key]}
-                                        />
-                                        <button
-                                            class="primary-button"
-                                            type="button"
-                                            disabled={!(webhookInputs[key] ?? '').trim() || webhookSaving[key]}
-                                            onclick={() => saveClubWebhook(row.webhook_type, row.system_id)}
-                                        >{webhookSaving[key] ? 'Saving…' : 'Save'}</button>
-                                        {#if row.configured}
-                                            <button
-                                                class="remove-btn"
-                                                type="button"
-                                                title="Remove webhook"
-                                                disabled={webhookSaving[key]}
-                                                onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
-                                            >×</button>
-                                        {/if}
-                                    </span>
-                                    {#if webhookError[key]}
-                                        <p class="field-error">{webhookError[key]}</p>
-                                    {/if}
-                                    {#if webhookMessage[key]}
-                                        <p class="pairing-message webhook-message">{webhookMessage[key]}</p>
-                                    {/if}
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
-                {/each}
-            {/if}
-        </section>
 
         <section class="admin-section">
             <DiscordGatePanel
