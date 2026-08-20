@@ -5263,6 +5263,10 @@
                                                     disabled={webhookSaving[key]}
                                                     onclick={() => removeClubWebhook(row.webhook_type, row.system_id)}
                                                 >×</button>
+                                            {:else}
+                                                <!-- Holds the remove button's place so an unset row's
+                                                     input is the same width as a set one's. -->
+                                                <span class="remove-slot" aria-hidden="true"></span>
                                             {/if}
                                         </span>
                                         {#if webhookError[key]}<p class="field-error">{webhookError[key]}</p>{/if}
@@ -6425,14 +6429,51 @@
        lines beside a huge empty field. Give the name column a real basis so
        the two read as a pair. */
     .wh-name {
-        flex: 1 1 260px;
-        min-width: 200px;
+        grid-column: 1;
+        min-width: 0;
         flex-direction: column;
         align-items: flex-start;
         gap: 0;
     }
+
+    /* Hard right on the first row, whatever the name beside it is doing. */
+    .webhook-row .block-note {
+        grid-column: 2;
+        justify-self: end;
+        white-space: nowrap;
+    }
+
+    /* Matches .remove-btn's footprint so rows line up whether or not a webhook
+       is set — otherwise an unset row's input runs wider than its neighbours. */
+    .remove-slot {
+        display: inline-block;
+        /* Measured, not guessed: the × button renders 9.34px wide with no
+           padding. Matching it exactly is what makes an unset row's input the
+           same width as a set one's. */
+        width: 9.34px;
+        flex: 0 0 auto;
+    }
+
+    /* Input, Save and remove always get their own full-width line. */
+    .webhook-row .webhook-actions,
+    .webhook-row .field-error,
+    .webhook-row .webhook-message {
+        grid-column: 1 / -1;
+    }
+    /* A grid, not a flex row. As flex the children wrapped on available width,
+       so a row with a longer description or without a remove button laid out
+       differently from its neighbours — the rows were only accidentally
+       aligned, and the level-up row (longest description, not yet configured)
+       was the one that showed it.
+
+       Row 1: name on the left, status hard right. Row 2: the input, spanning
+       both columns. Every row gets that shape regardless of its content. */
     .webhook-row {
-        align-items: flex-start;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 12px;
+        row-gap: 6px;
+        align-items: start;
         background: none;
         border: none;
         border-bottom: 1px solid var(--color-steel-border);
