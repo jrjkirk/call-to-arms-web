@@ -17,7 +17,10 @@ export const NONE_FACTION = '— None —';
 // formConfig from the passed-in systemsConfig (which falls back to
 // FALLBACK_SYSTEMS_CONFIG when the API hasn't loaded).
 
-export const EXPERIENCE_OPTIONS = ['New', 'Some', 'Veteran'];
+/** Admin-facing only. Players no longer choose their experience — it's counted
+ *  from games played (see the API's experience.py). 'Some' is the retired name
+ *  for the middle tier, kept so historical signups still validate. */
+export const EXPERIENCE_OPTIONS = ['New', 'Some', 'Experienced', 'Veteran'];
 
 /** 15:00 → 19:30 in 15-minute steps, same as the original. */
 export const ETA_OPTIONS: string[] = (() => {

@@ -27,7 +27,9 @@
      * comes off a signup row, so a system that grows a fourth level should stay
      * silent until this list is updated, not display an unstyled mystery tag.
      */
-    const EXPERIENCE_LEVELS = ['new', 'some', 'veteran'];
+    // 'some' is the retired name for the middle tier and still sits on
+    // historical signups, so it renders identically to 'experienced'.
+    const EXPERIENCE_LEVELS = ['new', 'some', 'experienced', 'veteran'];
     function experienceClass(value: string | null): string | null {
         const key = (value ?? '').trim().toLowerCase();
         return EXPERIENCE_LEVELS.includes(key) ? `exp-${key}` : null;
@@ -494,7 +496,8 @@
     .exp-badge.exp-new {
         color: #6eb46e;
     }
-    .exp-badge.exp-some {
+    .exp-badge.exp-some,
+    .exp-badge.exp-experienced {
         color: #b8a878;
     }
     .exp-badge.exp-veteran {

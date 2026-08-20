@@ -5,7 +5,7 @@
     import { goto, invalidateAll } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import {
-        SYSTEMS, NONE_FACTION, EXPERIENCE_OPTIONS, ETA_OPTIONS, formConfig
+        SYSTEMS, NONE_FACTION, ETA_OPTIONS, formConfig
     } from '$lib/signupOptions';
     import {
         getSystemsConfig, vibeOptionsFor, usesPoints, defaultVibeFor, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
@@ -15,6 +15,7 @@
     import FactionOptions from '$lib/FactionOptions.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
+    import ExperienceBadge, { type ExperienceSummary } from '$lib/ExperienceBadge.svelte';
     import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
 
     // Discord membership gate. Held per form area so the prompt appears next
@@ -157,7 +158,57 @@
     let faction = $state(NONE_FACTION);
     let points = $state(2000);
     let eta = $state('18:30');
-    let experience = $state('New');
+    // Experience is no longer asked for — it's counted from the games the club
+    // has paired this player for in this system (see experience.py). The form
+    // shows it; the API derives it again on submit, so the value posted here
+    // is ignored and can't be tampered with.
+    let myExperience = $state<ExperienceSummary | null>(null);
+    let expSaving = $state(false);
+    let expError = $state<string | null>(null);
+
+    async function loadMyExperience(system: string) {
+        myExperience = null;
+        try {
+            const r = await fetch(
+                `${PUBLIC_API_URL}/signups/experience?system=${encodeURIComponent(system)}`,
+                { credentials: 'include' }
+            );
+            if (r.ok) myExperience = await r.json();
+        } catch (_) {}
+    }
+
+    async function saveExperienceExtra(extra: number) {
+        expSaving = true;
+        expError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/signups/experience`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system: data.system, extra_games: extra })
+            });
+            const body = await r.json().catch(() => ({}));
+            if (r.ok) myExperience = body;
+            else expError = detailText(body, 'Could not save that.');
+        } catch (_) {
+            expError = 'Network error. Please try again.';
+        }
+        expSaving = false;
+    }
+
+    // Reload when the system changes, and once auth resolves — the count is per
+    // system, and it needs a claimed player to count for. Both values are read
+    // into locals so they're genuinely tracked as dependencies; a bare
+    // `void x;` does not reliably register one.
+    $effect(() => {
+        const system = data.system;
+        const claimed = isClaimed;
+        if (!claimed) {
+            myExperience = null;
+            return;
+        }
+        loadMyExperience(system);
+    });
     let vibe = $state('Casual');
     let standby = $state(false);
     let scenario = $state('Open Battle');
@@ -175,7 +226,6 @@
         faction = src?.faction && [NONE_FACTION, ...c.factions].includes(src.faction) ? src.faction : NONE_FACTION;
         points = src?.points != null && src.points > 0 ? src.points : c.defaultPoints;
         eta = src?.eta && ETA_OPTIONS.includes(src.eta) ? src.eta : '18:30';
-        experience = src?.experience && EXPERIENCE_OPTIONS.includes(src.experience) ? src.experience : 'New';
         vibe = src?.vibe && c.vibeOptions?.includes(src.vibe) ? src.vibe : c.defaultVibe;
         standby = !!src?.standby_ok;
         scenario = src?.scenario && c.scenarioOptions.includes(src.scenario) ? src.scenario : c.defaultScenario;
@@ -230,7 +280,6 @@
                     faction: faction === NONE_FACTION ? null : faction,
                     points: cfg.showPoints ? points : 0,
                     eta,
-                    experience,
                     vibe: cfg.fixedVibe ?? vibe,
                     standby_ok: standby,
                     scenario: cfg.showScenario ? scenario : null,
@@ -747,12 +796,17 @@
             </div>
 
             <div class="field">
-                <label class="field-label" for="su-exp">Experience</label>
-                <select id="su-exp" class="field-select" bind:value={experience}>
-                    {#each EXPERIENCE_OPTIONS as e}
-                        <option value={e}>{e}</option>
-                    {/each}
-                </select>
+                <span class="field-label">Experience</span>
+                {#if myExperience}
+                    <ExperienceBadge
+                        exp={myExperience}
+                        saving={expSaving}
+                        error={expError}
+                        onSaveExtra={saveExperienceExtra}
+                    />
+                {:else}
+                    <p class="muted small">Counting your games…</p>
+                {/if}
             </div>
 
             {#if cfg.vibeOptions}
