@@ -416,13 +416,29 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0.25rem 0 0;
 }
 
+/* A FALLBACK for components whose own styles don't reach them (Svelte scoped
+   CSS doesn't cross component boundaries) — so it must not fight a page that
+   already styles its buttons.
+   
+   This set `height: 2.2rem`. Pages that size their buttons with padding — the
+   signup form uses `padding: 0.7rem` — kept their padding and font-size on
+   specificity but inherited that rigid height, so 22.4px of padding plus a
+   22.8px line box had to fit in 35.2px and the label spilled downward: 14px
+   of space above it, 4px below. It looked bottom-justified because it was.
+
+   min-height instead of height, and flex centring so the label is centred
+   whatever the padding works out to. */
 .primary-button,
 .secondary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: var(--radius);
     padding: 0 14px;
-    height: 2.2rem;
+    min-height: 2.2rem;
     box-sizing: border-box;
     font-size: 0.85rem;
+    line-height: 1;
     cursor: pointer;
     white-space: nowrap;
     font-family: inherit;
