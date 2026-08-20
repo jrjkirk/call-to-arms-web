@@ -42,6 +42,13 @@
         for (const [floor, colour] of LEVEL_BANDS) if ((level ?? 0) >= floor) return colour;
         return LEVEL_BANDS[LEVEL_BANDS.length - 1][1];
     }
+    /** Display name for a stored tier. "Some" is the retired name for the
+     *  middle tier and still sits on historical signups; it reads oddly alone,
+     *  so it renders as "Experienced" wherever it appears. */
+    function expLabel(value: string | null): string {
+        return (value ?? '').trim().toLowerCase() === 'some' ? 'Experienced' : (value ?? '');
+    }
+
     function experienceClass(value: string | null): string | null {
         const key = (value ?? '').trim().toLowerCase();
         return EXPERIENCE_LEVELS.includes(key) ? `exp-${key}` : null;
@@ -322,19 +329,19 @@
                         <div class="player-name">
                             {#if m.player_a_level}
                                 <span class="lvl-chip lvl-chip-lead" style={`color: ${levelColour(m.player_a_level)}`}>
-                                    Lv {m.player_a_level}
+                                    Lvl. {m.player_a_level}
                                 </span>
                             {/if}
                             {m.player_a_name}
                         </div>
-                        <div class="player-faction">
-                            {#if experienceClass(m.player_a_experience)}
-                                <span class={`exp-badge exp-badge-lead ${experienceClass(m.player_a_experience)}`}>
-                                    {m.player_a_experience}
+                        <div class="player-faction">{m.player_a_faction ?? '—'}</div>
+                        {#if experienceClass(m.player_a_experience)}
+                            <div class="player-exp">
+                                <span class={`exp-badge ${experienceClass(m.player_a_experience)}`}>
+                                    {expLabel(m.player_a_experience)}
                                 </span>
-                            {/if}
-                            {m.player_a_faction ?? '—'}
-                        </div>
+                            </div>
+                        {/if}
                     </div>
                 </div>
 
@@ -355,7 +362,7 @@
                             {m.player_b_name ?? 'BYE / Standby'}
                             {#if m.player_b_level}
                                 <span class="lvl-chip" style={`color: ${levelColour(m.player_b_level)}`}>
-                                    Lv {m.player_b_level}
+                                    Lvl. {m.player_b_level}
                                 </span>
                             {/if}
                             {#if m.player_b_name && !m.is_bye && m.player_b_id == null}
@@ -363,14 +370,14 @@
                             {/if}
                         </div>
                         {#if m.player_b_name}
-                            <div class="player-faction">
-                                {m.player_b_faction ?? '—'}
-                                {#if experienceClass(m.player_b_experience)}
+                            <div class="player-faction">{m.player_b_faction ?? '—'}</div>
+                            {#if experienceClass(m.player_b_experience)}
+                                <div class="player-exp">
                                     <span class={`exp-badge ${experienceClass(m.player_b_experience)}`}>
-                                        {m.player_b_experience}
+                                        {expLabel(m.player_b_experience)}
                                     </span>
-                                {/if}
-                            </div>
+                                </div>
+                            {/if}
                         {/if}
                     </div>
                 </div>
@@ -511,19 +518,29 @@
     /* Sits with the name, not the faction — it's who they are, not what they
        brought. Colour only, no border: the tier badge below already carries
        an outline and two chips would fight. */
-    .lvl-chip {
-        margin-left: 6px;
+    /* Its own line under the faction, so the name row stays the name row and
+       the tier isn't competing with the army for the same line. */
+    .player-exp {
+        margin-top: 3px;
     }
-    /* Leading variants for the left-hand player: the gap goes on the other
-       side so the chip hugs the name from the outside. */
-    .lvl-chip-lead {
-        margin-left: 0;
-        margin-right: 6px;
+
+    /* All the chip's typography lives here so BOTH players get it. Splitting a
+       "lead" variant out previously took the font-size with it, leaving the
+       right-hand chip to inherit the player name's 1.15rem — which is why one
+       side rendered noticeably larger than the other. */
+    .lvl-chip {
         font-family: var(--font-display);
         font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.02em;
         white-space: nowrap;
+        margin-left: 6px;
+    }
+
+    /* Left-hand player only: the chip sits before the name, so the gap flips. */
+    .lvl-chip-lead {
+        margin-left: 0;
+        margin-right: 6px;
     }
 
     .exp-badge-lead {
@@ -657,7 +674,8 @@
 
         .player-row.player-a .player-text { align-items: flex-end; }
         .player-row.player-a .player-name,
-        .player-row.player-a .player-faction { text-align: right; }
+        .player-row.player-a .player-faction,
+        .player-row.player-a .player-exp { text-align: right; }
 
         .player-row.player-b {
             grid-column: 3;

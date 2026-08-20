@@ -18,9 +18,10 @@ export const NONE_FACTION = '— None —';
 // FALLBACK_SYSTEMS_CONFIG when the API hasn't loaded).
 
 /** Admin-facing only. Players no longer choose their experience — it's counted
- *  from games played (see the API's experience.py). 'Some' is the retired name
- *  for the middle tier, kept so historical signups still validate. */
-export const EXPERIENCE_OPTIONS = ['New', 'Some', 'Experienced', 'Veteran'];
+ *  from games played (see the API's experience.py). The retired name "Some" is
+ *  deliberately absent: historical rows were renamed, and the API still accepts
+ *  it so nothing breaks if one survives. */
+export const EXPERIENCE_OPTIONS = ['New', 'Experienced', 'Veteran'];
 
 /** 15:00 → 19:30 in 15-minute steps, same as the original. */
 export const ETA_OPTIONS: string[] = (() => {

@@ -57,12 +57,16 @@
 	}
 
 	const tierClass = $derived(`exp-${(exp?.tier ?? 'new').toLowerCase()}`);
+	// "Some" is the retired name for the middle tier; it reads oddly alone.
+	const tierLabel = $derived(
+		(exp?.tier ?? '').toLowerCase() === 'some' ? 'Experienced' : (exp?.tier ?? '')
+	);
 </script>
 
 {#if exp}
 	<div class="exp">
 		<div class="exp-row">
-			<span class="exp-badge {tierClass}">{exp.tier}</span>
+			<span class="exp-badge {tierClass}">{tierLabel}</span>
 			{#if lv}
 				<span class="exp-level" style={`color: ${levelColour}`}>Level {lv.level}</span>
 			{/if}
