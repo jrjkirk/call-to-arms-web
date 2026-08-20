@@ -681,6 +681,7 @@
         league_result: 'League result',
         league_rankings: 'League rankings post',
         achievement: 'Achievement announcements',
+        level_up: 'Level-up “ding”',
     };
     // What each webhook actually posts, so an admin can pick the right channel
     // instead of guessing from the label. Verified against the call sites —
@@ -692,6 +693,7 @@
         league_result: 'Each league result as it gets submitted.',
         league_rankings: 'The league standings image.',
         achievement: 'When a player unlocks an achievement.',
+        level_up: 'When someone reaches level 10, 20, 30, 40, 50 or 60 in this system.',
     };
     // All webhook types are per-system now (league_result/achievement/
     // league_rankings moved off the old club-level path when leagues went

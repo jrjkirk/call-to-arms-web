@@ -6,6 +6,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import LevelBar, { type LevelProgress } from '$lib/LevelBar.svelte';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     let apiData = $state<any>(null);
@@ -39,6 +40,28 @@
     const titles = $derived(apiData?.titles ?? []);
     const achievements = $derived(apiData?.achievements ?? []);
     const signupCounts = $derived(apiData?.signup_counts ?? {});
+
+    // Level per system, fetched once the systems this player has actually
+    // played are known — one request per system, and a player plays one or two.
+    let levelsList = $state<LevelProgress[]>([]);
+    $effect(() => {
+        const systems = visibleSystems;
+        const id = page.params.id;
+        if (!id || systems.length === 0) {
+            levelsList = [];
+            return;
+        }
+        Promise.all(
+            systems.map((sys) =>
+                fetch(
+                    `${PUBLIC_API_URL}/signups/level?system=${encodeURIComponent(sys)}&player_id=${id}`,
+                    { credentials: 'include' }
+                )
+                    .then((r) => (r.ok ? r.json() : null))
+                    .catch(() => null)
+            )
+        ).then((rows) => (levelsList = rows.filter(Boolean) as LevelProgress[]));
+    });
     const factionUsage = $derived(apiData?.faction_usage ?? {});
     // One entry per league-enabled system this player has actually played
     // in — a club can run more than one system's league now, so this is a
@@ -144,6 +167,17 @@
             </div>
         {/if}
     {/if}
+{/if}
+
+{#if levelsList.length > 0}
+    <div class="section-title">Levels</div>
+    <div class="level-row">
+        {#each levelsList as lv, i (lv.system)}
+            <div in:fly={{ y: 16, duration: 400, delay: Math.min(i, 6) * 70 }}>
+                <LevelBar {lv} />
+            </div>
+        {/each}
+    </div>
 {/if}
 
 {#if visibleSystems.length > 0}

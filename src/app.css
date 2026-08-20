@@ -108,6 +108,15 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0.4rem 0 1rem;
 }
 
+/* Wider cells than .stat-row — a level bar needs room for a track plus the
+   "N to level X" line under it, where a stat card only holds a number. */
+.level-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.7rem;
+    margin: 0.4rem 0 1.4rem;
+}
+
 /* KPI tile — bold figure, small-caps accent label, orange left rule. */
 .stat-card {
     position: relative;
