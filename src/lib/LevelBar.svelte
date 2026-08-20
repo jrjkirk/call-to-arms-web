@@ -25,9 +25,33 @@
 	};
 
 	let { lv }: { lv: LevelProgress } = $props();
+
+	/**
+	 * Band colours are applied as an INLINE custom property, not via a
+	 * `band-{lv.band}` class.
+	 *
+	 * They were classes, and Svelte's CSS optimiser deleted them: the class
+	 * name is built from data at runtime, so the compiler can't see
+	 * `.band-rare` used anywhere and prunes the rule that defines `--band`.
+	 * The fill then painted `background: var(--band)` with nothing behind it —
+	 * a visible track and an invisible bar. Worse, `.band-legendary .lvl-fill`
+	 * survived with its unmatched ancestor stripped, which would have given
+	 * every bar the legendary glow.
+	 *
+	 * Setting the value inline means there is no selector to prune. Any colour
+	 * driven by server data should be applied this way.
+	 */
+	const BAND_COLOURS: Record<string, string> = {
+		common: 'var(--color-text-bright)',
+		rare: '#4a9eda',
+		epic: '#a335ee',
+		legendary: '#ff8000'
+	};
+	const bandColour = $derived(BAND_COLOURS[lv.band] ?? BAND_COLOURS.common);
+	const isLegendary = $derived(lv.band === 'legendary');
 </script>
 
-<div class="lvl band-{lv.band}">
+<div class="lvl" style={`--band: ${bandColour}`} class:is-legendary={isLegendary}>
 	<div class="lvl-top">
 		<span class="lvl-name">{lv.system}</span>
 		<span class="lvl-num">Level {lv.level}</span>
@@ -96,6 +120,10 @@
 		height: 100%;
 		border-radius: 999px;
 		background: var(--band);
+		/* A level just started is genuinely at 0%, which renders as no bar at
+		   all and reads as broken. A minimum sliver shows the bar exists and
+		   which colour the player is. */
+		min-width: 4px;
 		transition: width 0.5s ease;
 	}
 
@@ -111,19 +139,14 @@
 		white-space: nowrap;
 	}
 
-	/* WoW's rarity ladder, which is the reference the whole feature is built
-	   on — a player who knows it reads their standing without a legend. */
-	.band-common { --band: var(--color-text-bright); }
-	.band-rare { --band: #4a9eda; }
-	.band-epic { --band: #a335ee; }
-	.band-legendary { --band: #ff8000; }
-
 	/* The cap earns a glow. Nothing else does — if every band shimmered,
-	   reaching 60 wouldn't look like anything. */
-	.band-legendary .lvl-num {
+	   reaching 60 wouldn't look like anything. `is-legendary` is a STATIC class
+	   name (class:is-legendary), so unlike the old band-{...} classes the
+	   compiler can see it and won't prune these. */
+	.is-legendary .lvl-num {
 		text-shadow: 0 0 12px rgba(255, 128, 0, 0.55);
 	}
-	.band-legendary .lvl-fill {
+	.is-legendary .lvl-fill {
 		box-shadow: 0 0 10px rgba(255, 128, 0, 0.6);
 	}
 
