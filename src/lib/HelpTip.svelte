@@ -112,7 +112,9 @@
 		line-height: 1.5;
 		text-transform: none;
 		letter-spacing: 0;
-		white-space: normal;
+		/* pre-line so a tip can use line breaks for a short list without
+		   needing markup — the alternative is prose where bullets read better. */
+		white-space: pre-line;
 	}
 
 	/* Near the right edge the bubble would otherwise run off-screen; on narrow

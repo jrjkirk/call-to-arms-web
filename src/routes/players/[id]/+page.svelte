@@ -180,18 +180,6 @@
     </div>
 {/if}
 
-{#if visibleSystems.length > 0}
-    <div class="section-title">Games Played</div>
-    <div class="stat-row">
-        {#each visibleSystems as s, i}
-            <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: Math.min(i, 6) * 70 }}>
-                <div class="stat-label">{s}</div>
-                <div class="stat-value">{signupCounts[s]}</div>
-            </div>
-        {/each}
-    </div>
-{/if}
-
 {#if factionSystems.length > 0}
     <div class="section-title">Faction Breakdown</div>
     <div class="faction-systems">

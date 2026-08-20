@@ -24,15 +24,29 @@
 
 	let {
 		exp,
+		lv = null,
 		saving = false,
 		error = null,
 		onSaveExtra
 	}: {
 		exp: ExperienceSummary | null;
+		lv?: { level: number; band: string } | null;
 		saving?: boolean;
 		error?: string | null;
 		onSaveExtra: (extra: number) => void;
 	} = $props();
+
+	// Same ladder as LevelBar and the posted pairings image.
+	const BAND_COLOURS: Record<string, string> = {
+		common: '#3fb950',
+		uncommon: '#17c3b2',
+		rare: '#4a9eda',
+		epic: '#8b7cf6',
+		mythic: '#e05fa8',
+		ascendant: '#a335ee',
+		legendary: '#ff8000'
+	};
+	const levelColour = $derived(lv ? BAND_COLOURS[lv.band] ?? BAND_COLOURS.common : '');
 
 	let editing = $state(false);
 	let extraInput = $state('');
@@ -43,30 +57,22 @@
 	}
 
 	const tierClass = $derived(`exp-${(exp?.tier ?? 'new').toLowerCase()}`);
-	// How many more games until the next tier. Shown because "3 games" alone
-	// doesn't tell anyone what it takes to stop being New.
-	const toGo = $derived(
-		exp && exp.next_tier_at !== null ? exp.next_tier_at - exp.total_games : null
-	);
 </script>
 
 {#if exp}
 	<div class="exp">
 		<div class="exp-row">
 			<span class="exp-badge {tierClass}">{exp.tier}</span>
-			<span class="exp-count">
-				{exp.total_games}
-				{exp.total_games === 1 ? 'game' : 'games'} of {exp.system}
-			</span>
+			{#if lv}
+				<span class="exp-level" style={`color: ${levelColour}`}>Level {lv.level}</span>
+			{/if}
 			<HelpTip
 				label="experience"
-				text={`Counted from the games your club has paired you for in ${exp.system} — it goes up on its own as you play, so you don't have to keep it updated. ${exp.experienced_at}+ games is Experienced, ${exp.veteran_at}+ is Veteran. Your opponent sees this on the pairing, so you both know what you're sitting down to.`}
+				text={`${exp.total_games} games of ${exp.system}
+• ${exp.experienced_at}+ games — Experienced
+• ${exp.veteran_at}+ games — Veteran`}
 			/>
 		</div>
-
-		{#if toGo !== null && toGo > 0}
-			<p class="exp-next">{toGo} more to go before your next level.</p>
-		{/if}
 
 		{#if editing}
 			<div class="exp-edit">
@@ -94,11 +100,7 @@
 				{#if error}<p class="field-error">{error}</p>{/if}
 			</div>
 		{:else}
-			<button class="exp-link" type="button" onclick={open}>
-				{exp.extra_games > 0
-					? `Includes ${exp.extra_games} you played elsewhere — edit`
-					: 'Played some elsewhere?'}
-			</button>
+			<button class="exp-link" type="button" onclick={open}>Edit</button>
 		{/if}
 	</div>
 {/if}
@@ -134,15 +136,12 @@
 	.exp-experienced { color: #b8a878; }
 	.exp-veteran { color: #d08a50; }
 
-	.exp-count {
-		font-size: 0.88rem;
-		color: var(--color-text-base);
-	}
-
-	.exp-next {
-		margin: 0;
-		font-size: 0.78rem;
-		color: var(--color-text-faint);
+	/* The level carries its band colour — the same colour the profile bar and
+	   the posted pairing show, so they read as one thing. */
+	.exp-level {
+		font-family: var(--font-display);
+		font-size: 0.95rem;
+		font-weight: 700;
 	}
 
 	/* A quiet text button: correcting the count is rare, so it shouldn't look

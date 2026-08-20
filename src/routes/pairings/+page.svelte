@@ -30,6 +30,18 @@
     // 'some' is the retired name for the middle tier and still sits on
     // historical signups, so it renders identically to 'experienced'.
     const EXPERIENCE_LEVELS = ['new', 'some', 'experienced', 'veteran'];
+
+    // Same ladder as the profile bar and the posted image, so a player's colour
+    // is the same wherever they see it. Applied inline rather than by class —
+    // a class name built from data gets pruned from the bundle.
+    const LEVEL_BANDS: [number, string][] = [
+        [60, '#ff8000'], [50, '#a335ee'], [40, '#e05fa8'], [30, '#8b7cf6'],
+        [20, '#4a9eda'], [10, '#17c3b2'], [1, '#3fb950']
+    ];
+    function levelColour(level: number | null): string {
+        for (const [floor, colour] of LEVEL_BANDS) if ((level ?? 0) >= floor) return colour;
+        return LEVEL_BANDS[LEVEL_BANDS.length - 1][1];
+    }
     function experienceClass(value: string | null): string | null {
         const key = (value ?? '').trim().toLowerCase();
         return EXPERIENCE_LEVELS.includes(key) ? `exp-${key}` : null;
@@ -60,10 +72,12 @@
         player_a_faction: string | null;
         // Self-reported experience off the signup ("New" / "Some" / "Veteran").
         player_a_experience: string | null;
+        player_a_level: number | null;
         player_b_name: string | null;
         player_b_id: number | null;
         player_b_faction: string | null;
         player_b_experience: string | null;
+        player_b_level: number | null;
         is_bye: boolean;
         game_type: string | null;
         eta: string | null;
@@ -302,7 +316,14 @@
                         <div class="matchup-icon-empty"></div>
                     {/if}
                     <div class="player-text">
-                        <div class="player-name">{m.player_a_name}</div>
+                        <div class="player-name">
+                            {m.player_a_name}
+                            {#if m.player_a_level}
+                                <span class="lvl-chip" style={`color: ${levelColour(m.player_a_level)}`}>
+                                    Lv {m.player_a_level}
+                                </span>
+                            {/if}
+                        </div>
                         <div class="player-faction">
                             {m.player_a_faction ?? '—'}
                             {#if experienceClass(m.player_a_experience)}
@@ -329,6 +350,11 @@
                     <div class="player-text">
                         <div class="player-name">
                             {m.player_b_name ?? 'BYE / Standby'}
+                            {#if m.player_b_level}
+                                <span class="lvl-chip" style={`color: ${levelColour(m.player_b_level)}`}>
+                                    Lv {m.player_b_level}
+                                </span>
+                            {/if}
                             {#if m.player_b_name && !m.is_bye && m.player_b_id == null}
                                 <span class="guest-badge">guest</span>
                             {/if}
@@ -479,6 +505,18 @@
        out-shout the names they're annotating. The colours are their own scale,
        NOT the card's game-type accents — experience and competitiveness are
        different axes and sharing a palette would imply they're the same one. */
+    /* Sits with the name, not the faction — it's who they are, not what they
+       brought. Colour only, no border: the tier badge below already carries
+       an outline and two chips would fight. */
+    .lvl-chip {
+        margin-left: 6px;
+        font-family: var(--font-display);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+    }
+
     .exp-badge {
         display: inline-block;
         margin-left: 6px;

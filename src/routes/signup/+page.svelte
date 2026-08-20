@@ -163,17 +163,21 @@
     // shows it; the API derives it again on submit, so the value posted here
     // is ignored and can't be tampered with.
     let myExperience = $state<ExperienceSummary | null>(null);
+    let myLevel = $state<{ level: number; band: string } | null>(null);
     let expSaving = $state(false);
     let expError = $state<string | null>(null);
 
     async function loadMyExperience(system: string) {
         myExperience = null;
+        myLevel = null;
+        const qs = `system=${encodeURIComponent(system)}`;
         try {
-            const r = await fetch(
-                `${PUBLIC_API_URL}/signups/experience?system=${encodeURIComponent(system)}`,
-                { credentials: 'include' }
-            );
-            if (r.ok) myExperience = await r.json();
+            const [e, l] = await Promise.all([
+                fetch(`${PUBLIC_API_URL}/signups/experience?${qs}`, { credentials: 'include' }),
+                fetch(`${PUBLIC_API_URL}/signups/level?${qs}`, { credentials: 'include' })
+            ]);
+            if (e.ok) myExperience = await e.json();
+            if (l.ok) myLevel = await l.json();
         } catch (_) {}
     }
 
@@ -838,6 +842,7 @@
                 {#if myExperience}
                     <ExperienceBadge
                         exp={myExperience}
+                        lv={myLevel}
                         saving={expSaving}
                         error={expError}
                         onSaveExtra={saveExperienceExtra}
