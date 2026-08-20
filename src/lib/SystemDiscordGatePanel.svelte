@@ -48,7 +48,8 @@
 		message = null,
 		copied = false,
 		onSave,
-		onCopy
+		onCopy,
+		onRecheck
 	}: {
 		gate: SystemDiscordGate | null;
 		system: string;
@@ -65,6 +66,10 @@
 			discord_url?: string;
 		}) => void;
 		onCopy: () => void;
+		/** Re-read the gate state. The bot is added on Discord's side, out of
+		 *  this page's sight, so without this the admin's only way to find out
+		 *  whether it worked is to reload the whole admin page. */
+		onRecheck: () => void;
 	} = $props();
 </script>
 
@@ -209,20 +214,69 @@
 
 		<div class="gate-step">
 			<div class="league-settings-heading">2. Add the bot to that server</div>
-			<p class="section-intro">
-				This needs the <strong>Manage Server</strong> permission on that Discord. If that isn't
-				you, send this link to whoever runs it. The bot asks for no permissions — it can't read
-				messages, post, or see your member list. It only checks whether a given person has
-				joined.
-			</p>
+
+			{#if gate.connected}
+				<p class="section-intro">
+					Already done — the bot is in <strong>{gate.guild_name}</strong> and can see who's a
+					member. Nothing to do here unless you point this system at a different server.
+				</p>
+			{:else}
+				<p class="section-intro">
+					<strong>Someone with the “Manage Server” permission on that Discord has to do this</strong>,
+					and at a lot of clubs that isn't the same person who runs the app. If it isn't you,
+					send them the link below — they don't need an account here or any involvement beyond
+					this one step.
+				</p>
+
+				<ol class="gate-steps">
+					<li>Open the link below while signed in to Discord as someone with Manage Server.</li>
+					<li>
+						Discord shows an <strong>“Add to Server”</strong> screen with a dropdown. Pick the
+						server this game night runs in.
+						<span class="gate-note">
+							Not in the list? That account doesn't have Manage Server on it — ask whoever
+							set the server up.
+						</span>
+					</li>
+					<li>
+						Press <strong>Continue</strong>, then <strong>Authorize</strong>.
+						<span class="gate-note">
+							The permissions list will be <em>empty</em>. That's correct, not a bug — see
+							below.
+						</span>
+					</li>
+					<li>Solve the captcha if Discord shows one.</li>
+					<li>Come back here and press <strong>Check connection</strong>.</li>
+				</ol>
+			{/if}
+
 			{#if gate.bot_invite_url}
 				<div class="gate-row">
 					<code class="gate-code">{gate.bot_invite_url}</code>
 					<button class="secondary-button" type="button" onclick={onCopy}>
 						{copied ? 'Copied!' : 'Copy'}
 					</button>
+					<button class="secondary-button" type="button" disabled={saving} onclick={onRecheck}>
+						{saving ? 'Checking…' : 'Check connection'}
+					</button>
 				</div>
 			{/if}
+
+			<!-- The "what can this thing see" answer, spelled out. Whoever adds the
+			     bot is often outside the club's admin team and is being asked to
+			     put an unknown app into their server — a vague reassurance is not
+			     enough to get a reasonable person to say yes. -->
+			<p class="field-label-hint">
+				<strong>What the bot can do:</strong> nothing except check whether a named person has
+				joined. The invite requests <em>zero</em> permissions, which is why the authorize screen
+				looks empty — it can't read or post messages, can't see your channels, and can't list
+				your members.
+				<a
+					href="https://support.discord.com/hc/en-us/articles/21334461140375-Using-Apps-on-Discord"
+					target="_blank"
+					rel="noopener noreferrer">Discord's own guide to adding apps</a
+				>
+			</p>
 		</div>
 
 		<div class="gate-step">
@@ -289,6 +343,29 @@
 
 	.gate-step {
 		margin-bottom: 1.4rem;
+	}
+
+	/* The add-the-bot walkthrough. Numbered because it's a sequence performed on
+	   another site, often by someone who has never seen this app — prose would
+	   make them guess at the order. */
+	.gate-steps {
+		margin: 0 0 0.9rem;
+		padding-left: 1.3rem;
+		max-width: 68ch;
+		color: var(--color-text-base);
+		font-size: 0.88rem;
+		line-height: 1.55;
+	}
+	.gate-steps li {
+		margin-bottom: 0.45rem;
+	}
+	/* The "if this goes wrong" line under a step, kept visually subordinate so
+	   the happy path still reads as a straight sequence. */
+	.gate-note {
+		display: block;
+		margin-top: 0.15rem;
+		color: var(--color-text-muted);
+		font-size: 0.85em;
 	}
 
 	.check-row {

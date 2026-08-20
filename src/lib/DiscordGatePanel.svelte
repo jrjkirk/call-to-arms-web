@@ -1,16 +1,20 @@
 <script lang="ts">
 	/**
-	 * Admin configuration for the Discord membership gate.
+	 * The club-wide DEFAULT Discord server — the one a game night uses when it
+	 * hasn't been given its own.
 	 *
-	 * Extracted from the admin page so it can be previewed in isolation, and so
-	 * it carries its own layout instead of borrowing utility classes built for
-	 * other shapes (`.field-narrow` is 160px wide — fine for a numeric input,
-	 * disastrous for paragraphs and a long select).
+	 * This panel used to be the whole gate, club-wide. It isn't any more: the
+	 * gate is opted in and enforced PER GAME NIGHT (SystemDiscordGatePanel),
+	 * because a club can run each night out of a different Discord server. Its
+	 * old off/monitor/enforce selector has been REMOVED rather than left
+	 * disabled — every gated action now resolves through the per-system opt-in,
+	 * so that control could no longer switch anything on. An admin setting it to
+	 * "Enforce" and believing they were protected is exactly the false
+	 * reassurance the rest of this feature is built to avoid.
 	 *
-	 * Laid out as the three steps setup actually takes, because two of them
-	 * belong to different people: pick the server (any app admin), get the bot
-	 * added (needs Manage Server on the Discord, which at some clubs is someone
-	 * outside the admin team), then turn it on.
+	 * What's left here is real and still used: the server set here is inherited
+	 * by every system that hasn't set its own, and the bot invite is the same
+	 * one those systems need.
 	 */
 	export type DiscordGate = {
 		bot_configured: boolean;
@@ -19,8 +23,6 @@
 		guild_id: string | null;
 		guild_name: string | null;
 		connected: boolean;
-		mode: string;
-		can_enforce: boolean;
 		suggested_guild_id: string | null;
 		club_discord_url: string | null;
 		available_guilds: { id: string; name: string }[] | null;
@@ -42,17 +44,22 @@
 		error?: string | null;
 		message?: string | null;
 		copied?: boolean;
-		onSave: (body: { guild_id?: string; mode?: string }) => void;
+		onSave: (body: { guild_id?: string }) => void;
 		onCopy: () => void;
 	} = $props();
 </script>
 
-<h3 class="gate-title">Discord Membership Gate</h3>
+<h3 class="gate-title">Club-wide Discord Server</h3>
 <p class="gate-intro">
-	Optionally require players to be in your club's Discord server before they can sign up.
-	Pairings, drops and call-outs are all announced there, so someone outside the server can't
-	find out they've been paired. Only ever checked once, the first time a new player commits
-	to a game — existing members are unaffected.
+	The default server for your club. Any game night that hasn't been given its own Discord
+	uses this one — so if everything at your club runs out of a single server, set it here once
+	and you're done.
+</p>
+<p class="gate-alert gate-alert-info">
+	<strong>Switching the membership gate on happens per game night</strong>, not here — open a
+	system's <strong>Club card</strong> tab to opt it in and choose monitor or enforce. That's
+	because a club can run each night out of a different Discord server, so “require the
+	Discord” has to mean a specific one.
 </p>
 
 {#if error}
@@ -81,7 +88,7 @@
 			<span>Server set, but the bot hasn't been added to it yet</span>
 		{:else}
 			<span class="gate-dot off"></span>
-			<span>Not set up</span>
+			<span>No club-wide server set</span>
 		{/if}
 	</div>
 
@@ -139,11 +146,39 @@
 
 	<section class="gate-step">
 		<h4 class="gate-step-title">2. Add the bot to that server</h4>
-		<p class="gate-body">
-			This needs the <strong>Manage Server</strong> permission on your Discord. If that isn't
-			you, send this link to whoever runs it. The bot asks for no permissions — it can't read
-			messages, post, or see your member list. It only checks whether a given person has joined.
-		</p>
+
+		{#if gate.connected}
+			<p class="gate-body">
+				Already done — the bot is in <strong>{gate.guild_name}</strong> and can see who's a
+				member.
+			</p>
+		{:else}
+			<p class="gate-body">
+				<strong>Someone with the “Manage Server” permission on that Discord has to do this</strong>,
+				and at a lot of clubs that isn't the same person who runs the app. If it isn't you, send
+				them the link below — they need no account here and no involvement beyond this one step.
+			</p>
+
+			<ol class="gate-steps">
+				<li>Open the link below while signed in to Discord as someone with Manage Server.</li>
+				<li>
+					Discord shows an <strong>“Add to Server”</strong> screen with a dropdown. Pick your
+					club's server.
+					<span class="gate-note">
+						Not in the list? That account doesn't have Manage Server on it — ask whoever set
+						the server up.
+					</span>
+				</li>
+				<li>
+					Press <strong>Continue</strong>, then <strong>Authorize</strong>.
+					<span class="gate-note">
+						The permissions list will be <em>empty</em>. That's correct, not a bug — see below.
+					</span>
+				</li>
+				<li>Solve the captcha if Discord shows one.</li>
+				<li>Come back here and reload the page to confirm it worked.</li>
+			</ol>
+		{/if}
 
 		{#if gate.bot_invite_url}
 			<div class="gate-row">
@@ -153,35 +188,24 @@
 				</button>
 			</div>
 		{/if}
-	</section>
 
-	<section class="gate-step">
-		<h4 class="gate-step-title">3. Turn it on</h4>
-
-		{#if !gate.can_enforce}
-			<p class="gate-hint">
-				Locked until the bot is connected — otherwise the check can't run and the gate would
-				look active while letting everyone through.
-			</p>
-		{/if}
-
-		<label class="gate-label" for="gate-mode">Mode</label>
-		<select
-			id="gate-mode"
-			class="gate-select gate-select-wide"
-			value={gate.mode}
-			onchange={(e) => onSave({ mode: e.currentTarget.value })}
-			disabled={saving || !gate.can_enforce}
-		>
-			<option value="off">Off — anyone can sign up</option>
-			<option value="monitor">Monitor — log who would be blocked, block nobody</option>
-			<option value="enforce">Enforce — require Discord membership</option>
-		</select>
+		<!-- The "what can this thing see" answer, spelled out. Whoever adds the
+		     bot is often outside the club's admin team and is being asked to put
+		     an unknown app into their server — a vague reassurance is not enough
+		     to get a reasonable person to say yes. -->
 		<p class="gate-hint">
-			Start on <strong>Monitor</strong> for a couple of weeks to see who would be caught before
-			anyone actually is.
+			<strong>What the bot can do:</strong> nothing except check whether a named person has
+			joined. The invite requests <em>zero</em> permissions, which is why the authorize screen
+			looks empty — it can't read or post messages, can't see your channels, and can't list your
+			members.
+			<a
+				href="https://support.discord.com/hc/en-us/articles/21334461140375-Using-Apps-on-Discord"
+				target="_blank"
+				rel="noopener noreferrer">Discord's own guide to adding apps</a
+			>
 		</p>
 	</section>
+
 {/if}
 
 <style>
@@ -251,6 +275,37 @@
 		background: var(--color-text-faint);
 	}
 
+	/* Distinct from .gate-alert-bad/-ok: this one is a signpost, not a problem
+	   or a success. */
+	.gate-alert-info {
+		background: rgba(88, 101, 242, 0.1);
+		border: 1px solid rgba(88, 101, 242, 0.5);
+		color: var(--color-text-base);
+	}
+
+	/* The add-the-bot walkthrough. Numbered because it's a sequence performed on
+	   another site, often by someone who has never seen this app — prose would
+	   make them guess at the order. */
+	.gate-steps {
+		margin: 0 0 0.9rem;
+		padding-left: 1.3rem;
+		max-width: 68ch;
+		color: var(--color-text-base);
+		font-size: 0.88rem;
+		line-height: 1.55;
+	}
+	.gate-steps li {
+		margin-bottom: 0.45rem;
+	}
+	/* The "if this goes wrong" line under a step, kept visually subordinate so
+	   the happy path still reads as a straight sequence. */
+	.gate-note {
+		display: block;
+		margin-top: 0.15rem;
+		color: var(--color-text-muted);
+		font-size: 0.85em;
+	}
+
 	.gate-step {
 		margin-bottom: 1.6rem;
 	}
@@ -307,10 +362,6 @@
 		max-width: 100%;
 	}
 	/* Wide enough for the longest option rather than truncating it. */
-	.gate-select-wide {
-		width: 100%;
-		max-width: 460px;
-	}
 	.gate-select:disabled {
 		opacity: 0.55;
 		cursor: default;

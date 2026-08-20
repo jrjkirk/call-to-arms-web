@@ -1608,6 +1608,22 @@
         st.saving = false;
     }
 
+    /** Re-read this system's gate state after the bot has been added on
+     *  Discord's side. Reuses the panel's `saving` flag so the button shows
+     *  progress and can't be double-fired. */
+    async function recheckSystemGate(scope: string) {
+        const st = systemGateState[scope];
+        if (!st) return;
+        st.saving = true;
+        st.error = null;
+        st.message = null;
+        await loadSystemGate(scope);
+        st.message = systemGateState[scope]?.gate?.connected
+            ? 'Connected — the bot can see that server.'
+            : "Still can't see that server. Give Discord a moment, then try again.";
+        st.saving = false;
+    }
+
     async function copySystemGateInvite(scope: string) {
         const st = systemGateState[scope];
         if (!st?.gate?.bot_invite_url) return;
@@ -4496,6 +4512,7 @@
                                     copied={sg.copied}
                                     onSave={(body) => saveSystemGate(scope, body)}
                                     onCopy={() => copySystemGateInvite(scope)}
+                                    onRecheck={() => recheckSystemGate(scope)}
                                 />
                             </div>
                         {/if}
