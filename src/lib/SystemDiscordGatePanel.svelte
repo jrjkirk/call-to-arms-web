@@ -91,11 +91,6 @@
 
 {#if !gate}
 	<p class="muted small">Loading…</p>
-{:else if !gate.bot_configured}
-	<p class="field-error">
-		The Call to Arms Discord bot isn't set up on this platform yet. Contact the platform admin —
-		this isn't something your club can fix.
-	</p>
 {:else}
 	<!-- Status first: the single thing an admin opens this panel to check,
 	     especially while waiting on someone else to add the bot. -->
@@ -118,12 +113,62 @@
 		{/if}
 	</div>
 
+	<!-- The invite link is deliberately OUTSIDE the gate opt-in below. It is
+	     primarily a Club-page setting — the "Join the … Discord" button on this
+	     system's carousel card — and only secondarily what a blocked player is
+	     pointed at. It was originally nested inside the gate, which meant a club
+	     that wanted per-night Discord links but no membership check couldn't set
+	     one at all. -->
+	<section class="gate-step">
+		<h4 class="sub-heading">Discord invite</h4>
+		<p class="section-intro">
+			Shown as the <strong>“Join the {system} Discord”</strong> button on this system's card on
+			your Club page. Set one here if this game night runs out of its own Discord; leave it
+			empty to use your club's link.
+		</p>
+		<label class="field-label" for="sysgate-invite-{system}">Invite link</label>
+		<div class="gate-row">
+			<input
+				id="sysgate-invite-{system}"
+				class="field-input"
+				bind:value={inviteInput}
+				placeholder="https://discord.gg/…"
+				disabled={saving}
+			/>
+			<button
+				class="primary-button"
+				type="button"
+				disabled={saving}
+				onclick={() => onSave({ discord_url: inviteInput })}
+			>{saving ? 'Saving…' : 'Save'}</button>
+		</div>
+		<p class="field-label-hint">
+			{#if gate.inherits_url}
+				Currently using your club's link — <code>{gate.discord_url}</code>.
+			{:else if !gate.discord_url}
+				No link set for this system or your club, so no button is shown on the carousel.
+			{/if}
+			If you switch the membership gate on below, this is also what a blocked player is sent
+			to — so it must point at the same server the gate checks, or you'll send them somewhere
+			that won't let them past.
+		</p>
+	</section>
+
+	<h4 class="sub-heading">Membership gate</h4>
+	{#if !gate.bot_configured}
+		<!-- Scoped to the gate only. The invite link above works regardless —
+		     it's just a link on your Club page and needs no bot. -->
+		<p class="field-error">
+			The Call to Arms Discord bot isn't set up on this platform yet, so the membership gate
+			can't run. Contact the platform admin — this isn't something your club can fix.
+		</p>
+	{/if}
 	<div class="field">
 		<label class="check-row">
 			<input
 				type="checkbox"
 				checked={gate.enabled}
-				disabled={saving}
+				disabled={saving || !gate.bot_configured}
 				onchange={(e) => onSave({ enabled: e.currentTarget.checked })}
 			/>
 			<span>Use the Discord gate for {system}</span>
@@ -188,28 +233,6 @@
 				>
 			</p>
 
-			<label class="field-label" for="sysgate-invite-{system}">Invite link</label>
-			<div class="gate-row">
-				<input
-					id="sysgate-invite-{system}"
-					class="field-input"
-					bind:value={inviteInput}
-					placeholder="https://discord.gg/…"
-					disabled={saving}
-				/>
-				<button
-					class="primary-button"
-					type="button"
-					disabled={saving}
-					onclick={() => onSave({ discord_url: inviteInput })}
-				>{saving ? 'Saving…' : 'Save'}</button>
-			</div>
-			<p class="field-label-hint">
-				Shown as the “Join the {system} Discord” button on this system's Club-page carousel
-				card, and to anyone the gate turns away. It must point at the same server you set
-				above, or you'll send players somewhere that won't get them past the gate.
-				{#if gate.inherits_url}Currently falling back to your club's invite link.{/if}
-			</p>
 		</div>
 
 		<div class="gate-step">
