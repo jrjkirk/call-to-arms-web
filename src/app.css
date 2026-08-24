@@ -429,7 +429,8 @@ h1, h2, h3, h4, h5, h6 {
    min-height instead of height, and flex centring so the label is centred
    whatever the padding works out to. */
 .primary-button,
-.secondary-button {
+.secondary-button,
+.danger-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -461,6 +462,21 @@ h1, h2, h3, h4, h5, h6 {
     transition: background 0.15s;
 }
 .secondary-button:hover:not(:disabled) { background: var(--color-accent-soft); }
+
+/* Destructive actions. Outlined rather than filled: it sits next to a filled
+   primary Save, and the eye should land on Save first — the delete is there
+   when wanted, not competing to be pressed. */
+.danger-button {
+    background: transparent;
+    color: var(--color-loss);
+    border: 1px solid color-mix(in srgb, var(--color-loss) 45%, transparent);
+    font-weight: 600;
+    transition: background 0.15s;
+}
+.danger-button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-loss) 12%, transparent);
+}
+.danger-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Step heading inside a card — ranks below .a-title, above body copy. */
 .a-step-title {

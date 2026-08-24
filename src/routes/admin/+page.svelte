@@ -653,12 +653,15 @@
 
 
     // Edit Player Profile state
-    type PlayerListItem = { id: number; name: string; titles: string[]; active: boolean; admin_notes: string | null };
+    type PlayerListItem = { id: number; name: string; titles: string[]; active: boolean; league_visible: boolean; claimed: boolean; admin_notes: string | null };
     let editPlayerList = $state<PlayerListItem[]>([]);
     let editPlayerIdStr = $state('');
     let editPlayerName = $state('');
     let editPlayerTitlesText = $state('');
     let editPlayerActive = $state(true);
+    let editPlayerLeagueVisible = $state(true);
+    let editPlayerClaimed = $state(false);
+    let editPlayerDeleting = $state(false);
     let editPlayerAdminNotes = $state('');
     let editPlayerSaving = $state(false);
     let editPlayerMessage = $state<string | null>(null);
@@ -1835,6 +1838,8 @@
         editPlayerName = player.name;
         editPlayerTitlesText = (player.titles ?? []).join('\n');
         editPlayerActive = player.active ?? true;
+        editPlayerLeagueVisible = player.league_visible ?? true;
+        editPlayerClaimed = player.claimed ?? false;
         editPlayerAdminNotes = player.admin_notes ?? '';
     }
 
@@ -1852,6 +1857,7 @@
                 name: editPlayerName,
                 titles,
                 active: editPlayerActive,
+                league_visible: editPlayerLeagueVisible,
                 admin_notes: editPlayerAdminNotes.trim() || null,
             }),
         });
@@ -1860,7 +1866,7 @@
             editPlayerMessage = 'Saved.';
             editPlayerList = editPlayerList.map(p =>
                 p.id === updated.id
-                    ? { ...p, name: updated.name, titles: updated.titles, active: updated.active, admin_notes: updated.admin_notes }
+                    ? { ...p, name: updated.name, titles: updated.titles, active: updated.active, league_visible: updated.league_visible, admin_notes: updated.admin_notes }
                     : p
             );
         } else {
@@ -1868,6 +1874,32 @@
             editPlayerError = body.detail || 'Save failed.';
         }
         editPlayerSaving = false;
+    }
+
+    async function deleteEditPlayer() {
+        if (!editPlayerIdStr) return;
+        const player = editPlayerList.find(p => String(p.id) === editPlayerIdStr);
+        if (!player) return;
+        if (!confirm(`Permanently delete ${player.name}? This cannot be undone.`)) return;
+        editPlayerDeleting = true;
+        editPlayerMessage = null;
+        editPlayerError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/players/${editPlayerIdStr}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            editPlayerList = editPlayerList.filter(p => String(p.id) !== editPlayerIdStr);
+            editPlayerIdStr = '';
+            editPlayerMessage = `${player.name} deleted.`;
+        } else {
+            // The API refuses to delete anyone with games behind them and says
+            // why — that message is the whole point, so show it verbatim
+            // rather than a generic failure.
+            const body = await r.json().catch(() => ({}));
+            editPlayerError = body.detail || 'Delete failed.';
+        }
+        editPlayerDeleting = false;
     }
 
     async function loadClubWebhooks() {
@@ -5022,10 +5054,24 @@
                             bind:value={editPlayerTitlesText}
                         ></textarea>
                     </div>
-                    <label class="check-row">
-                        <input type="checkbox" bind:checked={editPlayerActive} />
-                        <span>Show this player publicly</span>
-                    </label>
+                    <div class="player-edit-wide">
+                        <label class="check-row">
+                            <input type="checkbox" bind:checked={editPlayerActive} />
+                            <span>On the roster</span>
+                            <HelpTip
+                                label="roster"
+                                text={"Off = archived, for someone who has left.\n\nThey disappear from signup, pairings and the league, but every game they played stays on record — and if they come back, turning this on returns them to their own profile.\n\nArchiving never unlinks their account. Don't delete a player who has left; archive them."}
+                            />
+                        </label>
+                        <label class="check-row">
+                            <input type="checkbox" bind:checked={editPlayerLeagueVisible} />
+                            <span>List in the league</span>
+                            <HelpTip
+                                label="league listing"
+                                text={"Off = they play and get paired as normal, but don't appear in league standings.\n\nFor casuals, or anyone who asked not to be ranked. Archived players are out of the league either way."}
+                            />
+                        </label>
+                    </div>
                     <div class="field player-edit-wide">
                         <label class="field-label" for="edit-player-notes">
                             Admin Notes <span class="field-label-hint">(private — not shown publicly)</span>
@@ -5043,12 +5089,24 @@
                     {#if editPlayerMessage}
                         <p class="pairing-message">{editPlayerMessage}</p>
                     {/if}
-                    <button
-                        class="primary-button"
-                        type="button"
-                        disabled={editPlayerSaving}
-                        onclick={saveEditPlayer}
-                    >{editPlayerSaving ? 'Saving…' : 'Save'}</button>
+                    <div class="player-edit-actions player-edit-wide">
+                        <button
+                            class="primary-button"
+                            type="button"
+                            disabled={editPlayerSaving}
+                            onclick={saveEditPlayer}
+                        >{editPlayerSaving ? 'Saving…' : 'Save'}</button>
+                        <button
+                            class="danger-button"
+                            type="button"
+                            disabled={editPlayerDeleting}
+                            onclick={deleteEditPlayer}
+                        >{editPlayerDeleting ? 'Deleting…' : 'Delete'}</button>
+                        <HelpTip
+                            label="delete"
+                            text={"Only for a row that should never have existed — a duplicate, a typo, a test entry.\n\nA player with games behind them can't be deleted; the club would keep their old pairings and league results with nobody attached to them. Archive those instead.\n\n" + (editPlayerClaimed ? "This player has a Discord account linked to them." : "No Discord account is linked to this player.")}
+                        />
+                    </div>
                 {/if}
             </div>
         </section>
@@ -7158,6 +7216,18 @@
     .player-edit-wide {
         min-width: 0;
         width: 100%;
+    }
+
+    .player-edit-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    /* Push the destructive action away from Save so the two are never one
+       mis-aimed click apart. */
+    .player-edit-actions .danger-button {
+        margin-left: auto;
     }
 
     .field-textarea {
