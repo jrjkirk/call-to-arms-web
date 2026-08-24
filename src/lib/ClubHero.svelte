@@ -17,7 +17,10 @@
         website_url: string | null;
     };
 
-    let { club }: { club: ClubProfile } = $props();
+    let { club, venueEnabled = false }: {
+        club: ClubProfile;
+        venueEnabled?: boolean;
+    } = $props();
 </script>
 
 <div class="club-hero">
@@ -30,9 +33,14 @@
     {#if club.blurb}
         <p class="club-blurb">{club.blurb}</p>
     {/if}
-    {#if club.website_url}
+    {#if club.website_url || venueEnabled}
         <div class="club-actions">
-            <a class="club-btn website-btn" href={club.website_url} target="_blank" rel="noopener noreferrer">Visit website</a>
+            {#if venueEnabled}
+                <a class="club-btn book-btn" href="/book">Book a table</a>
+            {/if}
+            {#if club.website_url}
+                <a class="club-btn website-btn" href={club.website_url} target="_blank" rel="noopener noreferrer">Visit website</a>
+            {/if}
         </div>
     {/if}
 </div>
@@ -105,6 +113,19 @@
     /* The Discord button's styles left with it — see SystemsCarousel's
        .slide-discord, which is deliberately quieter since there's now one per
        carousel card rather than one per page. */
+
+    /* Book a table is the one action a venue is paying for, so it's the
+       accented one and it leads. Website stays neutral beside it. */
+    .book-btn {
+        background: var(--color-accent);
+        color: #1b1206;
+        border-color: var(--color-accent);
+    }
+
+    .book-btn:hover {
+        background: var(--color-accent-soft);
+        transform: translateY(-1px);
+    }
 
     /* Website is the same box, but neutral — not highlighted or coloured. */
     .website-btn {
