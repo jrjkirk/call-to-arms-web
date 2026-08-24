@@ -21,6 +21,9 @@
 
     let slots = $state<Slot[]>([]);
     let chosenSlot = $state<string | null>(null);
+    let slotTables = $state<{ id: number; name: string; size_label: string | null;
+                              seats: number; recommended: boolean }[]>([]);
+    let chosenTable = $state<number | null>(null);
     let slotsLoading = $state(false);
     let submitting = $state(false);
     let error = $state<string | null>(null);
@@ -41,22 +44,44 @@
     }
     onMount(loadInfo);
 
+    let dayInfo = $state<any>(null);
+
     async function loadSlots() {
         if (!chosenDate) return;
         slotsLoading = true;
         chosenSlot = null;
+        slotTables = [];
+        chosenTable = null;
+        const sys = systemChoice && systemChoice !== 'other' ? `&system_id=${systemChoice}` : '';
         const r = await fetch(
-            `${PUBLIC_API_URL}/venue/availability?date=${chosenDate}&duration=${duration}&party_size=${partySize}`,
+            `${PUBLIC_API_URL}/venue/availability?date=${chosenDate}&duration=${duration}&party_size=${partySize}${sys}`,
             { credentials: 'include' }
         );
-        slots = r.ok ? ((await r.json()).slots ?? []) : [];
+        const body = r.ok ? await r.json() : null;
+        slots = body?.slots ?? [];
+        dayInfo = body;
         slotsLoading = false;
     }
 
+    // The game matters to the grid too, not just to the booking: a system with
+    // tables held for its club night changes what's on offer that evening.
     $effect(() => {
-        chosenDate; duration; partySize;
+        chosenDate; duration; partySize; systemChoice;
         loadSlots();
     });
+
+    async function pickSlot(start: string) {
+        chosenSlot = start;
+        chosenTable = null;
+        slotTables = [];
+        const sys = systemChoice && systemChoice !== 'other' ? `&system_id=${systemChoice}` : '';
+        const r = await fetch(
+            `${PUBLIC_API_URL}/venue/tables-for-slot?date=${chosenDate}&start_time=${start}` +
+            `&duration=${duration}&party_size=${partySize}${sys}`,
+            { credentials: 'include' }
+        );
+        if (r.ok) slotTables = (await r.json()).tables ?? [];
+    }
 
     async function book() {
         if (!chosenSlot) return;
@@ -73,6 +98,7 @@
                 party_size: partySize,
                 system_id: systemChoice && systemChoice !== 'other' ? Number(systemChoice) : null,
                 game_note: systemChoice === 'other' ? gameNote : null,
+                table_id: chosenTable,
                 contact_name: contactName,
                 contact_phone: contactPhone,
                 notes
@@ -91,12 +117,24 @@
         if (!n) return '';
         const at = n.start_time ? ` from ${n.start_time}` : '';
         if (n.same_evening) {
-            const who = n.signups ? ` — ${n.signups} players are already coming` : '';
-            return `runs the same night you've booked${at ? ',' + at : ''}${who}.`;
+            const who = n.signups
+                ? ` — ${n.signups} ${n.signups === 1 ? 'player is' : 'players are'} already signed up`
+                : '';
+            return `runs here the same night you've booked${at ? ',' + at : ''}${who}.` +
+                ' Sign up and you\'ll be paired with someone.';
         }
         const every = n.session_cadence === 'fortnightly' ? 'every other' : 'every';
         return `runs here ${every} ${n.session_day}${at}.`;
     });
+
+    // The club night holding tables IS the game they've chosen to play.
+    const heldForYourGame = $derived(
+        systemChoice && systemChoice !== 'other'
+            ? (dayInfo?.club_nights ?? []).find(
+                  (n: any) => String(n.system_id) === String(systemChoice)
+              ) ?? null
+            : null
+    );
 
     function dayLabel(iso: string): string {
         return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
@@ -151,9 +189,9 @@
             <div class="pitch">
                 <p class="pitch-head">
                     {#if confirmed.club_night.same_evening}
-                        There's a club night on that evening
+                        That's club night
                     {:else}
-                        While you're here
+                        There's a club night for that
                     {/if}
                 </p>
                 <p class="pitch-body">
@@ -227,16 +265,54 @@
         {:else if slots.length === 0}
             <p class="a-note">No bookings that day.</p>
         {:else}
+            {#if dayInfo?.tables_held}
+                {#if heldForYourGame}
+                    <!-- Their own game's night is what's taking the tables. Telling
+                         them "held for The Old World" while they book The Old World
+                         invites the obvious question, so answer it: the night is
+                         the better offer, and signing up gets them an opponent. -->
+                    <p class="a-note">
+                        {heldForYourGame.system} club night runs that evening and
+                        {dayInfo.tables_held} tables are held for it. You can
+                        <a href="/signup?system={encodeURIComponent(heldForYourGame.legacy_system_name ?? heldForYourGame.system)}">sign up for the night</a>
+                        instead and be paired with someone — or book one of the tables below.
+                    </p>
+                {:else}
+                    <p class="a-note">
+                        {dayInfo.tables_held} of our tables are held for
+                        {dayInfo.club_nights.map((n: any) => n.system).join(' and ')} that
+                        evening, so there's less free than usual.
+                    </p>
+                {/if}
+            {/if}
             <div class="slots">
                 {#each slots as s}
                     <button class="slot" class:selected={chosenSlot === s.start}
                             disabled={!s.available}
                             title={s.reason === 'full' ? 'All tables taken' : s.reason === 'too_soon' ? 'Too close to now' : ''}
-                            onclick={() => (chosenSlot = s.start)}>
+                            onclick={() => pickSlot(s.start)}>
                         {s.start}
                     </button>
                 {/each}
             </div>
+        {/if}
+
+        {#if chosenSlot && slotTables.length}
+            <h2 class="a-subtitle">Pick a table</h2>
+            <div class="tables">
+                {#each slotTables as t (t.id)}
+                    <button class="tcard" class:selected={chosenTable === t.id}
+                            class:recommended={t.recommended}
+                            onclick={() => (chosenTable = chosenTable === t.id ? null : t.id)}>
+                        <span class="tcard-name">{t.name}</span>
+                        <span class="tcard-size">{t.size_label ?? ''} · seats {t.seats}</span>
+                        {#if t.recommended}<span class="tcard-flag">Recommended</span>{/if}
+                    </button>
+                {/each}
+            </div>
+            <p class="a-note">
+                {chosenTable ? 'We\'ll hold that one for you.' : 'Leave it to us and we\'ll pick the best free table.'}
+            </p>
         {/if}
 
         {#if chosenSlot}
@@ -310,6 +386,32 @@
     .slot:hover:not(:disabled) { border-color: var(--color-accent-border); }
     .slot.selected { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 15%, transparent); font-weight: 700; }
     .slot:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .tables { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+    .tcard {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.1rem;
+        min-width: 8rem;
+        padding: 0.5rem 0.7rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        background: rgba(0, 0, 0, 0.2);
+        font-family: inherit;
+        cursor: pointer;
+        text-align: left;
+    }
+    .tcard:hover { border-color: var(--color-accent-border); }
+    .tcard.recommended { border-color: var(--color-accent-border); }
+    .tcard.selected {
+        border-color: var(--color-accent);
+        background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    }
+    .tcard-name { font-size: 0.85rem; font-weight: 700; color: var(--color-text-bright); }
+    .tcard-size { font-size: 0.7rem; color: var(--color-text-muted); }
+    .tcard-flag { font-size: 0.66rem; font-weight: 700; color: var(--color-accent); }
 
     .form-grid {
         display: grid;

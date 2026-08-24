@@ -216,7 +216,7 @@
             <span>Mention your club nights when someone books</span>
             <HelpTip
                 label="club nights"
-                text={"After booking, they're told about a club night here they might not know about — preferring one running the same evening they've booked.\n\nSomeone booking to play a system is never sold that same system."}
+                text={"After booking, they're told about your club night for the game they've booked to play — the same evening if it's on then, otherwise the next date it runs.\n\nOnly ever that game. Someone booking for The Old World won't be pitched 40k."}
             />
         </label>
     </div>

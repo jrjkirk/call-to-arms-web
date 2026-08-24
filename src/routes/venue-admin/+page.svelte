@@ -4,6 +4,7 @@
     import HelpTip from '$lib/HelpTip.svelte';
     import VenueDay from '$lib/VenueDay.svelte';
     import VenueTables from '$lib/VenueTables.svelte';
+    import VenueClubNights from '$lib/VenueClubNights.svelte';
     import VenueSettings from '$lib/VenueSettings.svelte';
     import VenueStaff from '$lib/VenueStaff.svelte';
 
@@ -16,7 +17,7 @@
 
     let access = $state<'checking' | 'ok' | 'denied'>('checking');
     let canManageStaff = $state(false);
-    let tab = $state<'diary' | 'tables' | 'settings' | 'staff'>('diary');
+    let tab = $state<'diary' | 'nights' | 'tables' | 'settings' | 'staff'>('diary');
     let upcoming = $state<DayOverview[]>([]);
     let pending = $state<any[]>([]);
     let selectedDate = $state('');
@@ -76,6 +77,7 @@
 {:else}
     <div class="venue-tabs">
         <button class="venue-tab" class:active={tab === 'diary'} onclick={() => (tab = 'diary')}>Diary</button>
+        <button class="venue-tab" class:active={tab === 'nights'} onclick={() => (tab = 'nights')}>Club nights</button>
         <button class="venue-tab" class:active={tab === 'tables'} onclick={() => (tab = 'tables')}>Tables</button>
         <button class="venue-tab" class:active={tab === 'settings'} onclick={() => (tab = 'settings')}>Settings</button>
         {#if canManageStaff}
@@ -137,6 +139,8 @@
         {#if selected}
             <VenueDay date={selected.date} onchange={loadUpcoming} />
         {/if}
+    {:else if tab === 'nights'}
+        <VenueClubNights />
     {:else if tab === 'tables'}
         <VenueTables />
     {:else if tab === 'settings'}
