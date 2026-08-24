@@ -35,8 +35,6 @@
         calendar: { month: string; entries: any[] };
     };
 
-    function currentMonth(): string {
-
     // The Book a Table section only appears for a club that actually sells
     // table space, so every other club's page is unchanged.
     let venueEnabled = $state(false);
@@ -49,6 +47,7 @@
         }
     });
 
+    function currentMonth(): string {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     }
