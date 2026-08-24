@@ -36,6 +36,19 @@
     };
 
     function currentMonth(): string {
+
+    // The Book a Table section only appears for a club that actually sells
+    // table space, so every other club's page is unchanged.
+    let venueEnabled = $state(false);
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' });
+            if (r.ok) venueEnabled = (await r.json()).enabled === true;
+        } catch (_) {
+            venueEnabled = false;
+        }
+    });
+
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     }
@@ -105,6 +118,14 @@
         <div class="section-title">Systems</div>
         <SystemsCarousel systems={data.systems} />
 
+        {#if venueEnabled}
+            <div class="section-title">Book a Table</div>
+            <div class="card book-card">
+                <p class="book-line">Playing something outside a club night? Book a table here.</p>
+                <a class="primary-button" href="/book">Book a table</a>
+            </div>
+        {/if}
+
         <div class="section-title">Opening Hours</div>
         <OpeningHours openingHours={data.club.opening_hours} />
 
@@ -151,6 +172,20 @@
         display: flex;
         flex-direction: column;
         gap: 0.7rem;
+    }
+
+    .book-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .book-line {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
     }
 
     .location-address {

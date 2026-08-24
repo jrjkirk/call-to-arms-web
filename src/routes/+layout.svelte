@@ -38,18 +38,25 @@
     // catalogue default). Hidden by default (before it resolves and for
     // every club with no leagues at all) so the nav tab never flashes in.
     let hasAnyLeague = $state(false);
+    let venueState = $state<{ can_admin_venue: boolean; enabled: boolean } | null>(null);
 
     async function refreshAuth() {
         try {
-            const [authResp, adminResp] = await Promise.all([
+            const [authResp, adminResp, venueResp] = await Promise.all([
                 fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' }),
                 fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' }),
+                // Venue access is NOT a system scope — the bar manager holds no
+                // game-system rights at all — so it can't be read off
+                // /admin/me's scopes and needs its own always-200 check.
+                fetch(`${PUBLIC_API_URL}/venue/admin/me`, { credentials: 'include' }),
             ]);
             auth = authResp.ok ? await authResp.json() : { authenticated: false };
             adminState = adminResp.ok ? await adminResp.json() : null;
+            venueState = venueResp.ok ? await venueResp.json() : null;
         } catch (_) {
             auth = { authenticated: false };
             adminState = null;
+            venueState = null;
         } finally {
             authLoaded = true;
         }
@@ -137,6 +144,9 @@
     const hasPlatformAdminAccess = $derived(
         authLoaded && adminState !== null && adminState.is_platform_admin === true
     );
+    const hasVenueAdminAccess = $derived(
+        authLoaded && venueState !== null && venueState.can_admin_venue === true
+    );
     // The hero page carries its own large logo, so the header shouldn't
     // duplicate it there — only show the header logo everywhere else.
     // Routes a signed-out visitor can see without being bounced to the hero:
@@ -221,6 +231,9 @@
                     {/each}
                     {#if hasAdminAccess}
                         <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
+                    {/if}
+                    {#if hasVenueAdminAccess}
+                        <a href="/venue-admin" class="nav-tab" class:active={isActive('/venue-admin')} data-sveltekit-preload-data="hover">Venue Admin</a>
                     {/if}
                     {#if hasPlatformAdminAccess}
                         <a href="/platform-admin" class="nav-tab" class:active={isActive('/platform-admin')} data-sveltekit-preload-data="hover">Platform Admin</a>
