@@ -2,12 +2,14 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from './HelpTip.svelte';
 
-    let { date, onchange }: { date: string; onchange?: () => void } = $props();
+    let { date, onchange, canApprove = false }:
+        { date: string; onchange?: () => void; canApprove?: boolean } = $props();
 
     let day = $state<any>(null);
     let error = $state<string | null>(null);
     let busy = $state(false);
     let events = $state<any[]>([]);
+    let message = $state<string | null>(null);
     let showEventForm = $state(false);
     let newEvent = $state({ name: '', start_time: '18:00', end_time: '22:00',
                             tables_needed: 4, description: '', public: true });
@@ -43,8 +45,38 @@
                 error = `Held ${made.tables_held} of the ${made.tables_needed} tables you asked ` +
                         `for — the rest were already taken. Free something up, or edit the event.`;
             }
+            if (made.status === 'pending') {
+                message = `${made.name} is holding its tables and waiting for a club ` +
+                          `super-admin to approve it.`;
+            }
         } else {
             error = (await r.json().catch(() => ({}))).detail || 'Could not create that event.';
+        }
+        busy = false;
+    }
+
+    async function decide(ev: any, verdict: 'approve' | 'reject') {
+        let reason: string | null = null;
+        if (verdict === 'reject') {
+            reason = prompt(`Why is ${ev.name} being turned down? (optional)`) ?? '';
+        }
+        busy = true; error = null;
+        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/events/${ev.id}/${verdict}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+        });
+        if (r.ok) {
+            const got = await r.json();
+            await load();
+            onchange?.();
+            if (verdict === 'approve' && got.short_by > 0) {
+                error = `Approved, but only ${got.tables_held} of the ${got.tables_needed} ` +
+                        `tables were still free.`;
+            }
+        } else {
+            error = (await r.json().catch(() => ({}))).detail || 'That didn\'t work.';
         }
         busy = false;
     }
@@ -171,13 +203,21 @@
         {:else}
             <div class="events">
                 {#each events as ev (ev.id)}
-                    <div class="event" class:short={ev.short_by > 0}>
+                    <div class="event" class:short={ev.short_by > 0}
+                         class:pending={ev.status === 'pending'}
+                         class:rejected={ev.status === 'rejected'}>
                         <div class="ev-when">
                             <strong>{ev.start_time}–{ev.end_time}</strong>
                             <span class="b-meta">{ev.tables_held} table{ev.tables_held === 1 ? '' : 's'}</span>
                         </div>
                         <div class="ev-who">
                             <strong>{ev.name}</strong>
+                            {#if ev.status !== 'approved'}
+                                <span class="ev-status">
+                                    {ev.status === 'pending' ? 'Waiting for approval' : 'Turned down'}
+                                    {#if ev.rejection_reason} — {ev.rejection_reason}{/if}
+                                </span>
+                            {/if}
                             {#if ev.table_names.length}
                                 <span class="b-meta">{ev.table_names.join(', ')}</span>
                             {/if}
@@ -190,6 +230,14 @@
                             {#if !ev.public}<span class="b-meta">Not shown publicly</span>{/if}
                         </div>
                         <div class="b-actions">
+                            {#if canApprove && ev.status !== 'approved'}
+                                <button class="primary-button" disabled={busy}
+                                        onclick={() => decide(ev, 'approve')}>Approve</button>
+                            {/if}
+                            {#if canApprove && ev.status === 'pending'}
+                                <button class="secondary-button" disabled={busy}
+                                        onclick={() => decide(ev, 'reject')}>Turn down</button>
+                            {/if}
                             <button class="danger-button" disabled={busy}
                                     onclick={() => removeEvent(ev)}>Cancel</button>
                         </div>
@@ -240,6 +288,7 @@
         {/if}
 
         {#if error}<p class="field-error">{error}</p>{/if}
+        {#if message}<p class="pairing-message">{message}</p>{/if}
     </div>
 {/if}
 
@@ -310,6 +359,16 @@
         background: color-mix(in srgb, var(--color-accent) 8%, transparent);
     }
     .event.short { border-color: var(--color-loss); }
+    /* Pending reads as unfinished business, not as a problem — it's holding
+       its tables perfectly happily, it just needs a yes. */
+    .event.pending {
+        border-style: dashed;
+        background: rgba(0, 0, 0, 0.2);
+    }
+    .event.rejected { opacity: 0.55; border-style: dashed; }
+
+    .ev-status { font-size: 0.75rem; font-weight: 700; color: var(--color-accent); }
+    .event.rejected .ev-status { color: var(--color-text-muted); }
 
     .ev-when { display: flex; flex-direction: column; min-width: 7rem; }
     .ev-who { display: flex; flex-direction: column; flex: 1 1 12rem; min-width: 0; }

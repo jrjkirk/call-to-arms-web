@@ -21,6 +21,8 @@
     let tab = $state<'diary' | 'nights' | 'tables' | 'settings' | 'staff'>('diary');
     let upcoming = $state<DayOverview[]>([]);
     let pending = $state<any[]>([]);
+    let pendingEvents = $state<any[]>([]);
+    let canApprove = $state(false);
     let selectedDate = $state('');
     let diaryView = $state<'strip' | 'calendar'>('strip');
     // Bumped whenever a day changes, so the calendar knows to look again.
@@ -35,6 +37,8 @@
         const body = await r.json();
         upcoming = body.days;
         pending = body.pending;
+        pendingEvents = body.pending_events ?? [];
+        canApprove = body.can_approve === true;
         if (!selectedDate && upcoming.length) selectedDate = upcoming[0].date;
         diaryVersion += 1;
     }
@@ -93,6 +97,34 @@
     {#if loadError}<p class="field-error">{loadError}</p>{/if}
 
     {#if tab === 'diary'}
+        {#if pendingEvents.length}
+            <div class="a-card pending-card">
+                <div class="a-head">
+                    <h2 class="a-title">Events waiting for approval</h2>
+                    <HelpTip
+                        label="event approval"
+                        text={"An event takes the room out of circulation for a whole evening, so it needs a yes from a club super-admin rather than from whoever is on shift.\n\nIt holds its tables while it waits — the room isn't sold from under it — and turning it down gives them straight back."}
+                    />
+                    <span class="a-head-end a-state is-on">{pendingEvents.length}</span>
+                </div>
+                <ul class="pending-list">
+                    {#each pendingEvents as e}
+                        <li>
+                            <button class="pending-link" onclick={() => (selectedDate = e.date)}>
+                                {shortDate(e.date)} · {e.start_time}–{e.end_time} ·
+                                {e.name} · {e.tables_held} table{e.tables_held === 1 ? '' : 's'}
+                            </button>
+                        </li>
+                    {/each}
+                </ul>
+                <p class="a-note">
+                    {canApprove
+                        ? 'Open the day to approve or turn one down.'
+                        : 'A club super-admin needs to approve these.'}
+                </p>
+            </div>
+        {/if}
+
         {#if pending.length}
             <div class="a-card pending-card">
                 <div class="a-head">
@@ -153,7 +185,7 @@
         </div>
 
         {#if selectedDate}
-            <VenueDay date={selectedDate} onchange={loadUpcoming} />
+            <VenueDay date={selectedDate} {canApprove} onchange={loadUpcoming} />
         {/if}
     {:else if tab === 'nights'}
         <VenueClubNights />
@@ -213,6 +245,20 @@
         border-color: var(--color-accent);
         background: color-mix(in srgb, var(--color-accent) 15%, transparent);
     }
+
+    /* A pending event is a thing to act on, so its row is a control that opens
+       the day rather than a line of text you then have to go and find. */
+    .pending-link {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--color-text-bright);
+        font-family: inherit;
+        font-size: 0.85rem;
+        text-align: left;
+        cursor: pointer;
+    }
+    .pending-link:hover { color: var(--color-accent); text-decoration: underline; }
 
     .pending-list {
         list-style: none;
