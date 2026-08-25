@@ -1,20 +1,25 @@
 <script lang="ts">
     /**
-     * discord_url is deliberately NOT read here any more.
+     * discord_url is read here again, deliberately reversing an earlier call.
      *
-     * The "Join our Discord" CTA moved onto the systems carousel, one per
-     * card. A club's game nights can each run out of a DIFFERENT Discord
-     * server (at EGNWGC, Kill Team and The Old World are separate servers),
-     * so a single club-level button was actively misleading — it sent Kill
-     * Team players to whichever server happened to be saved on the club.
-     * The carousel card knows which system it's for, so it can link the
-     * right one; the club page as a whole can't.
+     * It was pulled out because a club's game nights can each run out of a
+     * DIFFERENT Discord server (at EGNWGC, Kill Team and The Old World are
+     * separate), so one club-level button sent Kill Team players to whichever
+     * server happened to be saved on the club. That reasoning still holds for
+     * the PER-SYSTEM invite, which is why the carousel cards keep their own
+     * Discord links and nothing here replaces them.
+     *
+     * What changed is that a venue now has a club-wide server of its own worth
+     * linking — the front door beside Book a table, for someone who has just
+     * found the place and wants to talk to somebody. That's a different link
+     * doing a different job, set under Venue Admin → Settings → Venue.
      */
     type ClubProfile = {
         name: string;
         blurb: string | null;
         logo_url: string | null;
         website_url: string | null;
+        discord_url?: string | null;
     };
 
     let { club, venueEnabled = false }: {
@@ -33,8 +38,11 @@
     {#if club.blurb}
         <p class="club-blurb">{club.blurb}</p>
     {/if}
-    {#if club.website_url || venueEnabled}
+    {#if club.website_url || venueEnabled || club.discord_url}
         <div class="club-actions">
+            {#if club.discord_url}
+                <a class="club-btn discord-btn" href={club.discord_url} target="_blank" rel="noopener noreferrer">Join our Discord</a>
+            {/if}
             {#if venueEnabled}
                 <a class="club-btn book-btn" href="/book">Book a table</a>
             {/if}
@@ -110,9 +118,22 @@
         transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
 
-    /* The Discord button's styles left with it — see SystemsCarousel's
-       .slide-discord, which is deliberately quieter since there's now one per
-       carousel card rather than one per page. */
+    /* Discord in Blurple, so it reads as Discord at a glance rather than as a
+       third variant of our own palette. Quieter than Book a table, which is
+       the action a venue is paying for. */
+    .discord-btn {
+        background: #5865f2;
+        color: #fff;
+        border-color: #5865f2;
+    }
+
+    .discord-btn:hover {
+        background: #4752c4;
+        transform: translateY(-1px);
+    }
+
+    /* SystemsCarousel keeps its own .slide-discord for the PER-SYSTEM invites,
+       deliberately quieter since there's one per card. */
 
     /* Book a table is the one action a venue is paying for, so it's the
        accented one and it leads. Website stays neutral beside it. */

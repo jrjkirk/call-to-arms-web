@@ -6,38 +6,90 @@
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
     let cfg = $state<any>(null);
+    let profile = $state<any>(null);
     let emailsText = $state('');
+    let webhookInput = $state('');
+    let webhookBusy = $state(false);
+    let webhookMessage = $state<string | null>(null);
     let saving = $state(false);
     let error = $state<string | null>(null);
     let message = $state<string | null>(null);
 
     async function load() {
-        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/config`, { credentials: 'include' });
-        if (!r.ok) { error = 'Could not load settings.'; return; }
-        cfg = await r.json();
+        const [c, p] = await Promise.all([
+            fetch(`${PUBLIC_API_URL}/venue/admin/config`, { credentials: 'include' }),
+            fetch(`${PUBLIC_API_URL}/venue/admin/venue-profile`, { credentials: 'include' })
+        ]);
+        if (!c.ok || !p.ok) { error = 'Could not load settings.'; return; }
+        cfg = await c.json();
+        profile = await p.json();
         emailsText = (cfg.notify_emails ?? []).join('\n');
     }
     onMount(load);
 
     async function save() {
         saving = true; error = null; message = null;
-        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/config`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...cfg,
-                notify_emails: emailsText.split('\n').map((e) => e.trim()).filter(Boolean)
+        const [c, p] = await Promise.all([
+            fetch(`${PUBLIC_API_URL}/venue/admin/config`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...cfg,
+                    notify_emails: emailsText.split('\n').map((e) => e.trim()).filter(Boolean)
+                })
+            }),
+            fetch(`${PUBLIC_API_URL}/venue/admin/venue-profile`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    blurb: profile.blurb,
+                    website_url: profile.website_url,
+                    discord_url: profile.discord_url
+                })
             })
-        });
-        if (r.ok) {
-            cfg = await r.json();
+        ]);
+        if (c.ok && p.ok) {
+            cfg = await c.json();
+            profile = await p.json();
             emailsText = (cfg.notify_emails ?? []).join('\n');
             message = 'Saved.';
         } else {
-            error = (await r.json().catch(() => ({}))).detail || 'Save failed.';
+            const bad = !c.ok ? c : p;
+            error = (await bad.json().catch(() => ({}))).detail || 'Save failed.';
         }
         saving = false;
+    }
+
+    async function saveWebhook() {
+        webhookBusy = true; webhookMessage = null; error = null;
+        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/webhook`, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: webhookInput })
+        });
+        if (r.ok) { profile = await r.json(); webhookInput = ''; webhookMessage = 'Webhook saved.'; }
+        else error = (await r.json().catch(() => ({}))).detail || 'Could not save that webhook.';
+        webhookBusy = false;
+    }
+
+    async function removeWebhook() {
+        if (!confirm('Remove the booking webhook?')) return;
+        webhookBusy = true; webhookMessage = null;
+        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/webhook`, {
+            method: 'DELETE', credentials: 'include'
+        });
+        if (r.ok) { profile = await r.json(); webhookMessage = 'Webhook removed.'; }
+        webhookBusy = false;
+    }
+
+    async function testWebhook() {
+        webhookBusy = true; webhookMessage = null; error = null;
+        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/webhook/test`, {
+            method: 'POST', credentials: 'include'
+        });
+        if (r.ok) webhookMessage = 'Test message sent — check the channel.';
+        else error = (await r.json().catch(() => ({}))).detail || 'Test failed.';
+        webhookBusy = false;
     }
 
     // Email switched on with nowhere to send is the one misconfiguration that
@@ -45,16 +97,17 @@
     const emailGoesNowhere = $derived(
         cfg?.notify_email && (cfg?.effective_emails ?? []).length === 0
     );
-    const discordGoesNowhere = $derived(cfg?.notify_discord && !cfg?.discord_webhook_configured);
+    const discordGoesNowhere = $derived(cfg?.notify_discord && !profile?.webhook?.configured);
 </script>
 
-{#if cfg}
+{#if cfg && profile}
+    <!-- ── Bookings ─────────────────────────────────────────────────────── -->
     <div class="a-card">
         <div class="a-head">
             <h2 class="a-title">Bookings</h2>
             <HelpTip
                 label="public bookings"
-                text={"Off means there's no booking page at all — nothing on your club page, and the booking links stop working.\n\nYou need at least one table before this will turn on."}
+                text={"Off means there's no booking page at all — no button on your club page, and the booking links stop working.\n\nYou need at least one table before this will turn on."}
             />
             <span class="a-head-end a-state" class:is-on={cfg.enabled}>
                 {cfg.enabled ? 'Open' : 'Closed'}
@@ -80,36 +133,32 @@
                 text={"Straight away: the table is theirs the moment they book, and you're told after. This is what stops staff answering booking emails.\n\nHold it: every booking waits for you. It still holds the table while it waits, so an unanswered request blocks the slot."}
             />
         </div>
-    </div>
 
-    <div class="a-card">
-        <div class="a-head">
-            <h2 class="a-title">How you hear about it</h2>
+        <h3 class="a-subtitle">
+            How you hear about it
             <HelpTip
                 label="notifications"
                 text={"Pick whichever suits how your venue is run — a staff Discord, an inbox, both, or neither.\n\nWith both off, bookings still arrive and still show in the Diary. You just won't be told."}
             />
-        </div>
+        </h3>
 
         <label class="check-row notify-row">
             <input type="checkbox" bind:checked={cfg.notify_email} />
             <span>Email</span>
         </label>
         {#if cfg.notify_email}
-            <label class="field">
-                <span class="field-label">
-                    Send to <span class="field-label-hint">(one per line)</span>
-                </span>
+            <label class="field indented">
+                <span class="field-label">Send to <span class="field-label-hint">(one per line)</span></span>
                 <textarea class="field-input field-textarea" rows="3" bind:value={emailsText}
                           placeholder={cfg.club_contact_email ?? 'bookings@yourvenue.com'}></textarea>
             </label>
             {#if emailGoesNowhere}
-                <p class="field-error">
+                <p class="field-error indented">
                     Email is on but there's no address to send to, and your club has no contact
                     email either. Add one above or bookings will arrive unannounced.
                 </p>
             {:else if (cfg.notify_emails ?? []).length === 0}
-                <p class="a-note">Using your club contact address: {cfg.effective_emails[0]}</p>
+                <p class="a-note indented">Using your club contact address: {cfg.effective_emails[0]}</p>
             {/if}
         {/if}
 
@@ -117,48 +166,41 @@
             <input type="checkbox" bind:checked={cfg.notify_discord} />
             <span>Discord</span>
         </label>
-        {#if discordGoesNowhere}
-            <p class="field-error">
-                Discord is on but no venue webhook is set. Add one under
-                Admin → Discord, as the “venue booking” webhook.
-            </p>
+        {#if cfg.notify_discord}
+            <div class="hook-row indented">
+                <span class="hook-label">
+                    Booking channel
+                    <HelpTip
+                        label="webhook"
+                        text={"In Discord: Server Settings → Integrations → Webhooks → New Webhook. Pick the channel your staff watch, copy the URL, paste it here.\n\nWe never show the whole URL back — anyone holding it can post to that channel."}
+                    />
+                </span>
+                {#if profile.webhook.configured}
+                    <span class="hook-state a-state is-on">Set · {profile.webhook.last_four}</span>
+                    <button class="secondary-button" type="button" disabled={webhookBusy} onclick={testWebhook}>Test</button>
+                    <button class="danger-button" type="button" disabled={webhookBusy} onclick={removeWebhook}>Remove</button>
+                {:else}
+                    <input class="field-input hook-input" type="text" bind:value={webhookInput}
+                           placeholder="https://discord.com/api/webhooks/…" />
+                    <button class="primary-button" type="button"
+                            disabled={webhookBusy || !webhookInput.trim()} onclick={saveWebhook}>Save</button>
+                {/if}
+            </div>
+            {#if discordGoesNowhere}
+                <p class="field-error indented">
+                    Discord is on but no webhook is saved, so nothing will be posted.
+                </p>
+            {/if}
+            {#if webhookMessage}<p class="pairing-message indented">{webhookMessage}</p>{/if}
         {/if}
-    </div>
 
-    <div class="a-card">
-        <div class="a-head">
-            <h2 class="a-title">Hours</h2>
-            <HelpTip
-                label="bookable hours"
-                text={"When tables can be booked — separate from your opening hours, because most venues are open before they'll take a table booking.\n\nA day left closed takes no bookings at all."}
-            />
-        </div>
-        <div class="hours-grid">
-            {#each DAYS as day, i}
-                {@const row = cfg.booking_hours[i]}
-                <div class="hours-row" class:closed={row.closed}>
-                    <span class="hours-day">{day.slice(0, 3)}</span>
-                    <label class="check-row">
-                        <input type="checkbox" checked={!row.closed}
-                               onchange={(e) => (row.closed = !(e.currentTarget as HTMLInputElement).checked)} />
-                        <span>Open</span>
-                    </label>
-                    <input class="field-input hours-time" type="time" bind:value={row.open} disabled={row.closed} />
-                    <span class="hours-sep">–</span>
-                    <input class="field-input hours-time" type="time" bind:value={row.close} disabled={row.closed} />
-                </div>
-            {/each}
-        </div>
-    </div>
-
-    <div class="a-card">
-        <div class="a-head">
-            <h2 class="a-title">Rules</h2>
+        <h3 class="a-subtitle">
+            Rules
             <HelpTip
                 label="booking rules"
                 text={"Slot length is how start times are offered — 30 minutes means 18:00, 18:30, 19:00.\n\nNotice is how close to the start someone may still book, so a table can't appear on you with no warning.\n\nPer person caps how many upcoming bookings one account can hold at once. Booking needs a login, so this is what stops one person taking the room."}
             />
-        </div>
+        </h3>
         <div class="rules-grid">
             <label class="field">
                 <span class="field-label">Slot length</span>
@@ -193,16 +235,14 @@
                 <input class="field-input" type="number" min="1" max="50" bind:value={cfg.max_active_bookings_per_user} />
             </label>
         </div>
-    </div>
 
-    <div class="a-card">
-        <div class="a-head">
-            <h2 class="a-title">What bookers see</h2>
+        <h3 class="a-subtitle">
+            What bookers see
             <HelpTip
                 label="booking page text"
                 text={"The blurb sits on the booking form — parking, food, house rules.\n\nThe confirmation note goes on the confirmation and in their email: door codes, where the terrain lives, who to ask for."}
             />
-        </div>
+        </h3>
         <label class="field">
             <span class="field-label">On the booking form</span>
             <textarea class="field-input field-textarea" rows="2" bind:value={cfg.booking_blurb}></textarea>
@@ -221,6 +261,62 @@
         </label>
     </div>
 
+    <!-- ── Venue ────────────────────────────────────────────────────────── -->
+    <div class="a-card">
+        <div class="a-head">
+            <h2 class="a-title">Venue</h2>
+            <HelpTip
+                label="venue details"
+                text={"Your venue's own details and when it takes bookings.\n\nThe blurb, website and Discord invite all show on your public club page — the Discord invite becomes a button beside Book a table."}
+            />
+        </div>
+
+        <h3 class="a-subtitle">Bookable hours</h3>
+        <p class="a-note">
+            When tables can be booked — separate from when you're open, since most venues
+            are open before they'll take a table booking. A day left closed takes none.
+        </p>
+        <div class="hours-grid">
+            {#each DAYS as day, i}
+                {@const row = cfg.booking_hours[i]}
+                <div class="hours-row" class:closed={row.closed}>
+                    <span class="hours-day">{day.slice(0, 3)}</span>
+                    <label class="check-row">
+                        <input type="checkbox" checked={!row.closed}
+                               onchange={(e) => (row.closed = !(e.currentTarget as HTMLInputElement).checked)} />
+                        <span>Open</span>
+                    </label>
+                    <input class="field-input hours-time" type="time" bind:value={row.open} disabled={row.closed} />
+                    <span class="hours-sep">–</span>
+                    <input class="field-input hours-time" type="time" bind:value={row.close} disabled={row.closed} />
+                </div>
+            {/each}
+        </div>
+
+        <h3 class="a-subtitle">On your club page</h3>
+        <label class="field">
+            <span class="field-label">Blurb</span>
+            <textarea class="field-input field-textarea" rows="3" bind:value={profile.blurb}
+                      placeholder="A short welcome for players landing on your club page…"></textarea>
+        </label>
+        <div class="link-row">
+            <span class="hook-label">Website</span>
+            <input class="field-input hook-input" type="text" bind:value={profile.website_url}
+                   placeholder="https://…" />
+        </div>
+        <div class="link-row">
+            <span class="hook-label">
+                Discord invite
+                <HelpTip
+                    label="club Discord"
+                    text={"Becomes a Join our Discord button on your club page, beside Book a table.\n\nThis is the club's own server. Each game night can point at a different one from its own carousel card — set those under Admin."}
+                />
+            </span>
+            <input class="field-input hook-input" type="text" bind:value={profile.discord_url}
+                   placeholder="https://discord.gg/…" />
+        </div>
+    </div>
+
     {#if error}<p class="field-error">{error}</p>{/if}
     {#if message}<p class="pairing-message">{message}</p>{/if}
     <button class="primary-button" type="button" disabled={saving} onclick={save}>
@@ -229,19 +325,17 @@
 {/if}
 
 <style>
-    .notify-row { margin-bottom: 0.5rem; }
-
     .opt-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .notify-row { margin-bottom: 0.4rem; }
+
+    /* Sub-settings sit under the switch that turns them on, so the nesting
+       reads as "this belongs to that" without another box around it. */
+    .indented { margin-left: 1.4rem; }
 
     .hours-grid { display: flex; flex-direction: column; gap: 0.4rem; }
     .hours-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
     .hours-row.closed { opacity: 0.5; }
-    .hours-day {
-        width: 2.6rem;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: var(--color-text-bright);
-    }
+    .hours-day { width: 2.6rem; font-size: 0.78rem; font-weight: 700; color: var(--color-text-bright); }
     .hours-time { width: 7.5rem; }
     .hours-sep { color: var(--color-text-faint); }
 
@@ -252,4 +346,26 @@
     }
 
     .field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.6rem; }
+
+    /* Same row shape as the admin tab's webhook rows: label, value, actions. */
+    .hook-row, .link-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.6rem;
+    }
+    .hook-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        flex: 0 0 9rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+    }
+    .hook-input { flex: 1 1 16rem; min-width: 0; }
+    .hook-state { flex: 0 0 auto; }
 </style>

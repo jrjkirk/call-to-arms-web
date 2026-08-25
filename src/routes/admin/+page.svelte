@@ -3091,33 +3091,17 @@
                         <HelpTip label="the Club page" text="Your blurb, logo, links and opening hours. Each system's own carousel card is edited separately, on that system's Game System Config tab, by that system's admin." />
                     </p>
                     {#if clubProfile}
-                        <!-- Profile -->
-                        <div class="field">
-                            <label class="field-label" for="club-blurb">Blurb</label>
-                            <textarea id="club-blurb" class="field-input" rows="3"
-                                placeholder="A short welcome for players landing on the Club page…"
-                                bind:value={clubProfile.blurb}></textarea>
-                        </div>
-
-                        <!-- Links & Location -->
+                        <!-- Blurb, website and Discord invite moved to Venue
+                             Admin → Settings → Venue: they're venue facts,
+                             edited by whoever runs the venue. The address and
+                             map coordinates stay here because they drive the
+                             club finder, which is a network concern rather than
+                             a venue one. -->
                         <div class="a-head club-page-subhead">
-                            <h4 class="a-title">Links &amp; location</h4>
-                            <HelpTip label="links and location" text="Your website, Discord invite and address. The address drives the map pin on your Club page and your marker on the club finder — set latitude and longitude to place it precisely." />
+                            <h4 class="a-title">Location</h4>
+                            <HelpTip label="location" text="Your address drives the map pin on your Club page and your marker on the club finder — set latitude and longitude to place it precisely. Your blurb, website and Discord invite moved to Venue Admin → Settings → Venue." />
                         </div>
                         <div class="form-grid">
-                            <div class="field">
-                                <label class="field-label" for="club-website">Website</label>
-                                <input id="club-website" class="field-input" type="text" placeholder="https://…" bind:value={clubProfile.website_url} />
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="club-discord">Discord invite</label>
-                                <input id="club-discord" class="field-input" type="text" placeholder="https://discord.gg/…" bind:value={clubProfile.discord_url} />
-                                <p class="field-label-hint">
-                                    Your club-wide server. Each system's carousel card links this by
-                                    default — if a game night runs out of its own separate Discord,
-                                    set that system's own invite under its admin section instead.
-                                </p>
-                            </div>
                         </div>
                         <div class="field">
                             <label class="field-label" for="club-address">Address</label>
