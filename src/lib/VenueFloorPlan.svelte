@@ -165,7 +165,7 @@
         // A wall's depth is ONE WALL THICKNESS by default, so it meets a room's
         // wall flush instead of sitting proud of it.
         { kind: 'wall', label: 'Wall', w: 8, d: WALL_FT, color: 'grey' },
-        { kind: 'door', label: 'Door', w: 3, d: 0.6, color: 'grey' },
+        { kind: 'door', label: 'Door', w: 3, d: WALL_FT, color: 'grey' },
         { kind: 'bar', label: 'Bar', w: 10, d: 2, color: 'amber' },
         { kind: 'pillar', label: 'Pillar', w: 1.5, d: 1.5, shape: 'round', color: 'grey' },
         { kind: 'shelves', label: 'Terrain', w: 6, d: 1.5, color: 'amber' },
@@ -277,14 +277,25 @@
         return best;
     }
 
-    /** Push an object back inside whatever bounds it: its room, else the plan. */
+    /**
+     * Push an object back inside whatever bounds it.
+     *
+     * Furniture is held to the floor of the room it stands in, or to the plan's
+     * inner wall face. STRUCTURE IS NOT: a door belongs IN a wall and a wall
+     * segment belongs against one, so confining them to the interior — which
+     * is what this did — made it impossible to put a door in a room's wall or
+     * on the edge of the plan at all. They're only kept from leaving the plan.
+     */
     function keepInside(o: any) {
         if (!room || o.kind === 'enclosure') return;
-        const host = roomAround(o);
+        const structural = o.kind === 'wall' || o.kind === 'door';
+        const host = structural ? null : roomAround(o);
         const area = host
             ? interiorOf(host as Box)
-            : { x0: WALL_FT, y0: WALL_FT,
-                x1: room.width_ft - WALL_FT, y1: room.depth_ft - WALL_FT };
+            : structural
+              ? { x0: 0, y0: 0, x1: room.width_ft, y1: room.depth_ft }
+              : { x0: WALL_FT, y0: WALL_FT,
+                  x1: room.width_ft - WALL_FT, y1: room.depth_ft - WALL_FT };
         const c = confine(o as Box, area);
         o.pos_x = c.x;
         o.pos_y = c.y;
@@ -533,12 +544,14 @@
             // Aligned against the INNER face of the wall, matching where
             // dragging stops. Using the outer bounds put things half inside
             // the wall they were supposedly aligned to.
-            if (where === 'left') o.pos_x = WALL_FT + e.hx;
+            // Structure aligns to the wall itself; furniture to its inner face.
+            const inset = (o.kind === 'wall' || o.kind === 'door') ? 0 : WALL_FT;
+            if (where === 'left') o.pos_x = inset + e.hx;
             if (where === 'hcentre') o.pos_x = room.width_ft / 2;
-            if (where === 'right') o.pos_x = room.width_ft - WALL_FT - e.hx;
-            if (where === 'top') o.pos_y = WALL_FT + e.hy;
+            if (where === 'right') o.pos_x = room.width_ft - inset - e.hx;
+            if (where === 'top') o.pos_y = inset + e.hy;
             if (where === 'vcentre') o.pos_y = room.depth_ft / 2;
-            if (where === 'bottom') o.pos_y = room.depth_ft - WALL_FT - e.hy;
+            if (where === 'bottom') o.pos_y = room.depth_ft - inset - e.hy;
             // ...and if it's standing in a room, that room's wall wins.
             keepInside(o);
         }

@@ -169,15 +169,24 @@
                   height={Math.max(0.1, o.depth_ft - WALL_FT)}
                   stroke-width={WALL_FT} />
         {:else if kind === 'feature' && o.kind === 'door'}
-            <!-- Drawn as a gap with a swing arc, the way a plan shows a door,
-                 so it reads as an opening rather than a small dark block. -->
-            <rect class="door-gap" x={-o.width_ft / 2} y={-o.depth_ft / 2}
-                  width={o.width_ft} height={o.depth_ft} />
+            <!-- The standard plan symbol: an opening punched through the wall,
+                 a leaf hinged at one jamb, and a quarter-circle showing where it
+                 swings.
+                 The previous version drew the arc from the hinge to the far
+                 jamb with the wrong centre, so it bulged off in a direction the
+                 door could never open in. The arc is centred ON THE HINGE, runs
+                 from the open leaf's tip round to the far jamb, and its radius
+                 is the leaf's length — which is what makes it read as a door. -->
+            {@const w = o.width_ft}
+            {@const hx = -w / 2}
+            <rect class="door-gap" x={hx} y={-o.depth_ft / 2}
+                  width={w} height={o.depth_ft} />
+            <!-- Swings toward +y, so a door dropped on the top wall opens INTO
+                 the room. Rotate it for the other three walls, which is how a
+                 plan flips a door anyway. -->
             <path class="door-swing" fill="none"
-                  d="M {-o.width_ft / 2} {o.depth_ft / 2}
-                     A {o.width_ft} {o.width_ft} 0 0 1 {o.width_ft / 2} {o.depth_ft / 2 - o.width_ft}" />
-            <line class="door-leaf" x1={-o.width_ft / 2} y1={o.depth_ft / 2}
-                  x2={-o.width_ft / 2} y2={o.depth_ft / 2 - o.width_ft} />
+                  d="M {hx} {w} A {w} {w} 0 0 0 {w / 2} 0" />
+            <line class="door-leaf" x1={hx} y1="0" x2={hx} y2={w} />
         {:else if o.shape === 'round'}
             {@const r = Math.max(0.05, Math.min(o.width_ft, o.depth_ft) / 2 - STROKE / 2)}
             <circle class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} cx="0" cy="0" r={r} />
@@ -272,6 +281,8 @@
     }
     .feature.sel .body.enclosure { stroke: var(--color-accent); }
 
+    /* The opening itself: floor colour, so it reads as a hole punched
+       through the wall rather than a block sitting in front of it. */
     .door-gap { fill: #14171d; stroke: none; }
     .door-swing { stroke: #7e838f; stroke-width: 0.09; stroke-dasharray: 0.3 0.25; }
     .door-leaf { stroke: #aeb3bf; stroke-width: 0.16; }
