@@ -151,15 +151,13 @@
             <label class="field indented">
                 <span class="field-label">Send to <span class="field-label-hint">(one per line)</span></span>
                 <textarea class="field-input field-textarea" rows="3" bind:value={emailsText}
-                          placeholder={cfg.club_contact_email ?? 'bookings@yourvenue.com'}></textarea>
+                          placeholder="bookings@example.com"></textarea>
             </label>
             {#if emailGoesNowhere}
                 <p class="field-error indented">
-                    Email is on but there's no address to send to, and your club has no contact
-                    email either. Add one above or bookings will arrive unannounced.
+                    Email is on but there's no address to send to, so bookings will arrive
+                    unannounced. Add one above.
                 </p>
-            {:else if (cfg.notify_emails ?? []).length === 0}
-                <p class="a-note indented">Using your club contact address: {cfg.effective_emails[0]}</p>
             {/if}
         {/if}
 
