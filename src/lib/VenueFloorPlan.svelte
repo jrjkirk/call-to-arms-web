@@ -4,7 +4,7 @@
     import HelpTip from './HelpTip.svelte';
     import PlanObject from './plan/PlanObject.svelte';
     import SelectionFrame from './plan/SelectionFrame.svelte';
-    import { angleTo, feet, norm, overlaps, resize, type Box, type Handle } from './plan/geometry';
+    import { angleTo, extents, feet, norm, overlaps, resize, type Box, type Handle } from './plan/geometry';
 
     /**
      * The venue's floor plan: an editor, and a live view of the room.
@@ -24,7 +24,41 @@
     let deletedFeatures = $state<number[]>([]);
 
     let roomId = $state<number | null>(null);
-    let sel = $state<{ kind: 'table' | 'feature'; idx: number } | null>(null);
+    /**
+     * Selection is a SET of stable keys, not an index.
+     *
+     * Indexes shift the moment anything is added, removed or duplicated, and a
+     * multi-selection held as indexes silently starts pointing at the wrong
+     * tables. Every object gets a client-side `_uid` on load, and selection is
+     * keyed on that.
+     */
+    let uidSeq = 0;
+    const withUids = (list: any[]) => list.map((o) => ({ ...o, _uid: ++uidSeq }));
+    const keyOf = (kind: 'table' | 'feature', o: any) => `${kind}:${o._uid}`;
+
+    let selection = $state<Set<string>>(new Set());
+    const isSel = (kind: 'table' | 'feature', o: any) => selection.has(keyOf(kind, o));
+
+    /** Every selected object, paired with which list it lives in. */
+    const picked = $derived([
+        ...tables.filter((t) => isSel('table', t)).map((o) => ({ kind: 'table' as const, o })),
+        ...features.filter((f) => isSel('feature', f)).map((o) => ({ kind: 'feature' as const, o }))
+    ]);
+    const sole = $derived(picked.length === 1 ? picked[0] : null);
+
+    /** Bounding box of everything selected, for the group outline. */
+    const groupBox = $derived.by(() => {
+        if (picked.length < 2) return null;
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const s of picked) {
+            const e = extents(s.o as Box);
+            x0 = Math.min(x0, s.o.pos_x - e.hx);
+            y0 = Math.min(y0, s.o.pos_y - e.hy);
+            x1 = Math.max(x1, s.o.pos_x + e.hx);
+            y1 = Math.max(y1, s.o.pos_y + e.hy);
+        }
+        return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    });
     let dirty = $state(false);
     let saving = $state(false);
     let error = $state<string | null>(null);
@@ -82,7 +116,7 @@
         const s = JSON.parse(json);
         tables = s.tables; features = s.features;
         deletedTables = s.deletedTables; deletedFeatures = s.deletedFeatures;
-        sel = null;
+        selection = new Set();
     }
     function undo() {
         if (!past.length) return;
@@ -124,6 +158,9 @@
         { label: 'Oval', w: 6, d: 3.5, seats: 4, shape: 'oval' }
     ];
     const FIXTURES = [
+        // Enclosure first: a venue describes itself in rooms, and drawing one
+        // box beats lining up four wall segments by hand.
+        { kind: 'enclosure', label: 'Room', w: 14, d: 10 },
         { kind: 'bar', label: 'Bar', w: 10, d: 2 },
         { kind: 'door', label: 'Door', w: 3, d: 0.6 },
         { kind: 'pillar', label: 'Pillar', w: 1.5, d: 1.5, shape: 'round' },
@@ -138,9 +175,7 @@
     const roomFeatures = $derived(features.filter((f) => f.room_id === roomId));
     const unplaced = $derived(tables.filter((t) => t.room_id === null));
     const seatsHere = $derived(roomTables.filter((t) => t.active).reduce((n, t) => n + t.seats, 0));
-    const selected = $derived(
-        sel === null ? null : (sel.kind === 'table' ? tables[sel.idx] : features[sel.idx])
-    );
+    const selected = $derived(sole ? sole.o : null);
 
     const overlapping = $derived.by(() => {
         const bad = new Set<number>();
@@ -165,9 +200,11 @@
         loading = false;
     }
     function apply(body: any) {
-        rooms = body.rooms; tables = body.tables; features = body.features;
+        rooms = body.rooms;
+        tables = withUids(body.tables);
+        features = withUids(body.features);
         deletedTables = []; deletedFeatures = [];
-        past = []; future = []; dirty = false; sel = null;
+        past = []; future = []; dirty = false; selection = new Set();
     }
     onMount(load);
 
@@ -199,20 +236,74 @@
     }
 
     type Gesture =
-        | { type: 'move'; dx: number; dy: number }
+        | { type: 'move'; dx: number; dy: number;
+            from: { o: any; x: number; y: number }[]; anchor: { x: number; y: number } }
         | { type: 'resize'; handle: Handle }
-        | { type: 'rotate'; grab: number; from: number };
+        | { type: 'rotate'; grab: number; from: number }
+        | { type: 'band'; x0: number; y0: number; add: boolean };
     let gesture: Gesture | null = null;
     let gestureStarted = false;
+    /** The rubber band, in feet, while a marquee drag is in progress. */
+    let band = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
-    function beginMove(e: PointerEvent, kind: 'table' | 'feature', idx: number) {
+    function beginBand(e: PointerEvent) {
+        if (mode === 'live') return;
+        const p = atPointer(e);
+        if (!p) return;
+        // Shift keeps what's already picked, so a marquee can add to a
+        // selection rather than always replacing it.
+        if (!e.shiftKey) selection = new Set();
+        gesture = { type: 'band', x0: p.x, y0: p.y, add: e.shiftKey };
+        gestureStarted = true;
+        band = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+        (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    }
+
+    function finishBand() {
+        if (!band) return;
+        const lo = { x: Math.min(band.x0, band.x1), y: Math.min(band.y0, band.y1) };
+        const hi = { x: Math.max(band.x0, band.x1), y: Math.max(band.y0, band.y1) };
+        const next = new Set(selection);
+        // TOUCHES, not contains. Requiring a table to be fully enclosed means
+        // dragging across a row of them catches nothing, which reads as broken.
+        const hit = (kind: 'table' | 'feature', o: any) => {
+            const e = extents(o as Box);
+            if (Math.abs(o.pos_x - (lo.x + hi.x) / 2) > e.hx + (hi.x - lo.x) / 2) return;
+            if (Math.abs(o.pos_y - (lo.y + hi.y) / 2) > e.hy + (hi.y - lo.y) / 2) return;
+            next.add(keyOf(kind, o));
+        };
+        for (const t of roomTables) hit('table', t);
+        for (const f of roomFeatures) hit('feature', f);
+        selection = next;
+        band = null;
+    }
+
+    function beginMove(e: PointerEvent, kind: 'table' | 'feature', o: any) {
         if (mode === 'live') return;
         e.stopPropagation();
         const p = atPointer(e);
         if (!p) return;
-        sel = { kind, idx };
-        const o: any = kind === 'table' ? tables[idx] : features[idx];
-        gesture = { type: 'move', dx: p.x - o.pos_x, dy: p.y - o.pos_y };
+        const key = keyOf(kind, o);
+
+        if (e.shiftKey) {
+            const next = new Set(selection);
+            next.has(key) ? next.delete(key) : next.add(key);
+            selection = next;
+            if (!next.has(key)) return;        // just deselected — nothing to drag
+        } else if (!selection.has(key)) {
+            // Clicking an unselected object selects only it. Clicking one that
+            // is already selected keeps the group, so dragging any member moves
+            // the whole thing — which is what every editor does and what makes
+            // a multi-selection worth having.
+            selection = new Set([key]);
+        }
+
+        gesture = {
+            type: 'move',
+            dx: p.x - o.pos_x, dy: p.y - o.pos_y,
+            from: picked.map((s) => ({ o: s.o, x: s.o.pos_x, y: s.o.pos_y })),
+            anchor: { x: o.pos_x, y: o.pos_y }
+        };
         gestureStarted = false;
         (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     }
@@ -230,7 +321,8 @@
     }
 
     function onMove(e: PointerEvent) {
-        if (!gesture || !selected || !room) return;
+        if (!gesture || !room) return;
+        if (gesture.type !== 'band' && gesture.type !== 'move' && !selected) return;
         const p = atPointer(e);
         if (!p) return;
         // The snapshot goes in on the FIRST movement, not on pointerdown, so a
@@ -239,8 +331,22 @@
 
         const o: any = selected;
         if (gesture.type === 'move') {
-            o.pos_x = Math.max(0, Math.min(room.width_ft, snapTo(p.x - gesture.dx)));
-            o.pos_y = Math.max(0, Math.min(room.depth_ft, snapTo(p.y - gesture.dy)));
+            // Snap the DELTA, not each object: snapping every member
+            // independently would quietly close up the gaps between them.
+            let dx = snapTo(p.x - gesture.dx) - gesture.anchor.x;
+            let dy = snapTo(p.y - gesture.dy) - gesture.anchor.y;
+            // Clamp so the group's bounding box stays in the room, rather than
+            // clamping each object and shearing the arrangement.
+            const xs = gesture.from.map((f) => f.x);
+            const ys = gesture.from.map((f) => f.y);
+            dx = Math.max(-Math.min(...xs), Math.min(room.width_ft - Math.max(...xs), dx));
+            dy = Math.max(-Math.min(...ys), Math.min(room.depth_ft - Math.max(...ys), dy));
+            for (const f of gesture.from) {
+                f.o.pos_x = f.x + dx;
+                f.o.pos_y = f.y + dy;
+            }
+        } else if (gesture.type === 'band') {
+            band = { x0: gesture.x0, y0: gesture.y0, x1: p.x, y1: p.y };
         } else if (gesture.type === 'resize') {
             const next = resize(o as Box, gesture.handle, p.x, p.y,
                                 { min: 1, snap, keepAspect: e.shiftKey });
@@ -260,6 +366,7 @@
 
     function endGesture(e: PointerEvent) {
         (e.currentTarget as Element)?.releasePointerCapture?.(e.pointerId);
+        if (gesture?.type === 'band') finishBand();
         gesture = null;
     }
 
@@ -269,88 +376,119 @@
         commit();
         tables = [...tables, {
             id: null, name: `Table ${tables.length + 1}`, room_id: room.id,
-            shape: p.shape, color: 'slate',
+            shape: p.shape, color: 'slate', _uid: ++uidSeq,
             pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
             width_ft: p.w, depth_ft: p.d, rotation: 0, seats: p.seats, active: true, notes: null
         }];
-        sel = { kind: 'table', idx: tables.length - 1 };
+        selection = new Set([keyOf('table', tables[tables.length - 1])]);
     }
     function addFixture(f: (typeof FIXTURES)[number]) {
         if (!room) return;
         commit();
         features = [...features, {
             id: null, room_id: room.id, kind: f.kind, label: f.label,
-            shape: (f as any).shape ?? 'rect',
+            shape: (f as any).shape ?? 'rect', _uid: ++uidSeq,
             pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
             width_ft: f.w, depth_ft: f.d, rotation: 0
         }];
-        sel = { kind: 'feature', idx: features.length - 1 };
+        if (f.kind === 'enclosure' || f.kind === 'door') {
+            features[features.length - 1].label = null;
+        }
+        selection = new Set([keyOf('feature', features[features.length - 1])]);
     }
     function removeSelected() {
-        if (!sel) return;
+        if (!picked.length) return;
         commit();
-        if (sel.kind === 'table') {
-            const t = tables[sel.idx];
-            if (t.id !== null) deletedTables = [...deletedTables, t.id];
-            tables = tables.filter((_, i) => i !== sel!.idx);
-        } else {
-            const f = features[sel.idx];
-            if (f.id !== null) deletedFeatures = [...deletedFeatures, f.id];
-            features = features.filter((_, i) => i !== sel!.idx);
-        }
-        sel = null;
+        const goneT = new Set(picked.filter((s) => s.kind === 'table').map((s) => s.o._uid));
+        const goneF = new Set(picked.filter((s) => s.kind === 'feature').map((s) => s.o._uid));
+        for (const t of tables) if (goneT.has(t._uid) && t.id !== null) deletedTables = [...deletedTables, t.id];
+        for (const f of features) if (goneF.has(f._uid) && f.id !== null) deletedFeatures = [...deletedFeatures, f.id];
+        tables = tables.filter((t) => !goneT.has(t._uid));
+        features = features.filter((f) => !goneF.has(f._uid));
+        selection = new Set();
     }
     function duplicateSelected() {
-        if (!sel) return;
+        if (!picked.length) return;
         commit();
-        if (sel.kind === 'table') {
-            const t = tables[sel.idx];
-            tables = [...tables, { ...t, id: null, name: `${t.name} copy`,
-                                   pos_x: t.pos_x + 2, pos_y: t.pos_y + 2 }];
-            sel = { kind: 'table', idx: tables.length - 1 };
-        } else {
-            const f = features[sel.idx];
-            features = [...features, { ...f, id: null, pos_x: f.pos_x + 2, pos_y: f.pos_y + 2 }];
-            sel = { kind: 'feature', idx: features.length - 1 };
+        const next = new Set<string>();
+        const newT = [], newF = [];
+        for (const s of picked) {
+            const copy = { ...s.o, id: null, _uid: ++uidSeq,
+                           pos_x: s.o.pos_x + 2, pos_y: s.o.pos_y + 2 };
+            if (s.kind === 'table') { copy.name = `${s.o.name} copy`; newT.push(copy); }
+            else newF.push(copy);
+            next.add(keyOf(s.kind, copy));
         }
+        tables = [...tables, ...newT];
+        features = [...features, ...newF];
+        // The COPIES become the selection, so a duplicate can be dragged
+        // straight into place without re-picking it.
+        selection = next;
     }
     function nudge(dx: number, dy: number) {
-        if (!selected || !room) return;
+        if (!picked.length || !room) return;
         commit();
         const step = snap || 0.5;
-        (selected as any).pos_x = Math.max(0, Math.min(room.width_ft, selected.pos_x + dx * step));
-        (selected as any).pos_y = Math.max(0, Math.min(room.depth_ft, selected.pos_y + dy * step));
+        for (const s of picked) {
+            s.o.pos_x = Math.max(0, Math.min(room.width_ft, s.o.pos_x + dx * step));
+            s.o.pos_y = Math.max(0, Math.min(room.depth_ft, s.o.pos_y + dy * step));
+        }
         tables = tables; features = features;
     }
     function turn(by: number) {
-        if (!selected) return;
+        if (!picked.length) return;
         commit();
-        (selected as any).rotation = norm(selected.rotation + by);
+        // Each about its OWN centre. Spinning a group around a shared centre is
+        // occasionally what you want and usually not — a row of tables turned
+        // that way ends up somewhere else entirely.
+        for (const s of picked) s.o.rotation = norm(s.o.rotation + by);
         tables = tables; features = features;
     }
+    function selectAll() {
+        const next = new Set<string>();
+        for (const t of roomTables) next.add(keyOf('table', t));
+        for (const f of roomFeatures) next.add(keyOf('feature', f));
+        selection = next;
+    }
     function setColor(color: string) {
-        if (!sel || sel.kind !== 'table') return;
+        const ts = picked.filter((s) => s.kind === 'table');
+        if (!ts.length) return;
         commit();
-        tables[sel.idx].color = color;
+        for (const s of ts) s.o.color = color;
         tables = tables;
     }
     function setShape(shape: string) {
-        if (!selected) return;
+        if (!picked.length) return;
         commit();
-        (selected as any).shape = shape;
+        for (const s of picked) s.o.shape = shape;
         tables = tables; features = features;
     }
     function align(where: string) {
-        if (!selected || !room) return;
+        if (!picked.length || !room) return;
         commit();
-        const o: any = selected;
-        const hw = o.width_ft / 2, hd = o.depth_ft / 2;
-        if (where === 'left') o.pos_x = hw;
-        if (where === 'hcentre') o.pos_x = room.width_ft / 2;
-        if (where === 'right') o.pos_x = room.width_ft - hw;
-        if (where === 'top') o.pos_y = hd;
-        if (where === 'vcentre') o.pos_y = room.depth_ft / 2;
-        if (where === 'bottom') o.pos_y = room.depth_ft - hd;
+        for (const s of picked) {
+            const o: any = s.o;
+            const e = extents(o as Box);
+            if (where === 'left') o.pos_x = e.hx;
+            if (where === 'hcentre') o.pos_x = room.width_ft / 2;
+            if (where === 'right') o.pos_x = room.width_ft - e.hx;
+            if (where === 'top') o.pos_y = e.hy;
+            if (where === 'vcentre') o.pos_y = room.depth_ft / 2;
+            if (where === 'bottom') o.pos_y = room.depth_ft - e.hy;
+        }
+        tables = tables; features = features;
+    }
+
+    /** Spread the selection evenly between its outermost members. */
+    function distribute(axis: 'x' | 'y') {
+        if (picked.length < 3 || !room) return;
+        commit();
+        const key = axis === 'x' ? 'pos_x' : 'pos_y';
+        const sorted = [...picked].sort((a, b) => a.o[key] - b.o[key]);
+        const first = sorted[0].o[key];
+        const last = sorted[sorted.length - 1].o[key];
+        const step = (last - first) / (sorted.length - 1);
+        sorted.forEach((s, i) => { s.o[key] = first + step * i; });
         tables = tables; features = features;
     }
     function placeUnplaced(t: any) {
@@ -360,7 +498,7 @@
         t.pos_x = snapTo(room.width_ft / 2);
         t.pos_y = snapTo(room.depth_ft / 2);
         tables = tables;
-        sel = { kind: 'table', idx: tables.indexOf(t) };
+        selection = new Set([keyOf('table', t)]);
     }
 
     function onKey(e: KeyboardEvent) {
@@ -372,7 +510,9 @@
             e.shiftKey ? redo() : undo();
             return;
         }
-        if (mode === 'live' || !sel) return;
+        if (mode === 'live') return;
+        if (meta && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); return; }
+        if (!picked.length) return;
         const move: Record<string, [number, number]> = {
             ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
         };
@@ -380,7 +520,7 @@
         else if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); }
         else if (e.key === 'r' || e.key === 'R') turn(e.shiftKey ? -15 : 15);
         else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSelected(); }
-        else if (e.key === 'Escape') sel = null;
+        else if (e.key === 'Escape') selection = new Set();
     }
 
     // ---- rooms ----------------------------------------------------------
@@ -596,7 +736,7 @@
             <div class="room-tabs">
                 {#each rooms as r (r.id)}
                     <button class="room-tab" class:active={r.id === roomId}
-                            onclick={() => { roomId = r.id; sel = null; }}>{r.name}</button>
+                            onclick={() => { roomId = r.id; selection = new Set(); }}>{r.name}</button>
                 {/each}
                 {#if mode === 'edit'}
                     <button class="room-tab add"
@@ -630,7 +770,7 @@
                          style="width: {fit.w}px; height: {fit.h}px"
                          viewBox="{view.x} {view.y} {view.w} {view.h}"
                          role="application" aria-label="{room.name} floor plan"
-                         onpointerdown={() => (sel = null)}
+                         onpointerdown={beginBand}
                          onpointermove={onMove}
                          onpointerup={endGesture}
                          onpointercancel={endGesture}>
@@ -646,23 +786,41 @@
                         {#each roomFeatures as f (f.id ?? `n${features.indexOf(f)}`)}
                             {@const i = features.indexOf(f)}
                             <PlanObject o={f} kind="feature" state={f.kind}
-                                        selected={sel?.kind === 'feature' && sel.idx === i}
+                                        selected={isSel('feature', f)}
                                         editing={mode === 'edit'}
-                                        onpick={(e) => beginMove(e, 'feature', i)} />
+                                        onpick={(e) => beginMove(e, 'feature', f)} />
                         {/each}
 
                         {#each roomTables as t (t.id ?? `n${tables.indexOf(t)}`)}
                             {@const i = tables.indexOf(t)}
                             <PlanObject o={t} kind="table" state={stateOf(t)}
-                                        selected={sel?.kind === 'table' && sel.idx === i}
+                                        selected={isSel('table', t)}
                                         clash={mode === 'edit' && overlapping.has(i)}
                                         editing={mode === 'edit'}
                                         bookings={bookingsFor(t)}
-                                        onpick={(e) => beginMove(e, 'table', i)} />
+                                        onpick={(e) => beginMove(e, 'table', t)} />
                         {/each}
 
-                        {#if selected && mode === 'edit'}
-                            <SelectionFrame box={selected as Box} scale={ftPerPx} onstart={beginHandle} />
+                        {#if sole && mode === 'edit'}
+                            <SelectionFrame box={sole.o as Box} scale={ftPerPx} onstart={beginHandle} />
+                        {:else if picked.length > 1 && mode === 'edit' && groupBox}
+                            <!-- A group gets a bounding box but no resize handles.
+                                 Scaling a whole arrangement is a different job
+                                 from resizing one table, and a handle that
+                                 looked the same but did something else would be
+                                 worse than not offering it. -->
+                            <rect class="group-box"
+                                  x={groupBox.x} y={groupBox.y}
+                                  width={groupBox.w} height={groupBox.h}
+                                  stroke-width={Math.max(0.03, 1.2 * ftPerPx)} />
+                        {/if}
+
+                        {#if band}
+                            <rect class="band"
+                                  x={Math.min(band.x0, band.x1)} y={Math.min(band.y0, band.y1)}
+                                  width={Math.abs(band.x1 - band.x0)}
+                                  height={Math.abs(band.y1 - band.y0)}
+                                  stroke-width={Math.max(0.03, 1.2 * ftPerPx)} />
                         {/if}
                     </svg>
                 {/if}
@@ -690,17 +848,63 @@
         <!-- right panel -->
         {#if mode === 'edit'}
             <div class="panel">
-                {#if selected}
-                    {@const isTable = sel?.kind === 'table'}
+                {#if picked.length > 1}
+                    <span class="panel-head">{picked.length} selected</span>
+                    <p class="a-note panel-hint">
+                        Drag any of them to move the group. Everything below applies to all
+                        {picked.length}.
+                    </p>
+
+                    <span class="field-label">Colour</span>
+                    <div class="swatches">
+                        {#each COLORS as [name, fill, edge]}
+                            <button class="swatch" style="--fill: {fill}; --edge: {edge}"
+                                    title={name} aria-label={name}
+                                    onclick={() => setColor(name)}></button>
+                        {/each}
+                    </div>
+
+                    <span class="field-label">Turn</span>
+                    <div class="seg">
+                        <button class="seg-btn" onclick={() => turn(-90)}>⟲ 90°</button>
+                        <button class="seg-btn" onclick={() => turn(-15)}>−15°</button>
+                        <button class="seg-btn" onclick={() => turn(15)}>+15°</button>
+                        <button class="seg-btn" onclick={() => turn(90)}>⟳ 90°</button>
+                    </div>
+
+                    <span class="panel-head">Align to room</span>
+                    <div class="align-grid">
+                        <button class="seg-btn" onclick={() => align('left')} title="Left">⇤</button>
+                        <button class="seg-btn" onclick={() => align('hcentre')} title="Centre">⇔</button>
+                        <button class="seg-btn" onclick={() => align('right')} title="Right">⇥</button>
+                        <button class="seg-btn" onclick={() => align('top')} title="Top">⤒</button>
+                        <button class="seg-btn" onclick={() => align('vcentre')} title="Middle">⇕</button>
+                        <button class="seg-btn" onclick={() => align('bottom')} title="Bottom">⤓</button>
+                    </div>
+
+                    {#if picked.length > 2}
+                        <span class="panel-head">Space evenly</span>
+                        <div class="seg">
+                            <button class="seg-btn" onclick={() => distribute('x')}>Across</button>
+                            <button class="seg-btn" onclick={() => distribute('y')}>Down</button>
+                        </div>
+                    {/if}
+
+                    <div class="p-actions">
+                        <button class="secondary-button" onclick={duplicateSelected}>Duplicate</button>
+                        <button class="danger-button" onclick={removeSelected}>Delete</button>
+                    </div>
+                {:else if sole}
+                    {@const isTable = sole?.kind === 'table'}
                     <span class="panel-head">{isTable ? 'Table' : 'Fixture'}</span>
 
                     <label class="p-field">
                         <span class="field-label">{isTable ? 'Name' : 'Label'}</span>
                         {#if isTable}
-                            <input class="field-input" bind:value={tables[sel!.idx].name}
+                            <input class="field-input" bind:value={sole!.o.name}
                                    oninput={() => (dirty = true)} />
                         {:else}
-                            <input class="field-input" bind:value={features[sel!.idx].label}
+                            <input class="field-input" bind:value={sole!.o.label}
                                    oninput={() => (dirty = true)} />
                         {/if}
                     </label>
@@ -717,7 +921,7 @@
                         <span class="field-label">Colour</span>
                         <div class="swatches">
                             {#each COLORS as [name, fill, edge]}
-                                <button class="swatch" class:active={tables[sel!.idx].color === name}
+                                <button class="swatch" class:active={sole?.o.color === name}
                                         style="--fill: {fill}; --edge: {edge}"
                                         title={name} aria-label={name}
                                         onclick={() => setColor(name)}></button>
@@ -746,14 +950,14 @@
                             <label class="p-field">
                                 <span class="field-label">Seats</span>
                                 <input class="field-input" type="number" min="1" max="20"
-                                       bind:value={tables[sel!.idx].seats} oninput={() => (dirty = true)} />
+                                       bind:value={sole!.o.seats} oninput={() => (dirty = true)} />
                             </label>
                         {/if}
                     </div>
 
                     {#if isTable}
                         <label class="check-row">
-                            <input type="checkbox" bind:checked={tables[sel!.idx].active}
+                            <input type="checkbox" bind:checked={sole!.o.active}
                                    onchange={() => (dirty = true)} />
                             <span>Bookable</span>
                         </label>
@@ -1022,6 +1226,18 @@
        nowhere near the table itself. */
     .canvas :global(*:focus),
     .canvas :global(*:focus-visible) { outline: none; }
+
+    .group-box {
+        fill: none;
+        stroke: var(--color-accent);
+        stroke-dasharray: 0.4 0.3;
+        pointer-events: none;
+    }
+    .band {
+        fill: color-mix(in srgb, var(--color-accent) 12%, transparent);
+        stroke: var(--color-accent);
+        pointer-events: none;
+    }
 
     .floor { fill: #14171d; }
     .walls { fill: none; stroke: #5a5f6b; stroke-width: 0.22; }
