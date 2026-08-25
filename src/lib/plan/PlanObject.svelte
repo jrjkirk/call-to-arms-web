@@ -145,7 +145,11 @@
 <g class="{kind} {state}" class:sel={selected} class:clash class:editing
    onpointerdown={onpick} role="button" tabindex="-1"
    aria-label={o.name ?? o.label ?? kind}>
-    <g transform="translate({o.pos_x} {o.pos_y}) rotate({o.rotation})">
+    <!-- The mirror sits INSIDE the rotation, so flipping a door that's already
+         turned onto a side wall still swaps its hinge rather than its
+         orientation. Scaling by -1 about the local origin is exactly a mirror
+         through the object's own centre, which is what "flip" means here. -->
+    <g transform="translate({o.pos_x} {o.pos_y}) rotate({o.rotation}) scale({o.flip_h ? -1 : 1} {o.flip_v ? -1 : 1})">
         {#if kind === 'feature' && o.kind === 'note'}
             <!-- Annotation is text only, and text lives in the labels group,
                  which takes no pointer events — so there was nothing to grab

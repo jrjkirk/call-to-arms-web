@@ -461,7 +461,8 @@
             id: null, room_id: room.id, kind: f.kind, label: f.label,
             shape: (f as any).shape ?? 'rect', _uid: ++uidSeq,
             pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
-            width_ft: f.w, depth_ft: f.d, rotation: 0, color: (f as any).color ?? 'grey'
+            width_ft: f.w, depth_ft: f.d, rotation: 0,
+            color: (f as any).color ?? 'grey', flip_h: false, flip_v: false
         }];
         if (f.kind === 'enclosure' || f.kind === 'door') {
             features[features.length - 1].label = null;
@@ -529,6 +530,23 @@
         for (const s of colourable) s.o.color = color;
         tables = tables; features = features;
     }
+    /** Mirror the selection. Only doors have a handedness to mirror, so this
+     *  is offered only for them — on a rectangle it would do nothing and look
+     *  like a broken button. */
+    function flip(axis: 'h' | 'v') {
+        const ds = picked.filter((s) => s.kind === 'feature' && s.o.kind === 'door');
+        if (!ds.length) return;
+        commit();
+        for (const s of ds) {
+            if (axis === 'h') s.o.flip_h = !s.o.flip_h;
+            else s.o.flip_v = !s.o.flip_v;
+        }
+        features = features;
+    }
+    const flippable = $derived(
+        picked.filter((s) => s.kind === 'feature' && s.o.kind === 'door')
+    );
+
     function setShape(shape: string) {
         if (!picked.length) return;
         commit();
@@ -1041,6 +1059,20 @@
                                     onclick={() => setShape(k)} aria-label={k}>{glyph}</button>
                         {/each}
                     </div>
+
+                    {#if flippable.length}
+                        <span class="field-label">Opening</span>
+                        <div class="seg">
+                            <button class="seg-btn" class:active={sole?.o.flip_h}
+                                    onclick={() => flip('h')} title="Swap the hinge to the other jamb">
+                                ⇋ Hinge
+                            </button>
+                            <button class="seg-btn" class:active={sole?.o.flip_v}
+                                    onclick={() => flip('v')} title="Open the other way">
+                                ⇵ Swing
+                            </button>
+                        </div>
+                    {/if}
 
                     {#if colourable.length}
                         <span class="field-label">Colour</span>
