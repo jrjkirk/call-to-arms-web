@@ -2,6 +2,21 @@
     /** One table or fixture on the plan: its shape, and its upright label. */
     import { feet, WALL_FT } from './geometry';
 
+    /**
+     * One stroke width for every state.
+     *
+     * SVG centres a stroke on its path, so a 6x4 rect drawn at its nominal
+     * bounds actually covers 6.1 x 4.1 — which is why tables kept biting into
+     * walls they were snapped against. Every shape below is inset by half of
+     * this, putting the OUTER EDGE OF THE OUTLINE exactly on the stated size,
+     * so what the plan measures is what the plan draws.
+     *
+     * It has to be constant across states for that to hold: a thicker stroke
+     * when selected would need a different inset and the footprint would move
+     * as you clicked it. Selection and overlap change colour and dash instead.
+     */
+    const STROKE = 0.12;
+
     let {
         o, kind, state = 'free', selected = false, clash = false,
         editing = true, bookings = [], onpick
@@ -41,17 +56,53 @@
      */
     const CHAR_W = 0.55;
     const MIN_PT = 0.3;
+    /**
+     * The cap. This is what a 6x4 table's name renders at, and nothing gets
+     * bigger — a 20ft toilet block was taking the same rule as a table and
+     * ending up with lettering a foot and a half tall.
+     */
+    const MAX_PT = 1.2;
+    const LINE = 1.15;                       // line height, in multiples of size
 
-    function fitted(text: string, maxW: number, maxH: number): number {
-        const byWidth = (maxW * 0.86) / Math.max(1, text.length * CHAR_W);
-        return Math.max(MIN_PT, Math.min(maxH, byWidth));
+    /** Greedy wrap into exactly `n` lines, or null if it won't go. */
+    function wrapInto(words: string[], n: number): string[] | null {
+        if (words.length < n) return null;
+        const per = Math.ceil(words.length / n);
+        const lines: string[] = [];
+        for (let i = 0; i < words.length; i += per) lines.push(words.slice(i, i + per).join(' '));
+        return lines.length === n ? lines : null;
     }
 
-    /** Cut a name that still won't fit at the minimum size, rather than let it
-     *  spill over the neighbouring tables. */
-    function clip(text: string, maxW: number, size: number): string {
-        const fits = Math.floor((maxW * 0.86) / (size * CHAR_W));
-        return text.length <= fits ? text : text.slice(0, Math.max(1, fits - 1)) + '…';
+    /**
+     * Lay a label out at the largest size it can have, wrapping BEFORE
+     * shrinking. One long word can't wrap, so that still shrinks — and if it
+     * still won't fit at the minimum, it's cut rather than allowed to spill
+     * over the neighbouring tables.
+     */
+    function layout(text: string, maxW: number, maxH: number, cap = MAX_PT) {
+        const words = text.trim().split(/\s+/).filter(Boolean);
+        if (!words.length) return { lines: [] as string[], size: 0 };
+
+        let best = { lines: [text], size: 0 };
+        for (let n = 1; n <= Math.min(3, words.length); n++) {
+            const lines = wrapInto(words, n);
+            if (!lines) continue;
+            const longest = Math.max(...lines.map((l) => l.length));
+            const byWidth = (maxW * 0.86) / (longest * CHAR_W);
+            const byHeight = maxH / (n * LINE);
+            const size = Math.min(cap, byWidth, byHeight);
+            if (size > best.size) best = { lines, size };
+        }
+
+        if (best.size < MIN_PT) {
+            const fits = Math.max(1, Math.floor((maxW * 0.86) / (MIN_PT * CHAR_W)));
+            const flat = best.lines.join(' ');
+            best = {
+                lines: [flat.length <= fits ? flat : flat.slice(0, fits - 1) + '…'],
+                size: MIN_PT
+            };
+        }
+        return best;
     }
 
     const label = $derived(String(o.name ?? o.label ?? ''));
@@ -64,15 +115,15 @@
               : ''
     );
 
-    // Two lines share the height when there are two; one line gets it all.
-    const nameSize = $derived(
-        fitted(label, o.width_ft, o.depth_ft * (sub ? 0.3 : 0.4))
+    // Two lines of content share the height; one gets it all.
+    const head = $derived(layout(label, o.width_ft, o.depth_ft * (sub ? 0.52 : 0.72)));
+    const subSize = $derived(
+        sub ? Math.min(head.size * 0.78, layout(sub, o.width_ft, o.depth_ft * 0.22).size) : 0
     );
-    const subSize = $derived(sub ? fitted(sub, o.width_ft, nameSize * 0.78) : 0);
-    // Stacked from the font sizes themselves, so they can never collide.
-    const nameY = $derived(sub ? -subSize * 0.72 : 0);
-    const subY = $derived(nameSize * 0.72);
-    const shown = $derived(clip(label, o.width_ft, nameSize));
+
+    /** Every line's baseline, stacked about the centre so they can't collide. */
+    const blockH = $derived(head.lines.length * head.size * LINE + (sub ? subSize * LINE : 0));
+    const firstY = $derived(-blockH / 2 + head.size * 0.72);
 
     // The venue's own colour only applies while EDITING. In Tonight the state
     // colour wins: that view exists to be read across a room at a glance, and
@@ -96,6 +147,12 @@
    aria-label={o.name ?? o.label ?? kind}>
     <g transform="translate({o.pos_x} {o.pos_y}) rotate({o.rotation})">
         {#if kind === 'feature' && o.kind === 'note'}
+            <!-- Annotation is text only, and text lives in the labels group,
+                 which takes no pointer events — so there was nothing to grab
+                 and a note couldn't be moved once placed. This is its handle:
+                 invisible, but the size of its box. -->
+            <rect class="note-hit" x={-o.width_ft / 2} y={-o.depth_ft / 2}
+                  width={o.width_ft} height={o.depth_ft} />
             <!-- Annotation: text only. Areas like "Shop" or "Staff only" aren't
                  objects on the floor, so drawing a box round them would be a
                  lie about what's there. -->
@@ -122,15 +179,20 @@
             <line class="door-leaf" x1={-o.width_ft / 2} y1={o.depth_ft / 2}
                   x2={-o.width_ft / 2} y2={o.depth_ft / 2 - o.width_ft} />
         {:else if o.shape === 'round'}
-            {@const r = Math.min(o.width_ft, o.depth_ft) / 2}
+            {@const r = Math.max(0.05, Math.min(o.width_ft, o.depth_ft) / 2 - STROKE / 2)}
             <circle class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} cx="0" cy="0" r={r} />
         {:else if o.shape === 'oval'}
-            <ellipse class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} cx="0" cy="0" rx={o.width_ft / 2} ry={o.depth_ft / 2} />
+            <ellipse class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined}
+                     cx="0" cy="0"
+                     rx={Math.max(0.05, o.width_ft / 2 - STROKE / 2)}
+                     ry={Math.max(0.05, o.depth_ft / 2 - STROKE / 2)} />
         {:else}
             <!-- No corner radius: these are tables, and a plan reads as a plan
                  because its rectangles are rectangles. -->
-            <rect class="body" x={-o.width_ft / 2} y={-o.depth_ft / 2}
-                  width={o.width_ft} height={o.depth_ft}
+            <rect class="body"
+                  x={-o.width_ft / 2 + STROKE / 2} y={-o.depth_ft / 2 + STROKE / 2}
+                  width={Math.max(0.05, o.width_ft - STROKE)}
+                  height={Math.max(0.05, o.depth_ft - STROKE)}
                   style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} />
         {/if}
     </g>
@@ -138,15 +200,19 @@
     <!-- The shape turns; the label doesn't. A rotated table is a real thing at
          an angle, but a name printed sideways is only harder to read. -->
     <g transform="translate({o.pos_x} {o.pos_y})" class="labels">
-        {#if kind === 'feature' && o.kind === 'note'}
-            <text x="0" y="0" class="note-text"
-                  font-size={fitted(label, o.width_ft, o.depth_ft * 0.8)}
-                  style={paint ? `--edge:${paint[1]}` : undefined}>{label}</text>
-        {:else if roomForText && label}
-            <text x="0" y={nameY} class={kind === 'table' ? 'name' : 'sub'}
-                  font-size={nameSize}>{shown}</text>
+        {#if roomForText && head.lines.length}
+            {#each head.lines as line, i}
+                <text x="0" y={firstY + i * head.size * LINE}
+                      class={kind === 'feature' && o.kind === 'note'
+                             ? 'note-text'
+                             : kind === 'table' ? 'name' : 'sub'}
+                      font-size={head.size}
+                      style={kind === 'feature' && o.kind === 'note' && paint
+                             ? `--edge:${paint[1]}` : undefined}>{line}</text>
+            {/each}
             {#if sub}
-                <text x="0" y={subY} class="sub" font-size={subSize}>{sub}</text>
+                <text x="0" y={firstY + head.lines.length * head.size * LINE}
+                      class="sub" font-size={subSize}>{sub}</text>
             {/if}
         {/if}
     </g>
@@ -164,8 +230,16 @@
     .table .body {
         fill: var(--fill, #2a4a63);
         stroke: var(--edge, #7fa8c4);
-        stroke-width: 0.1;
+        stroke-width: 0.12;
         transition: fill 0.15s;
+    }
+
+    /* Invisible but hittable — `fill: none` would let clicks straight through. */
+    .note-hit { fill: transparent; stroke: none; pointer-events: all; }
+    .sel .note-hit {
+        stroke: var(--color-accent);
+        stroke-width: 0.06;
+        stroke-dasharray: 0.3 0.25;
     }
     .table.off .body { fill: #23252b; stroke: #4a4c55; }
     .table.busy .body { fill: #6b3320; stroke: #d4835c; }
@@ -203,12 +277,11 @@
     .door-leaf { stroke: #aeb3bf; stroke-width: 0.16; }
 
 
-    .sel .body { stroke: var(--color-accent); stroke-width: 0.18; }
+    .sel .body { stroke: var(--color-accent); }
     /* Dashed rather than a colour swap: the table's real state is still worth
        seeing while you untangle it. */
     .clash .body {
         stroke: var(--color-loss);
-        stroke-width: 0.2;
         stroke-dasharray: 0.5 0.35;
     }
 

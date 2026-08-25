@@ -166,12 +166,14 @@
         // wall flush instead of sitting proud of it.
         { kind: 'wall', label: 'Wall', w: 8, d: WALL_FT, color: 'grey' },
         { kind: 'door', label: 'Door', w: 3, d: 0.6, color: 'grey' },
-        { kind: 'note', label: 'Shop', w: 8, d: 2, color: 'slate' },
         { kind: 'bar', label: 'Bar', w: 10, d: 2, color: 'amber' },
         { kind: 'pillar', label: 'Pillar', w: 1.5, d: 1.5, shape: 'round', color: 'grey' },
         { kind: 'shelves', label: 'Terrain', w: 6, d: 1.5, color: 'amber' },
         { kind: 'stairs', label: 'Stairs', w: 4, d: 3, color: 'grey' },
-        { kind: 'toilets', label: 'Toilets', w: 6, d: 5, color: 'teal' }
+        { kind: 'toilets', label: 'Toilets', w: 6, d: 5, color: 'teal' },
+        // Last: it's annotation rather than a thing on the floor, so it sits
+        // below the fixtures you'd actually place.
+        { kind: 'note', label: 'Text', w: 8, d: 2, color: 'slate' }
     ];
 
     // Walls, rooms and doors are structure — the palette doesn't apply, because
