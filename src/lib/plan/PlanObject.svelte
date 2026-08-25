@@ -108,13 +108,15 @@
                   x2={-o.width_ft / 2} y2={o.depth_ft / 2 - o.width_ft} />
         {:else if o.shape === 'round'}
             {@const r = Math.min(o.width_ft, o.depth_ft) / 2}
-            <circle class="body" style={paint ? `fill:${paint[0]};stroke:${paint[1]}` : undefined} cx="0" cy="0" r={r} />
+            <circle class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} cx="0" cy="0" r={r} />
         {:else if o.shape === 'oval'}
-            <ellipse class="body" style={paint ? `fill:${paint[0]};stroke:${paint[1]}` : undefined} cx="0" cy="0" rx={o.width_ft / 2} ry={o.depth_ft / 2} />
+            <ellipse class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} cx="0" cy="0" rx={o.width_ft / 2} ry={o.depth_ft / 2} />
         {:else}
+            <!-- No corner radius: these are tables, and a plan reads as a plan
+                 because its rectangles are rectangles. -->
             <rect class="body" x={-o.width_ft / 2} y={-o.depth_ft / 2}
-                  width={o.width_ft} height={o.depth_ft} rx="0.2"
-                  style={paint ? `fill:${paint[0]};stroke:${paint[1]}` : undefined} />
+                  width={o.width_ft} height={o.depth_ft}
+                  style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} />
         {/if}
     </g>
 
@@ -136,9 +138,13 @@
     g:focus { outline: none; }
     .labels { pointer-events: none; }
 
+    /* The venue's colour arrives as --fill/--edge, NOT as inline fill/stroke.
+       An inline declaration beats every stylesheet rule, so a coloured table
+       stopped showing its selection and overlap strokes altogether. As custom
+       properties the cascade below still decides. */
     .table .body {
-        fill: #2a4a63;
-        stroke: #7fa8c4;
+        fill: var(--fill, #2a4a63);
+        stroke: var(--edge, #7fa8c4);
         stroke-width: 0.1;
         transition: fill 0.15s;
     }

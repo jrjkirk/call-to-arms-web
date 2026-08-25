@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from './HelpTip.svelte';
     import PlanObject from './plan/PlanObject.svelte';
@@ -270,6 +270,18 @@
             const e = extents(o as Box);
             if (Math.abs(o.pos_x - (lo.x + hi.x) / 2) > e.hx + (hi.x - lo.x) / 2) return;
             if (Math.abs(o.pos_y - (lo.y + hi.y) / 2) > e.hy + (hi.y - lo.y) / 2) return;
+
+            // A room is a hollow box, so its solid bounding box is the wrong
+            // test: a marquee drawn round the tables INSIDE a room sits fully
+            // within that box and was dragging the room along with them. It's
+            // only caught if the band actually reaches its walls.
+            if (kind === 'feature' && o.kind === 'enclosure') {
+                const inset = 0.6;
+                const inside =
+                    lo.x > o.pos_x - e.hx + inset && hi.x < o.pos_x + e.hx - inset &&
+                    lo.y > o.pos_y - e.hy + inset && hi.y < o.pos_y + e.hy - inset;
+                if (inside) return;
+            }
             next.add(keyOf(kind, o));
         };
         for (const t of roomTables) hit('table', t);
@@ -607,6 +619,33 @@
         return { w: Math.max(1, view.w * k), h: Math.max(1, view.h * k), k };
     });
 
+    /**
+     * Wheel to zoom, keeping whatever is under the cursor under the cursor.
+     *
+     * Zooming about the centre is the lazy version and it's maddening in
+     * practice: you point at the far corner, zoom, and the corner leaves the
+     * screen. So the scroll offset is corrected afterwards to pin the point.
+     */
+    async function onWheel(e: WheelEvent) {
+        if (mode !== 'edit' || !wrapEl) return;
+        e.preventDefault();
+        const rect = wrapEl.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        // Where the cursor is, as a fraction of the whole plan.
+        const fx = (wrapEl.scrollLeft + cx) / Math.max(1, fit.w);
+        const fy = (wrapEl.scrollTop + cy) / Math.max(1, fit.h);
+
+        const step = e.deltaY > 0 ? 0.9 : 1.1;
+        const next = Math.min(6, Math.max(0.3, zoom * step));
+        if (next === zoom) return;
+        zoom = next;
+
+        await tick();
+        wrapEl.scrollLeft = fx * fit.w - cx;
+        wrapEl.scrollTop = fy * fit.h - cy;
+    }
+
     function measure() {
         if (!wrapEl || !room) return;
         boxW = Math.max(1, wrapEl.clientWidth - 20);
@@ -764,7 +803,7 @@
                 </div>
             {/if}
 
-            <div class="canvas-wrap" bind:this={wrapEl}>
+            <div class="canvas-wrap" bind:this={wrapEl} onwheel={onWheel}>
                 {#if room}
                     <svg bind:this={svgEl} class="canvas"
                          style="width: {fit.w}px; height: {fit.h}px"
@@ -837,9 +876,9 @@
                     {/if}
                 </span>
                 <span class="zoomer">
-                    <button class="icon-btn" onclick={() => (zoom = Math.max(0.4, zoom - 0.15))}>−</button>
+                    <button class="icon-btn" onclick={() => (zoom = Math.max(0.3, zoom - 0.15))}>−</button>
                     <span class="zoom-read">{Math.round(zoom * 100)}%</span>
-                    <button class="icon-btn" onclick={() => (zoom = Math.min(3, zoom + 0.15))}>+</button>
+                    <button class="icon-btn" onclick={() => (zoom = Math.min(6, zoom + 0.15))}>+</button>
                     <button class="icon-btn wide" onclick={() => (zoom = 1)}>FIT</button>
                 </span>
             </div>
