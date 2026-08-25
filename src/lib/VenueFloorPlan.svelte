@@ -2,35 +2,24 @@
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from './HelpTip.svelte';
+    import PlanObject from './plan/PlanObject.svelte';
+    import SelectionFrame from './plan/SelectionFrame.svelte';
+    import { angleTo, feet, norm, overlaps, resize, type Box, type Handle } from './plan/geometry';
 
     /**
      * The venue's floor plan: an editor, and a live view of the room.
      *
-     * Everything is in FEET, and every position is the CENTRE of a thing —
-     * rotation is then one SVG transform about that point, with no offset
-     * arithmetic and no drift when a table is turned.
-     *
-     * The SVG's viewBox IS the room in feet, so a 30x20 room is
-     * `viewBox="0 0 30 20"`. Nothing here converts to pixels: pointer positions
-     * come back through the SVG's own inverse transform, which means dragging
-     * stays exact at any zoom and on any screen.
+     * Everything is in FEET, and every position is the CENTRE of a thing.
+     * The SVG's viewBox IS the room, so nothing here converts to pixels —
+     * pointer positions come back through the SVG's own inverse transform,
+     * which keeps dragging exact at any zoom on any screen.
      */
 
     type Room = { id: number; name: string; width_ft: number; depth_ft: number; notes: string | null };
-    type Table = {
-        id: number | null; name: string; room_id: number | null;
-        pos_x: number | null; pos_y: number | null;
-        width_ft: number; depth_ft: number; rotation: number;
-        seats: number; active: boolean; notes: string | null; size_label?: string | null;
-    };
-    type Feature = {
-        id: number | null; room_id: number; kind: string; label: string | null;
-        pos_x: number; pos_y: number; width_ft: number; depth_ft: number; rotation: number;
-    };
 
-    let rooms = $state<Room[]>([]);
-    let tables = $state<Table[]>([]);
-    let features = $state<Feature[]>([]);
+    let rooms = $state<any[]>([]);
+    let tables = $state<any[]>([]);
+    let features = $state<any[]>([]);
     let deletedTables = $state<number[]>([]);
     let deletedFeatures = $state<number[]>([]);
 
@@ -42,28 +31,67 @@
     let message = $state<string | null>(null);
     let loading = $state(true);
 
-    let snap = $state(0.5);              // feet
+    let snap = $state(0.5);
     let showGrid = $state(true);
     let mode = $state<'edit' | 'live'>('edit');
+    let zoom = $state(1);
 
-    // Live view
     let liveDate = $state(new Date().toISOString().slice(0, 10));
     let liveAt = $state('');
     let occupancy = $state<any>(null);
 
     let svgEl: SVGSVGElement | null = $state(null);
+    let wrapEl: HTMLDivElement | null = $state(null);
+    let pxPerFt = $state(20);
 
-    const PRESETS = [
-        { label: '6×4', w: 6, d: 4, seats: 2 },
-        { label: '4×4', w: 4, d: 4, seats: 2 },
-        { label: '8×4', w: 8, d: 4, seats: 4 },
-        { label: '6×3', w: 6, d: 3, seats: 2 },
-        { label: 'Round 4′', w: 4, d: 4, seats: 4 }
+    // ---- undo -----------------------------------------------------------
+    // A direct-manipulation editor without undo is one people are afraid of, so
+    // every committed gesture snapshots the plan. Positions only — rooms are
+    // saved server-side the moment they change, and rolling those back here
+    // would leave the two out of step.
+    let past = $state<string[]>([]);
+    let future = $state<string[]>([]);
+    const snapshot = () => JSON.stringify({ tables, features, deletedTables, deletedFeatures });
+
+    function commit() {
+        past = [...past.slice(-49), snapshot()];
+        future = [];
+        dirty = true;
+    }
+    function restore(json: string) {
+        const s = JSON.parse(json);
+        tables = s.tables; features = s.features;
+        deletedTables = s.deletedTables; deletedFeatures = s.deletedFeatures;
+        sel = null;
+    }
+    function undo() {
+        if (!past.length) return;
+        future = [snapshot(), ...future];
+        const prev = past[past.length - 1];
+        past = past.slice(0, -1);
+        restore(prev);
+        dirty = true;
+    }
+    function redo() {
+        if (!future.length) return;
+        past = [...past, snapshot()];
+        restore(future[0]);
+        future = future.slice(1);
+        dirty = true;
+    }
+
+    const TABLE_PRESETS = [
+        { label: '6×4', w: 6, d: 4, seats: 2, shape: 'rect' },
+        { label: '4×4', w: 4, d: 4, seats: 2, shape: 'rect' },
+        { label: '8×4', w: 8, d: 4, seats: 4, shape: 'rect' },
+        { label: '6×3', w: 6, d: 3, seats: 2, shape: 'rect' },
+        { label: 'Round', w: 4, d: 4, seats: 4, shape: 'round' },
+        { label: 'Oval', w: 6, d: 3.5, seats: 4, shape: 'oval' }
     ];
-    const FEATURES = [
+    const FIXTURES = [
         { kind: 'bar', label: 'Bar', w: 10, d: 2 },
         { kind: 'door', label: 'Door', w: 3, d: 0.6 },
-        { kind: 'pillar', label: 'Pillar', w: 1.5, d: 1.5 },
+        { kind: 'pillar', label: 'Pillar', w: 1.5, d: 1.5, shape: 'round' },
         { kind: 'shelves', label: 'Terrain', w: 6, d: 1.5 },
         { kind: 'stairs', label: 'Stairs', w: 4, d: 3 },
         { kind: 'toilets', label: 'Toilets', w: 6, d: 5 },
@@ -75,142 +103,156 @@
     const roomFeatures = $derived(features.filter((f) => f.room_id === roomId));
     const unplaced = $derived(tables.filter((t) => t.room_id === null));
     const seatsHere = $derived(roomTables.filter((t) => t.active).reduce((n, t) => n + t.seats, 0));
+    const selected = $derived(
+        sel === null ? null : (sel.kind === 'table' ? tables[sel.idx] : features[sel.idx])
+    );
 
+    const overlapping = $derived.by(() => {
+        const bad = new Set<number>();
+        const list = roomTables;
+        for (let i = 0; i < list.length; i++)
+            for (let j = i + 1; j < list.length; j++) {
+                if (list[i].pos_x == null || list[j].pos_x == null) continue;
+                if (overlaps(list[i] as Box, list[j] as Box)) {
+                    bad.add(tables.indexOf(list[i]));
+                    bad.add(tables.indexOf(list[j]));
+                }
+            }
+        return bad;
+    });
+
+    // ---- data -----------------------------------------------------------
     async function load() {
         loading = true;
         const r = await fetch(`${PUBLIC_API_URL}/venue/admin/layout`, { credentials: 'include' });
-        if (r.ok) {
-            const body = await r.json();
-            apply(body);
-            roomId = rooms[0]?.id ?? null;
-        } else error = 'Could not load the plan.';
+        if (r.ok) { apply(await r.json()); roomId = rooms[0]?.id ?? null; }
+        else error = 'Could not load the plan.';
         loading = false;
     }
-
     function apply(body: any) {
-        rooms = body.rooms;
-        tables = body.tables;
-        features = body.features;
-        deletedTables = [];
-        deletedFeatures = [];
-        dirty = false;
-        sel = null;
+        rooms = body.rooms; tables = body.tables; features = body.features;
+        deletedTables = []; deletedFeatures = [];
+        past = []; future = []; dirty = false; sel = null;
     }
-
     onMount(load);
 
     async function save() {
         saving = true; error = null; message = null;
         const r = await fetch(`${PUBLIC_API_URL}/venue/admin/layout`, {
-            method: 'POST',
-            credentials: 'include',
+            method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                tables, features,
-                deleted_table_ids: deletedTables,
-                deleted_feature_ids: deletedFeatures
-            })
+            body: JSON.stringify({ tables, features,
+                                   deleted_table_ids: deletedTables,
+                                   deleted_feature_ids: deletedFeatures })
         });
         if (r.ok) { apply(await r.json()); message = 'Plan saved.'; }
         else error = (await r.json().catch(() => ({}))).detail || 'Save failed.';
         saving = false;
     }
 
-    // ---- geometry -------------------------------------------------------
+    // ---- pointer --------------------------------------------------------
     const snapTo = (v: number) => (snap > 0 ? Math.round(v / snap) * snap : v);
 
-    /** Pointer position in ROOM FEET. Goes through the SVG's own inverse
-     *  transform rather than measuring the element, so it stays exact however
-     *  the canvas is scaled or scrolled. */
-    function atPointer(e: PointerEvent): { x: number; y: number } | null {
+    function atPointer(e: PointerEvent) {
         if (!svgEl) return null;
         const pt = svgEl.createSVGPoint();
-        pt.x = e.clientX;
-        pt.y = e.clientY;
+        pt.x = e.clientX; pt.y = e.clientY;
         const ctm = svgEl.getScreenCTM();
         if (!ctm) return null;
         const p = pt.matrixTransform(ctm.inverse());
         return { x: p.x, y: p.y };
     }
 
-    let drag: { kind: 'table' | 'feature'; idx: number; dx: number; dy: number } | null = null;
+    type Gesture =
+        | { type: 'move'; dx: number; dy: number }
+        | { type: 'resize'; handle: Handle }
+        | { type: 'rotate'; grab: number; from: number };
+    let gesture: Gesture | null = null;
+    let gestureStarted = false;
 
-    function startDrag(e: PointerEvent, kind: 'table' | 'feature', idx: number) {
+    function beginMove(e: PointerEvent, kind: 'table' | 'feature', idx: number) {
         if (mode === 'live') return;
         e.stopPropagation();
-        (e.currentTarget as Element).setPointerCapture(e.pointerId);
         const p = atPointer(e);
         if (!p) return;
-        const item: any = kind === 'table' ? tables[idx] : features[idx];
         sel = { kind, idx };
-        drag = { kind, idx, dx: p.x - (item.pos_x ?? 0), dy: p.y - (item.pos_y ?? 0) };
+        const o: any = kind === 'table' ? tables[idx] : features[idx];
+        gesture = { type: 'move', dx: p.x - o.pos_x, dy: p.y - o.pos_y };
+        gestureStarted = false;
+        (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     }
 
-    function onDrag(e: PointerEvent) {
-        if (!drag || !room) return;
+    function beginHandle(what: Handle | 'rotate', e: PointerEvent) {
+        if (!selected) return;
+        e.stopPropagation();
         const p = atPointer(e);
         if (!p) return;
-        const item: any = drag.kind === 'table' ? tables[drag.idx] : features[drag.idx];
-        // Clamped to the room so nothing can be dragged out of the building and
-        // lost off-canvas.
-        item.pos_x = Math.max(0, Math.min(room.width_ft, snapTo(p.x - drag.dx)));
-        item.pos_y = Math.max(0, Math.min(room.depth_ft, snapTo(p.y - drag.dy)));
-        if (drag.kind === 'table') tables = tables;
-        else features = features;
-        dirty = true;
+        gesture = what === 'rotate'
+            ? { type: 'rotate', grab: angleTo(selected as Box, p.x, p.y), from: selected.rotation }
+            : { type: 'resize', handle: what };
+        gestureStarted = false;
+        (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     }
 
-    function endDrag(e: PointerEvent) {
-        if (drag) (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
-        drag = null;
-    }
+    function onMove(e: PointerEvent) {
+        if (!gesture || !selected || !room) return;
+        const p = atPointer(e);
+        if (!p) return;
+        // The snapshot goes in on the FIRST movement, not on pointerdown, so a
+        // click that selects without moving doesn't fill the undo stack.
+        if (!gestureStarted) { commit(); gestureStarted = true; }
 
-    const selected = $derived(
-        sel === null ? null : (sel.kind === 'table' ? tables[sel.idx] : features[sel.idx])
-    );
-
-    function rotateSel(by: number) {
-        if (!selected) return;
-        (selected as any).rotation = (((selected as any).rotation + by) % 360 + 360) % 360;
+        const o: any = selected;
+        if (gesture.type === 'move') {
+            o.pos_x = Math.max(0, Math.min(room.width_ft, snapTo(p.x - gesture.dx)));
+            o.pos_y = Math.max(0, Math.min(room.depth_ft, snapTo(p.y - gesture.dy)));
+        } else if (gesture.type === 'resize') {
+            const next = resize(o as Box, gesture.handle, p.x, p.y,
+                                { min: 1, snap, keepAspect: e.shiftKey });
+            o.pos_x = next.pos_x; o.pos_y = next.pos_y;
+            o.width_ft = Math.round(next.width_ft * 100) / 100;
+            o.depth_ft = Math.round(next.depth_ft * 100) / 100;
+        } else {
+            const now = angleTo(o as Box, p.x, p.y);
+            let deg = gesture.from + (now - gesture.grab);
+            // Snapped to 15° unless shift is held — a table at 3.7° is a
+            // mistake, not a decision, and every plan wants square by default.
+            if (!e.shiftKey) deg = Math.round(deg / 15) * 15;
+            o.rotation = norm(deg);
+        }
         tables = tables; features = features;
-        dirty = true;
     }
 
-    function nudge(dx: number, dy: number) {
-        if (!selected || !room) return;
-        const step = snap || 0.5;
-        (selected as any).pos_x = Math.max(0, Math.min(room.width_ft, ((selected as any).pos_x ?? 0) + dx * step));
-        (selected as any).pos_y = Math.max(0, Math.min(room.depth_ft, ((selected as any).pos_y ?? 0) + dy * step));
-        tables = tables; features = features;
-        dirty = true;
+    function endGesture(e: PointerEvent) {
+        (e.currentTarget as Element)?.releasePointerCapture?.(e.pointerId);
+        gesture = null;
     }
 
-    function addTable(p: (typeof PRESETS)[number]) {
+    // ---- object actions -------------------------------------------------
+    function addTable(p: (typeof TABLE_PRESETS)[number]) {
         if (!room) return;
-        const n = tables.length + 1;
+        commit();
         tables = [...tables, {
-            id: null, name: `Table ${n}`, room_id: room.id,
+            id: null, name: `Table ${tables.length + 1}`, room_id: room.id, shape: p.shape,
             pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
-            width_ft: p.w, depth_ft: p.d, rotation: 0,
-            seats: p.seats, active: true, notes: null
+            width_ft: p.w, depth_ft: p.d, rotation: 0, seats: p.seats, active: true, notes: null
         }];
         sel = { kind: 'table', idx: tables.length - 1 };
-        dirty = true;
     }
-
-    function addFeature(f: (typeof FEATURES)[number]) {
+    function addFixture(f: (typeof FIXTURES)[number]) {
         if (!room) return;
+        commit();
         features = [...features, {
             id: null, room_id: room.id, kind: f.kind, label: f.label,
+            shape: (f as any).shape ?? 'rect',
             pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
             width_ft: f.w, depth_ft: f.d, rotation: 0
         }];
         sel = { kind: 'feature', idx: features.length - 1 };
-        dirty = true;
     }
-
     function removeSelected() {
         if (!sel) return;
+        commit();
         if (sel.kind === 'table') {
             const t = tables[sel.idx];
             if (t.id !== null) deletedTables = [...deletedTables, t.id];
@@ -221,68 +263,105 @@
             features = features.filter((_, i) => i !== sel!.idx);
         }
         sel = null;
-        dirty = true;
     }
-
     function duplicateSelected() {
-        if (!sel || sel.kind !== 'table') return;
-        const t = tables[sel.idx];
-        tables = [...tables, {
-            ...t, id: null, name: `${t.name} copy`,
-            pos_x: (t.pos_x ?? 0) + 2, pos_y: (t.pos_y ?? 0) + 2
-        }];
-        sel = { kind: 'table', idx: tables.length - 1 };
-        dirty = true;
+        if (!sel) return;
+        commit();
+        if (sel.kind === 'table') {
+            const t = tables[sel.idx];
+            tables = [...tables, { ...t, id: null, name: `${t.name} copy`,
+                                   pos_x: t.pos_x + 2, pos_y: t.pos_y + 2 }];
+            sel = { kind: 'table', idx: tables.length - 1 };
+        } else {
+            const f = features[sel.idx];
+            features = [...features, { ...f, id: null, pos_x: f.pos_x + 2, pos_y: f.pos_y + 2 }];
+            sel = { kind: 'feature', idx: features.length - 1 };
+        }
     }
-
-    function placeUnplaced(t: Table) {
+    function nudge(dx: number, dy: number) {
+        if (!selected || !room) return;
+        commit();
+        const step = snap || 0.5;
+        (selected as any).pos_x = Math.max(0, Math.min(room.width_ft, selected.pos_x + dx * step));
+        (selected as any).pos_y = Math.max(0, Math.min(room.depth_ft, selected.pos_y + dy * step));
+        tables = tables; features = features;
+    }
+    function turn(by: number) {
+        if (!selected) return;
+        commit();
+        (selected as any).rotation = norm(selected.rotation + by);
+        tables = tables; features = features;
+    }
+    function setShape(shape: string) {
+        if (!selected) return;
+        commit();
+        (selected as any).shape = shape;
+        tables = tables; features = features;
+    }
+    function align(where: string) {
+        if (!selected || !room) return;
+        commit();
+        const o: any = selected;
+        const hw = o.width_ft / 2, hd = o.depth_ft / 2;
+        if (where === 'left') o.pos_x = hw;
+        if (where === 'hcentre') o.pos_x = room.width_ft / 2;
+        if (where === 'right') o.pos_x = room.width_ft - hw;
+        if (where === 'top') o.pos_y = hd;
+        if (where === 'vcentre') o.pos_y = room.depth_ft / 2;
+        if (where === 'bottom') o.pos_y = room.depth_ft - hd;
+        tables = tables; features = features;
+    }
+    function placeUnplaced(t: any) {
         if (!room) return;
+        commit();
         t.room_id = room.id;
         t.pos_x = snapTo(room.width_ft / 2);
         t.pos_y = snapTo(room.depth_ft / 2);
         tables = tables;
         sel = { kind: 'table', idx: tables.indexOf(t) };
-        dirty = true;
     }
 
     function onKey(e: KeyboardEvent) {
-        if (mode === 'live') return;
         const el = e.target as HTMLElement;
         if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-        if (!sel) return;
-        const map: Record<string, [number, number]> = {
+        const meta = e.metaKey || e.ctrlKey;
+        if (meta && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            e.shiftKey ? redo() : undo();
+            return;
+        }
+        if (mode === 'live' || !sel) return;
+        const move: Record<string, [number, number]> = {
             ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
         };
-        if (map[e.key]) { e.preventDefault(); nudge(...map[e.key]); }
-        else if (e.key === 'r' || e.key === 'R') rotateSel(e.shiftKey ? -15 : 15);
+        if (move[e.key]) { e.preventDefault(); nudge(...move[e.key]); }
+        else if (meta && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); }
+        else if (e.key === 'r' || e.key === 'R') turn(e.shiftKey ? -15 : 15);
         else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSelected(); }
-        else if (e.key === 'd' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); duplicateSelected(); }
         else if (e.key === 'Escape') sel = null;
     }
 
     // ---- rooms ----------------------------------------------------------
-    async function saveRoom(r: Room | null, patch: Partial<Room>) {
+    async function saveRoom(r: any, patch: any) {
         error = null;
         const res = await fetch(`${PUBLIC_API_URL}/venue/admin/layout/rooms`, {
-            method: 'POST',
-            credentials: 'include',
+            method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: r?.id ?? null, name: patch.name ?? r?.name ?? 'Room',
-                                   width_ft: patch.width_ft ?? r?.width_ft ?? 30,
-                                   depth_ft: patch.depth_ft ?? r?.depth_ft ?? 20 })
+            body: JSON.stringify({
+                id: r?.id ?? null, name: patch.name ?? r?.name ?? 'Room',
+                width_ft: patch.width_ft ?? r?.width_ft ?? 30,
+                depth_ft: patch.depth_ft ?? r?.depth_ft ?? 20
+            })
         });
         if (res.ok) {
             const body = await res.json();
-            const keep = dirty ? { tables, features, deletedTables, deletedFeatures } : null;
             rooms = body.rooms;
-            if (!keep) { tables = body.tables; features = body.features; }
+            if (!dirty) { tables = body.tables; features = body.features; }
             if (!rooms.find((x) => x.id === roomId)) roomId = rooms[0]?.id ?? null;
         } else error = (await res.json().catch(() => ({}))).detail || 'Could not save the room.';
     }
-
     async function deleteRoom() {
-        if (!room) return;
-        if (!confirm(`Delete ${room.name}? Its tables come off the plan but aren't deleted.`)) return;
+        if (!room || !confirm(`Delete ${room.name}? Its tables come off the plan but aren't deleted.`)) return;
         const res = await fetch(`${PUBLIC_API_URL}/venue/admin/layout/rooms/${room.id}`, {
             method: 'DELETE', credentials: 'include'
         });
@@ -290,81 +369,57 @@
             const body = await res.json();
             apply(body);
             roomId = rooms[0]?.id ?? null;
-            if (body.unplaced) message = `${body.unplaced} table(s) came off the plan — drag them back on.`;
+            if (body.unplaced) message = `${body.unplaced} table(s) came off the plan.`;
         } else error = (await res.json().catch(() => ({}))).detail || 'Could not delete the room.';
     }
 
-    // ---- live view ------------------------------------------------------
+    // ---- live -----------------------------------------------------------
     async function loadOccupancy() {
         const at = liveAt ? `&at=${liveAt}` : '';
-        const r = await fetch(
-            `${PUBLIC_API_URL}/venue/admin/layout/occupancy?date=${liveDate}${at}`,
-            { credentials: 'include' }
-        );
+        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/layout/occupancy?date=${liveDate}${at}`,
+                              { credentials: 'include' });
         occupancy = r.ok ? await r.json() : null;
     }
+    $effect(() => { if (mode === 'live') { liveDate; liveAt; loadOccupancy(); } });
 
-    $effect(() => {
-        if (mode === 'live') { liveDate; liveAt; loadOccupancy(); }
-    });
-
-    function bookingsFor(t: Table) {
-        if (!occupancy || t.id === null) return [];
-        return occupancy.tables[String(t.id)] ?? [];
-    }
-    function isHeld(t: Table) {
-        return occupancy && t.id !== null && occupancy.held_table_ids.includes(t.id);
-    }
-    function stateOf(t: Table): 'off' | 'busy' | 'event' | 'held' | 'free' {
+    const bookingsFor = (t: any) =>
+        !occupancy || t.id === null ? [] : (occupancy.tables[String(t.id)] ?? []);
+    function stateOf(t: any): string {
+        if (mode !== 'live') return t.active ? 'idle' : 'off';
         if (!t.active) return 'off';
         const b = bookingsFor(t);
         if (b.some((x: any) => x.is_event)) return 'event';
         if (b.length) return 'busy';
-        if (isHeld(t)) return 'held';
+        if (occupancy?.held_table_ids?.includes(t.id)) return 'held';
         return 'free';
     }
-
     const liveCount = $derived(
         mode === 'live' && occupancy
-            ? {
-                  busy: roomTables.filter((t) => stateOf(t) === 'busy' || stateOf(t) === 'event').length,
-                  held: roomTables.filter((t) => stateOf(t) === 'held').length,
-                  free: roomTables.filter((t) => stateOf(t) === 'free').length
-              }
+            ? { busy: roomTables.filter((t) => ['busy', 'event'].includes(stateOf(t))).length,
+                held: roomTables.filter((t) => stateOf(t) === 'held').length,
+                free: roomTables.filter((t) => stateOf(t) === 'free').length }
             : null
     );
 
-    /** Half-extents of a rotated rectangle, projected onto the axes. Good
-     *  enough to catch "these two are on top of each other" without a full
-     *  separating-axis test — this is a warning, not a physics engine. */
-    function extents(o: { width_ft: number; depth_ft: number; rotation: number }) {
-        const a = (o.rotation * Math.PI) / 180;
-        const c = Math.abs(Math.cos(a));
-        const s2 = Math.abs(Math.sin(a));
-        return {
-            hx: (o.width_ft * c + o.depth_ft * s2) / 2,
-            hy: (o.width_ft * s2 + o.depth_ft * c) / 2
-        };
-    }
+    // ---- viewport -------------------------------------------------------
+    const pad = 2;
+    const view = $derived(room
+        ? { x: -pad, y: -pad, w: room.width_ft + pad * 2, h: room.depth_ft + pad * 2 }
+        : { x: 0, y: 0, w: 10, h: 10 });
 
-    const overlapping = $derived.by(() => {
-        const bad = new Set<number>();
-        const list = roomTables;
-        for (let i = 0; i < list.length; i++) {
-            for (let j = i + 1; j < list.length; j++) {
-                const a = list[i], b = list[j];
-                if (a.pos_x == null || b.pos_x == null) continue;
-                const ea = extents(a), eb = extents(b);
-                // A hair of tolerance so two tables pushed exactly edge to edge
-                // — which venues do on purpose — aren't flagged.
-                if (Math.abs(a.pos_x - b.pos_x) < ea.hx + eb.hx - 0.05 &&
-                    Math.abs((a.pos_y ?? 0) - (b.pos_y ?? 0)) < ea.hy + eb.hy - 0.05) {
-                    bad.add(tables.indexOf(a));
-                    bad.add(tables.indexOf(b));
-                }
-            }
-        }
-        return bad;
+    /** Feet per screen pixel — handles and dimension text are sized from this
+     *  so they stay a constant size however far the plan is zoomed. */
+    const ftPerPx = $derived(pxPerFt > 0 ? 1 / pxPerFt : 0.05);
+
+    function measure() {
+        if (!wrapEl || !room) return;
+        pxPerFt = (wrapEl.clientWidth * zoom) / view.w;
+    }
+    $effect(() => { zoom; roomId; rooms.length; measure(); });
+    onMount(() => {
+        const ro = new ResizeObserver(measure);
+        if (wrapEl) ro.observe(wrapEl);
+        return () => ro.disconnect();
     });
 
     function gridLines(r: Room) {
@@ -376,10 +431,36 @@
         return out;
     }
 
-    const FEATURE_FILL: Record<string, string> = {
-        bar: '#6b4f2a', door: '#2f2f38', pillar: '#3a3a44', shelves: '#4a3d2c',
-        stairs: '#3a3a44', toilets: '#2f3a3a', wall: '#4a4a54'
-    };
+    async function exportPng() {
+        if (!svgEl || !room) return;
+        // Clone so the export never carries the selection frame or the grid —
+        // a plan pinned to the staff-room wall shouldn't have editor furniture
+        // on it.
+        const clone = svgEl.cloneNode(true) as SVGSVGElement;
+        clone.querySelectorAll('.frame, .grid').forEach((n) => n.remove());
+        const px = 100;
+        clone.setAttribute('width', String(view.w * px / 4));
+        clone.setAttribute('height', String(view.h * px / 4));
+        const blob = new Blob(
+            [`<?xml version="1.0"?>` + new XMLSerializer().serializeToString(clone)],
+            { type: 'image/svg+xml' }
+        );
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+        const canvas = document.createElement('canvas');
+        canvas.width = view.w * px / 4;
+        canvas.height = view.h * px / 4;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = '#0d0f13';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        const a = document.createElement('a');
+        a.download = `${room.name.replace(/\W+/g, '-').toLowerCase()}-plan.png`;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+    }
 </script>
 
 <svelte:window on:keydown={onKey} />
@@ -387,303 +468,316 @@
 {#if loading}
     <p class="a-note">Loading the plan…</p>
 {:else}
-<div class="a-card plan-card">
-    <div class="a-head">
-        <h2 class="a-title">Floor plan</h2>
-        <HelpTip
-            label="floor plan"
-            text={"Your venue drawn to scale, in feet. Drag to move, R to turn, arrow keys to nudge, Delete to remove.\n\nSwitch to Tonight to see the same room with its bookings on it — which table is busy, which is held for a club night, which is free."}
-        />
-        <span class="a-head-end mode-toggle">
-            <button class="view-btn" class:active={mode === 'edit'} onclick={() => (mode = 'edit')}>Edit</button>
-            <button class="view-btn" class:active={mode === 'live'} onclick={() => (mode = 'live')}>Tonight</button>
+<div class="editor" class:live={mode === 'live'}>
+    <!-- top bar -->
+    <div class="bar top">
+        <span class="bar-left">
+            <span class="a-title">Floor plan</span>
+            <HelpTip
+                label="floor plan"
+                text={"Your venue drawn to scale. Click something to pick it up: drag to move, corner handles to resize, the arm above it to turn.\n\nTurning snaps to 15°, and resizing to your snap setting — hold Shift to override either.\n\nSwitch to Tonight to see the same room with its bookings on it."}
+            />
+        </span>
+        <span class="bar-mid">
+            <button class="icon-btn" disabled={!past.length} onclick={undo} title="Undo (Ctrl+Z)">↶</button>
+            <button class="icon-btn" disabled={!future.length} onclick={redo} title="Redo (Ctrl+Shift+Z)">↷</button>
+        </span>
+        <span class="bar-right">
+            {#if dirty}<span class="unsaved">● Unsaved</span>{/if}
+            <span class="mode-toggle">
+                <button class="view-btn" class:active={mode === 'edit'} onclick={() => (mode = 'edit')}>Edit</button>
+                <button class="view-btn" class:active={mode === 'live'} onclick={() => (mode = 'live')}>Tonight</button>
+            </span>
+            {#if mode === 'edit'}
+                <button class="primary-button" disabled={saving || !dirty} onclick={save}>
+                    {saving ? 'Saving…' : 'Save'}
+                </button>
+            {/if}
+            <button class="secondary-button" onclick={exportPng}>Export PNG</button>
         </span>
     </div>
 
-    <div class="room-tabs">
-        {#each rooms as r (r.id)}
-            <button class="room-tab" class:active={r.id === roomId} onclick={() => { roomId = r.id; sel = null; }}>
-                {r.name}
-            </button>
-        {/each}
+    <div class="body">
+        <!-- left rail -->
         {#if mode === 'edit'}
-            <button class="room-tab add" onclick={() => saveRoom(null, { name: `Room ${rooms.length + 1}` })}>+ Room</button>
+            <div class="rail">
+                <span class="rail-head">Tables</span>
+                {#each TABLE_PRESETS as p}
+                    <button class="rail-btn" onclick={() => addTable(p)}>
+                        <span class="rail-ico {p.shape}"></span>{p.label}
+                    </button>
+                {/each}
+                <span class="rail-head">Fixtures</span>
+                {#each FIXTURES as f}
+                    <button class="rail-btn subtle" onclick={() => addFixture(f)}>{f.label}</button>
+                {/each}
+                <span class="rail-head">Grid</span>
+                <select class="rail-select" bind:value={snap} aria-label="Snap">
+                    <option value={0}>No snap</option>
+                    <option value={0.25}>Snap 3″</option>
+                    <option value={0.5}>Snap 6″</option>
+                    <option value={1}>Snap 1 ft</option>
+                </select>
+                <label class="check-row rail-check">
+                    <input type="checkbox" bind:checked={showGrid} />
+                    <span>Show grid</span>
+                </label>
+            </div>
+        {/if}
+
+        <!-- canvas -->
+        <div class="stage">
+            <div class="room-tabs">
+                {#each rooms as r (r.id)}
+                    <button class="room-tab" class:active={r.id === roomId}
+                            onclick={() => { roomId = r.id; sel = null; }}>{r.name}</button>
+                {/each}
+                {#if mode === 'edit'}
+                    <button class="room-tab add"
+                            onclick={() => saveRoom(null, { name: `Room ${rooms.length + 1}` })}>+ Room</button>
+                {/if}
+            </div>
+
+            {#if mode === 'live'}
+                <div class="live-bar">
+                    <input class="mini-input" type="date" bind:value={liveDate} aria-label="Date" />
+                    <input class="mini-input" type="time" bind:value={liveAt} aria-label="At" />
+                    {#if liveAt}<button class="chip" onclick={() => (liveAt = '')}>Whole day</button>{/if}
+                    {#if liveCount}
+                        <span class="live-key">
+                            <span class="key busy"></span>{liveCount.busy} busy
+                            <span class="key held"></span>{liveCount.held} held
+                            <span class="key free"></span>{liveCount.free} free
+                        </span>
+                    {/if}
+                    {#if occupancy?.club_nights?.length}
+                        <span class="live-note">
+                            {occupancy.club_nights.map((n: any) => n.system).join(' · ')}
+                        </span>
+                    {/if}
+                </div>
+            {/if}
+
+            <div class="canvas-wrap" bind:this={wrapEl}>
+                {#if room}
+                    <svg bind:this={svgEl} class="canvas"
+                         style="width: {zoom * 100}%"
+                         viewBox="{view.x} {view.y} {view.w} {view.h}"
+                         role="application" aria-label="{room.name} floor plan"
+                         onpointerdown={() => (sel = null)}
+                         onpointermove={onMove}
+                         onpointerup={endGesture}
+                         onpointercancel={endGesture}>
+                        <rect class="floor" x="0" y="0" width={room.width_ft} height={room.depth_ft} />
+                        {#if showGrid && mode === 'edit'}
+                            {#each gridLines(room) as l}
+                                <line class="grid" class:major={l.major}
+                                      x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
+                            {/each}
+                        {/if}
+                        <rect class="walls" x="0" y="0" width={room.width_ft} height={room.depth_ft} />
+
+                        {#each roomFeatures as f (f.id ?? `n${features.indexOf(f)}`)}
+                            {@const i = features.indexOf(f)}
+                            <PlanObject o={f} kind="feature" state={f.kind}
+                                        selected={sel?.kind === 'feature' && sel.idx === i}
+                                        editing={mode === 'edit'}
+                                        onpick={(e) => beginMove(e, 'feature', i)} />
+                        {/each}
+
+                        {#each roomTables as t (t.id ?? `n${tables.indexOf(t)}`)}
+                            {@const i = tables.indexOf(t)}
+                            <PlanObject o={t} kind="table" state={stateOf(t)}
+                                        selected={sel?.kind === 'table' && sel.idx === i}
+                                        clash={mode === 'edit' && overlapping.has(i)}
+                                        editing={mode === 'edit'}
+                                        bookings={bookingsFor(t)}
+                                        onpick={(e) => beginMove(e, 'table', i)} />
+                        {/each}
+
+                        {#if selected && mode === 'edit'}
+                            <SelectionFrame box={selected as Box} scale={ftPerPx} onstart={beginHandle} />
+                        {/if}
+                    </svg>
+                {/if}
+            </div>
+
+            <!-- status bar -->
+            <div class="bar status">
+                <span>{room?.name ?? '—'} · {room ? `${feet(room.width_ft)} × ${feet(room.depth_ft)}` : ''}</span>
+                <span>
+                    {roomTables.length} table{roomTables.length === 1 ? '' : 's'} ·
+                    {seatsHere} seats
+                    {#if overlapping.size}
+                        <span class="warn"> · {overlapping.size} overlapping</span>
+                    {/if}
+                </span>
+                <span class="zoomer">
+                    <button class="icon-btn" onclick={() => (zoom = Math.max(0.4, zoom - 0.15))}>−</button>
+                    <span class="zoom-read">{Math.round(zoom * 100)}%</span>
+                    <button class="icon-btn" onclick={() => (zoom = Math.min(3, zoom + 0.15))}>+</button>
+                    <button class="icon-btn wide" onclick={() => (zoom = 1)}>FIT</button>
+                </span>
+            </div>
+        </div>
+
+        <!-- right panel -->
+        {#if mode === 'edit'}
+            <div class="panel">
+                {#if selected}
+                    {@const isTable = sel?.kind === 'table'}
+                    <span class="panel-head">{isTable ? 'Table' : 'Fixture'}</span>
+
+                    <label class="p-field">
+                        <span class="field-label">{isTable ? 'Name' : 'Label'}</span>
+                        {#if isTable}
+                            <input class="field-input" bind:value={tables[sel!.idx].name}
+                                   oninput={() => (dirty = true)} />
+                        {:else}
+                            <input class="field-input" bind:value={features[sel!.idx].label}
+                                   oninput={() => (dirty = true)} />
+                        {/if}
+                    </label>
+
+                    <span class="field-label">Shape</span>
+                    <div class="seg">
+                        {#each [['rect', '▭'], ['round', '◯'], ['oval', '⬭']] as [k, glyph]}
+                            <button class="seg-btn" class:active={selected.shape === k}
+                                    onclick={() => setShape(k)} aria-label={k}>{glyph}</button>
+                        {/each}
+                    </div>
+
+                    <div class="p-grid">
+                        <label class="p-field">
+                            <span class="field-label">Width ft</span>
+                            <input class="field-input" type="number" step="0.5" min="1" max="100"
+                                   bind:value={selected.width_ft} oninput={() => (dirty = true)} />
+                        </label>
+                        <label class="p-field">
+                            <span class="field-label">Depth ft</span>
+                            <input class="field-input" type="number" step="0.5" min="1" max="100"
+                                   bind:value={selected.depth_ft} oninput={() => (dirty = true)} />
+                        </label>
+                        <label class="p-field">
+                            <span class="field-label">Turn °</span>
+                            <input class="field-input" type="number" step="15" min="0" max="359"
+                                   bind:value={selected.rotation} oninput={() => (dirty = true)} />
+                        </label>
+                        {#if isTable}
+                            <label class="p-field">
+                                <span class="field-label">Seats</span>
+                                <input class="field-input" type="number" min="1" max="20"
+                                       bind:value={tables[sel!.idx].seats} oninput={() => (dirty = true)} />
+                            </label>
+                        {/if}
+                    </div>
+
+                    {#if isTable}
+                        <label class="check-row">
+                            <input type="checkbox" bind:checked={tables[sel!.idx].active}
+                                   onchange={() => (dirty = true)} />
+                            <span>Bookable</span>
+                        </label>
+                    {/if}
+
+                    <span class="panel-head">Align to room</span>
+                    <div class="align-grid">
+                        <button class="seg-btn" onclick={() => align('left')} title="Left">⇤</button>
+                        <button class="seg-btn" onclick={() => align('hcentre')} title="Centre">⇔</button>
+                        <button class="seg-btn" onclick={() => align('right')} title="Right">⇥</button>
+                        <button class="seg-btn" onclick={() => align('top')} title="Top">⤒</button>
+                        <button class="seg-btn" onclick={() => align('vcentre')} title="Middle">⇕</button>
+                        <button class="seg-btn" onclick={() => align('bottom')} title="Bottom">⤓</button>
+                    </div>
+
+                    <div class="p-actions">
+                        <button class="secondary-button" onclick={duplicateSelected}>Duplicate</button>
+                        <button class="danger-button" onclick={removeSelected}>Delete</button>
+                    </div>
+                {:else}
+                    <span class="panel-head">Room</span>
+                    <label class="p-field">
+                        <span class="field-label">Name</span>
+                        <input class="field-input" value={room?.name ?? ''}
+                               onchange={(e) => saveRoom(room, { name: (e.currentTarget as HTMLInputElement).value })} />
+                    </label>
+                    <div class="p-grid">
+                        <label class="p-field">
+                            <span class="field-label">Width ft</span>
+                            <input class="field-input" type="number" step="1" min="4" max="400"
+                                   value={room?.width_ft}
+                                   onchange={(e) => saveRoom(room, { width_ft: Number((e.currentTarget as HTMLInputElement).value) })} />
+                        </label>
+                        <label class="p-field">
+                            <span class="field-label">Depth ft</span>
+                            <input class="field-input" type="number" step="1" min="4" max="400"
+                                   value={room?.depth_ft}
+                                   onchange={(e) => saveRoom(room, { depth_ft: Number((e.currentTarget as HTMLInputElement).value) })} />
+                        </label>
+                    </div>
+                    {#if rooms.length > 1}
+                        <button class="danger-button" onclick={deleteRoom}>Delete room</button>
+                    {/if}
+                    <p class="a-note panel-hint">
+                        Click a table to edit it. Drag to move · handles to resize ·
+                        the arm above to turn · <kbd>R</kbd> · arrows · <kbd>Del</kbd>
+                    </p>
+                {/if}
+
+                {#if unplaced.length}
+                    <span class="panel-head">Not on the plan</span>
+                    <div class="tray">
+                        {#each unplaced as t}
+                            <button class="chip" onclick={() => placeUnplaced(t)}>{t.name} ↗</button>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
         {/if}
     </div>
 
-    {#if room}
-        {#if mode === 'edit'}
-            <div class="toolbar">
-                <span class="tool-group">
-                    <span class="tool-label">Add table</span>
-                    {#each PRESETS as p}
-                        <button class="chip" onclick={() => addTable(p)}>{p.label}</button>
-                    {/each}
-                </span>
-                <span class="tool-group">
-                    <span class="tool-label">Add fixture</span>
-                    {#each FEATURES as f}
-                        <button class="chip subtle" onclick={() => addFeature(f)}>{f.label}</button>
-                    {/each}
-                </span>
-                <span class="tool-group">
-                    <label class="tool-label" for="snap">Snap</label>
-                    <select id="snap" class="mini-select" bind:value={snap}>
-                        <option value={0}>Off</option>
-                        <option value={0.25}>3″</option>
-                        <option value={0.5}>6″</option>
-                        <option value={1}>1 ft</option>
-                    </select>
-                    <label class="check-row">
-                        <input type="checkbox" bind:checked={showGrid} />
-                        <span>Grid</span>
-                    </label>
-                </span>
-            </div>
-        {:else}
-            <div class="toolbar">
-                <label class="tool-label" for="live-date">Date</label>
-                <input id="live-date" class="mini-input" type="date" bind:value={liveDate} />
-                <label class="tool-label" for="live-at">At</label>
-                <input id="live-at" class="mini-input" type="time" bind:value={liveAt} />
-                {#if liveAt}
-                    <button class="chip subtle" onclick={() => (liveAt = '')}>Whole day</button>
-                {/if}
-                {#if liveCount}
-                    <span class="live-key">
-                        <span class="key busy"></span> {liveCount.busy} busy
-                        <span class="key held"></span> {liveCount.held} held
-                        <span class="key free"></span> {liveCount.free} free
-                    </span>
-                {/if}
-            </div>
-            {#if occupancy?.club_nights?.length}
-                <p class="a-note">
-                    {occupancy.club_nights.map((n: any) => n.system + (n.start_time ? ` from ${n.start_time}` : '')).join(' · ')}
-                </p>
-            {/if}
-        {/if}
-
-        <div class="canvas-wrap">
-            <svg
-                bind:this={svgEl}
-                class="canvas"
-                viewBox="-1 -1 {room.width_ft + 2} {room.depth_ft + 4}"
-                role="application"
-                aria-label="{room.name} floor plan"
-                onpointerdown={() => (sel = null)}
-            >
-                <rect class="floor" x="0" y="0" width={room.width_ft} height={room.depth_ft} />
-
-                {#if showGrid && mode === 'edit'}
-                    {#each gridLines(room) as l}
-                        <line class="grid" class:major={l.major}
-                              x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
-                    {/each}
-                {/if}
-
-                <rect class="walls" x="0" y="0" width={room.width_ft} height={room.depth_ft} />
-
-                {#each roomFeatures as f (f.id ?? `n${features.indexOf(f)}`)}
-                    {@const i = features.indexOf(f)}
-                    <g transform="translate({f.pos_x} {f.pos_y}) rotate({f.rotation})"
-                       class="feature" class:sel={sel?.kind === 'feature' && sel.idx === i}
-                       onpointerdown={(e) => startDrag(e, 'feature', i)}
-                       onpointermove={onDrag}
-                       onpointerup={endDrag}
-                       role="button" tabindex="-1">
-                        <rect x={-f.width_ft / 2} y={-f.depth_ft / 2}
-                              width={f.width_ft} height={f.depth_ft}
-                              fill={FEATURE_FILL[f.kind] ?? '#44444e'} />
-                    </g>
-                    {#if f.label && f.width_ft >= 3}
-                        <g transform="translate({f.pos_x} {f.pos_y})" class="labels">
-                            <text x="0" y="0" class="feature-label"
-                                  font-size={Math.min(1.1, Math.min(f.width_ft, f.depth_ft) * 0.6)}>{f.label}</text>
-                        </g>
-                    {/if}
-                {/each}
-
-                {#each roomTables as t (t.id ?? `n${tables.indexOf(t)}`)}
-                    {@const i = tables.indexOf(t)}
-                    {@const st = mode === 'live' ? stateOf(t) : (t.active ? 'free' : 'off')}
-                    {@const bk = mode === 'live' ? bookingsFor(t) : []}
-                    <g class="table {st}"
-                       class:sel={sel?.kind === 'table' && sel.idx === i}
-                       class:editing={mode === 'edit'}
-                       class:clash={mode === 'edit' && overlapping.has(i)}
-                       onpointerdown={(e) => startDrag(e, 'table', i)}
-                       onpointermove={onDrag}
-                       onpointerup={endDrag}
-                       role="button" tabindex="-1">
-                        <!-- The shape turns; the LABEL DOESN'T. A rotated table
-                             is a real thing at an angle, but a name printed
-                             sideways is just harder to read — which is why every
-                             floor-plan tool keeps its labels upright. Two groups
-                             rather than counter-rotating the text, so the label
-                             never swings about the table's centre. -->
-                        <g transform="translate({t.pos_x} {t.pos_y}) rotate({t.rotation})">
-                            <rect class="top" x={-t.width_ft / 2} y={-t.depth_ft / 2}
-                                  width={t.width_ft} height={t.depth_ft} rx="0.2" />
-                        </g>
-                        <g transform="translate({t.pos_x} {t.pos_y})" class="labels">
-                            <text x="0" y={bk.length ? -0.25 : 0.35} class="tname"
-                                  font-size={Math.min(1.2, Math.min(t.width_ft, t.depth_ft) * 0.34)}>{t.name}</text>
-                            {#if bk.length}
-                                <text x="0" y="1.05" class="tsub"
-                                      font-size={Math.min(0.9, Math.min(t.width_ft, t.depth_ft) * 0.26)}>
-                                    {bk[0].start}–{bk[0].end}{bk.length > 1 ? ` +${bk.length - 1}` : ''}
-                                </text>
-                            {:else if mode === 'edit'}
-                                <text x="0" y="1.0" class="tsub"
-                                      font-size={Math.min(0.8, Math.min(t.width_ft, t.depth_ft) * 0.22)}>
-                                    {t.width_ft}×{t.depth_ft}
-                                </text>
-                            {/if}
-                        </g>
-                    </g>
-                {/each}
-
-                <!-- Scale bar: without it "30 wide" is just a number, and the
-                     first thing anyone asks of a plan is how big it really is. -->
-                <line class="scale" x1="0" y1={room.depth_ft + 1.4}
-                      x2="10" y2={room.depth_ft + 1.4} />
-                <line class="scale" x1="0" y1={room.depth_ft + 1.15} x2="0" y2={room.depth_ft + 1.65} />
-                <line class="scale" x1="10" y1={room.depth_ft + 1.15} x2="10" y2={room.depth_ft + 1.65} />
-                <text x="5" y={room.depth_ft + 2.5} class="scale-label" font-size="0.8">10 ft</text>
-            </svg>
-        </div>
-
-        {#if mode === 'edit'}
-            <div class="below">
-                <div class="inspector">
-                    {#if selected}
-                        {#if sel?.kind === 'table'}
-                            {@const t = selected as Table}
-                            <div class="insp-row">
-                                <input class="field-input insp-name" bind:value={t.name}
-                                       oninput={() => (dirty = true)} aria-label="Table name" />
-                                <label class="insp-num">
-                                    <span class="field-label-hint">Wide</span>
-                                    <input class="field-input" type="number" step="0.5" min="1" max="100"
-                                           bind:value={t.width_ft} oninput={() => (dirty = true)} />
-                                </label>
-                                <label class="insp-num">
-                                    <span class="field-label-hint">Deep</span>
-                                    <input class="field-input" type="number" step="0.5" min="1" max="100"
-                                           bind:value={t.depth_ft} oninput={() => (dirty = true)} />
-                                </label>
-                                <label class="insp-num">
-                                    <span class="field-label-hint">Seats</span>
-                                    <input class="field-input" type="number" min="1" max="20"
-                                           bind:value={t.seats} oninput={() => (dirty = true)} />
-                                </label>
-                                <label class="check-row">
-                                    <input type="checkbox" bind:checked={t.active}
-                                           onchange={() => (dirty = true)} />
-                                    <span>Bookable</span>
-                                </label>
-                            </div>
-                        {:else}
-                            {@const f = selected as Feature}
-                            <div class="insp-row">
-                                <input class="field-input insp-name" bind:value={f.label}
-                                       oninput={() => (dirty = true)} aria-label="Fixture label" />
-                                <label class="insp-num">
-                                    <span class="field-label-hint">Wide</span>
-                                    <input class="field-input" type="number" step="0.5" min="0.5" max="200"
-                                           bind:value={f.width_ft} oninput={() => (dirty = true)} />
-                                </label>
-                                <label class="insp-num">
-                                    <span class="field-label-hint">Deep</span>
-                                    <input class="field-input" type="number" step="0.5" min="0.5" max="200"
-                                           bind:value={f.depth_ft} oninput={() => (dirty = true)} />
-                                </label>
-                            </div>
-                        {/if}
-                        <div class="insp-row">
-                            <span class="field-label-hint">Turn</span>
-                            <button class="chip" onclick={() => rotateSel(-90)}>⟲ 90°</button>
-                            <button class="chip" onclick={() => rotateSel(-15)}>−15°</button>
-                            <span class="rot-read">{Math.round((selected as any).rotation)}°</span>
-                            <button class="chip" onclick={() => rotateSel(15)}>+15°</button>
-                            <button class="chip" onclick={() => rotateSel(90)}>⟳ 90°</button>
-                            {#if sel?.kind === 'table'}
-                                <button class="chip subtle" onclick={duplicateSelected}>Duplicate</button>
-                            {/if}
-                            <button class="danger-button insp-del" onclick={removeSelected}>Remove</button>
-                        </div>
-                    {:else}
-                        <p class="a-note insp-hint">
-                            Click something to edit it. Drag to move · <kbd>R</kbd> to turn ·
-                            arrows to nudge · <kbd>Del</kbd> to remove.
-                        </p>
-                    {/if}
-                </div>
-
-                <div class="room-box">
-                    <div class="insp-row">
-                        <input class="field-input insp-name" value={room.name}
-                               onchange={(e) => saveRoom(room, { name: (e.currentTarget as HTMLInputElement).value })}
-                               aria-label="Room name" />
-                        <label class="insp-num">
-                            <span class="field-label-hint">Width ft</span>
-                            <input class="field-input" type="number" step="1" min="4" max="400"
-                                   value={room.width_ft}
-                                   onchange={(e) => saveRoom(room, { width_ft: Number((e.currentTarget as HTMLInputElement).value) })} />
-                        </label>
-                        <label class="insp-num">
-                            <span class="field-label-hint">Depth ft</span>
-                            <input class="field-input" type="number" step="1" min="4" max="400"
-                                   value={room.depth_ft}
-                                   onchange={(e) => saveRoom(room, { depth_ft: Number((e.currentTarget as HTMLInputElement).value) })} />
-                        </label>
-                        {#if rooms.length > 1}
-                            <button class="danger-button" onclick={deleteRoom}>Delete room</button>
-                        {/if}
-                    </div>
-                    <p class="a-note room-stats">
-                        {roomTables.length} table{roomTables.length === 1 ? '' : 's'} ·
-                        {seatsHere} seats · {room.width_ft}×{room.depth_ft} ft
-                    </p>
-                    {#if overlapping.size}
-                        <p class="field-error room-stats">
-                            {overlapping.size} tables are on top of each other. Staff set the room
-                            out from this plan — it needs to be somewhere they could actually stand.
-                        </p>
-                    {/if}
-                </div>
-            </div>
-
-            {#if unplaced.length}
-                <div class="tray">
-                    <span class="field-label-hint">Not on the plan</span>
-                    {#each unplaced as t}
-                        <button class="chip" onclick={() => placeUnplaced(t)}>{t.name} ↗</button>
-                    {/each}
-                </div>
-            {/if}
-        {/if}
-    {/if}
-
     {#if error}<p class="field-error">{error}</p>{/if}
     {#if message}<p class="pairing-message">{message}</p>{/if}
-
-    {#if mode === 'edit'}
-        <div class="save-row">
-            <button class="primary-button" disabled={saving || !dirty} onclick={save}>
-                {saving ? 'Saving…' : dirty ? 'Save plan' : 'Saved'}
-            </button>
-            {#if dirty}<span class="a-note unsaved">Unsaved changes</span>{/if}
-        </div>
-    {/if}
 </div>
 {/if}
 
 <style>
-    .plan-card { --panel-accent: var(--color-accent); }
+    .editor {
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        background: var(--color-surface-dark);
+        overflow: hidden;
+    }
 
-    .mode-toggle { display: inline-flex; gap: 0.25rem; }
+    .bar {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.45rem 0.7rem;
+        background: rgba(0, 0, 0, 0.3);
+    }
+    .bar.top { border-bottom: 1px solid var(--color-steel-border); }
+    .bar-left { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .bar-mid { display: inline-flex; gap: 0.2rem; }
+    .bar-right { display: inline-flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+    .unsaved { font-size: 0.72rem; color: var(--color-accent); }
+
+    .icon-btn {
+        background: transparent;
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-muted);
+        font-family: inherit;
+        font-size: 0.8rem;
+        line-height: 1;
+        padding: 0.25rem 0.5rem;
+        cursor: pointer;
+    }
+    .icon-btn:hover:not(:disabled) { color: var(--color-text-bright); border-color: var(--color-accent); }
+    .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .icon-btn.wide { font-size: 0.66rem; font-weight: 700; }
+
+    .mode-toggle { display: inline-flex; gap: 0.2rem; }
     .view-btn {
         background: transparent;
         border: 1px solid var(--color-steel-border);
@@ -701,16 +795,79 @@
         background: color-mix(in srgb, var(--color-accent) 15%, transparent);
     }
 
-    .room-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+    .body { display: flex; align-items: stretch; min-height: 26rem; }
+
+    .rail {
+        flex: 0 0 8.2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 0.6rem 0.5rem;
+        border-right: 1px solid var(--color-steel-border);
+        background: rgba(0, 0, 0, 0.18);
+    }
+    .rail-head {
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-faint);
+        margin-top: 0.5rem;
+    }
+    .rail-head:first-child { margin-top: 0; }
+    .rail-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-bright);
+        font-family: inherit;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.25rem 0.45rem;
+        cursor: pointer;
+        text-align: left;
+    }
+    .rail-btn:hover { border-color: var(--color-accent); }
+    .rail-btn.subtle { color: var(--color-text-muted); font-weight: 500; }
+    .rail-ico {
+        width: 12px; height: 9px;
+        border: 1px solid currentColor;
+        opacity: 0.8;
+        flex: 0 0 auto;
+    }
+    .rail-ico.round { border-radius: 50%; width: 10px; height: 10px; }
+    .rail-ico.oval { border-radius: 50%; }
+    .rail-select {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-bright);
+        font-family: inherit;
+        font-size: 0.72rem;
+        padding: 0.2rem 0.3rem;
+    }
+    .rail-check { font-size: 0.72rem; }
+
+    .stage { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+    .room-tabs {
+        display: flex;
+        gap: 0.3rem;
+        flex-wrap: wrap;
+        padding: 0.5rem 0.6rem 0;
+    }
     .room-tab {
         background: transparent;
         border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
         color: var(--color-text-muted);
         font-family: inherit;
-        font-size: 0.76rem;
+        font-size: 0.74rem;
         font-weight: 600;
-        padding: 0.28rem 0.7rem;
+        padding: 0.22rem 0.6rem;
         cursor: pointer;
     }
     .room-tab.active {
@@ -720,42 +877,14 @@
     }
     .room-tab.add { color: var(--color-text-faint); }
 
-    .toolbar {
+    .live-bar {
         display: flex;
         align-items: center;
-        gap: 0.9rem;
+        gap: 0.5rem;
         flex-wrap: wrap;
-        padding: 0.5rem 0.6rem;
-        margin-bottom: 0.6rem;
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        background: rgba(0, 0, 0, 0.2);
+        padding: 0.5rem 0.6rem 0;
     }
-    .tool-group { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
-    .tool-label {
-        font-size: 0.66rem;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: var(--color-text-faint);
-        margin-right: 0.1rem;
-    }
-
-    .chip {
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        color: var(--color-text-bright);
-        font-family: inherit;
-        font-size: 0.72rem;
-        font-weight: 600;
-        padding: 0.2rem 0.5rem;
-        cursor: pointer;
-    }
-    .chip:hover { border-color: var(--color-accent); }
-    .chip.subtle { color: var(--color-text-muted); }
-
-    .mini-select, .mini-input {
+    .mini-input {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
@@ -764,122 +893,120 @@
         font-size: 0.72rem;
         padding: 0.18rem 0.35rem;
     }
-
-    .live-key { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--color-text-muted); }
+    .live-key { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: var(--color-text-muted); }
     .key { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
     .key.busy { background: #b4562e; }
     .key.held { background: #8a6d3b; }
     .key.free { background: #3f5d43; }
+    .live-note { font-size: 0.72rem; color: var(--color-accent); }
 
     .canvas-wrap {
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
+        flex: 1 1 auto;
+        padding: 0.6rem;
         background: #0d0f13;
-        overflow: hidden;
-        margin-bottom: 0.7rem;
+        overflow: auto;
     }
-    .canvas { display: block; width: 100%; height: auto; touch-action: none; }
+    .canvas {
+        display: block;
+        height: auto;
+        margin: 0 auto;
+        touch-action: none;
+        /* Without this, dragging across the plan makes the browser text-select
+           the table labels, and the selection highlight paints a solid pale
+           rectangle over the room. */
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    /* Svelte scopes styles per component, so a rule written inside PlanObject
+       or SelectionFrame can't be relied on to cover every focusable node in
+       the tree. :global from the canvas down is the one place that reaches all
+       of them — SVG groups take focus on pointerdown and Chrome rings their
+       whole bounding box, which on a rotated table is a large rectangle
+       nowhere near the table itself. */
+    .canvas :global(*:focus),
+    .canvas :global(*:focus-visible) { outline: none; }
 
     .floor { fill: #14171d; }
     .walls { fill: none; stroke: #5a5f6b; stroke-width: 0.22; }
     .grid { stroke: #ffffff10; stroke-width: 0.04; }
     .grid.major { stroke: #ffffff22; stroke-width: 0.06; }
 
-    .feature { cursor: grab; }
-    .feature rect { stroke: #00000060; stroke-width: 0.08; }
-    .feature.sel rect { stroke: var(--color-accent); stroke-width: 0.16; }
-    .feature-label {
-        fill: #cfcfd6;
-        text-anchor: middle;
-        dominant-baseline: middle;
-        pointer-events: none;
-        font-family: inherit;
+    .bar.status {
+        border-top: 1px solid var(--color-steel-border);
+        font-size: 0.72rem;
+        color: var(--color-text-muted);
     }
+    .bar.status .warn { color: var(--color-loss); font-weight: 700; }
+    .zoomer { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; }
+    .zoom-read { width: 3rem; text-align: center; }
 
-    /* Dragging focuses the group (they carry tabindex so keyboard nudging
-       works), and Chrome then paints a default focus ring — which on an SVG
-       <g> is an enormous white rounded rectangle over the plan. Selection is
-       already shown by the accent stroke, so this suppresses the ring for the
-       pointer and restores a real one for keyboard users. */
-    .table:focus, .feature:focus { outline: none; }
-    .table:focus-visible .top, .feature:focus-visible rect {
-        stroke: var(--color-accent);
-        stroke-width: 0.26;
+    .panel {
+        flex: 0 0 13rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        padding: 0.6rem 0.6rem 0.8rem;
+        border-left: 1px solid var(--color-steel-border);
+        background: rgba(0, 0, 0, 0.18);
     }
-
-    .table { cursor: grab; }
-    .table.editing:active { cursor: grabbing; }
-    .table .top {
-        fill: #2a4a63;
-        stroke: #7fa8c4;
-        stroke-width: 0.1;
-        transition: fill 0.15s;
-    }
-    .table.off .top { fill: #23252b; stroke: #4a4c55; }
-    .table.busy .top { fill: #6b3320; stroke: #d4835c; }
-    .table.event .top { fill: #5a3570; stroke: #b98fd0; }
-    .table.held .top { fill: #5a4520; stroke: #d0ae63; }
-    .table.free .top { fill: #24402a; stroke: #79b184; }
-    .table.sel .top { stroke: var(--color-accent); stroke-width: 0.22; }
-    /* Dashed rather than a colour swap: the table's real state (bookable, off)
-       is still worth seeing while you untangle it. */
-    .table.clash .top {
-        stroke: var(--color-loss);
-        stroke-width: 0.2;
-        stroke-dasharray: 0.5 0.35;
-    }
-
-    /* Labels sit above everything and never take the pointer — clicks and
-       drags belong to the shape underneath. */
-    .labels { pointer-events: none; }
-
-    .tname {
-        fill: #f2f2f5;
-        text-anchor: middle;
-        dominant-baseline: middle;
+    .panel-head {
+        font-size: 0.62rem;
         font-weight: 700;
-        pointer-events: none;
-        font-family: inherit;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        margin-top: 0.4rem;
     }
-    .tsub {
-        fill: #c8c8d0;
-        text-anchor: middle;
-        dominant-baseline: middle;
-        pointer-events: none;
-        font-family: inherit;
-    }
+    .panel-head:first-child { margin-top: 0; }
+    .p-field { display: flex; flex-direction: column; gap: 0.12rem; }
+    .p-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+    .p-actions { display: flex; gap: 0.35rem; margin-top: 0.3rem; }
+    .panel-hint { margin: 0.4rem 0 0; font-size: 0.7rem; }
 
-    .scale { stroke: #6a6f7b; stroke-width: 0.08; }
-    .scale-label { fill: #6a6f7b; text-anchor: middle; font-family: inherit; }
-
-    .below { display: flex; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
-    .inspector, .room-box {
-        flex: 1 1 20rem;
-        min-width: 0;
-        padding: 0.55rem 0.65rem;
+    .seg { display: flex; gap: 0.2rem; }
+    .align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.2rem; }
+    .seg-btn {
+        flex: 1 1 auto;
+        background: rgba(0, 0, 0, 0.3);
         border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
-        background: rgba(0, 0, 0, 0.2);
+        color: var(--color-text-muted);
+        font-family: inherit;
+        font-size: 0.8rem;
+        padding: 0.18rem 0.3rem;
+        cursor: pointer;
     }
-    .insp-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
-    .insp-row:last-child { margin-bottom: 0; }
-    .insp-name { flex: 1 1 8rem; min-width: 0; }
-    .insp-num { display: flex; flex-direction: column; gap: 0.1rem; width: 4.6rem; }
-    .insp-del { margin-left: auto; }
-    .insp-hint { margin: 0; }
-    .rot-read { font-size: 0.75rem; color: var(--color-text-bright); width: 2.6rem; text-align: center; }
-    .room-stats { margin: 0; }
+    .seg-btn:hover { color: var(--color-text-bright); border-color: var(--color-accent); }
+    .seg-btn.active {
+        color: var(--color-text-bright);
+        border-color: var(--color-accent);
+        background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    }
+
+    .chip {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-bright);
+        font-family: inherit;
+        font-size: 0.7rem;
+        padding: 0.18rem 0.45rem;
+        cursor: pointer;
+    }
+    .tray { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
     kbd {
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid var(--color-steel-border);
         border-radius: 3px;
-        padding: 0 0.25rem;
-        font-size: 0.72rem;
+        padding: 0 0.22rem;
+        font-size: 0.7rem;
     }
 
-    .tray { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
-
-    .save-row { display: flex; align-items: center; gap: 0.7rem; }
-    .unsaved { margin: 0; color: var(--color-accent); }
+    @media (max-width: 900px) {
+        .body { flex-direction: column; }
+        .rail, .panel { flex: 1 1 auto; border: none; border-top: 1px solid var(--color-steel-border); }
+        .rail { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    }
 </style>
