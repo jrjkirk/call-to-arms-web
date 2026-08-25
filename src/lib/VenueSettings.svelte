@@ -12,6 +12,10 @@
     let webhookBusy = $state(false);
     let webhookMessage = $state<string | null>(null);
     let saving = $state(false);
+    // Caught by delegation on the wrapper: every control in here is a plain
+    // input, so one listener beats threading an oninput through forty fields
+    // and forgetting one.
+    let dirty = $state(false);
     let error = $state<string | null>(null);
     let message = $state<string | null>(null);
 
@@ -24,6 +28,7 @@
         cfg = await c.json();
         profile = await p.json();
         emailsText = (cfg.notify_emails ?? []).join('\n');
+        dirty = false;
     }
     onMount(load);
 
@@ -53,6 +58,7 @@
             cfg = await c.json();
             profile = await p.json();
             emailsText = (cfg.notify_emails ?? []).join('\n');
+            dirty = false;
             message = 'Saved.';
         } else {
             const bad = !c.ok ? c : p;
@@ -102,6 +108,7 @@
 </script>
 
 {#if cfg && profile}
+<div class="settings" oninput={() => (dirty = true)} onchange={() => (dirty = true)}>
     <!-- ── Bookings ─────────────────────────────────────────────────────── -->
     <div class="a-card">
         <div class="a-head">
@@ -320,14 +327,41 @@
         </div>
     </div>
 
-    {#if error}<p class="field-error">{error}</p>{/if}
-    {#if message}<p class="pairing-message">{message}</p>{/if}
-    <button class="primary-button" type="button" disabled={saving} onclick={save}>
-        {saving ? 'Saving…' : 'Save'}
-    </button>
+    <!-- Sticky, because this page is two long cards and the Save button used to
+         sit below both of them — off the bottom of the screen for most of the
+         time anyone spends editing. It stays put and says whether there's
+         anything to save. -->
+    <div class="save-bar" class:is-dirty={dirty}>
+        <button class="primary-button" type="button" disabled={saving || !dirty} onclick={save}>
+            {saving ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
+        </button>
+        {#if dirty}<span class="save-note">Unsaved changes</span>{/if}
+        {#if error}<span class="field-error save-msg">{error}</span>{/if}
+        {#if message && !dirty}<span class="pairing-message save-msg">{message}</span>{/if}
+    </div>
+</div>
 {/if}
 
 <style>
+    .settings { position: relative; padding-bottom: 0.5rem; }
+
+    .save-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin: 0 -0.2rem;
+        padding: 0.6rem 0.2rem;
+        background: var(--color-bg-deep);
+        border-top: 1px solid var(--color-steel-border);
+    }
+    /* Only draws attention when there's something to act on. */
+    .save-bar.is-dirty { border-top-color: var(--color-accent); }
+    .save-note { font-size: 0.78rem; color: var(--color-accent); }
+    .save-msg { margin: 0; }
+
     .opt-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
     .notify-row { margin-bottom: 0.4rem; }
 
