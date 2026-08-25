@@ -33,7 +33,10 @@
 
     let snap = $state(0.5);
     let showGrid = $state(true);
-    let mode = $state<'edit' | 'live'>('edit');
+    // Tonight, not Edit. A venue lays its room out once and then looks at it
+    // every shift — opening on the editor would put the rarer job in front of
+    // the daily one, and risk someone nudging a table they only came to look at.
+    let mode = $state<'edit' | 'live'>('live');
     let zoom = $state(1);
 
     let liveDate = $state(new Date().toISOString().slice(0, 10));
@@ -42,7 +45,24 @@
 
     let svgEl: SVGSVGElement | null = $state(null);
     let wrapEl: HTMLDivElement | null = $state(null);
+    let rootEl: HTMLDivElement | null = $state(null);
     let pxPerFt = $state(20);
+
+    /**
+     * The app is a 1100px reading column, which is the wrong shape for a
+     * spatial tool — a floor plan wants the whole desk.
+     *
+     * Measured from documentElement.clientWidth rather than done in CSS with
+     * 100vw, because 100vw INCLUDES the scrollbar: the usual full-bleed trick
+     * overshoots by its width and adds a horizontal scrollbar to every page it
+     * appears on. clientWidth is the visible width, so this lands exactly.
+     */
+    let bleed = $state(0);
+    function measureBleed() {
+        if (!rootEl) return;
+        const avail = document.documentElement.clientWidth - 32;
+        bleed = Math.max(0, avail - rootEl.parentElement!.clientWidth);
+    }
 
     // ---- undo -----------------------------------------------------------
     // A direct-manipulation editor without undo is one people are afraid of, so
@@ -79,6 +99,21 @@
         future = future.slice(1);
         dirty = true;
     }
+
+    /** The colour-coding palette, as [token, fill, edge]. Mirrors venue.py's
+     *  TABLE_COLORS — named options rather than a free picker, so nothing can
+     *  be chosen that's illegible on the dark plan, and nothing can be painted
+     *  the green the Tonight view uses for "free". */
+    const COLORS: [string, string, string][] = [
+        ['slate', '#2a4a63', '#7fa8c4'],
+        ['blue', '#243c6b', '#7f96d4'],
+        ['green', '#24402a', '#79b184'],
+        ['amber', '#5a4520', '#d0ae63'],
+        ['red', '#5c2a24', '#cf7d72'],
+        ['purple', '#452a5e', '#a684c9'],
+        ['teal', '#1f4444', '#6fb3ad'],
+        ['grey', '#33363d', '#8b8f99']
+    ];
 
     const TABLE_PRESETS = [
         { label: '6×4', w: 6, d: 4, seats: 2, shape: 'rect' },
@@ -233,7 +268,8 @@
         if (!room) return;
         commit();
         tables = [...tables, {
-            id: null, name: `Table ${tables.length + 1}`, room_id: room.id, shape: p.shape,
+            id: null, name: `Table ${tables.length + 1}`, room_id: room.id,
+            shape: p.shape, color: 'slate',
             pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
             width_ft: p.w, depth_ft: p.d, rotation: 0, seats: p.seats, active: true, notes: null
         }];
@@ -291,6 +327,12 @@
         commit();
         (selected as any).rotation = norm(selected.rotation + by);
         tables = tables; features = features;
+    }
+    function setColor(color: string) {
+        if (!sel || sel.kind !== 'table') return;
+        commit();
+        tables[sel.idx].color = color;
+        tables = tables;
     }
     function setShape(shape: string) {
         if (!selected) return;
@@ -382,8 +424,13 @@
     }
     $effect(() => { if (mode === 'live') { liveDate; liveAt; loadOccupancy(); } });
 
+    // Gated on mode, not just on having occupancy: it stays loaded after a
+    // switch back to Edit, and tonight's times bleeding onto the editor made
+    // tables look booked while someone was rearranging the room.
     const bookingsFor = (t: any) =>
-        !occupancy || t.id === null ? [] : (occupancy.tables[String(t.id)] ?? []);
+        mode !== 'live' || !occupancy || t.id === null
+            ? []
+            : (occupancy.tables[String(t.id)] ?? []);
     function stateOf(t: any): string {
         if (mode !== 'live') return t.active ? 'idle' : 'off';
         if (!t.active) return 'off';
@@ -411,14 +458,32 @@
      *  so they stay a constant size however far the plan is zoomed. */
     const ftPerPx = $derived(pxPerFt > 0 ? 1 / pxPerFt : 0.05);
 
+    // Fit the room to the box in BOTH axes, then apply zoom. Deriving height
+    // from width letterboxed a wide room and overflowed a tall one.
+    let boxW = $state(800);
+    let boxH = $state(500);
+    const fit = $derived.by(() => {
+        const k = Math.min(boxW / view.w, boxH / view.h) * zoom;
+        return { w: Math.max(1, view.w * k), h: Math.max(1, view.h * k), k };
+    });
+
     function measure() {
         if (!wrapEl || !room) return;
-        pxPerFt = (wrapEl.clientWidth * zoom) / view.w;
+        boxW = Math.max(1, wrapEl.clientWidth - 20);
+        boxH = Math.max(1, wrapEl.clientHeight - 20);
+        pxPerFt = fit.k;
     }
-    $effect(() => { zoom; roomId; rooms.length; measure(); });
-    onMount(() => {
-        const ro = new ResizeObserver(measure);
-        if (wrapEl) ro.observe(wrapEl);
+    $effect(() => { zoom; roomId; rooms.length; boxW; boxH; measure(); });
+    // The editor lives behind the `loading` branch, so on mount rootEl and
+    // wrapEl are both still null — measuring there sized the plan to nothing
+    // and left the full-bleed width at zero. Wait for the elements instead.
+    $effect(() => {
+        if (!rootEl || !wrapEl) return;
+        const ro = new ResizeObserver(() => { measureBleed(); measure(); });
+        ro.observe(wrapEl);
+        if (rootEl.parentElement) ro.observe(rootEl.parentElement);
+        measureBleed();
+        measure();
         return () => ro.disconnect();
     });
 
@@ -468,7 +533,8 @@
 {#if loading}
     <p class="a-note">Loading the plan…</p>
 {:else}
-<div class="editor" class:live={mode === 'live'}>
+<div class="editor" class:live={mode === 'live'} bind:this={rootEl}
+     style="--bleed: {bleed}px">
     <!-- top bar -->
     <div class="bar top">
         <span class="bar-left">
@@ -561,7 +627,7 @@
             <div class="canvas-wrap" bind:this={wrapEl}>
                 {#if room}
                     <svg bind:this={svgEl} class="canvas"
-                         style="width: {zoom * 100}%"
+                         style="width: {fit.w}px; height: {fit.h}px"
                          viewBox="{view.x} {view.y} {view.w} {view.h}"
                          role="application" aria-label="{room.name} floor plan"
                          onpointerdown={() => (sel = null)}
@@ -646,6 +712,19 @@
                                     onclick={() => setShape(k)} aria-label={k}>{glyph}</button>
                         {/each}
                     </div>
+
+                    {#if isTable}
+                        <span class="field-label">Colour</span>
+                        <div class="swatches">
+                            {#each COLORS as [name, fill, edge]}
+                                <button class="swatch" class:active={tables[sel!.idx].color === name}
+                                        style="--fill: {fill}; --edge: {edge}"
+                                        title={name} aria-label={name}
+                                        onclick={() => setColor(name)}></button>
+                            {/each}
+                        </div>
+                    {/if}
+
 
                     <div class="p-grid">
                         <label class="p-field">
@@ -747,6 +826,11 @@
         border-radius: var(--radius);
         background: var(--color-surface-dark);
         overflow: hidden;
+        /* Widened symmetrically past the app's column. --bleed is measured in
+           JS from the visible viewport width, so this never overshoots into a
+           horizontal scrollbar the way a 100vw full-bleed does. */
+        width: calc(100% + var(--bleed, 0px));
+        margin-left: calc(var(--bleed, 0px) / -2);
     }
 
     .bar {
@@ -795,7 +879,13 @@
         background: color-mix(in srgb, var(--color-accent) 15%, transparent);
     }
 
-    .body { display: flex; align-items: stretch; min-height: 26rem; }
+    /* Tall enough to actually work in: the room, not a letterbox of it.
+       Capped so it still fits on a laptop without the save row falling off. */
+    .body {
+        display: flex;
+        align-items: stretch;
+        height: clamp(28rem, 76vh, 60rem);
+    }
 
     .rail {
         flex: 0 0 8.2rem;
@@ -803,6 +893,10 @@
         flex-direction: column;
         gap: 0.25rem;
         padding: 0.6rem 0.5rem;
+        /* The body is a fixed height now, and .editor clips — without this the
+           bottom of a long rail or panel is simply unreachable. */
+        overflow-y: auto;
+        min-height: 0;
         border-right: 1px solid var(--color-steel-border);
         background: rgba(0, 0, 0, 0.18);
     }
@@ -902,14 +996,16 @@
 
     .canvas-wrap {
         flex: 1 1 auto;
+        min-height: 0;
         padding: 0.6rem;
         background: #0d0f13;
         overflow: auto;
+        display: flex;
     }
     .canvas {
         display: block;
-        height: auto;
-        margin: 0 auto;
+        margin: auto;
+        flex: 0 0 auto;
         touch-action: none;
         /* Without this, dragging across the plan makes the browser text-select
            the table labels, and the selection highlight paints a solid pale
@@ -942,11 +1038,13 @@
     .zoom-read { width: 3rem; text-align: center; }
 
     .panel {
-        flex: 0 0 13rem;
+        flex: 0 0 14rem;
         display: flex;
         flex-direction: column;
         gap: 0.4rem;
         padding: 0.6rem 0.6rem 0.8rem;
+        overflow-y: auto;
+        min-height: 0;
         border-left: 1px solid var(--color-steel-border);
         background: rgba(0, 0, 0, 0.18);
     }
@@ -965,6 +1063,21 @@
     .panel-hint { margin: 0.4rem 0 0; font-size: 0.7rem; }
 
     .seg { display: flex; gap: 0.2rem; }
+
+    .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.2rem; }
+    .swatch {
+        aspect-ratio: 1;
+        min-height: 1.1rem;
+        border-radius: 3px;
+        background: var(--fill);
+        border: 1px solid var(--edge);
+        cursor: pointer;
+        padding: 0;
+    }
+    .swatch.active {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 1px;
+    }
     .align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.2rem; }
     .seg-btn {
         flex: 1 1 auto;

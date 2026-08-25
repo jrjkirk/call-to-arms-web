@@ -16,14 +16,31 @@
         onpick?: (e: PointerEvent) => void;
     } = $props();
 
-    const FEATURE_FILL: Record<string, string> = {
-        bar: '#6b4f2a', door: '#2f2f38', pillar: '#3a3a44', shelves: '#4a3d2c',
-        stairs: '#3a3a44', toilets: '#2f3a3a', wall: '#4a4a54'
+    /** The venue's colour-coding palette. Fill and stroke together, so every
+     *  option is legible on the dark plan rather than left to chance. */
+    const PALETTE: Record<string, [string, string]> = {
+        slate: ['#2a4a63', '#7fa8c4'],
+        blue: ['#243c6b', '#7f96d4'],
+        green: ['#24402a', '#79b184'],
+        amber: ['#5a4520', '#d0ae63'],
+        red: ['#5c2a24', '#cf7d72'],
+        purple: ['#452a5e', '#a684c9'],
+        teal: ['#1f4444', '#6fb3ad'],
+        grey: ['#33363d', '#8b8f99']
     };
 
     // Labels shrink with the SMALLER side, so a long thin table doesn't get a
     // caption taller than the table itself.
     const scale = $derived(Math.min(o.width_ft, o.depth_ft));
+
+    // The venue's own colour only applies while EDITING. In Tonight the state
+    // colour wins: that view exists to be read across a room at a glance, and
+    // a table someone painted green would read as "free" when it isn't.
+    const paint = $derived(
+        kind === 'table' && state === 'idle'
+            ? (PALETTE[o.color] ?? PALETTE.slate)
+            : null
+    );
 </script>
 
 <g class="{kind} {state}" class:sel={selected} class:clash class:editing
@@ -32,12 +49,13 @@
     <g transform="translate({o.pos_x} {o.pos_y}) rotate({o.rotation})">
         {#if o.shape === 'round'}
             {@const r = Math.min(o.width_ft, o.depth_ft) / 2}
-            <circle class="body" cx="0" cy="0" r={r} />
+            <circle class="body" style={paint ? `fill:${paint[0]};stroke:${paint[1]}` : undefined} cx="0" cy="0" r={r} />
         {:else if o.shape === 'oval'}
-            <ellipse class="body" cx="0" cy="0" rx={o.width_ft / 2} ry={o.depth_ft / 2} />
+            <ellipse class="body" style={paint ? `fill:${paint[0]};stroke:${paint[1]}` : undefined} cx="0" cy="0" rx={o.width_ft / 2} ry={o.depth_ft / 2} />
         {:else}
             <rect class="body" x={-o.width_ft / 2} y={-o.depth_ft / 2}
-                  width={o.width_ft} height={o.depth_ft} rx="0.2" />
+                  width={o.width_ft} height={o.depth_ft} rx="0.2"
+                  style={paint ? `fill:${paint[0]};stroke:${paint[1]}` : undefined} />
         {/if}
     </g>
 
