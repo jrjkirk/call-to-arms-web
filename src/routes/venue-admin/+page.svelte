@@ -3,7 +3,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from '$lib/HelpTip.svelte';
     import VenueDay from '$lib/VenueDay.svelte';
-    import VenueTables from '$lib/VenueTables.svelte';
+    import VenueFloorPlan from '$lib/VenueFloorPlan.svelte';
     import VenueClubNights from '$lib/VenueClubNights.svelte';
     import VenueCalendar from '$lib/VenueCalendar.svelte';
     import VenueSettings from '$lib/VenueSettings.svelte';
@@ -87,7 +87,7 @@
     <div class="venue-tabs">
         <button class="venue-tab" class:active={tab === 'diary'} onclick={() => (tab = 'diary')}>Diary</button>
         <button class="venue-tab" class:active={tab === 'nights'} onclick={() => (tab = 'nights')}>Club nights</button>
-        <button class="venue-tab" class:active={tab === 'tables'} onclick={() => (tab = 'tables')}>Tables</button>
+        <button class="venue-tab" class:active={tab === 'tables'} onclick={() => (tab = 'tables')}>Tables &amp; plan</button>
         <button class="venue-tab" class:active={tab === 'settings'} onclick={() => (tab = 'settings')}>Settings</button>
         {#if canManageStaff}
             <button class="venue-tab" class:active={tab === 'staff'} onclick={() => (tab = 'staff')}>Staff</button>
@@ -190,7 +190,7 @@
     {:else if tab === 'nights'}
         <VenueClubNights />
     {:else if tab === 'tables'}
-        <VenueTables />
+        <VenueFloorPlan />
     {:else if tab === 'settings'}
         <VenueSettings />
     {:else}
