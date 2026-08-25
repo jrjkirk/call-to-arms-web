@@ -5,6 +5,7 @@
     import VenueDay from '$lib/VenueDay.svelte';
     import VenueTables from '$lib/VenueTables.svelte';
     import VenueClubNights from '$lib/VenueClubNights.svelte';
+    import VenueCalendar from '$lib/VenueCalendar.svelte';
     import VenueSettings from '$lib/VenueSettings.svelte';
     import VenueStaff from '$lib/VenueStaff.svelte';
 
@@ -21,6 +22,9 @@
     let upcoming = $state<DayOverview[]>([]);
     let pending = $state<any[]>([]);
     let selectedDate = $state('');
+    let diaryView = $state<'strip' | 'calendar'>('strip');
+    // Bumped whenever a day changes, so the calendar knows to look again.
+    let diaryVersion = $state(0);
     let loadError = $state<string | null>(null);
 
     async function loadUpcoming() {
@@ -32,6 +36,7 @@
         upcoming = body.days;
         pending = body.pending;
         if (!selectedDate && upcoming.length) selectedDate = upcoming[0].date;
+        diaryVersion += 1;
     }
 
     onMount(async () => {
@@ -109,12 +114,22 @@
 
         <div class="a-card">
             <div class="a-head">
-                <h2 class="a-title">Next three weeks</h2>
+                <h2 class="a-title">{diaryView === 'strip' ? 'Next three weeks' : 'Month'}</h2>
                 <HelpTip
                     label="how busy"
                     text={"Busy-ness counts BOTH kinds of demand: tables already booked, and the tables your club nights are expected to need.\n\nClub-night demand is worked out from that night's signups, two players to a table. That's why a Wednesday with no bookings can still show as nearly full."}
                 />
+                <span class="a-head-end view-toggle">
+                    <button class="view-btn" class:active={diaryView === 'strip'}
+                            onclick={() => (diaryView = 'strip')}>3 weeks</button>
+                    <button class="view-btn" class:active={diaryView === 'calendar'}
+                            onclick={() => (diaryView = 'calendar')}>Calendar</button>
+                </span>
             </div>
+            {#if diaryView === 'calendar'}
+                <VenueCalendar selected={selectedDate} version={diaryVersion}
+                               onpick={(iso) => (selectedDate = iso)} />
+            {:else}
             <div class="day-strip">
                 {#each upcoming as d}
                     <button
@@ -134,10 +149,11 @@
                     </button>
                 {/each}
             </div>
+            {/if}
         </div>
 
-        {#if selected}
-            <VenueDay date={selected.date} onchange={loadUpcoming} />
+        {#if selectedDate}
+            <VenueDay date={selectedDate} onchange={loadUpcoming} />
         {/if}
     {:else if tab === 'nights'}
         <VenueClubNights />
@@ -179,6 +195,24 @@
     }
 
     .pending-card { --panel-accent: var(--color-loss); }
+
+    .view-toggle { display: inline-flex; gap: 0.25rem; }
+    .view-btn {
+        background: transparent;
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-muted);
+        font-family: inherit;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.2rem 0.55rem;
+        cursor: pointer;
+    }
+    .view-btn.active {
+        color: var(--color-text-bright);
+        border-color: var(--color-accent);
+        background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    }
 
     .pending-list {
         list-style: none;

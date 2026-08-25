@@ -1466,18 +1466,14 @@
         clubProfileSaving = true;
         clubProfileError = null;
         clubProfileMessage = null;
-        const opening_hours = clubHours
-            .filter((h) => h.enabled)
-            .map((h) => ({ day: h.day, open: h.open, close: h.close, note: h.note.trim() || null }));
         const r = await fetch(`${PUBLIC_API_URL}/admin/club`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                blurb: clubProfile.blurb,
-                website_url: clubProfile.website_url,
-                discord_url: clubProfile.discord_url,
-                opening_hours,
+                // blurb / website / Discord / hours are all edited in Venue
+                // Admin now and deliberately NOT sent from here — a second
+                // writer is how two copies of the same fact drift apart.
                 address: clubProfile.address,
                 latitude: clubProfile.latitude,
                 longitude: clubProfile.longitude,
@@ -3175,42 +3171,10 @@
                             </button>
                         </div>
 
-                        <!-- Opening Hours -->
-                        <div class="league-settings-details">
-                            <div class="league-settings-heading">Opening Hours</div>
-                            <div class="league-settings-body">
-                                <div class="club-hours-grid">
-                                    {#each clubHours as row}
-                                        <div class="club-hours-row">
-                                            <label class="check-row ap-toggle club-hours-day">
-                                                <input type="checkbox" bind:checked={row.enabled} />
-                                                <span>{row.day}</span>
-                                            </label>
-                                            {#if row.enabled}
-                                                <div class="club-hours-times">
-                                                    <select class="field-select" bind:value={row.open}>
-                                                        {#each HALF_HOUR_OPTIONS as t}
-                                                            <option value={t}>{t}</option>
-                                                        {/each}
-                                                    </select>
-                                                    <span class="club-hours-times-sep">&ndash;</span>
-                                                    <select class="field-select" bind:value={row.close}>
-                                                        {#each HALF_HOUR_OPTIONS as t}
-                                                            <option value={t}>{t}</option>
-                                                        {/each}
-                                                    </select>
-                                                </div>
-                                            {/if}
-                                        </div>
-                                    {/each}
-                                </div>
-                                <div class="actions">
-                                    <button class="primary-button" type="button" disabled={clubProfileSaving} onclick={saveClubProfile}>
-                                        {clubProfileSaving ? 'Saving…' : 'Save'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Opening hours moved to Venue Admin → Settings → Venue.
+                             One editor, feeding both the club page and the
+                             booking engine's slot window; two copies meant a
+                             venue keeping the same facts in step twice. -->
 
                         <!-- Club-wide Events -->
                         <div class="league-settings-details">

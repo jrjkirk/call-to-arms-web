@@ -44,7 +44,8 @@
                 body: JSON.stringify({
                     blurb: profile.blurb,
                     website_url: profile.website_url,
-                    discord_url: profile.discord_url
+                    discord_url: profile.discord_url,
+                    opening_hours: profile.opening_hours
                 })
             })
         ]);
@@ -271,14 +272,16 @@
             />
         </div>
 
-        <h3 class="a-subtitle">Bookable hours</h3>
-        <p class="a-note">
-            When tables can be booked — separate from when you're open, since most venues
-            are open before they'll take a table booking. A day left closed takes none.
-        </p>
+        <h3 class="a-subtitle">
+            Open hours
+            <HelpTip
+                label="open hours"
+                text={"Your venue's hours, in one place. They show on your club page and they're the window bookings are offered inside — a day left closed takes no bookings at all.\n\nThe note is optional and shows under that day on your club page: \"kitchen closes 9\", \"members only\"."}
+            />
+        </h3>
         <div class="hours-grid">
             {#each DAYS as day, i}
-                {@const row = cfg.booking_hours[i]}
+                {@const row = profile.opening_hours[i]}
                 <div class="hours-row" class:closed={row.closed}>
                     <span class="hours-day">{day.slice(0, 3)}</span>
                     <label class="check-row">
@@ -289,6 +292,8 @@
                     <input class="field-input hours-time" type="time" bind:value={row.open} disabled={row.closed} />
                     <span class="hours-sep">–</span>
                     <input class="field-input hours-time" type="time" bind:value={row.close} disabled={row.closed} />
+                    <input class="field-input hours-note" type="text" bind:value={row.note}
+                           disabled={row.closed} placeholder="Note (optional)" />
                 </div>
             {/each}
         </div>
@@ -337,6 +342,7 @@
     .hours-row.closed { opacity: 0.5; }
     .hours-day { width: 2.6rem; font-size: 0.78rem; font-weight: 700; color: var(--color-text-bright); }
     .hours-time { width: 7.5rem; }
+    .hours-note { flex: 1 1 10rem; min-width: 0; }
     .hours-sep { color: var(--color-text-faint); }
 
     .rules-grid {
