@@ -4,7 +4,8 @@
     import HelpTip from './HelpTip.svelte';
     import PlanObject from './plan/PlanObject.svelte';
     import SelectionFrame from './plan/SelectionFrame.svelte';
-    import { angleTo, extents, feet, norm, overlaps, resize, type Box, type Handle } from './plan/geometry';
+    import { angleTo, confine, extents, feet, insideInterior, interiorOf, norm, overlaps,
+             resize, WALL_FT, type Box, type Handle } from './plan/geometry';
 
     /**
      * The venue's floor plan: an editor, and a live view of the room.
@@ -160,19 +161,33 @@
     const FIXTURES = [
         // Enclosure first: a venue describes itself in rooms, and drawing one
         // box beats lining up four wall segments by hand.
-        { kind: 'enclosure', label: 'Room', w: 14, d: 10 },
-        { kind: 'bar', label: 'Bar', w: 10, d: 2 },
-        { kind: 'door', label: 'Door', w: 3, d: 0.6 },
-        { kind: 'pillar', label: 'Pillar', w: 1.5, d: 1.5, shape: 'round' },
-        { kind: 'shelves', label: 'Terrain', w: 6, d: 1.5 },
-        { kind: 'stairs', label: 'Stairs', w: 4, d: 3 },
-        { kind: 'toilets', label: 'Toilets', w: 6, d: 5 },
-        { kind: 'wall', label: 'Wall', w: 8, d: 0.5 }
+        { kind: 'enclosure', label: 'Room', w: 14, d: 10, color: 'grey' },
+        // A wall's depth is ONE WALL THICKNESS by default, so it meets a room's
+        // wall flush instead of sitting proud of it.
+        { kind: 'wall', label: 'Wall', w: 8, d: WALL_FT, color: 'grey' },
+        { kind: 'door', label: 'Door', w: 3, d: 0.6, color: 'grey' },
+        { kind: 'note', label: 'Shop', w: 8, d: 2, color: 'slate' },
+        { kind: 'bar', label: 'Bar', w: 10, d: 2, color: 'amber' },
+        { kind: 'pillar', label: 'Pillar', w: 1.5, d: 1.5, shape: 'round', color: 'grey' },
+        { kind: 'shelves', label: 'Terrain', w: 6, d: 1.5, color: 'amber' },
+        { kind: 'stairs', label: 'Stairs', w: 4, d: 3, color: 'grey' },
+        { kind: 'toilets', label: 'Toilets', w: 6, d: 5, color: 'teal' }
     ];
+
+    // Walls, rooms and doors are structure — the palette doesn't apply, because
+    // a plan whose walls are teal stops reading as a building.
+    const STRUCTURAL = ['enclosure', 'wall', 'door'];
+    const colourable = $derived(
+        picked.filter((s) => s.kind === 'table' || !STRUCTURAL.includes(s.o.kind))
+    );
 
     const room = $derived(rooms.find((r) => r.id === roomId) ?? null);
     const roomTables = $derived(tables.filter((t) => t.room_id === roomId));
     const roomFeatures = $derived(features.filter((f) => f.room_id === roomId));
+    // Annotations are labels ABOUT the room, so they draw last. Underneath the
+    // tables, a note dropped in the middle of the floor simply vanished.
+    const roomStructure = $derived(roomFeatures.filter((f) => f.kind !== 'note'));
+    const roomNotes = $derived(roomFeatures.filter((f) => f.kind === 'note'));
     const unplaced = $derived(tables.filter((t) => t.room_id === null));
     const seatsHere = $derived(roomTables.filter((t) => t.active).reduce((n, t) => n + t.seats, 0));
     const selected = $derived(sole ? sole.o : null);
@@ -243,6 +258,36 @@
         | { type: 'band'; x0: number; y0: number; add: boolean };
     let gesture: Gesture | null = null;
     let gestureStarted = false;
+    /**
+     * The enclosure an object is standing in, if any.
+     *
+     * Chosen by the SMALLEST interior that contains the centre, so a room
+     * inside a room confines to the inner one rather than to whichever
+     * happened to be added first.
+     */
+    function roomAround(o: any) {
+        let best: any = null;
+        for (const f of roomFeatures) {
+            if (f.kind !== 'enclosure' || f === o) continue;
+            if (!insideInterior(f as Box, o.pos_x, o.pos_y)) continue;
+            if (!best || f.width_ft * f.depth_ft < best.width_ft * best.depth_ft) best = f;
+        }
+        return best;
+    }
+
+    /** Push an object back inside whatever bounds it: its room, else the plan. */
+    function keepInside(o: any) {
+        if (!room || o.kind === 'enclosure') return;
+        const host = roomAround(o);
+        const area = host
+            ? interiorOf(host as Box)
+            : { x0: WALL_FT, y0: WALL_FT,
+                x1: room.width_ft - WALL_FT, y1: room.depth_ft - WALL_FT };
+        const c = confine(o as Box, area);
+        o.pos_x = c.x;
+        o.pos_y = c.y;
+    }
+
     /** The rubber band, in feet, while a marquee drag is in progress. */
     let band = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
@@ -356,6 +401,7 @@
             for (const f of gesture.from) {
                 f.o.pos_x = f.x + dx;
                 f.o.pos_y = f.y + dy;
+                keepInside(f.o);
             }
         } else if (gesture.type === 'band') {
             band = { x0: gesture.x0, y0: gesture.y0, x1: p.x, y1: p.y };
@@ -365,6 +411,7 @@
             o.pos_x = next.pos_x; o.pos_y = next.pos_y;
             o.width_ft = Math.round(next.width_ft * 100) / 100;
             o.depth_ft = Math.round(next.depth_ft * 100) / 100;
+            keepInside(o);
         } else {
             const now = angleTo(o as Box, p.x, p.y);
             let deg = gesture.from + (now - gesture.grab);
@@ -401,7 +448,7 @@
             id: null, room_id: room.id, kind: f.kind, label: f.label,
             shape: (f as any).shape ?? 'rect', _uid: ++uidSeq,
             pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
-            width_ft: f.w, depth_ft: f.d, rotation: 0
+            width_ft: f.w, depth_ft: f.d, rotation: 0, color: (f as any).color ?? 'grey'
         }];
         if (f.kind === 'enclosure' || f.kind === 'door') {
             features[features.length - 1].label = null;
@@ -442,8 +489,9 @@
         commit();
         const step = snap || 0.5;
         for (const s of picked) {
-            s.o.pos_x = Math.max(0, Math.min(room.width_ft, s.o.pos_x + dx * step));
-            s.o.pos_y = Math.max(0, Math.min(room.depth_ft, s.o.pos_y + dy * step));
+            s.o.pos_x += dx * step;
+            s.o.pos_y += dy * step;
+            keepInside(s.o);
         }
         tables = tables; features = features;
     }
@@ -463,11 +511,10 @@
         selection = next;
     }
     function setColor(color: string) {
-        const ts = picked.filter((s) => s.kind === 'table');
-        if (!ts.length) return;
+        if (!colourable.length) return;
         commit();
-        for (const s of ts) s.o.color = color;
-        tables = tables;
+        for (const s of colourable) s.o.color = color;
+        tables = tables; features = features;
     }
     function setShape(shape: string) {
         if (!picked.length) return;
@@ -481,12 +528,17 @@
         for (const s of picked) {
             const o: any = s.o;
             const e = extents(o as Box);
-            if (where === 'left') o.pos_x = e.hx;
+            // Aligned against the INNER face of the wall, matching where
+            // dragging stops. Using the outer bounds put things half inside
+            // the wall they were supposedly aligned to.
+            if (where === 'left') o.pos_x = WALL_FT + e.hx;
             if (where === 'hcentre') o.pos_x = room.width_ft / 2;
-            if (where === 'right') o.pos_x = room.width_ft - e.hx;
-            if (where === 'top') o.pos_y = e.hy;
+            if (where === 'right') o.pos_x = room.width_ft - WALL_FT - e.hx;
+            if (where === 'top') o.pos_y = WALL_FT + e.hy;
             if (where === 'vcentre') o.pos_y = room.depth_ft / 2;
-            if (where === 'bottom') o.pos_y = room.depth_ft - e.hy;
+            if (where === 'bottom') o.pos_y = room.depth_ft - WALL_FT - e.hy;
+            // ...and if it's standing in a room, that room's wall wins.
+            keepInside(o);
         }
         tables = tables; features = features;
     }
@@ -628,6 +680,10 @@
      */
     async function onWheel(e: WheelEvent) {
         if (mode !== 'edit' || !wrapEl) return;
+        // Plain wheel scrolls, as it does everywhere else; ctrl/cmd zooms. A
+        // canvas that zooms on a bare wheel fights every trackpad on the way
+        // past it.
+        if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
         const rect = wrapEl.getBoundingClientRect();
         const cx = e.clientX - rect.left;
@@ -820,9 +876,16 @@
                                       x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
                             {/each}
                         {/if}
-                        <rect class="walls" x="0" y="0" width={room.width_ft} height={room.depth_ft} />
+                        <!-- Inset by half a wall so the OUTER face lands exactly on the
+                             room bounds, matching how an enclosure is drawn. Same
+                             thickness, same colour: they're the same material. -->
+                        <rect class="walls"
+                              x={WALL_FT / 2} y={WALL_FT / 2}
+                              width={Math.max(0.1, room.width_ft - WALL_FT)}
+                              height={Math.max(0.1, room.depth_ft - WALL_FT)}
+                              stroke-width={WALL_FT} />
 
-                        {#each roomFeatures as f (f.id ?? `n${features.indexOf(f)}`)}
+                        {#each roomStructure as f (f.id ?? `n${features.indexOf(f)}`)}
                             {@const i = features.indexOf(f)}
                             <PlanObject o={f} kind="feature" state={f.kind}
                                         selected={isSel('feature', f)}
@@ -838,6 +901,14 @@
                                         editing={mode === 'edit'}
                                         bookings={bookingsFor(t)}
                                         onpick={(e) => beginMove(e, 'table', t)} />
+                        {/each}
+
+                        {#each roomNotes as f (f.id ?? `n${features.indexOf(f)}`)}
+                            {@const i = features.indexOf(f)}
+                            <PlanObject o={f} kind="feature" state={f.kind}
+                                        selected={isSel('feature', f)}
+                                        editing={mode === 'edit'}
+                                        onpick={(e) => beginMove(e, 'feature', f)} />
                         {/each}
 
                         {#if sole && mode === 'edit'}
@@ -956,7 +1027,7 @@
                         {/each}
                     </div>
 
-                    {#if isTable}
+                    {#if colourable.length}
                         <span class="field-label">Colour</span>
                         <div class="swatches">
                             {#each COLORS as [name, fill, edge]}
@@ -1279,7 +1350,7 @@
     }
 
     .floor { fill: #14171d; }
-    .walls { fill: none; stroke: #5a5f6b; stroke-width: 0.22; }
+    .walls { fill: none; stroke: #6d7280; }
     .grid { stroke: #ffffff10; stroke-width: 0.04; }
     .grid.major { stroke: #ffffff22; stroke-width: 0.06; }
 

@@ -1,6 +1,6 @@
 <script lang="ts">
     /** One table or fixture on the plan: its shape, and its upright label. */
-    import { feet } from './geometry';
+    import { feet, WALL_FT } from './geometry';
 
     let {
         o, kind, state = 'free', selected = false, clash = false,
@@ -77,10 +77,14 @@
     // The venue's own colour only applies while EDITING. In Tonight the state
     // colour wins: that view exists to be read across a room at a glance, and
     // a table someone painted green would read as "free" when it isn't.
+    const STRUCTURAL = ['enclosure', 'wall', 'door'];
+
     const paint = $derived(
-        kind === 'table' && state === 'idle'
-            ? (PALETTE[o.color] ?? PALETTE.slate)
-            : null
+        kind === 'table'
+            ? (state === 'idle' ? (PALETTE[o.color] ?? PALETTE.slate) : null)
+            : STRUCTURAL.includes(o.kind)
+              ? null
+              : (PALETTE[o.color] ?? PALETTE.grey)
     );
 
     // Below this the text is illegible anyway and just adds noise to the plan.
@@ -91,11 +95,22 @@
    onpointerdown={onpick} role="button" tabindex="-1"
    aria-label={o.name ?? o.label ?? kind}>
     <g transform="translate({o.pos_x} {o.pos_y}) rotate({o.rotation})">
-        {#if kind === 'feature' && o.kind === 'enclosure'}
+        {#if kind === 'feature' && o.kind === 'note'}
+            <!-- Annotation: text only. Areas like "Shop" or "Staff only" aren't
+                 objects on the floor, so drawing a box round them would be a
+                 lie about what's there. -->
+        {:else if kind === 'feature' && o.kind === 'enclosure'}
             <!-- A room, not a block: hollow, so tables inside it stay visible
-                 and a door can be dropped into the wall line. -->
-            <rect class="body enclosure" x={-o.width_ft / 2} y={-o.depth_ft / 2}
-                  width={o.width_ft} height={o.depth_ft} />
+                 and a door can be dropped into the wall line.
+                 The stroke is centred on a path INSET by half a wall, which
+                 puts the outer face exactly on the bounding box — so a wall
+                 snapped to this room's edge meets it, instead of missing by
+                 half a wall's thickness. -->
+            <rect class="body enclosure"
+                  x={-o.width_ft / 2 + WALL_FT / 2} y={-o.depth_ft / 2 + WALL_FT / 2}
+                  width={Math.max(0.1, o.width_ft - WALL_FT)}
+                  height={Math.max(0.1, o.depth_ft - WALL_FT)}
+                  stroke-width={WALL_FT} />
         {:else if kind === 'feature' && o.kind === 'door'}
             <!-- Drawn as a gap with a swing arc, the way a plan shows a door,
                  so it reads as an opening rather than a small dark block. -->
@@ -123,7 +138,11 @@
     <!-- The shape turns; the label doesn't. A rotated table is a real thing at
          an angle, but a name printed sideways is only harder to read. -->
     <g transform="translate({o.pos_x} {o.pos_y})" class="labels">
-        {#if roomForText && label}
+        {#if kind === 'feature' && o.kind === 'note'}
+            <text x="0" y="0" class="note-text"
+                  font-size={fitted(label, o.width_ft, o.depth_ft * 0.8)}
+                  style={paint ? `--edge:${paint[1]}` : undefined}>{label}</text>
+        {:else if roomForText && label}
             <text x="0" y={nameY} class={kind === 'table' ? 'name' : 'sub'}
                   font-size={nameSize}>{shown}</text>
             {#if sub}
@@ -154,7 +173,16 @@
     .table.held .body { fill: #5a4520; stroke: #d0ae63; }
     .table.free .body { fill: #24402a; stroke: #79b184; }
 
-    .feature .body { fill: #44444e; stroke: #00000060; stroke-width: 0.08; }
+    .feature .body {
+        fill: var(--fill, #44444e);
+        stroke: var(--edge, #00000060);
+        stroke-width: 0.08;
+    }
+
+    /* A standalone wall is the SAME MATERIAL as a room's wall — same colour,
+       and its default depth is one wall thickness — so the two meet cleanly
+       instead of reading as a light bar next to a dark one. */
+    .feature.wall .body { fill: #6d7280; stroke: none; }
 
     /* Specificity matters here: `.feature .body` is two classes and would
        otherwise win, filling the room in solid grey. Matched at the same depth
@@ -173,13 +201,7 @@
     .door-gap { fill: #14171d; stroke: none; }
     .door-swing { stroke: #7e838f; stroke-width: 0.09; stroke-dasharray: 0.3 0.25; }
     .door-leaf { stroke: #aeb3bf; stroke-width: 0.16; }
-    .feature.bar .body { fill: #6b4f2a; }
-    .feature.door .body { fill: #2f2f38; }
-    .feature.pillar .body { fill: #3a3a44; }
-    .feature.shelves .body { fill: #4a3d2c; }
-    .feature.stairs .body { fill: #3a3a44; }
-    .feature.toilets .body { fill: #2f3a3a; }
-    .feature.wall .body { fill: #4a4a54; }
+
 
     .sel .body { stroke: var(--color-accent); stroke-width: 0.18; }
     /* Dashed rather than a colour swap: the table's real state is still worth
@@ -197,6 +219,16 @@
         font-weight: 700;
         font-family: inherit;
     }
+    .note-text {
+        fill: var(--edge, #c8c8d0);
+        text-anchor: middle;
+        dominant-baseline: middle;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        font-family: inherit;
+    }
+
     .sub {
         fill: #c8c8d0;
         text-anchor: middle;

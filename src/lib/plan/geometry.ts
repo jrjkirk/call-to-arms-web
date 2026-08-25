@@ -133,3 +133,51 @@ export function feet(v: number): string {
     if (whole === 0) return `${inches}″`;
     return `${whole}′ ${inches}″`;
 }
+
+
+/**
+ * One wall thickness for the whole plan — the room's own boundary, an
+ * enclosure's walls, and a standalone wall segment.
+ *
+ * They are the same material. Drawing them at different thicknesses is why
+ * a wall butted against a room refused to line up: the eye reads a 0.2ft
+ * boundary and a 0.5ft wall as two different things that ought to meet, and
+ * they never quite do.
+ */
+export const WALL_FT = 0.5;
+
+/** The floor inside an enclosure: its bounds less the wall it stands in. */
+export function interiorOf(box: Box): { x0: number; y0: number; x1: number; y1: number } {
+    return {
+        x0: box.pos_x - box.width_ft / 2 + WALL_FT,
+        y0: box.pos_y - box.depth_ft / 2 + WALL_FT,
+        x1: box.pos_x + box.width_ft / 2 - WALL_FT,
+        y1: box.pos_y + box.depth_ft / 2 - WALL_FT
+    };
+}
+
+/** Is a point inside this enclosure's floor? */
+export function insideInterior(box: Box, x: number, y: number): boolean {
+    const i = interiorOf(box);
+    return x > i.x0 && x < i.x1 && y > i.y0 && y < i.y1;
+}
+
+/**
+ * Keep an object's footprint within a rectangle, returning the centre it needs.
+ * Used to stop furniture being pushed through the wall of the room it stands in.
+ */
+export function confine(
+    box: Box,
+    area: { x0: number; y0: number; x1: number; y1: number }
+): { x: number; y: number } {
+    const e = extents(box);
+    // A thing bigger than the space it's in has nowhere legal to go, so it's
+    // centred rather than jammed into a corner.
+    const x = area.x1 - area.x0 < e.hx * 2
+        ? (area.x0 + area.x1) / 2
+        : Math.min(Math.max(box.pos_x, area.x0 + e.hx), area.x1 - e.hx);
+    const y = area.y1 - area.y0 < e.hy * 2
+        ? (area.y0 + area.y1) / 2
+        : Math.min(Math.max(box.pos_y, area.y0 + e.hy), area.y1 - e.hy);
+    return { x, y };
+}
