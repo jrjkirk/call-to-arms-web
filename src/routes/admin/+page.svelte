@@ -5554,6 +5554,12 @@
                         <input type="checkbox" bind:checked={tbEnabled} />
                         <span>Send table-booking emails for {tbSelectScope}</span>
                     </label>
+                    <p class="muted tb-scope-note">
+                        This emails an <strong>outside</strong> venue how many tables to expect.
+                        If the club runs its own venue through Venue Admin, that already works
+                        the number out and lays the tables out on the plan — you'd be emailing
+                        yourself a count you can see.
+                    </p>
                     <div class="field-row-break"></div>
 
                     <div class="field field-narrow">
@@ -5711,6 +5717,8 @@
 {/if}
 
 <style>
+    .tb-scope-note { max-width: 46rem; margin: 0.35rem 0 0; }
+
     .page-heading {
         font-size: 1.5rem;
         margin: 0 0 1.5rem;

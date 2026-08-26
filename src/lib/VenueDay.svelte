@@ -88,6 +88,12 @@
                 error = `Held ${made.tables_held} of the ${made.tables_needed} tables you asked ` +
                         `for — the rest were already taken. Free something up, or edit the event.`;
             }
+            // The event takes empty tables first, but a big one runs out of
+            // them. Whoever it moved has to be named at the moment it happens.
+            if (made.displaced?.length) {
+                message = `${made.displaced.length} club-night game${made.displaced.length === 1
+                    ? ' was' : 's were'} moved to other tables: ${made.displaced.join(', ')}.`;
+            }
             if (made.status === 'pending') {
                 message = `${made.name} is holding its tables and waiting for a club ` +
                           `super-admin to approve it.`;

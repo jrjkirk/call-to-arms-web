@@ -592,6 +592,18 @@
         vibe: string | null; faction: string | null; points: number | null;
         notes: string | null; status: string; is_mine: boolean;
     };
+    // Whether this club sells table space, so the call-out form can point at
+    // the booking page. Same source as the club page's Book a table button.
+    let venueEnabled = $state(false);
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' });
+            if (r.ok) venueEnabled = (await r.json()).enabled === true;
+        } catch (_) {
+            venueEnabled = false;
+        }
+    });
+
     let callOuts = $state<CallOut[]>([]);
 
     async function loadCallOuts(sys: string) {
@@ -1085,6 +1097,19 @@
             your availability.
         </p>
 
+        {#if venueEnabled}
+            <!-- A nudge, not a link between the two: posting a call-out doesn't
+                 book anything, and a table you haven't asked for isn't waiting
+                 for you. Deliberately kept as a reminder rather than an
+                 automatic booking — the game might not get taken up, and
+                 holding a table on the chance it does costs the venue money. -->
+            <p class="prompt-body small callout-book">
+                Playing at the club? A call-out doesn’t reserve anything —
+                <a href="/book" target="_blank" rel="noopener">book a table</a>
+                once someone takes you up on it.
+            </p>
+        {/if}
+
         <div class="form-grid">
             <div class="field">
                 <label class="field-label" for="co-date">Date</label>
@@ -1147,6 +1172,13 @@
 {/if}
 
 <style>
+    .callout-book {
+        border-left: 2px solid var(--color-accent-border);
+        padding-left: 0.6rem;
+        color: var(--color-text-faint);
+    }
+    .callout-book a { color: var(--color-accent); }
+
     .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
 
     .next-session-row {
