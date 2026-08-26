@@ -17,6 +17,26 @@
      */
     const STROKE = 0.12;
 
+    /**
+     * Only TABLES are outlined.
+     *
+     * Everything else is drawn as bare fill, for two reasons that turn out to
+     * be the same reason. Adjacent fixtures then MERGE — two terrain shelves
+     * meeting at a corner read as one L-shaped run rather than two rectangles
+     * with a seam — which is how a plan should show a continuous thing.
+     *
+     * And it fixes a sizing bug: shapes were inset by half of STROKE, but
+     * fixtures only stroked at 0.08 (walls at none at all), so a wall declared
+     * 0.5 thick was drawn 0.38 and refused to line up with a room's 0.5 wall.
+     * With no stroke there's nothing to inset for, and the drawn size IS the
+     * stated size.
+     *
+     * Tables keep their outline deliberately: they're the things that must
+     * stay distinct from each other.
+     */
+    const outlined = $derived(kind === 'table');
+    const inset = $derived(outlined ? STROKE / 2 : 0);
+
     let {
         o, kind, state = 'free', selected = false, clash = false,
         editing = true, bookings = [], onpick
@@ -192,20 +212,20 @@
                   d="M {hx} {w} A {w} {w} 0 0 0 {w / 2} 0" />
             <line class="door-leaf" x1={hx} y1="0" x2={hx} y2={w} />
         {:else if o.shape === 'round'}
-            {@const r = Math.max(0.05, Math.min(o.width_ft, o.depth_ft) / 2 - STROKE / 2)}
+            {@const r = Math.max(0.05, Math.min(o.width_ft, o.depth_ft) / 2 - inset)}
             <circle class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} cx="0" cy="0" r={r} />
         {:else if o.shape === 'oval'}
             <ellipse class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined}
                      cx="0" cy="0"
-                     rx={Math.max(0.05, o.width_ft / 2 - STROKE / 2)}
-                     ry={Math.max(0.05, o.depth_ft / 2 - STROKE / 2)} />
+                     rx={Math.max(0.05, o.width_ft / 2 - inset)}
+                     ry={Math.max(0.05, o.depth_ft / 2 - inset)} />
         {:else}
             <!-- No corner radius: these are tables, and a plan reads as a plan
                  because its rectangles are rectangles. -->
             <rect class="body"
-                  x={-o.width_ft / 2 + STROKE / 2} y={-o.depth_ft / 2 + STROKE / 2}
-                  width={Math.max(0.05, o.width_ft - STROKE)}
-                  height={Math.max(0.05, o.depth_ft - STROKE)}
+                  x={-o.width_ft / 2 + inset} y={-o.depth_ft / 2 + inset}
+                  width={Math.max(0.05, o.width_ft - inset * 2)}
+                  height={Math.max(0.05, o.depth_ft - inset * 2)}
                   style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} />
         {/if}
     </g>
@@ -260,16 +280,16 @@
     .table.held .body { fill: #5a4520; stroke: #d0ae63; }
     .table.free .body { fill: #24402a; stroke: #79b184; }
 
+    /* No outline — see `outlined` above. Fixtures butted together become one
+       shape, and their drawn size is their stated size. */
     .feature .body {
         fill: var(--fill, #44444e);
-        stroke: var(--edge, #00000060);
-        stroke-width: 0.08;
+        stroke: none;
     }
 
     /* A standalone wall is the SAME MATERIAL as a room's wall — same colour,
-       and its default depth is one wall thickness — so the two meet cleanly
-       instead of reading as a light bar next to a dark one. */
-    .feature.wall .body { fill: #6d7280; stroke: none; }
+       same thickness — so the two meet cleanly and read as one run. */
+    .feature.wall .body { fill: #6d7280; }
 
     /* Specificity matters here: `.feature .body` is two classes and would
        otherwise win, filling the room in solid grey. Matched at the same depth
@@ -292,10 +312,13 @@
     .door-leaf { stroke: #aeb3bf; stroke-width: 0.16; }
 
 
-    .sel .body { stroke: var(--color-accent); }
+    /* Only on tables: adding a stroke to an un-outlined fixture would change
+       its drawn size the moment it was selected. The selection frame rings
+       everything else already. */
+    .table.sel .body { stroke: var(--color-accent); }
     /* Dashed rather than a colour swap: the table's real state is still worth
        seeing while you untangle it. */
-    .clash .body {
+    .table.clash .body {
         stroke: var(--color-loss);
         stroke-dasharray: 0.5 0.35;
     }
