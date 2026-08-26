@@ -1,6 +1,7 @@
 <script lang="ts">
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from './HelpTip.svelte';
+    import VenuePlanView from './plan/VenuePlanView.svelte';
 
     let { date, onchange, canApprove = false }:
         { date: string; onchange?: () => void; canApprove?: boolean } = $props();
@@ -13,6 +14,18 @@
     let showEventForm = $state(false);
     let newEvent = $state({ name: '', start_time: '18:00', end_time: '22:00',
                             tables_needed: 4, description: '', public: true });
+    // Clicking a table on the plan narrows the lists to it, so "who's on table
+    // six" is one click rather than a scan down the page.
+    let focusTable = $state<number | null>(null);
+    $effect(() => { date; focusTable = null; });
+
+    /** Bookings to list: the day's, minus the event rows, narrowed to one table
+     *  when the plan has one picked. */
+    const shown = $derived(
+        (day?.booking_rows ?? []).filter(
+            (b: any) => !b.event_id && (focusTable === null || b.table_id === focusTable)
+        )
+    );
 
     async function load() {
         const [d, e] = await Promise.all([
@@ -149,6 +162,16 @@
             </p>
         {/if}
 
+        <VenuePlanView {date} tableId={focusTable} onpick={(id) => (focusTable = id)} />
+
+        {#if focusTable !== null}
+            {@const t = day.tables.find((x) => x.id === focusTable)}
+            <p class="a-note focus-note">
+                Showing <strong>{t ? t.name : 'one table'}</strong> only.
+                <button class="chip" onclick={() => (focusTable = null)}>Show everything</button>
+            </p>
+        {/if}
+
         <div class="a-head events-head">
             <h3 class="a-subtitle">Events</h3>
             <HelpTip
@@ -247,14 +270,16 @@
         {/if}
 
         <h3 class="a-subtitle">Bookings</h3>
-        {#if day.booking_rows.filter((b) => !b.event_id).length === 0}
-            <p class="a-note">No bookings.</p>
+        {#if shown.length === 0}
+            <p class="a-note">
+                {focusTable === null ? 'No bookings.' : 'Nothing booked on that table.'}
+            </p>
         {:else}
             <div class="bookings">
                 <!-- An event's tables are bookings too, but showing six
                      identical rows for one tournament would bury the real
                      bookings. They're listed above as the one thing they are. -->
-                {#each day.booking_rows.filter((b) => !b.event_id) as b (b.id)}
+                {#each shown as b (b.id)}
                     <div class="booking" class:cancelled={b.status === 'cancelled'}
                          class:pending={b.status === 'requested'}>
                         <div class="b-when">
@@ -330,6 +355,23 @@
     .b-actions { display: flex; gap: 0.4rem; align-items: center; margin-left: auto; }
 
     .events-head { margin-top: 1rem; }
+
+    .focus-note {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 0 0.6rem;
+    }
+    .chip {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-bright);
+        font-family: inherit;
+        font-size: 0.7rem;
+        padding: 0.15rem 0.45rem;
+        cursor: pointer;
+    }
 
     .event-form {
         display: grid;
