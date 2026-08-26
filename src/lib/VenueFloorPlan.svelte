@@ -274,7 +274,11 @@
 
     type Gesture =
         | { type: 'move'; dx: number; dy: number;
-            from: { o: any; x: number; y: number }[]; anchor: { x: number; y: number } }
+            from: { o: any; x: number; y: number }[]; anchor: { x: number; y: number };
+            // The grabbed object's half-extents, captured at pointer-down.
+            // Read live from `selected` it was null the moment more than one
+            // thing was picked, which killed every multi-object drag.
+            half: { hx: number; hy: number } }
         | { type: 'resize'; handle: Handle }
         | { type: 'rotate'; grab: number; from: number }
         | { type: 'band'; x0: number; y0: number; add: boolean };
@@ -392,7 +396,8 @@
             type: 'move',
             dx: p.x - o.pos_x, dy: p.y - o.pos_y,
             from: picked.map((s) => ({ o: s.o, x: s.o.pos_x, y: s.o.pos_y })),
-            anchor: { x: o.pos_x, y: o.pos_y }
+            anchor: { x: o.pos_x, y: o.pos_y },
+            half: extents(o as Box)
         };
         gestureStarted = false;
         (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
@@ -412,21 +417,22 @@
 
     function onMove(e: PointerEvent) {
         if (!gesture || !room) return;
-        if (gesture.type !== 'band' && gesture.type !== 'move' && !selected) return;
+        // Resize and rotate act on one object; move and marquee don't need one
+        // at all. Requiring `selected` for the latter two is what broke
+        // multi-object dragging.
+        if ((gesture.type === 'resize' || gesture.type === 'rotate') && !selected) return;
         const p = atPointer(e);
         if (!p) return;
         // The snapshot goes in on the FIRST movement, not on pointerdown, so a
         // click that selects without moving doesn't fill the undo stack.
         if (!gestureStarted) { commit(); gestureStarted = true; }
 
-        const o: any = selected;
         if (gesture.type === 'move') {
             // Snap the ANCHOR's edges, then move everything by that one delta.
             // Snapping each member independently would quietly close up the
             // gaps between them.
-            const ae = extents(o as Box);
-            let dx = snapEdge(p.x - gesture.dx, ae.hx) - gesture.anchor.x;
-            let dy = snapEdge(p.y - gesture.dy, ae.hy) - gesture.anchor.y;
+            let dx = snapEdge(p.x - gesture.dx, gesture.half.hx) - gesture.anchor.x;
+            let dy = snapEdge(p.y - gesture.dy, gesture.half.hy) - gesture.anchor.y;
             // Clamp so the group's bounding box stays in the room, rather than
             // clamping each object and shearing the arrangement.
             const xs = gesture.from.map((f) => f.x);
@@ -441,6 +447,7 @@
         } else if (gesture.type === 'band') {
             band = { x0: gesture.x0, y0: gesture.y0, x1: p.x, y1: p.y };
         } else if (gesture.type === 'resize') {
+            const o: any = selected;
             const next = resize(o as Box, gesture.handle, p.x, p.y,
                                 { min: MIN_SIZE_FT, snap, keepAspect: e.shiftKey });
             o.pos_x = next.pos_x; o.pos_y = next.pos_y;
@@ -448,6 +455,7 @@
             o.depth_ft = Math.round(next.depth_ft * 100) / 100;
             keepInside(o);
         } else {
+            const o: any = selected;
             const now = angleTo(o as Box, p.x, p.y);
             let deg = gesture.from + (now - gesture.grab);
             // Snapped to 15° unless shift is held — a table at 3.7° is a
@@ -1433,7 +1441,9 @@
     }
 
     .floor { fill: #14171d; }
-    .walls { fill: none; stroke: #6d7280; }
+    /* Same material as every other wall, and crisp for the same reason: an
+       antialiased edge meeting another antialiased edge leaves a seam. */
+    .walls { fill: none; stroke: #6d7280; shape-rendering: crispEdges; }
     .grid { stroke: #ffffff10; stroke-width: 0.04; }
     .grid.major { stroke: #ffffff22; stroke-width: 0.06; }
 

@@ -288,8 +288,23 @@
     }
 
     /* A standalone wall is the SAME MATERIAL as a room's wall — same colour,
-       same thickness — so the two meet cleanly and read as one run. */
-    .feature.wall .body { fill: #6d7280; }
+       same thickness — so the two meet cleanly and read as one run.
+
+       crispEdges is what actually removes the seam. Two shapes abutting exactly
+       still land mid-pixel, and each antialiases its own edge: the two partial
+       coverages composite to LESS than solid, leaving a one-pixel line a shade
+       darker than the wall. Measured at a room/wall join: 109,114,128 either
+       side and a single pixel of 91,95,108 between them.
+
+       Turning antialiasing off on wall material snaps those edges to whole
+       pixels so there's nothing to under-cover. The cost is that a wall at an
+       odd angle draws with stepped edges — walls are near enough always square
+       to the room, and a visible seam everywhere is the worse trade. Tables
+       keep smooth edges and rotate freely. */
+    .feature.wall .body {
+        fill: #6d7280;
+        shape-rendering: crispEdges;
+    }
 
     /* Specificity matters here: `.feature .body` is two classes and would
        otherwise win, filling the room in solid grey. Matched at the same depth
@@ -302,6 +317,7 @@
         stroke: #6d7280;
         stroke-width: 0.5;
         pointer-events: stroke;
+        shape-rendering: crispEdges;
     }
     .feature.sel .body.enclosure { stroke: var(--color-accent); }
 
