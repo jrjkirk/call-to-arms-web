@@ -298,6 +298,9 @@
        Wednesday rather than one undifferentiated block. */
     .table.held .body { fill: var(--fill, #5a4520); stroke: var(--edge, #d0ae63); }
     .table.free .body { fill: #24402a; stroke: #79b184; }
+    /* The booking picker's "suits your game" — free, and the right sort of
+       table for what they're playing. */
+    .table.suits .body { fill: #24402a; stroke: #79b184; }
 
     /* A game is on it: the night's colour, and a solid edge — this table is
        spoken for by a specific pair of people. */
@@ -369,7 +372,12 @@
     /* Only on tables: adding a stroke to an un-outlined fixture would change
        its drawn size the moment it was selected. The selection frame rings
        everything else already. */
-    .table.sel .body { stroke: var(--color-accent); }
+    .table.sel .body {
+        stroke: var(--color-accent);
+        /* Thicker, not just recoloured. On a plan of forty near-identical
+           rectangles a hue change alone doesn't read as "this is the one". */
+        stroke-width: 0.3;
+    }
     /* Dashed rather than a colour swap: the table's real state is still worth
        seeing while you untangle it. */
     .table.clash .body {

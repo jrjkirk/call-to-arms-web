@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import BookingPlanPicker from '$lib/plan/BookingPlanPicker.svelte';
 
     type Slot = { start: string; end: string; available: boolean; reason: string | null; tables_free: number };
     type DayLoad = { date: string; weekday: string; load: number | null; over_capacity: boolean;
@@ -24,6 +25,9 @@
     let slotTables = $state<{ id: number; name: string; size_label: string | null;
                               seats: number; recommended: boolean }[]>([]);
     let chosenTable = $state<number | null>(null);
+    // Why each table you CAN'T have is unavailable, so the plan can grey it
+    // honestly instead of making everything look booked.
+    let slotUnavailable = $state<{ id: number; reason: string }[]>([]);
     let slotsLoading = $state(false);
     let submitting = $state(false);
 
@@ -78,13 +82,18 @@
         chosenSlot = start;
         chosenTable = null;
         slotTables = [];
+        slotUnavailable = [];
         const sys = systemChoice && systemChoice !== 'other' ? `&system_id=${systemChoice}` : '';
         const r = await fetch(
             `${PUBLIC_API_URL}/venue/tables-for-slot?date=${chosenDate}&start_time=${start}` +
             `&duration=${duration}&party_size=${partySize}${sys}`,
             { credentials: 'include' }
         );
-        if (r.ok) slotTables = (await r.json()).tables ?? [];
+        if (r.ok) {
+            const body = await r.json();
+            slotTables = body.tables ?? [];
+            slotUnavailable = body.unavailable ?? [];
+        }
     }
 
     async function book() {
@@ -305,6 +314,19 @@
 
         {#if chosenSlot && slotTables.length}
             <h2 class="a-subtitle">Pick a table</h2>
+
+            <!-- The room itself. A list of cards tells you a 6x4 is free; it
+                 can't tell you it's the one by the window, which is the only
+                 reason anyone asks for a particular table. The cards stay
+                 below, sharing the selection — they're the keyboard and
+                 screen-reader path, not a fallback. -->
+            <BookingPlanPicker
+                free={slotTables.map((t) => t.id)}
+                unavailable={slotUnavailable}
+                recommended={slotTables.filter((t) => t.recommended).map((t) => t.id)}
+                selected={chosenTable}
+                onpick={(id) => (chosenTable = id)} />
+
             <div class="tables">
                 {#each slotTables as t (t.id)}
                     <button class="tcard" class:selected={chosenTable === t.id}
