@@ -26,6 +26,10 @@
     let chosenTable = $state<number | null>(null);
     let slotsLoading = $state(false);
     let submitting = $state(false);
+
+    /** Some venue-named nights already end in "night" — "Magic Night night". */
+    const nightLabel = (name: string) =>
+        /night$/i.test(name) ? name : `${name} night`;
     let error = $state<string | null>(null);
     let confirmed = $state<any>(null);
 
@@ -222,7 +226,9 @@
                         <span class="day-chip-fill" style="width: {Math.min(100, Math.round((d.load ?? 0) * 100))}%"></span>
                     </span>
                     {#if d.club_nights.length}
-                        <span class="day-chip-night">{d.club_nights[0].system} night</span>
+                        <!-- A venue-only night is named by its venue, and some of
+                             them already end in "night" — "Magic Night night". -->
+                        <span class="day-chip-night">{nightLabel(d.club_nights[0].system)}</span>
                     {:else}
                         <span class="day-chip-night quiet">
                             {(d.load ?? 0) >= 0.9 ? 'Nearly full' : (d.load ?? 0) >= 0.5 ? 'Getting busy' : 'Quiet'}

@@ -17,6 +17,7 @@
         system: string; session_day: string | null; session_cadence: string;
         cadence_anchor?: string | null;
         start_time: string | null; expected_tables: number | null; notes: string | null;
+        color: string;
         preferred_table_ids: number[]; reserved_table_ids: number[]; review: Review;
     };
 
@@ -25,8 +26,20 @@
     let savingId = $state<number | null>(null);
     let adding = $state(false);
     let newNight = $state({ name: '', session_day: 'Thursday', session_cadence: 'weekly',
-                            cadence_anchor: '', start_time: '18:30', expected_tables: null as number | null });
+                            cadence_anchor: '', start_time: '18:30',
+                            expected_tables: null as number | null, color: 'amber' });
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    /** Mirrors venue.py's TABLE_COLORS: [token, fill, edge]. */
+    const COLORS: [string, string, string][] = [
+        ['amber', '#5a4520', '#d0ae63'],
+        ['blue', '#243c6b', '#7f96d4'],
+        ['green', '#24402a', '#79b184'],
+        ['red', '#5c2a24', '#cf7d72'],
+        ['purple', '#452a5e', '#a684c9'],
+        ['teal', '#1f4444', '#6fb3ad'],
+        ['slate', '#2a4a63', '#7fa8c4'],
+        ['grey', '#33363d', '#8b8f99']
+    ];
     let error = $state<string | null>(null);
     let message = $state<string | null>(null);
 
@@ -90,6 +103,7 @@
                 expected_tables: n.expected_tables === null || n.expected_tables === ('' as any)
                     ? null : Number(n.expected_tables),
                 notes: n.notes,
+                color: n.color,
                 preferred_table_ids: n.preferred_table_ids,
                 reserved_table_ids: n.reserved_table_ids
             })
@@ -105,10 +119,20 @@
         savingId = null;
     }
 
+    const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth'];
+
     function cadence(n: Night): string {
         if (!n.session_day) return 'No day set';
+        const at = n.start_time ? ` · ${n.start_time}` : '';
+        if (n.session_cadence === 'monthly') {
+            // The ordinal is read off the anchor, so say which one it landed on
+            // rather than leaving "monthly" to mean any of five things.
+            const d = n.cadence_anchor ? new Date(n.cadence_anchor + 'T00:00:00') : null;
+            const nth = d ? ORDINALS[Math.floor((d.getDate() - 1) / 7)] : null;
+            return `${nth ? `The ${nth}` : 'Monthly, each'} ${n.session_day}${at}`;
+        }
         const every = n.session_cadence === 'fortnightly' ? 'Every other' : 'Every';
-        return `${every} ${n.session_day}${n.start_time ? ` · ${n.start_time}` : ''}`;
+        return `${every} ${n.session_day}${at}`;
     }
 
     async function addNight() {
@@ -123,7 +147,8 @@
                 session_cadence: newNight.session_cadence,
                 cadence_anchor: newNight.cadence_anchor || null,
                 start_time: newNight.start_time,
-                expected_tables: newNight.expected_tables
+                expected_tables: newNight.expected_tables,
+                color: newNight.color
             })
         });
         if (r.ok) {
@@ -131,7 +156,8 @@
             nights = body.club_nights;
             tables = body.tables;
             newNight = { name: '', session_day: 'Thursday', session_cadence: 'weekly',
-                         cadence_anchor: '', start_time: '18:30', expected_tables: null };
+                         cadence_anchor: '', start_time: '18:30',
+                         expected_tables: null, color: 'amber' };
             message = 'Club night added.';
         } else {
             error = (await r.json().catch(() => ({}))).detail || 'Could not add that night.';
@@ -196,13 +222,14 @@
                     <select class="field-select" bind:value={n.session_cadence}>
                         <option value="weekly">Weekly</option>
                         <option value="fortnightly">Fortnightly</option>
+                        <option value="monthly">Monthly</option>
                     </select>
                 </label>
-                {#if n.session_cadence === 'fortnightly'}
+                {#if n.session_cadence === 'fortnightly' || n.session_cadence === 'monthly'}
                     <label class="field sched-anchor">
                         <span class="field-label">
                             A date it ran
-                            <HelpTip label="fortnightly anchor" text={"Any date this night actually ran. We count fortnights from there to work out which weeks it falls on."} />
+                            <HelpTip label="fortnightly anchor" text={"Any date this night actually ran.\n\nFor a fortnightly night we count fortnights from there. For a monthly one we read WHICH weekday of the month it was — a night anchored to the second Wednesday runs on the second Wednesday."} />
                         </span>
                         <input class="field-input" type="date" bind:value={n.cadence_anchor} />
                     </label>
@@ -227,12 +254,30 @@
             </label>
         </div>
 
+        <h3 class="a-subtitle">
+            Colour
+            <HelpTip
+                label="night colour"
+                text={"How this night's held tables are drawn on the Diary.\n\nA venue running several game nights needs to see WHICH one has the far corner on a Wednesday — one shade for everything held can't say that."}
+            />
+        </h3>
+        <div class="swatches">
+            {#each COLORS as [name, fill, edge]}
+                <button class="swatch" class:active={n.color === name}
+                        style="--fill: {fill}; --edge: {edge}"
+                        type="button" title={name} aria-label={name}
+                        onclick={() => { n.color = name; nights = nights; }}></button>
+            {/each}
+        </div>
+
         <h3 class="a-subtitle">Its tables</h3>
         <div class="table-grid">
             {#each tables as t (t.id)}
                 {@const st = stateOf(n, t.id)}
+                {@const paint = COLORS.find((c) => c[0] === n.color) ?? COLORS[0]}
                 <button class="tchip" class:preferred={st === 'preferred'} class:reserved={st === 'reserved'}
-                        class:inactive={!t.active} type="button" onclick={() => cycle(n, t.id)}>
+                        class:inactive={!t.active} type="button" onclick={() => cycle(n, t.id)}
+                        style={st === 'reserved' ? `--fill: ${paint[1]}; --edge: ${paint[2]}` : undefined}>
                     <span class="tchip-name">{t.name}</span>
                     <span class="tchip-size">{t.size_label ?? `${t.seats}p`}</span>
                     <span class="tchip-state">
@@ -244,7 +289,7 @@
         <p class="a-note">
             {#if n.reserved_table_ids.length}
                 <strong>{n.reserved_table_ids.length} held</strong> from the public on this
-                night — these show gold on the Diary.
+                night — these show {n.color} on the Diary.
             {:else}
                 Nothing held yet: the public can book every table on this night.
             {/if}
@@ -329,9 +374,10 @@
             <select class="field-select" bind:value={newNight.session_cadence}>
                 <option value="weekly">Weekly</option>
                 <option value="fortnightly">Fortnightly</option>
+                <option value="monthly">Monthly</option>
             </select>
         </label>
-        {#if newNight.session_cadence === 'fortnightly'}
+        {#if newNight.session_cadence === 'fortnightly' || newNight.session_cadence === 'monthly'}
             <label class="field">
                 <span class="field-label">A date it ran</span>
                 <input class="field-input" type="date" bind:value={newNight.cadence_anchor} />
@@ -346,6 +392,17 @@
             <input class="field-input" type="number" min="0" max="200"
                    bind:value={newNight.expected_tables} placeholder="—" />
         </label>
+        <div class="field">
+            <span class="field-label">Colour</span>
+            <div class="swatches">
+                {#each COLORS as [name, fill, edge]}
+                    <button class="swatch" class:active={newNight.color === name}
+                            style="--fill: {fill}; --edge: {edge}"
+                            type="button" title={name} aria-label={name}
+                            onclick={() => (newNight.color = name)}></button>
+                {/each}
+            </div>
+        </div>
     </div>
     <button class="primary-button" type="button"
             disabled={adding || !newNight.name.trim()} onclick={addNight}>
@@ -384,6 +441,18 @@
     .night-actions { display: flex; gap: 0.6rem; align-items: center; }
     .night-actions .danger-button { margin-left: auto; }
 
+    .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.2rem; max-width: 16rem; }
+    .swatch {
+        aspect-ratio: 1;
+        min-height: 1.1rem;
+        border-radius: 3px;
+        background: var(--fill);
+        border: 1px solid var(--edge);
+        cursor: pointer;
+        padding: 0;
+    }
+    .swatch.active { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
     .add-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
@@ -420,9 +489,11 @@
         border-color: var(--color-accent-border);
         background: color-mix(in srgb, var(--color-accent) 10%, transparent);
     }
+    /* Held chips wear the night's own colour, so the picker previews what the
+       Diary will look like rather than describing it. */
     .tchip.reserved {
-        border-color: var(--color-accent);
-        background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+        border-color: var(--edge, var(--color-accent));
+        background: var(--fill, color-mix(in srgb, var(--color-accent) 20%, transparent));
     }
 
     .tchip-name { font-size: 0.78rem; font-weight: 700; color: var(--color-text-bright); }

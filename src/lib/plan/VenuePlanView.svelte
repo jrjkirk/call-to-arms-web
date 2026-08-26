@@ -15,7 +15,10 @@
     let { date, tableId = null, onpick }: {
         date: string;
         tableId?: number | null;
-        onpick?: (id: number | null) => void;
+        /** The club night holding this table, if one does, travels with the
+         *  pick — the caller can't answer "why is it gold?" on its own. */
+        onpick?: (id: number | null, held?: { night_id: number; name: string;
+                                              color: string; start_time: string | null } | null) => void;
     } = $props();
 
     let rooms = $state<any[]>([]);
@@ -60,14 +63,51 @@
     const bookingsFor = (t: any) =>
         !occupancy || t.id === null ? [] : (occupancy.tables[String(t.id)] ?? []);
 
+    /** Which club night has this table, if any. */
+    const heldBy = (t: any) => occupancy?.held_by?.[String(t.id)] ?? null;
+
+    const PALETTE: Record<string, [string, string]> = {
+        amber: ['#5a4520', '#d0ae63'],
+        blue: ['#243c6b', '#7f96d4'],
+        green: ['#24402a', '#79b184'],
+        red: ['#5c2a24', '#cf7d72'],
+        purple: ['#452a5e', '#a684c9'],
+        teal: ['#1f4444', '#6fb3ad'],
+        slate: ['#2a4a63', '#7fa8c4'],
+        grey: ['#33363d', '#8b8f99']
+    };
+
     function stateOf(t: any): string {
         if (!t.active) return 'off';
         const b = bookingsFor(t);
         if (b.some((x: any) => x.is_event)) return 'event';
         if (b.length) return 'busy';
-        if (occupancy?.held_table_ids?.includes(t.id)) return 'held';
+        if (heldBy(t)) return 'held';
         return 'free';
     }
+
+    /** A held table wears its NIGHT's colour, so a venue running four game
+     *  nights can see which one has the far corner. Everything else keeps the
+     *  state colours, which mean the same thing whatever night it is. */
+    function paintOf(t: any): string | undefined {
+        const h = stateOf(t) === 'held' ? heldBy(t) : null;
+        if (!h) return undefined;
+        const [fill, edge] = PALETTE[h.color] ?? PALETTE.amber;
+        return `--fill:${fill};--edge:${edge}`;
+    }
+
+    /** The nights actually holding tables today, for the key. */
+    const heldNights = $derived.by(() => {
+        const seen = new Map<number, { name: string; color: string; n: number }>();
+        for (const t of roomTables) {
+            const h = stateOf(t) === 'held' ? heldBy(t) : null;
+            if (!h) continue;
+            const e = seen.get(h.night_id) ?? { name: h.name, color: h.color, n: 0 };
+            e.n++;
+            seen.set(h.night_id, e);
+        }
+        return [...seen.values()];
+    });
 
     const tally = $derived.by(() => {
         const c = { busy: 0, event: 0, held: 0, free: 0, off: 0 } as Record<string, number>;
@@ -119,7 +159,10 @@
             <span class="pv-key">
                 <span class="k busy"></span>{tally.busy} booked
                 {#if tally.event}<span class="k event"></span>{tally.event} event{/if}
-                <span class="k held"></span>{tally.held} club night
+                {#each heldNights as h}
+                    <span class="k" style="background: {PALETTE[h.color]?.[0]}; border: 1px solid {PALETTE[h.color]?.[1]}"></span>{h.n}
+                    {h.name}
+                {/each}
                 <span class="k free"></span>{tally.free} free
             </span>
 
@@ -154,8 +197,11 @@
                 <PlanObject o={t} kind="table" state={stateOf(t)}
                             selected={tableId === t.id}
                             editing={false}
+                            paint={paintOf(t)}
                             bookings={bookingsFor(t)}
-                            onpick={() => onpick?.(tableId === t.id ? null : t.id)} />
+                            onpick={() => (tableId === t.id
+                                ? onpick?.(null, null)
+                                : onpick?.(t.id, heldBy(t)))} />
             {/each}
 
             {#each roomNotes as f (f.id)}
@@ -205,7 +251,6 @@
     .k:first-child { margin-left: 0; }
     .k.busy { background: #6b3320; border: 1px solid #d4835c; }
     .k.event { background: #5a3570; border: 1px solid #b98fd0; }
-    .k.held { background: #5a4520; border: 1px solid #d0ae63; }
     .k.free { background: #24402a; border: 1px solid #79b184; }
 
     .pv-time { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto; }

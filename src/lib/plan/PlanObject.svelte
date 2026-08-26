@@ -39,7 +39,7 @@
 
     let {
         o, kind, state = 'free', selected = false, clash = false,
-        editing = true, bookings = [], onpick
+        editing = true, bookings = [], paint: paintOverride = undefined, onpick
     }: {
         o: any;
         kind: 'table' | 'feature';
@@ -48,6 +48,10 @@
         clash?: boolean;
         editing?: boolean;
         bookings?: any[];
+        /** An explicit `--fill/--edge` pair, for when the caller knows better
+         *  than the state colour — a held table wearing its club night's own
+         *  colour rather than a single shade meaning "held". */
+        paint?: string;
         onpick?: (e: PointerEvent) => void;
     } = $props();
 
@@ -158,6 +162,12 @@
               : (PALETTE[o.color] ?? PALETTE.grey)
     );
 
+    /** An override wins over both: the caller has a reason the state doesn't
+     *  know about. */
+    const style = $derived(
+        paintOverride ?? (paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined)
+    );
+
     // Below this the text is illegible anyway and just adds noise to the plan.
     const roomForText = $derived(Math.min(o.width_ft, o.depth_ft) >= 1);
 </script>
@@ -213,9 +223,9 @@
             <line class="door-leaf" x1={hx} y1="0" x2={hx} y2={w} />
         {:else if o.shape === 'round'}
             {@const r = Math.max(0.05, Math.min(o.width_ft, o.depth_ft) / 2 - inset)}
-            <circle class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} cx="0" cy="0" r={r} />
+            <circle class="body" style={style} cx="0" cy="0" r={r} />
         {:else if o.shape === 'oval'}
-            <ellipse class="body" style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined}
+            <ellipse class="body" style={style}
                      cx="0" cy="0"
                      rx={Math.max(0.05, o.width_ft / 2 - inset)}
                      ry={Math.max(0.05, o.depth_ft / 2 - inset)} />
@@ -226,7 +236,7 @@
                   x={-o.width_ft / 2 + inset} y={-o.depth_ft / 2 + inset}
                   width={Math.max(0.05, o.width_ft - inset * 2)}
                   height={Math.max(0.05, o.depth_ft - inset * 2)}
-                  style={paint ? `--fill:${paint[0]};--edge:${paint[1]}` : undefined} />
+                  style={style} />
         {/if}
     </g>
 
@@ -277,7 +287,10 @@
     .table.off .body { fill: #23252b; stroke: #4a4c55; }
     .table.busy .body { fill: #6b3320; stroke: #d4835c; }
     .table.event .body { fill: #5a3570; stroke: #b98fd0; }
-    .table.held .body { fill: #5a4520; stroke: #d0ae63; }
+    /* Gold is only the DEFAULT for held. A venue that has given its club night
+       a colour gets that colour, so four game nights read as four things on a
+       Wednesday rather than one undifferentiated block. */
+    .table.held .body { fill: var(--fill, #5a4520); stroke: var(--edge, #d0ae63); }
     .table.free .body { fill: #24402a; stroke: #79b184; }
 
     /* No outline — see `outlined` above. Fixtures butted together become one

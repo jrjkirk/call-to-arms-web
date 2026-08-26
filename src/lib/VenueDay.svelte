@@ -17,7 +17,8 @@
     // Clicking a table on the plan narrows the lists to it, so "who's on table
     // six" is one click rather than a scan down the page.
     let focusTable = $state<number | null>(null);
-    $effect(() => { date; focusTable = null; });
+    let focusHeld = $state<any>(null);
+    $effect(() => { date; focusTable = null; focusHeld = null; });
 
     /** Bookings to list: the day's, minus the event rows, narrowed to one table
      *  when the plan has one picked. */
@@ -162,7 +163,8 @@
             </p>
         {/if}
 
-        <VenuePlanView {date} tableId={focusTable} onpick={(id) => (focusTable = id)} />
+        <VenuePlanView {date} tableId={focusTable}
+                       onpick={(id, held) => { focusTable = id; focusHeld = held ?? null; }} />
 
         {#if focusTable !== null}
             {@const t = day.tables.find((x) => x.id === focusTable)}
@@ -272,7 +274,16 @@
         <h3 class="a-subtitle">Bookings</h3>
         {#if shown.length === 0}
             <p class="a-note">
-                {focusTable === null ? 'No bookings.' : 'Nothing booked on that table.'}
+                {#if focusTable === null}
+                    No bookings.
+                {:else if focusHeld}
+                    <!-- Gold with an empty list isn't "nothing" — it's held, and the
+                         venue needs to know by whom before they book over it. -->
+                    Held for <strong>{focusHeld.name}</strong>{focusHeld.start_time
+                        ? ` from ${focusHeld.start_time}` : ''}. Nobody has booked it.
+                {:else}
+                    Nothing booked on that table.
+                {/if}
             </p>
         {:else}
             <div class="bookings">
