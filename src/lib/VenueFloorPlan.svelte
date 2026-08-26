@@ -808,36 +808,85 @@
         return out;
     }
 
+    /**
+     * Every colour on the plan comes from a CSS class in this component's
+     * stylesheet. Serialising the SVG carries the MARKUP but not the
+     * STYLESHEET, so a standalone copy renders with the browser's defaults —
+     * black fill, no stroke — which is why the export came out a black
+     * rectangle.
+     *
+     * So the computed style of each node is copied onto its clone as an inline
+     * style first, while the two trees still match one for one. Editor
+     * furniture is stripped AFTERWARDS, because removing it first would shift
+     * the indices and paint every element with its neighbour's colours.
+     */
+    const EXPORT_PROPS = [
+        'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray',
+        'stroke-linecap', 'stroke-linejoin', 'opacity', 'shape-rendering',
+        'font-family', 'font-size', 'font-weight', 'font-style',
+        'letter-spacing', 'text-anchor', 'dominant-baseline', 'text-transform',
+        'paint-order'
+    ];
+
     async function exportPng() {
         if (!svgEl || !room) return;
-        // Clone so the export never carries the selection frame or the grid —
-        // a plan pinned to the staff-room wall shouldn't have editor furniture
-        // on it.
         const clone = svgEl.cloneNode(true) as SVGSVGElement;
-        clone.querySelectorAll('.frame, .grid').forEach((n) => n.remove());
-        const px = 100;
-        clone.setAttribute('width', String(view.w * px / 4));
-        clone.setAttribute('height', String(view.h * px / 4));
-        const blob = new Blob(
-            [`<?xml version="1.0"?>` + new XMLSerializer().serializeToString(clone)],
-            { type: 'image/svg+xml' }
-        );
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-        const canvas = document.createElement('canvas');
-        canvas.width = view.w * px / 4;
-        canvas.height = view.h * px / 4;
-        const ctx = canvas.getContext('2d')!;
-        ctx.fillStyle = '#0d0f13';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        const a = document.createElement('a');
-        a.download = `${room.name.replace(/\W+/g, '-').toLowerCase()}-plan.png`;
-        a.href = canvas.toDataURL('image/png');
-        a.click();
+
+        const src = [svgEl, ...svgEl.querySelectorAll('*')];
+        const dst = [clone, ...clone.querySelectorAll('*')];
+        for (let i = 0; i < src.length; i++) {
+            const cs = getComputedStyle(src[i] as Element);
+            let css = '';
+            for (const prop of EXPORT_PROPS) {
+                const v = cs.getPropertyValue(prop);
+                if (v) css += `${prop}:${v};`;
+            }
+            dst[i].setAttribute('style', css);
+            // text-transform styles the RENDER, not the content, and doesn't
+            // survive into a rasterised copy — so apply it to the text itself.
+            if (dst[i].tagName === 'text' && cs.textTransform === 'uppercase') {
+                dst[i].textContent = (dst[i].textContent ?? '').toUpperCase();
+            }
+        }
+
+        // Now the furniture goes: a plan pinned to the staff-room wall
+        // shouldn't carry the editor's grid or selection handles.
+        clone.querySelectorAll('.frame, .grid, .band, .group-box').forEach((n) => n.remove());
+
+        const px = 34;                       // pixels per foot in the export
+        const w = Math.round(view.w * px);
+        const h = Math.round(view.h * px);
+        clone.setAttribute('width', String(w));
+        clone.setAttribute('height', String(h));
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+        const svgText = new XMLSerializer().serializeToString(clone);
+        const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
+        try {
+            const img = new Image();
+            await new Promise((res, rej) => {
+                img.onload = res;
+                img.onerror = () => rej(new Error('render failed'));
+                img.src = url;
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const g = canvas.getContext('2d')!;
+            g.fillStyle = '#0d0f13';
+            g.fillRect(0, 0, w, h);
+            g.drawImage(img, 0, 0, w, h);
+            const a = document.createElement('a');
+            a.download = `${room.name.replace(/\W+/g, '-').toLowerCase()}-plan.png`;
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+        } catch (_) {
+            error = "Couldn't render the plan to an image.";
+        } finally {
+            URL.revokeObjectURL(url);
+        }
     }
+
 </script>
 
 <svelte:window on:keydown={onKey} />
