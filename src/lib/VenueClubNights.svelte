@@ -392,16 +392,19 @@
             <input class="field-input" type="number" min="0" max="200"
                    bind:value={newNight.expected_tables} placeholder="—" />
         </label>
-        <div class="field">
-            <span class="field-label">Colour</span>
-            <div class="swatches">
-                {#each COLORS as [name, fill, edge]}
-                    <button class="swatch" class:active={newNight.color === name}
-                            style="--fill: {fill}; --edge: {edge}"
-                            type="button" title={name} aria-label={name}
-                            onclick={() => (newNight.color = name)}></button>
-                {/each}
-            </div>
+    </div>
+
+    <!-- Outside the field grid: eight squares in one of its ~8rem columns wrap
+         to an ugly 5-and-3, and the row is happier with the card's full width. -->
+    <div class="field add-colour">
+        <span class="field-label">Colour</span>
+        <div class="swatches">
+            {#each COLORS as [name, fill, edge]}
+                <button class="swatch" class:active={newNight.color === name}
+                        style="--fill: {fill}; --edge: {edge}"
+                        type="button" title={name} aria-label={name}
+                        onclick={() => (newNight.color = name)}></button>
+            {/each}
         </div>
     </div>
     <button class="primary-button" type="button"
@@ -441,10 +444,22 @@
     .night-actions { display: flex; gap: 0.6rem; align-items: center; }
     .night-actions .danger-button { margin-left: auto; }
 
-    .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.2rem; max-width: 16rem; }
+    /* Wrapping flex, not an 8-column grid. Eight squares have a min-content
+       width the grid can't shrink, so in the narrow "add a night" column they
+       ran straight out of the card. These reflow to a second row instead. */
+    .swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        max-width: 16rem;
+        min-width: 0;
+        /* Room for the active swatch's outline, which sits outside the box. */
+        padding: 2px;
+    }
     .swatch {
-        aspect-ratio: 1;
-        min-height: 1.1rem;
+        width: 1.35rem;
+        height: 1.35rem;
+        flex: none;
         border-radius: 3px;
         background: var(--fill);
         border: 1px solid var(--edge);
@@ -452,6 +467,8 @@
         padding: 0;
     }
     .swatch.active { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+    .add-colour { margin-bottom: 0.8rem; }
 
     .add-grid {
         display: grid;

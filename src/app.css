@@ -479,7 +479,14 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
     transition: background 0.15s;
 }
-.secondary-button:hover:not(:disabled) { background: var(--color-accent-soft); }
+/* A WASH, not --color-accent-soft. Despite the name that token is a solid gold
+   (#cba758) — near enough to the button's own gold label that hovering made the
+   text disappear into the background. A translucent tint reads as "hovered"
+   without swallowing the word. */
+.secondary-button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    border-color: var(--color-accent);
+}
 
 /* Destructive actions. Outlined rather than filled: it sits next to a filled
    primary Save, and the eye should land on Save first — the delete is there

@@ -12,9 +12,13 @@
      * anything here, and a diary that could accidentally drag a table is worse
      * than one that can't show a plan at all.
      */
-    let { date, tableId = null, onpick }: {
+    let { date, tableId = null, refresh = 0, onpick }: {
         date: string;
         tableId?: number | null;
+        /** Bump to re-read the day. Laying tonight's games out changes what
+         *  every table on this plan is doing, and the plan can't see that
+         *  happen from inside its own component. */
+        refresh?: number;
         /** The club night holding this table, if one does, travels with the
          *  pick — the caller can't answer "why is it gold?" on its own. */
         onpick?: (id: number | null, held?: { night_id: number; name: string;
@@ -51,7 +55,7 @@
         loading = false;
     });
     // The layout barely changes; the day and time change constantly.
-    $effect(() => { date; at; if (!loading) loadOccupancy(); });
+    $effect(() => { date; at; refresh; if (!loading) loadOccupancy(); });
 
     const room = $derived(rooms.find((r) => r.id === roomId) ?? null);
     const roomTables = $derived(tables.filter((t) => t.room_id === roomId));
@@ -65,6 +69,10 @@
 
     /** Which club night has this table, if any. */
     const heldBy = (t: any) => occupancy?.held_by?.[String(t.id)] ?? null;
+    /** The game sitting on it, once tonight's pairings have been laid out. */
+    const seatedOn = (t: any) => occupancy?.seated_by?.[String(t.id)] ?? null;
+    /** Held for a night that turns out not to need it. */
+    const spareOn = (t: any) => occupancy?.spare_by?.[String(t.id)] ?? null;
 
     const PALETTE: Record<string, [string, string]> = {
         amber: ['#5a4520', '#d0ae63'],
@@ -82,6 +90,14 @@
         const b = bookingsFor(t);
         if (b.some((x: any) => x.is_event)) return 'event';
         if (b.length) return 'busy';
+        // "Held" splits three ways once the pairings are out, and the venue
+        // needs all three: a table with a game on it, one the night is holding
+        // and won't use, and one it has handed back. Spare is checked before
+        // held because a spare table is still technically held — and "still
+        // held" is exactly the thing staff can't see and need to.
+        if (seatedOn(t)) return 'seated';
+        const sp = spareOn(t);
+        if (sp) return sp.released ? 'released' : 'spare';
         if (heldBy(t)) return 'held';
         return 'free';
     }
@@ -90,7 +106,13 @@
      *  nights can see which one has the far corner. Everything else keeps the
      *  state colours, which mean the same thing whatever night it is. */
     function paintOf(t: any): string | undefined {
-        const h = stateOf(t) === 'held' ? heldBy(t) : null;
+        const st = stateOf(t);
+        // A released table is nobody's any more, so it takes the free colours
+        // rather than the night's — that IS the message.
+        const h = st === 'held' ? heldBy(t)
+            : st === 'seated' ? seatedOn(t)
+            : st === 'spare' ? spareOn(t)
+            : null;
         if (!h) return undefined;
         const [fill, edge] = PALETTE[h.color] ?? PALETTE.amber;
         return `--fill:${fill};--edge:${edge}`;
@@ -98,19 +120,30 @@
 
     /** The nights actually holding tables today, for the key. */
     const heldNights = $derived.by(() => {
-        const seen = new Map<number, { name: string; color: string; n: number }>();
+        const seen = new Map<number, { name: string; color: string; n: number;
+                                       playing: number; spare: number }>();
         for (const t of roomTables) {
-            const h = stateOf(t) === 'held' ? heldBy(t) : null;
+            const st = stateOf(t);
+            const h = st === 'held' ? heldBy(t)
+                : st === 'seated' ? seatedOn(t)
+                : st === 'spare' ? spareOn(t)
+                : null;
             if (!h) continue;
-            const e = seen.get(h.night_id) ?? { name: h.name, color: h.color, n: 0 };
+            const e = seen.get(h.night_id)
+                ?? { name: h.name ?? h.night, color: h.color, n: 0, playing: 0, spare: 0 };
             e.n++;
+            if (st === 'seated') e.playing++;
+            if (st === 'spare') e.spare++;
             seen.set(h.night_id, e);
         }
         return [...seen.values()];
     });
 
+    const releasedCount = $derived(roomTables.filter((t) => stateOf(t) === 'released').length);
+
     const tally = $derived.by(() => {
-        const c = { busy: 0, event: 0, held: 0, free: 0, off: 0 } as Record<string, number>;
+        const c: Record<string, number> =
+            { busy: 0, event: 0, held: 0, seated: 0, spare: 0, released: 0, free: 0, off: 0 };
         for (const t of roomTables) c[stateOf(t)]++;
         return c;
     });
@@ -161,8 +194,12 @@
                 {#if tally.event}<span class="k event"></span>{tally.event} event{/if}
                 {#each heldNights as h}
                     <span class="k" style="background: {PALETTE[h.color]?.[0]}; border: 1px solid {PALETTE[h.color]?.[1]}"></span>{h.n}
-                    {h.name}
+                    {h.name}<span class="pv-sub">{#if h.playing || h.spare}
+                        ({[h.playing ? `${h.playing} playing` : '',
+                           h.spare ? `${h.spare} spare` : ''].filter(Boolean).join(', ')})
+                    {/if}</span>
                 {/each}
+                {#if releasedCount}<span class="k spare"></span>{releasedCount} back on sale{/if}
                 <span class="k free"></span>{tally.free} free
             </span>
 
@@ -198,6 +235,7 @@
                             selected={tableId === t.id}
                             editing={false}
                             paint={paintOf(t)}
+                            note={seatedOn(t) ? `${seatedOn(t).a} v ${seatedOn(t).b}` : ''}
                             bookings={bookingsFor(t)}
                             onpick={() => (tableId === t.id
                                 ? onpick?.(null, null)
@@ -252,6 +290,10 @@
     .k.busy { background: #6b3320; border: 1px solid #d4835c; }
     .k.event { background: #5a3570; border: 1px solid #b98fd0; }
     .k.free { background: #24402a; border: 1px solid #79b184; }
+    /* Spare reads as free-with-a-caveat, because that is what it is: nobody is
+       using it, but it hasn't been put back on sale yet. */
+    .k.spare { background: #24402a; border: 1px dashed #d0ae63; }
+    .pv-sub { color: var(--color-text-faint); }
 
     .pv-time { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto; }
     .pv-chip {

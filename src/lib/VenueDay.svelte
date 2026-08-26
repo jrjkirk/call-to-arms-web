@@ -2,6 +2,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from './HelpTip.svelte';
     import VenuePlanView from './plan/VenuePlanView.svelte';
+    import VenueSeating from './VenueSeating.svelte';
 
     let { date, onchange, canApprove = false }:
         { date: string; onchange?: () => void; canApprove?: boolean } = $props();
@@ -18,6 +19,9 @@
     // six" is one click rather than a scan down the page.
     let focusTable = $state<number | null>(null);
     let focusHeld = $state<any>(null);
+    // Laying tonight's games out changes what half the tables on the plan are
+    // doing, so the plan has to be told to look again.
+    let planRefresh = $state(0);
     $effect(() => { date; focusTable = null; focusHeld = null; });
 
     /** Bookings to list: the day's, minus the event rows, narrowed to one table
@@ -150,7 +154,9 @@
                 {#each day.club_nights as n}
                     <span class="night-pill" style="--pill: {n.accent_color ?? 'var(--color-accent)'}">
                         {n.system}{n.start_time ? ` · ${n.start_time}` : ''} · {n.signups} signed up
-                        · ~{n.tables_expected} tables
+                        <!-- Once the games are laid out this is a count, not a
+                             forecast, and the tilde would be a lie. -->
+                        · {n.seating ? '' : '~'}{n.tables_expected} tables
                     </span>
                 {/each}
             </div>
@@ -163,8 +169,17 @@
             </p>
         {/if}
 
-        <VenuePlanView {date} tableId={focusTable}
+        <VenuePlanView {date} tableId={focusTable} refresh={planRefresh}
                        onpick={(id, held) => { focusTable = id; focusHeld = held ?? null; }} />
+
+        <!-- One per club night meeting today. A venue-only night has no
+             pairings to lay out and renders nothing. -->
+        {#each day.club_nights as n (n.night_id ?? n.system)}
+            {#if n.night_id}
+                <VenueSeating {date} night={n}
+                              onchange={() => { planRefresh++; load(); onchange?.(); }} />
+            {/if}
+        {/each}
 
         {#if focusTable !== null}
             {@const t = day.tables.find((x) => x.id === focusTable)}

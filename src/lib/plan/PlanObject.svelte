@@ -39,7 +39,8 @@
 
     let {
         o, kind, state = 'free', selected = false, clash = false,
-        editing = true, bookings = [], paint: paintOverride = undefined, onpick
+        editing = true, bookings = [], paint: paintOverride = undefined,
+        note = '', onpick
     }: {
         o: any;
         kind: 'table' | 'feature';
@@ -52,6 +53,9 @@
          *  than the state colour — a held table wearing its club night's own
          *  colour rather than a single shade meaning "held". */
         paint?: string;
+        /** Second line, in place of the booking time — "Joel v Shaun" on a
+         *  table a club night has seated a game on. */
+        note?: string;
         onpick?: (e: PointerEvent) => void;
     } = $props();
 
@@ -131,12 +135,14 @@
 
     const label = $derived(String(o.name ?? o.label ?? ''));
     const sub = $derived(
-        bookings.length
-            ? `${bookings[0].start}–${bookings[0].end}` +
-              (bookings.length > 1 ? ` +${bookings.length - 1}` : '')
-            : editing && kind === 'table'
-              ? `${feet(o.width_ft)} × ${feet(o.depth_ft)}`
-              : ''
+        note
+            ? note
+            : bookings.length
+              ? `${bookings[0].start}–${bookings[0].end}` +
+                (bookings.length > 1 ? ` +${bookings.length - 1}` : '')
+              : editing && kind === 'table'
+                ? `${feet(o.width_ft)} × ${feet(o.depth_ft)}`
+                : ''
     );
 
     // Two lines of content share the height; one gets it all.
@@ -292,6 +298,25 @@
        Wednesday rather than one undifferentiated block. */
     .table.held .body { fill: var(--fill, #5a4520); stroke: var(--edge, #d0ae63); }
     .table.free .body { fill: #24402a; stroke: #79b184; }
+
+    /* A game is on it: the night's colour, and a solid edge — this table is
+       spoken for by a specific pair of people. */
+    .table.seated .body { fill: var(--fill, #5a4520); stroke: var(--edge, #d0ae63); }
+    /* Held for a night that won't use it: still the night's colour, because it
+       is still the night's table, but dashed — nothing is on it and nobody
+       else can have it yet. */
+    .table.spare .body {
+        fill: var(--fill, #5a4520);
+        stroke: var(--edge, #d0ae63);
+        stroke-dasharray: 0.35 0.25;
+    }
+    /* Handed back. Free, and drawn as free, with the dash saying it got here by
+       being released rather than by never being spoken for. */
+    .table.released .body {
+        fill: #24402a;
+        stroke: #79b184;
+        stroke-dasharray: 0.35 0.25;
+    }
 
     /* No outline — see `outlined` above. Fixtures butted together become one
        shape, and their drawn size is their stated size. */
