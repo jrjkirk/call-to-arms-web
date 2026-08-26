@@ -256,7 +256,8 @@
                 + (h.spare ? `, ${h.spare} spare` : '')),
             tally.busy ? `${tally.busy} booked` : '',
             releasedCount ? `${releasedCount} back on sale` : '',
-            `${tally.free} free`
+            `${tally.free} free`,
+            occupancy?.unseated_games ? `${occupancy.unseated_games} GAME(S) WITH NO TABLE` : ''
         ].filter(Boolean);
         try {
             await exportPlanPng(svgEl, {
@@ -298,6 +299,9 @@
                 {/each}
                 {#if releasedCount}<span class="k spare"></span>{releasedCount} back on sale{/if}
                 <span class="k free"></span>{tally.free} free
+                {#if occupancy?.unseated_games}
+                    <span class="k none"></span>{occupancy.unseated_games} with no table
+                {/if}
             </span>
 
             <span class="pv-time">
@@ -412,6 +416,7 @@
     /* Spare reads as free-with-a-caveat, because that is what it is: nobody is
        using it, but it hasn't been put back on sale yet. */
     .k.spare { background: #24402a; border: 1px dashed #d0ae63; }
+    .k.none { background: transparent; border: 1px dashed var(--color-loss); }
     .pv-sub { color: var(--color-text-faint); }
 
     .pv-time { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto; }

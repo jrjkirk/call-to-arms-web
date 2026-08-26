@@ -42,7 +42,6 @@
         busy = false;
     }
 
-    const short = $derived((plan?.unseated ?? []).length);
     const spare = $derived((plan?.spare_tables ?? []).length);
     /** Worth showing at all? A night with no pairings and nothing spare has
      *  nothing to say that the plan above hasn't already said. */
@@ -79,11 +78,46 @@
             {/if}
         </div>
 
-        {#if short}
-            <p class="field-error">
-                {short} game{short === 1 ? '' : 's'} with nowhere to sit — every table is held
-                for something else or already booked.
-            </p>
+        {#if plan.needs_table.length}
+            <!-- The ONLY games anyone has to do anything about. Everything that
+                 fitted inside the night's own tables is on the plan above and
+                 needs no decision; these are over the allocation, so somebody
+                 has to choose a table that belongs to somebody else. -->
+            <div class="overflow">
+                <p class="o-head">
+                    <strong>{plan.needs_table.length} game{plan.needs_table.length === 1 ? '' : 's'}
+                    with no table.</strong>
+                    <span class="s-quiet">
+                        {plan.tables_needed} games, {plan.tables_held} tables held for this night —
+                        pick a table for {plan.needs_table.length === 1 ? 'it' : 'each'}, or
+                        {plan.needs_table.length === 1 ? "it's" : "they're"} playing on the floor.
+                    </span>
+                </p>
+                {#each plan.needs_table as g (g.pairing_id)}
+                    <div class="o-row">
+                        <span class="o-who">
+                            <strong>{g.a}</strong> v <strong>{g.b}</strong>
+                            <span class="s-quiet">{[g.a_eta && `${g.a} here ${g.a_eta}`,
+                                                    g.b_eta && `${g.b} here ${g.b_eta}`]
+                                                    .filter(Boolean).join(' · ')}</span>
+                        </span>
+                        <select class="field-select" disabled={busy} value=""
+                                onchange={(e) => post('move', {
+                                    pairing_id: g.pairing_id,
+                                    table_id: Number(e.currentTarget.value)
+                                })}>
+                            <option value="" disabled>Put them on…</option>
+                            {#each plan.table_options as t}
+                                <option value={t.id}>
+                                    {t.name}{t.size ? ` · ${t.size}` : ''}{t.taken_by
+                                        ? ` — ${t.taken_by} would move off`
+                                        : t.allocated ? '' : ' — not held for this night'}
+                                </option>
+                            {/each}
+                        </select>
+                    </div>
+                {/each}
+            </div>
         {/if}
 
         {#if spare}
@@ -137,6 +171,34 @@
     }
     .s-refresh:hover:not(:disabled) { color: var(--color-accent); }
     .s-refresh:disabled { cursor: default; }
+
+    .overflow {
+        margin-top: 0.5rem;
+        padding: 0.6rem 0.7rem;
+        border-radius: 6px;
+        border: 1px solid color-mix(in srgb, var(--color-loss) 45%, transparent);
+        background: color-mix(in srgb, var(--color-loss) 8%, transparent);
+    }
+    .o-head { margin: 0 0 0.45rem; font-size: 0.86rem; }
+    .o-head .s-quiet { display: block; font-size: 0.78rem; margin-top: 0.1rem; }
+    .o-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+        flex-wrap: wrap;
+        padding: 0.3rem 0;
+    }
+    .o-who { font-size: 0.86rem; }
+    .o-who .s-quiet { margin-left: 0.4rem; font-size: 0.76rem; }
+    .o-row .field-select {
+        font-size: 0.78rem;
+        padding: 0.22rem 0.4rem;
+        /* Doesn't stretch: wrapped onto its own line it went full-bleed, which
+           made a one-line decision look like a form. */
+        flex: 0 1 24rem;
+        min-width: 12rem;
+    }
 
     .spare {
         display: flex;
