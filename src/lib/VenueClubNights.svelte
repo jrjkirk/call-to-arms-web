@@ -121,6 +121,70 @@
 
     const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth'];
 
+    /** Which nights have their table picker open. A venue with forty tables
+     *  can't be shown four walls of them at once. */
+    let picking = $state<Record<number, boolean>>({});
+    let filter = $state<Record<number, string>>({});
+
+    /**
+     * "Tables 1–10, 14" rather than ten separate names.
+     *
+     * A held set is almost always a run — a venue holds the front half of the
+     * room — and ten names is a paragraph where a range is a glance. Names with
+     * no number in them are listed as they are.
+     */
+    function summarise(ids: number[]): string {
+        const names = ids
+            .map((id) => tables.find((t) => t.id === id)?.name)
+            .filter(Boolean) as string[];
+        if (!names.length) return '';
+
+        const groups = new Map<string, number[]>();
+        const loose: string[] = [];
+        for (const name of names) {
+            const m = /^(.*?)(\d+)\s*$/.exec(name.trim());
+            if (!m) { loose.push(name); continue; }
+            const key = m[1].trim();
+            groups.set(key, [...(groups.get(key) ?? []), Number(m[2])]);
+        }
+
+        const out: string[] = [];
+        for (const [prefix, nums] of groups) {
+            nums.sort((a, b) => a - b);
+            const runs: string[] = [];
+            let start = nums[0], prev = nums[0];
+            for (const v of nums.slice(1)) {
+                if (v === prev + 1) { prev = v; continue; }
+                runs.push(start === prev ? `${start}` : `${start}–${prev}`);
+                start = prev = v;
+            }
+            runs.push(start === prev ? `${start}` : `${start}–${prev}`);
+            // "Table 1–10" reads oddly; pluralise a prefix that ends in a word.
+            const label = nums.length > 1 && /[a-z]$/i.test(prefix) ? `${prefix}s` : prefix;
+            out.push(`${label} ${runs.join(', ')}`.trim());
+        }
+        return [...out, ...loose].join(' · ');
+    }
+
+    /** The tables shown in an open picker, narrowed by its search box. */
+    function shown(nightId: number) {
+        const q = (filter[nightId] ?? '').trim().toLowerCase();
+        if (!q) return tables;
+        return tables.filter((t: any) => (t.name ?? '').toLowerCase().includes(q));
+    }
+
+    function setAll(n: Night, state: 'reserved' | 'none') {
+        const ids = shown(n.night_id).map((t: any) => t.id);
+        if (state === 'none') {
+            n.preferred_table_ids = n.preferred_table_ids.filter((t) => !ids.includes(t));
+            n.reserved_table_ids = n.reserved_table_ids.filter((t) => !ids.includes(t));
+        } else {
+            n.preferred_table_ids = [...new Set([...n.preferred_table_ids, ...ids])];
+            n.reserved_table_ids = [...new Set([...n.reserved_table_ids, ...ids])];
+        }
+        nights = nights;
+    }
+
     function cadence(n: Night): string {
         if (!n.session_day) return 'No day set';
         const at = n.start_time ? ` · ${n.start_time}` : '';
@@ -270,9 +334,46 @@
             {/each}
         </div>
 
-        <h3 class="a-subtitle">Its tables</h3>
-        <div class="table-grid">
-            {#each tables as t (t.id)}
+        <div class="a-head tables-head">
+            <h3 class="a-subtitle">Its tables</h3>
+            <button class="secondary-button pick-toggle" type="button"
+                    onclick={() => (picking[n.night_id] = !picking[n.night_id])}>
+                {picking[n.night_id] ? 'Done' : 'Choose tables'}
+                <span class="caret">{picking[n.night_id] ? '▴' : '▾'}</span>
+            </button>
+        </div>
+
+        <!-- Closed by default. What's held is a sentence; changing it is a
+             task, and a task shouldn't cost four screens of chips on the way
+             past. -->
+        <p class="a-note held-summary">
+            {#if n.reserved_table_ids.length}
+                <strong>Held:</strong> {summarise(n.reserved_table_ids)}
+            {:else}
+                <strong>Nothing held.</strong> The public can book every table on this night.
+            {/if}
+            {#if n.preferred_table_ids.length > n.reserved_table_ids.length}
+                <br /><strong>Suits:</strong>
+                {summarise(n.preferred_table_ids.filter((id) => !n.reserved_table_ids.includes(id)))}
+                <span class="s-quiet">— offered first, still bookable</span>
+            {/if}
+        </p>
+
+        {#if picking[n.night_id]}
+        <div class="picker">
+            <div class="picker-bar">
+                <input class="field-input picker-search" type="search"
+                       placeholder="Find a table…"
+                       bind:value={filter[n.night_id]} />
+                <button class="bulk" type="button" onclick={() => setAll(n, 'reserved')}>
+                    Hold {filter[n.night_id] ? 'these' : 'all'}
+                </button>
+                <button class="bulk" type="button" onclick={() => setAll(n, 'none')}>
+                    Clear {filter[n.night_id] ? 'these' : 'all'}
+                </button>
+            </div>
+            <div class="table-grid">
+                {#each shown(n.night_id) as t (t.id)}
                 {@const st = stateOf(n, t.id)}
                 {@const paint = COLORS.find((c) => c[0] === n.color) ?? COLORS[0]}
                 <button class="tchip" class:preferred={st === 'preferred'} class:reserved={st === 'reserved'}
@@ -284,20 +385,17 @@
                         {st === 'reserved' ? 'Held' : st === 'preferred' ? 'Suits' : 'Tap to hold'}
                     </span>
                 </button>
-            {/each}
+                {:else}
+                    <p class="a-note">No table matches that.</p>
+                {/each}
+            </div>
+            <p class="a-note picker-note">
+                Tap once to <strong>hold</strong> a table for this night, again for
+                <strong>suits</strong> — offered first to anyone booking this game, but still
+                bookable — and again to clear it. Held tables show {n.color} on the Diary.
+            </p>
         </div>
-        <p class="a-note">
-            {#if n.reserved_table_ids.length}
-                <strong>{n.reserved_table_ids.length} held</strong> from the public on this
-                night — these show {n.color} on the Diary.
-            {:else}
-                Nothing held yet: the public can book every table on this night.
-            {/if}
-            {#if n.preferred_table_ids.length > n.reserved_table_ids.length}
-                · {n.preferred_table_ids.length - n.reserved_table_ids.length} offered first
-                but still bookable.
-            {/if}
-        </p>
+        {/if}
 
         <h3 class="a-subtitle">How the plan is holding up</h3>
         {#if !n.review.measurable}
@@ -467,6 +565,46 @@
         padding: 0;
     }
     .swatch.active { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+    /* The heading's own 1.1rem top margin lives on the row instead, or the
+       button floats up level with the colour swatches above it. */
+    .tables-head {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin: 1.1rem 0 0.3rem;
+    }
+    .tables-head .a-subtitle { margin: 0; }
+    .pick-toggle { min-height: 1.8rem; font-size: 0.74rem; padding: 0 10px; margin-left: auto; }
+    .caret { margin-left: 0.3rem; font-size: 0.65rem; }
+    .held-summary { margin: 0.1rem 0 0.5rem; }
+    .s-quiet { color: var(--color-text-faint); }
+
+    .picker {
+        border: 1px solid var(--color-steel-border);
+        border-radius: 6px;
+        padding: 0.6rem;
+        margin-bottom: 0.6rem;
+        background: color-mix(in srgb, var(--color-panel) 55%, transparent);
+    }
+    .picker-bar { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.5rem; }
+    .bulk {
+        background: transparent;
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        color: var(--color-text-muted);
+        font-family: inherit;
+        font-size: 0.72rem;
+        padding: 0.28rem 0.55rem;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .bulk:hover { color: var(--color-text-bright); border-color: var(--color-accent); }
+    .picker-search { flex: 1 1 12rem; max-width: 18rem; font-size: 0.8rem; padding: 0.28rem 0.5rem; }
+    .picker-note { margin: 0.5rem 0 0; font-size: 0.76rem; }
+    /* Scrolls at about four rows: enough to see the shape of the room, never
+       enough to push the Save button off the screen. */
+    .picker .table-grid { max-height: 15rem; overflow-y: auto; }
 
     .add-colour { margin-bottom: 0.8rem; }
 
