@@ -18,11 +18,11 @@
     // Clicking a table on the plan narrows the lists to it, so "who's on table
     // six" is one click rather than a scan down the page.
     let focusTable = $state<number | null>(null);
-    let focusHeld = $state<any>(null);
+    let focusInfo = $state<any>(null);
     // Laying tonight's games out changes what half the tables on the plan are
     // doing, so the plan has to be told to look again.
     let planRefresh = $state(0);
-    $effect(() => { date; focusTable = null; focusHeld = null; });
+    $effect(() => { date; focusTable = null; focusInfo = null; });
 
     /** Bookings to list: the day's, minus the event rows, narrowed to one table
      *  when the plan has one picked. */
@@ -40,6 +40,31 @@
         if (d.ok) day = await d.json();
         else error = 'Could not load that day.';
         events = e.ok ? await e.json() : [];
+    }
+
+    /** Put one game on a different table. Locks the seat — see the comment at
+     *  the call site. */
+    async function moveGame(g: any, tableId: number) {
+        if (!tableId || tableId === focusTable) return;
+        busy = true; error = null;
+        const r = await fetch(`${PUBLIC_API_URL}/venue/admin/seating/move`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ night_id: g.night_id, date,
+                                   pairing_id: g.pairing_id, table_id: tableId })
+        });
+        if (r.ok) {
+            // Follow the game to its new table, so the panel is still about the
+            // thing you were just looking at.
+            focusTable = tableId;
+            planRefresh++;
+            await load();
+            onchange?.();
+        } else {
+            error = (await r.json().catch(() => ({}))).detail ?? 'Could not move that game.';
+        }
+        busy = false;
     }
 
     async function addEvent() {
@@ -170,7 +195,68 @@
         {/if}
 
         <VenuePlanView {date} tableId={focusTable} refresh={planRefresh}
-                       onpick={(id, held) => { focusTable = id; focusHeld = held ?? null; }} />
+                       onpick={(id, info) => { focusTable = id; focusInfo = info ?? null; }} />
+
+
+        {#if focusTable !== null}
+            {@const t = day.tables.find((x) => x.id === focusTable)}
+            <div class="focus">
+                <div class="focus-head">
+                    <strong>{t ? t.name : 'One table'}</strong>
+                    {#if t?.size_label}<span class="focus-quiet">{t.size_label}</span>{/if}
+                    <button class="chip" onclick={() => (focusTable = null)}>Show everything</button>
+                </div>
+
+                {#if focusInfo?.seated}
+                    {@const g = focusInfo.seated}
+                    <!-- The whole point of seating the pairings: staff pointing
+                         at a table can see whose game it is, from which night,
+                         and whether the players have said they'll be late. -->
+                    <p class="focus-game">
+                        <span class="focus-sys">{g.system}</span>
+                        <strong>{g.a}</strong> v <strong>{g.b}</strong>
+                    </p>
+                    <p class="focus-quiet focus-detail">
+                        {[g.a, g.a_faction, g.a_eta && `here ${g.a_eta}`].filter(Boolean).join(' · ')}
+                    </p>
+                    <p class="focus-quiet focus-detail">
+                        {[g.b, g.b_faction, g.b_eta && `here ${g.b_eta}`].filter(Boolean).join(' · ')}
+                    </p>
+                    {#if g.start_time}
+                        <p class="focus-quiet">Club night starts {g.start_time}.</p>
+                    {/if}
+                    <!-- The one override the room needs. Seating runs itself, but
+                         staff standing in front of a table know things it doesn't
+                         — a siege army that needs the big board, a player who
+                         can't do the loud corner. Moving a game here pins it, and
+                         re-checking the pairings leaves it alone. -->
+                    <label class="focus-move">
+                        <span class="focus-quiet">Move to</span>
+                        <select class="field-select" disabled={busy} value={focusTable}
+                                onchange={(e) => moveGame(g, Number(e.currentTarget.value))}>
+                            {#each day.tables.filter((x: any) => x.active !== false) as opt}
+                                <option value={opt.id}>{opt.name}{opt.size_label ? ` · ${opt.size_label}` : ''}</option>
+                            {/each}
+                        </select>
+                        {#if g.locked}<span class="focus-quiet" title="You put this game here.">📌 pinned</span>{/if}
+                    </label>
+                {:else if focusInfo?.spare}
+                    <p class="focus-quiet">
+                        {#if focusInfo.spare.released}
+                            Was held for <strong>{focusInfo.spare.name}</strong>, now back on sale.
+                        {:else}
+                            Held for <strong>{focusInfo.spare.name}</strong>, but tonight’s games
+                            don’t need it.
+                        {/if}
+                    </p>
+                {:else if focusInfo?.held}
+                    <p class="focus-quiet">
+                        Held for <strong>{focusInfo.held.name}</strong>{focusInfo.held.start_time
+                            ? ` from ${focusInfo.held.start_time}` : ''}.
+                    </p>
+                {/if}
+            </div>
+        {/if}
 
         <!-- One per club night meeting today. A venue-only night has no
              pairings to lay out and renders nothing. -->
@@ -180,14 +266,6 @@
                               onchange={() => { planRefresh++; load(); onchange?.(); }} />
             {/if}
         {/each}
-
-        {#if focusTable !== null}
-            {@const t = day.tables.find((x) => x.id === focusTable)}
-            <p class="a-note focus-note">
-                Showing <strong>{t ? t.name : 'one table'}</strong> only.
-                <button class="chip" onclick={() => (focusTable = null)}>Show everything</button>
-            </p>
-        {/if}
 
         <div class="a-head events-head">
             <h3 class="a-subtitle">Events</h3>
@@ -291,11 +369,10 @@
             <p class="a-note">
                 {#if focusTable === null}
                     No bookings.
-                {:else if focusHeld}
-                    <!-- Gold with an empty list isn't "nothing" — it's held, and the
-                         venue needs to know by whom before they book over it. -->
-                    Held for <strong>{focusHeld.name}</strong>{focusHeld.start_time
-                        ? ` from ${focusHeld.start_time}` : ''}. Nobody has booked it.
+                {:else if focusInfo?.seated || focusInfo?.held || focusInfo?.spare}
+                    <!-- What the table IS doing is on the panel above; this line
+                         only has to answer the question it was asked. -->
+                    Nobody has booked it.
                 {:else}
                     Nothing booked on that table.
                 {/if}
@@ -382,11 +459,36 @@
 
     .events-head { margin-top: 1rem; }
 
-    .focus-note {
+    .focus {
+        margin: 0 0 0.7rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--color-panel) 60%, transparent);
+    }
+    .focus-head {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        margin: 0 0 0.6rem;
+        margin-bottom: 0.2rem;
+    }
+    .focus-head .chip { margin-left: auto; }
+    .focus-quiet { color: var(--color-text-faint); font-size: 0.8rem; margin: 0.1rem 0; }
+    .focus-detail { padding-left: 0.1rem; }
+    .focus-game { margin: 0.25rem 0 0.3rem; font-size: 0.92rem; }
+    .focus-move { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; }
+    .focus-move .field-select { font-size: 0.78rem; padding: 0.2rem 0.4rem; min-width: 9rem; }
+    .focus-sys {
+        display: inline-block;
+        margin-right: 0.45rem;
+        padding: 0.08rem 0.4rem;
+        border-radius: 3px;
+        border: 1px solid var(--color-accent-border);
+        color: var(--color-accent);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
     }
     .chip {
         background: rgba(0, 0, 0, 0.3);

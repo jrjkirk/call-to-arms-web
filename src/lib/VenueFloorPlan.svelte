@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { exportPlanPng } from './plan/exportPng';
     import { onMount, tick } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from './HelpTip.svelte';
@@ -831,82 +832,14 @@
         return out;
     }
 
-    /**
-     * Every colour on the plan comes from a CSS class in this component's
-     * stylesheet. Serialising the SVG carries the MARKUP but not the
-     * STYLESHEET, so a standalone copy renders with the browser's defaults —
-     * black fill, no stroke — which is why the export came out a black
-     * rectangle.
-     *
-     * So the computed style of each node is copied onto its clone as an inline
-     * style first, while the two trees still match one for one. Editor
-     * furniture is stripped AFTERWARDS, because removing it first would shift
-     * the indices and paint every element with its neighbour's colours.
-     */
-    const EXPORT_PROPS = [
-        'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray',
-        'stroke-linecap', 'stroke-linejoin', 'opacity', 'shape-rendering',
-        'font-family', 'font-size', 'font-weight', 'font-style',
-        'letter-spacing', 'text-anchor', 'dominant-baseline', 'text-transform',
-        'paint-order'
-    ];
-
+    /** Shared with the diary's read-only plan — see plan/exportPng.ts for why
+     *  this is fiddlier than it looks. */
     async function exportPng() {
         if (!svgEl || !room) return;
-        const clone = svgEl.cloneNode(true) as SVGSVGElement;
-
-        const src = [svgEl, ...svgEl.querySelectorAll('*')];
-        const dst = [clone, ...clone.querySelectorAll('*')];
-        for (let i = 0; i < src.length; i++) {
-            const cs = getComputedStyle(src[i] as Element);
-            let css = '';
-            for (const prop of EXPORT_PROPS) {
-                const v = cs.getPropertyValue(prop);
-                if (v) css += `${prop}:${v};`;
-            }
-            dst[i].setAttribute('style', css);
-            // text-transform styles the RENDER, not the content, and doesn't
-            // survive into a rasterised copy — so apply it to the text itself.
-            if (dst[i].tagName === 'text' && cs.textTransform === 'uppercase') {
-                dst[i].textContent = (dst[i].textContent ?? '').toUpperCase();
-            }
-        }
-
-        // Now the furniture goes: a plan pinned to the staff-room wall
-        // shouldn't carry the editor's grid or selection handles.
-        clone.querySelectorAll('.frame, .grid, .band, .group-box').forEach((n) => n.remove());
-
-        const px = 34;                       // pixels per foot in the export
-        const w = Math.round(view.w * px);
-        const h = Math.round(view.h * px);
-        clone.setAttribute('width', String(w));
-        clone.setAttribute('height', String(h));
-        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
-        const svgText = new XMLSerializer().serializeToString(clone);
-        const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml' }));
         try {
-            const img = new Image();
-            await new Promise((res, rej) => {
-                img.onload = res;
-                img.onerror = () => rej(new Error('render failed'));
-                img.src = url;
-            });
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const g = canvas.getContext('2d')!;
-            g.fillStyle = '#0d0f13';
-            g.fillRect(0, 0, w, h);
-            g.drawImage(img, 0, 0, w, h);
-            const a = document.createElement('a');
-            a.download = `${room.name.replace(/\W+/g, '-').toLowerCase()}-plan.png`;
-            a.href = canvas.toDataURL('image/png');
-            a.click();
+            await exportPlanPng(svgEl, { view, name: `${room.name}-plan` });
         } catch (_) {
             error = "Couldn't render the plan to an image.";
-        } finally {
-            URL.revokeObjectURL(url);
         }
     }
 
