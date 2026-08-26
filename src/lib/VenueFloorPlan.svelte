@@ -81,7 +81,7 @@
     let svgEl: SVGSVGElement | null = $state(null);
     let wrapEl: HTMLDivElement | null = $state(null);
     let rootEl: HTMLDivElement | null = $state(null);
-    let pxPerFt = $state(20);
+
 
     /**
      * The app is a 1100px reading column, which is the wrong shape for a
@@ -240,7 +240,27 @@
     }
 
     // ---- pointer --------------------------------------------------------
+    /** Walls are half a foot deep and doors thinner still, so a one-foot floor
+     *  made a wall impossible to restore once it had been widened. */
+    const MIN_SIZE_FT = 0.25;
+
     const snapTo = (v: number) => (snap > 0 ? Math.round(v / snap) * snap : v);
+
+    /**
+     * Snap so an object's EDGE lands on the grid, not its centre.
+     *
+     * Centre-snapping only works when a thing is an even number of snap steps
+     * across. A wall is 0.5ft deep, so snapping its centre to the half-foot
+     * grid put its faces on the quarter-foot — a hair off the room's wall,
+     * which is exactly the sliver that showed up where the two met. Rooms
+     * looked right because an enclosure's wall is drawn inward from its
+     * bounding box, so its faces were already on the grid.
+     *
+     * Snapping the leading edge instead gives every object grid-aligned faces
+     * whatever its size, which is what makes two walls butt together cleanly.
+     */
+    const snapEdge = (centre: number, half: number) =>
+        snap > 0 ? snapTo(centre - half) + half : centre;
 
     function atPointer(e: PointerEvent) {
         if (!svgEl) return null;
@@ -401,10 +421,12 @@
 
         const o: any = selected;
         if (gesture.type === 'move') {
-            // Snap the DELTA, not each object: snapping every member
-            // independently would quietly close up the gaps between them.
-            let dx = snapTo(p.x - gesture.dx) - gesture.anchor.x;
-            let dy = snapTo(p.y - gesture.dy) - gesture.anchor.y;
+            // Snap the ANCHOR's edges, then move everything by that one delta.
+            // Snapping each member independently would quietly close up the
+            // gaps between them.
+            const ae = extents(o as Box);
+            let dx = snapEdge(p.x - gesture.dx, ae.hx) - gesture.anchor.x;
+            let dy = snapEdge(p.y - gesture.dy, ae.hy) - gesture.anchor.y;
             // Clamp so the group's bounding box stays in the room, rather than
             // clamping each object and shearing the arrangement.
             const xs = gesture.from.map((f) => f.x);
@@ -420,7 +442,7 @@
             band = { x0: gesture.x0, y0: gesture.y0, x1: p.x, y1: p.y };
         } else if (gesture.type === 'resize') {
             const next = resize(o as Box, gesture.handle, p.x, p.y,
-                                { min: 1, snap, keepAspect: e.shiftKey });
+                                { min: MIN_SIZE_FT, snap, keepAspect: e.shiftKey });
             o.pos_x = next.pos_x; o.pos_y = next.pos_y;
             o.width_ft = Math.round(next.width_ft * 100) / 100;
             o.depth_ft = Math.round(next.depth_ft * 100) / 100;
@@ -449,7 +471,8 @@
         tables = [...tables, {
             id: null, name: `Table ${tables.length + 1}`, room_id: room.id,
             shape: p.shape, color: 'slate', _uid: ++uidSeq,
-            pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
+            pos_x: snapEdge(room.width_ft / 2, p.w / 2),
+            pos_y: snapEdge(room.depth_ft / 2, p.d / 2),
             width_ft: p.w, depth_ft: p.d, rotation: 0, seats: p.seats, active: true, notes: null
         }];
         selection = new Set([keyOf('table', tables[tables.length - 1])]);
@@ -460,7 +483,8 @@
         features = [...features, {
             id: null, room_id: room.id, kind: f.kind, label: f.label,
             shape: (f as any).shape ?? 'rect', _uid: ++uidSeq,
-            pos_x: snapTo(room.width_ft / 2), pos_y: snapTo(room.depth_ft / 2),
+            pos_x: snapEdge(room.width_ft / 2, f.w / 2),
+            pos_y: snapEdge(room.depth_ft / 2, f.d / 2),
             width_ft: f.w, depth_ft: f.d, rotation: 0,
             color: (f as any).color ?? 'grey', flip_h: false, flip_v: false
         }];
@@ -692,8 +716,9 @@
         : { x: 0, y: 0, w: 10, h: 10 });
 
     /** Feet per screen pixel — handles and dimension text are sized from this
-     *  so they stay a constant size however far the plan is zoomed. */
-    const ftPerPx = $derived(pxPerFt > 0 ? 1 / pxPerFt : 0.05);
+     *  so they stay a constant size however far the plan is zoomed. Derived,
+     *  never assigned: writing it from an effect is what created the loop. */
+    const ftPerPx = $derived(fit.k > 0 ? 1 / fit.k : 0.05);
 
     // Fit the room to the box in BOTH axes, then apply zoom. Deriving height
     // from width letterboxed a wide room and overflowed a tall one.
@@ -735,13 +760,24 @@
         wrapEl.scrollTop = fy * fit.h - cy;
     }
 
+    /**
+     * Measures the canvas box. Called ONLY from the ResizeObserver and on
+     * mount — never from an effect that also reads boxW/boxH.
+     *
+     * It used to be: `$effect(() => { ...; boxW; boxH; measure(); })`, which
+     * read the two values measure() writes. Zoom far enough that the plan
+     * overflows, the wrapper gains scrollbars, clientWidth shrinks, boxW
+     * changes, the effect re-runs, measures again — and Svelte eventually
+     * throws effect_update_depth_exceeded and stops updating the component
+     * altogether. That's why zoom would stick around 300% with the +, − and
+     * FIT buttons all dead: nothing was broken about zoom, the whole component
+     * had stopped re-rendering.
+     */
     function measure() {
-        if (!wrapEl || !room) return;
+        if (!wrapEl) return;
         boxW = Math.max(1, wrapEl.clientWidth - 20);
         boxH = Math.max(1, wrapEl.clientHeight - 20);
-        pxPerFt = fit.k;
     }
-    $effect(() => { zoom; roomId; rooms.length; boxW; boxH; measure(); });
     // The editor lives behind the `loading` branch, so on mount rootEl and
     // wrapEl are both still null — measuring there sized the plan to nothing
     // and left the full-bleed width at zero. Wait for the elements instead.
@@ -1090,12 +1126,12 @@
                     <div class="p-grid">
                         <label class="p-field">
                             <span class="field-label">Width ft</span>
-                            <input class="field-input" type="number" step="0.5" min="1" max="100"
+                            <input class="field-input" type="number" step="0.5" min={MIN_SIZE_FT} max="100"
                                    bind:value={selected.width_ft} oninput={() => (dirty = true)} />
                         </label>
                         <label class="p-field">
                             <span class="field-label">Depth ft</span>
-                            <input class="field-input" type="number" step="0.5" min="1" max="100"
+                            <input class="field-input" type="number" step="0.5" min={MIN_SIZE_FT} max="100"
                                    bind:value={selected.depth_ft} oninput={() => (dirty = true)} />
                         </label>
                         <label class="p-field">
