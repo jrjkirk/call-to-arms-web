@@ -473,11 +473,30 @@
     }
 
     // ---- object actions -------------------------------------------------
+    /**
+     * The next free "Table N".
+     *
+     * Copies used to be named "Table 3 copy", then "Table 3 copy copy" — which
+     * is a filename convention, not a venue's. Staff call across a room by
+     * number, so a new table takes the lowest number nobody is using, whether
+     * it was added from the rail or duplicated.
+     */
+    function nextTableName(existing: any[]): string {
+        const used = new Set<number>();
+        for (const t of existing) {
+            const m = /^\s*Table\s+(\d+)\s*$/i.exec(t.name ?? '');
+            if (m) used.add(Number(m[1]));
+        }
+        let n = 1;
+        while (used.has(n)) n++;
+        return `Table ${n}`;
+    }
+
     function addTable(p: (typeof TABLE_PRESETS)[number]) {
         if (!room) return;
         commit();
         tables = [...tables, {
-            id: null, name: `Table ${tables.length + 1}`, room_id: room.id,
+            id: null, name: nextTableName(tables), room_id: room.id,
             shape: p.shape, color: 'slate', _uid: ++uidSeq,
             pos_x: snapEdge(room.width_ft / 2, p.w / 2),
             pos_y: snapEdge(room.depth_ft / 2, p.d / 2),
@@ -516,12 +535,16 @@
         if (!picked.length) return;
         commit();
         const next = new Set<string>();
-        const newT = [], newF = [];
+        const newT: any[] = [], newF: any[] = [];
         for (const s of picked) {
             const copy = { ...s.o, id: null, _uid: ++uidSeq,
                            pos_x: s.o.pos_x + 2, pos_y: s.o.pos_y + 2 };
-            if (s.kind === 'table') { copy.name = `${s.o.name} copy`; newT.push(copy); }
-            else newF.push(copy);
+            if (s.kind === 'table') {
+                // Numbered against the copies made so far too, or duplicating
+                // three at once would name them all the same.
+                copy.name = nextTableName([...tables, ...newT]);
+                newT.push(copy);
+            } else newF.push(copy);
             next.add(keyOf(s.kind, copy));
         }
         tables = [...tables, ...newT];

@@ -47,14 +47,25 @@
         return 'none';
     }
 
+    /**
+     * none -> HELD -> Suits -> none.
+     *
+     * Held first, deliberately. Picking tables for a club night almost always
+     * means "these are the club night's tables" — and the first tap used to
+     * give the weaker "Suits", which offers the table to that game first but
+     * still lets the public book it. Someone who set ten tables aside and then
+     * found the diary showing all sixteen free had done nothing wrong; the tap
+     * just didn't mean what it obviously should.
+     */
     function cycle(n: Night, id: number) {
         const s = stateOf(n, id);
         n.preferred_table_ids = n.preferred_table_ids.filter((t) => t !== id);
         n.reserved_table_ids = n.reserved_table_ids.filter((t) => t !== id);
-        if (s === 'none') n.preferred_table_ids = [...n.preferred_table_ids, id];
-        else if (s === 'preferred') {
+        if (s === 'none') {
             n.preferred_table_ids = [...n.preferred_table_ids, id];
             n.reserved_table_ids = [...n.reserved_table_ids, id];
+        } else if (s === 'reserved') {
+            n.preferred_table_ids = [...n.preferred_table_ids, id];
         }
         nights = nights;
     }
@@ -163,7 +174,7 @@
             {/if}
             <HelpTip
                 label="club night tables"
-                text={"Set aside how many tables this night needs, and which ones are its own.\n\nTap a table once for \"suits this game\" — it'll be offered first to anyone booking it. Tap again for \"held\", and the public can't book it at all on this night. Staff still can.\n\nThe review underneath checks your number against real published pairings, one pairing to a table."}
+                text={"Set aside how many tables this night needs, and which ones are its own.\n\nTap a table once to HOLD it: the public can't book it on this night, and it shows gold on the Diary. Staff can still seat someone on it.\n\nTap again for \"suits\" — offered first to anyone booking this game, but still bookable by the public. A third tap clears it.\n\nThe review underneath checks your number against real published pairings, one pairing to a table."}
             />
             <span class="a-head-end a-state" class:is-on={n.reserved_table_ids.length > 0}>
                 {cadence(n)}
@@ -225,14 +236,22 @@
                     <span class="tchip-name">{t.name}</span>
                     <span class="tchip-size">{t.size_label ?? `${t.seats}p`}</span>
                     <span class="tchip-state">
-                        {st === 'reserved' ? 'Held' : st === 'preferred' ? 'Suits' : '—'}
+                        {st === 'reserved' ? 'Held' : st === 'preferred' ? 'Suits' : 'Tap to hold'}
                     </span>
                 </button>
             {/each}
         </div>
         <p class="a-note">
-            {n.reserved_table_ids.length} held from the public on this night ·
-            {n.preferred_table_ids.length} offered first to anyone booking {n.system}
+            {#if n.reserved_table_ids.length}
+                <strong>{n.reserved_table_ids.length} held</strong> from the public on this
+                night — these show gold on the Diary.
+            {:else}
+                Nothing held yet: the public can book every table on this night.
+            {/if}
+            {#if n.preferred_table_ids.length > n.reserved_table_ids.length}
+                · {n.preferred_table_ids.length - n.reserved_table_ids.length} offered first
+                but still bookable.
+            {/if}
         </p>
 
         <h3 class="a-subtitle">How the plan is holding up</h3>
@@ -408,7 +427,7 @@
 
     .tchip-name { font-size: 0.78rem; font-weight: 700; color: var(--color-text-bright); }
     .tchip-size { font-size: 0.66rem; color: var(--color-text-faint); }
-    .tchip-state { font-size: 0.66rem; font-weight: 700; color: var(--color-text-muted); }
+    .tchip-state { font-size: 0.66rem; font-weight: 700; color: var(--color-text-faint); }
     .tchip.preferred .tchip-state, .tchip.reserved .tchip-state { color: var(--color-accent); }
 
     .review { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
