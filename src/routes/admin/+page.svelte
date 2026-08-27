@@ -1288,6 +1288,7 @@
                 image_url: data.image_url ?? '',
                 supports_mission_image: data.supports_mission_image ?? false,
                 saving: false,
+                posting: false,
                 error: null,
                 message: null,
             };
@@ -1316,6 +1317,45 @@
             s.error = body.detail || 'Save failed.';
         }
         s.saving = false;
+    }
+
+    /**
+     * Post the call-to-arms message now, ignoring the schedule.
+     *
+     * A temporary override and a test button — it writes nothing, so the
+     * scheduled post still goes out on its own day, this session included.
+     * Confirmed first because it reaches a Discord channel full of people the
+     * moment it's pressed, and there's no unsending it.
+     */
+    async function postCallToArmsNow(scope: string) {
+        const s = callToArmsSettings[scope];
+        if (!s) return;
+        if (!confirm(
+            // Not "the ${scope} call to arms" — system names carry their own
+            // article, and "the The Old World" is how you get it wrong.
+            `Post the call to arms for ${scope} to Discord now?\n\n` +
+            `This doesn't change the schedule — the automatic post still goes out ` +
+            `as normal, so members may see it twice this week.`
+        )) return;
+
+        s.posting = true;
+        s.error = null;
+        s.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/call-to-arms-post-now`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope }),
+        });
+        if (r.ok) {
+            const body = await r.json();
+            s.message = `Posted to Discord, calling people to ${body.session_date}. ` +
+                        `The schedule is untouched.`;
+        } else {
+            const body = await r.json().catch(() => ({}));
+            s.error = body.detail || 'Could not post that.';
+        }
+        s.posting = false;
     }
 
     async function loadMissions(scope: string) {
@@ -4558,12 +4598,28 @@
                                 {#if cta.message}
                                     <p class="pairing-message">{cta.message}</p>
                                 {/if}
-                                <button
-                                    class="primary-button"
-                                    type="button"
-                                    disabled={cta.saving}
-                                    onclick={() => saveCallToArmsSettings(scope)}
-                                >{cta.saving ? 'Saving…' : 'Save'}</button>
+                                <div class="cta-actions">
+                                    <button
+                                        class="primary-button"
+                                        type="button"
+                                        disabled={cta.saving || cta.posting}
+                                        onclick={() => saveCallToArmsSettings(scope)}
+                                    >{cta.saving ? 'Saving…' : 'Save'}</button>
+                                    <!-- Secondary, and after Save: it reaches a
+                                         live channel, so the eye should land on
+                                         Save first. -->
+                                    <button
+                                        class="secondary-button"
+                                        type="button"
+                                        disabled={cta.saving || cta.posting}
+                                        onclick={() => postCallToArmsNow(scope)}
+                                    >{cta.posting ? 'Posting…' : 'Manual post'}</button>
+                                    <span class="cta-hint">
+                                        Posts now, whatever the schedule says, and changes
+                                        nothing — the scheduled post still goes out. Save
+                                        first: this sends what's stored, not what's on screen.
+                                    </span>
+                                </div>
                             </div>
                         {/if}
         </section>
@@ -5717,6 +5773,14 @@
 {/if}
 
 <style>
+    .cta-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .cta-hint {
+        font-size: 0.76rem;
+        color: var(--color-text-faint);
+        max-width: 26rem;
+        line-height: 1.4;
+    }
+
     .tb-scope-note { max-width: 46rem; margin: 0.35rem 0 0; }
 
     .page-heading {
