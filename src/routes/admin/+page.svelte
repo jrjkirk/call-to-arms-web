@@ -4784,7 +4784,13 @@
                                 </p>
                                 <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveSystemConfig(); }}>
                                     <div class="field field-narrow">
-                                        <label class="field-label" for="sc-day">Day</label>
+                                        <label class="field-label" for="sc-day">
+                                            Day
+                                            <HelpTip
+                                                label="the session day"
+                                                text={"The day this system meets. It decides which week a signup lands in, what the Club page calendar shows, and — because the call to arms posts a set number of days BEFORE the session — when that goes out too.\n\nMoving it moves all three."}
+                                            />
+                                        </label>
                                         <select id="sc-day" class="field-select" bind:value={csSessionDay}>
                                             {#each DAYS as d}
                                                 <option>{d}</option>
@@ -4792,7 +4798,13 @@
                                         </select>
                                     </div>
                                     <div class="field field-narrow">
-                                        <label class="field-label" for="sc-cadence">Cadence</label>
+                                        <label class="field-label" for="sc-cadence">
+                                            Cadence
+                                            <HelpTip
+                                                label="cadence"
+                                                text={"Weekly runs every week. Fortnightly runs every other week — and needs an anchor date, which appears when you choose it, so we know which of the two weeks is a session week."}
+                                            />
+                                        </label>
                                         <select id="sc-cadence" class="field-select" bind:value={csSessionCadence}>
                                             {#each CADENCES as c}
                                                 <option>{c}</option>
@@ -4801,7 +4813,13 @@
                                     </div>
                                     {#if csSessionCadence === 'fortnightly'}
                                         <div class="field field-narrow">
-                                            <label class="field-label" for="sc-anchor">Anchor date</label>
+                                            <label class="field-label" for="sc-anchor">
+                                                Anchor date
+                                                <HelpTip
+                                                    label="the anchor date"
+                                                    text={"Any date a session actually ran. Fortnights are counted from there, so it's what separates a session week from an off week — it doesn't have to be recent, and it never needs changing once it's right."}
+                                                />
+                                            </label>
                                             <input id="sc-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
                                         </div>
                                     {/if}
@@ -4823,7 +4841,13 @@
                                     <div class="field-row-break"></div>
 
                                     <div class="field cs-vibes-field">
-                                        <span class="field-label">Vibes</span>
+                                        <span class="field-label">
+                                            Vibes
+                                            <HelpTip
+                                                label="the vibe list"
+                                                text={"The game types players pick from when they sign up — and what the matcher tries to pair like with like on.\n\nLeave it on the platform default and this system follows the catalogue: if the default list changes, yours changes with it. Untick to set your own, and it stays exactly as you leave it."}
+                                            />
+                                        </span>
                                         <label class="check-row">
                                             <input type="checkbox" bind:checked={csUseDefaultVibes} />
                                             <span>Use the platform default vibes for this system</span>
@@ -4849,7 +4873,13 @@
                                             </div>
                                             {#if csVibeOptions.length > 0}
                                                 <div class="field field-narrow">
-                                                    <label class="field-label" for="sc-default-vibe">Default vibe</label>
+                                                    <label class="field-label" for="sc-default-vibe">
+                                                        Default vibe
+                                                        <HelpTip
+                                                            label="the default vibe"
+                                                            text={"The one used when a signup arrives without a valid choice — an older form, or a vibe you've since removed from the list. Pick the one most of your games are."}
+                                                        />
+                                                    </label>
                                                     <select id="sc-default-vibe" class="field-select" bind:value={csDefaultVibe}>
                                                         {#each csVibeOptions as v}
                                                             <option value={v}>{v}</option>
@@ -4897,7 +4927,13 @@
                                         bind:value={cs.blurb}></textarea>
                                 </div>
                                 <div class="field">
-                                    <label class="field-label" for="carousel-accent-{scope}">Accent colour</label>
+                                    <label class="field-label" for="carousel-accent-{scope}">
+                                        Accent colour
+                                        <HelpTip
+                                            label="the accent colour"
+                                            text={"This system's colour everywhere it appears: its carousel card, its entries on the Club page calendar, its pairing cards — and the accent down the side of these admin panels while you have it selected."}
+                                        />
+                                    </label>
                                     <div class="accent-row">
                                         <input id="carousel-accent-{scope}" type="color" class="accent-swatch" bind:value={cs.accent_color} />
                                         <input class="field-input" type="text" bind:value={cs.accent_color} placeholder="#c9a14a" />
