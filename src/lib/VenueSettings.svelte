@@ -210,6 +210,7 @@
         <div class="rules-grid">
             <label class="field">
                 <span class="field-label">Slot length</span>
+                <HelpTip label="slot length" text={"How far apart the start times on the booking form sit. 30 minutes gives 18:00, 18:30, 19:00 — shorter means more choice and a longer list."} />
                 <select class="field-select" bind:value={cfg.slot_minutes}>
                     <option value={15}>15 min</option>
                     <option value={30}>30 min</option>
@@ -226,14 +227,17 @@
             </label>
             <label class="field">
                 <span class="field-label">Notice needed (min)</span>
+                <HelpTip label="notice needed" text={"How far ahead the public must book. Stops someone booking a table for four minutes' time when nobody is at the door to seat them.\n\nStaff bookings ignore it — someone standing at the bar can see the table."} />
                 <input class="field-input" type="number" min="0" max="10080" bind:value={cfg.lead_time_minutes} />
             </label>
             <label class="field">
                 <span class="field-label">Book up to (days)</span>
+                <HelpTip label="how far ahead" text={"How far into the future the public can book. Keeps the diary from filling with bookings nobody remembers making."} />
                 <input class="field-input" type="number" min="1" max="365" bind:value={cfg.max_advance_days} />
             </label>
             <label class="field">
                 <span class="field-label">Biggest party</span>
+                <HelpTip label="biggest party" text={"The most players one booking can be for. Bigger groups have to talk to you — which is usually what you want, since they need several tables together."} />
                 <input class="field-input" type="number" min="1" max="40" bind:value={cfg.max_party_size} />
             </label>
             <label class="field">

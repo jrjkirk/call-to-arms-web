@@ -308,11 +308,13 @@
         <div class="plan-row">
             <label class="field plan-count">
                 <span class="field-label">Tables needed</span>
+                <HelpTip label="tables needed" text={"How many tables to expect this night to use. It's a forecast, and only used until the pairings are out — after that the Diary counts the real games.\n\nLeave it blank and the number of tables you've held is used instead."} />
                 <input class="field-input" type="number" min="0" max="200"
                        bind:value={n.expected_tables} placeholder="—" />
             </label>
             <label class="field plan-notes">
                 <span class="field-label">Notes <span class="field-label-hint">(staff only)</span></span>
+                <HelpTip label="notes" text={"Anything the bar needs to know on the night — terrain out at six, the far room is cold. Never shown to players or on the public booking page."} />
                 <input class="field-input" type="text" bind:value={n.notes}
                        placeholder="Terrain goes out at 6" />
             </label>
@@ -398,6 +400,7 @@
         {/if}
 
         <h3 class="a-subtitle">How the plan is holding up</h3>
+        <HelpTip label="how the plan is holding up" text={"Your tables-needed figure against what actually happened: published pairings from recent sessions, one game to a table. Byes take no table and aren't counted, and a week with no pairings is skipped rather than averaged in as a quiet night.\n\nThe advice is written against the BUSIEST recent session, not the average — laying out for the mean means coming up short every other week."} />
         {#if !n.review.measurable}
             <p class="a-note">
                 This night doesn't run through Call to Arms, so there are no pairings to

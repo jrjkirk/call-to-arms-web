@@ -304,6 +304,7 @@
                 </label>
                 <label class="field">
                     <span class="field-label">Tables</span>
+                    <HelpTip label="tables for an event" text={"How many tables to hold. It takes the EMPTY ones first, then whatever's left — so a big event on a busy night can come up short, and it tells you by how many rather than failing."} />
                     <input class="field-input" type="number" min="1" max="200"
                            bind:value={newEvent.tables_needed} />
                 </label>
@@ -371,6 +372,7 @@
         {/if}
 
         <h3 class="a-subtitle">Bookings</h3>
+        <HelpTip label="bookings" text={"Everything booked on this date, except an event's own tables — those are listed above as the one thing they are, rather than as six identical rows.\n\nClick a table on the plan to narrow this to it."} />
         {#if shown.length === 0}
             <p class="a-note">
                 {#if focusTable === null}

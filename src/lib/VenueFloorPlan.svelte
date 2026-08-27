@@ -1111,6 +1111,7 @@
 
                     {#if flippable.length}
                         <span class="field-label">Opening</span>
+                        <HelpTip label="the door opening" text={"Which jamb the door is hinged on, and which way it swings. Rotation alone can't separate the two — turning a door 180° swaps both at once — so these are the missing axis."} />
                         <div class="seg">
                             <button class="seg-btn" class:active={sole?.o.flip_h}
                                     onclick={() => flip('h')} title="Swap the hinge to the other jamb">
@@ -1155,6 +1156,7 @@
                         {#if isTable}
                             <label class="p-field">
                                 <span class="field-label">Seats</span>
+                                <HelpTip label="seats" text={"How many people this table comfortably takes. The public booking form won't offer it to a bigger party than this, and it's how “smallest table that fits” is decided — so a pair doesn't get given the only big board."} />
                                 <input class="field-input" type="number" min="1" max="20"
                                        bind:value={sole!.o.seats} oninput={() => (dirty = true)} />
                             </label>

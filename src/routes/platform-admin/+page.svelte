@@ -5,6 +5,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { CANONICAL_VIBES } from '$lib/systemsConfig';
     import { UK_REGIONS } from '$lib/regions';
+    import HelpTip from '$lib/HelpTip.svelte';
 
     type AdminMe = { is_super_admin: boolean; is_platform_admin: boolean; scopes: string[] };
     type PlatformClub = {
@@ -967,6 +968,7 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Club Health</span>
+                <HelpTip label="club health" text={"Every club on the platform and whether it's actually being used — signups this week, last activity, whether anyone has set it up. The place to spot a club that signed up and then stalled."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
@@ -1030,6 +1032,7 @@
     <div class="dash-group">
             <div class="dash-group-header static">
                 <span class="dash-group-title">Club Management</span>
+                <HelpTip label="club management" text={"Create a club, or open one to manage it as if you were its own super-admin. Everything you change here is written to that club, not to the platform."} />
             </div>
         <div class="dash-group-body">
     <section class="admin-section">
@@ -1119,6 +1122,7 @@
     <div class="dash-group">
             <div class="dash-group-header static">
                 <span class="dash-group-title">Game Systems</span>
+                <HelpTip label="game systems" text={"The catalogue every club picks from. A system added here doesn't appear anywhere until a club enables it on their own Systems tab.\n\nThese are platform-wide defaults — most of them can be overridden per club."} />
             </div>
         <div class="dash-group-body">
     <section class="admin-section">
@@ -1182,7 +1186,8 @@
                 <input id="gs-name" class="field-input" type="text" bind:value={gsName} required />
             </div>
             <div class="field">
-                <label class="field-label" for="gs-slug">Slug</label>
+                <label class="field-label" for="gs-slug">Slug
+                    <HelpTip label="the slug" text={"Short identifier for this system — tow, hh, kt. It's what the logo and faction-icon files are named after (static/logos/<slug>.png, icons/<FOLDER>), so a system with no matching files shows no artwork.\n\nNot stored on signups or pairings — that's the legacy system name."} /></label>
                 <input
                     id="gs-slug"
                     class="field-input"
@@ -1193,7 +1198,8 @@
                 />
             </div>
             <div class="field">
-                <label class="field-label" for="gs-legacy">Legacy system name</label>
+                <label class="field-label" for="gs-legacy">Legacy system name
+                    <HelpTip label="the legacy system name" text={"The exact string stored on every signup, pairing and publish record for this system, and the key its per-club settings are filed under.\n\nCHANGING IT ON A LIVE SYSTEM ORPHANS ALL OF THAT — the history stays under the old string. Set it once, at creation, and leave it."} /></label>
                 <input id="gs-legacy" class="field-input" type="text" bind:value={gsLegacyName} required />
             </div>
             <div class="field-row-break"></div>
@@ -1201,6 +1207,7 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsUsesPoints} />
                 <span>Uses points</span>
+                <HelpTip label="uses points" text={"Whether armies have a points value, which adds the points field to the signup form and lets the matcher pair players on closeness of list size."} />
             </label>
             {#if gsUsesPoints}
                 <div class="field field-narrow">
@@ -1216,6 +1223,10 @@
 
             <div class="field">
                 <span class="field-label">Vibe options</span>
+                <HelpTip
+                    label="vibe options"
+                    text={"The game types this system offers, and the list every club STARTS from. A club can override it on their own Game System Config tab — and if they haven't, changing this changes theirs too.\n\nDefault vibe is what a signup falls back to when its choice isn't in the list."}
+                />
                 <div class="vibe-checkboxes">
                     {#each CANONICAL_VIBES as v}
                         <label class="check-row">
@@ -1247,6 +1258,7 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsUsesScenarios} />
                 <span>Uses scenarios</span>
+                <HelpTip label="uses scenarios" text={"Whether players pick a scenario when they sign up, which the matcher can then pair them on. Separate from the Missions pool, which is about the call-to-arms post."} />
             </label>
             {#if gsUsesScenarios}
                 <div class="field">
@@ -1267,27 +1279,33 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsAllowsDemo} />
                 <span>Allows demo</span>
+                <HelpTip label="allows demo" text={"Adds “I can demo this game” to the signup form. On its own it only records who offered; the intro pre-pass is what acts on it."} />
             </label>
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsUsesStandby} />
                 <span>Offers standby option</span>
+                <HelpTip label="the standby option" text={"Adds “I can be on standby” to this system's signup form — happy to sit out if the numbers are odd. Off, and nobody is asked."} />
             </label>
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsHasIntroPrepass} />
                 <span>Has intro pre-pass</span>
+                <HelpTip label="the intro pre-pass" text={"Before normal matching, players who chose the Intro vibe are paired with players who ticked “I can demo”. Turns a beginner's first night into a taught game rather than a random draw.\n\nNeeds both an Intro vibe and Allows demo to do anything."} />
             </label>
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsHasLeague} />
                 <span>Has league</span>
+                <HelpTip label="has league" text={"Whether this system generally supports a league ladder. It's only the platform default — whether a given club actually runs one is theirs to set on their own League tab."} />
             </label>
             <div class="field-row-break"></div>
 
             <div class="field field-narrow">
-                <label class="field-label" for="gs-recent-weeks">Recent weeks</label>
+                <label class="field-label" for="gs-recent-weeks">Recent weeks
+                    <HelpTip label="recent weeks" text={"How far back the matcher treats a repeat opponent as recent. A pair who met inside this window is skipped on the first pass and penalised hardest after that.\n\nRoughly double it for a fortnightly system — six weeks of a fortnightly night is three sessions, not six."} /></label>
                 <input id="gs-recent-weeks" class="field-input" type="number" min="1" bind:value={gsRecentWeeks} />
             </div>
             <div class="field field-narrow">
-                <label class="field-label" for="gs-extended-weeks">Extended weeks</label>
+                <label class="field-label" for="gs-extended-weeks">Extended weeks
+                    <HelpTip label="extended weeks" text={"The wider window. A repeat in here is discouraged but allowed — half the penalty of the recent window. Set it larger than Recent weeks."} /></label>
                 <input id="gs-extended-weeks" class="field-input" type="number" min="1" bind:value={gsExtendedWeeks} />
             </div>
             <div class="field-row-break"></div>
@@ -1295,6 +1313,7 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsActive} />
                 <span>Active</span>
+                <HelpTip label="active" text={"Unticking hides this system from the catalogue everywhere — clubs can no longer enable it and it drops out of the pickers. Existing signups and pairings are untouched; this is the off switch, not a delete."} />
             </label>
 
             {#if gsError}
@@ -1325,6 +1344,7 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Site Banner</span>
+                <HelpTip label="site banner" text={"A message across the top of every page, for every club. Platform-wide, so use it for outages and releases, not for one club's news."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
@@ -1367,6 +1387,7 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Community Discord link</span>
+                <HelpTip label="community discord link" text={"The platform's own Discord, offered to players who haven't joined a club yet. Nothing to do with any club's own server."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
@@ -1393,6 +1414,7 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Scheduled Jobs</span>
+                <HelpTip label="scheduled jobs" text={"The background jobs — pairings, call to arms, call-outs, booking cutoffs. Each row is the last run and whether it succeeded, so a job that has quietly stopped shows up here rather than as a missing Discord post."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
@@ -1431,6 +1453,7 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Audit Log</span>
+                <HelpTip label="audit log" text={"What platform admins have done, most recent first. Written automatically; nothing here can be edited."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
@@ -1477,6 +1500,10 @@
                 Club Requests
                 {#if pendingClubRequestCount > 0}<span class="pending-count-badge">{pendingClubRequestCount}</span>{/if}
             </span>
+            <HelpTip
+                label="club requests"
+                text={"Clubs that have applied to join through the public Find a club page. Approving one provisions it — creates the club, makes the applicant its super-admin and lets them in.\n\nThe badge counts the ones still waiting."}
+            />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
@@ -1573,6 +1600,7 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Find a User</span>
+                <HelpTip label="find a user" text={"Search every club at once, by Discord name or player name. For “they say they can't log in” — it finds which club their account actually sits on."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
