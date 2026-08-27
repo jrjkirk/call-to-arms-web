@@ -4614,11 +4614,6 @@
                                         disabled={cta.saving || cta.posting}
                                         onclick={() => postCallToArmsNow(scope)}
                                     >{cta.posting ? 'Posting…' : 'Manual post'}</button>
-                                    <span class="cta-hint">
-                                        Posts now, whatever the schedule says, and changes
-                                        nothing — the scheduled post still goes out. Save
-                                        first: this sends what's stored, not what's on screen.
-                                    </span>
                                 </div>
                             </div>
                         {/if}
@@ -5774,12 +5769,6 @@
 
 <style>
     .cta-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-    .cta-hint {
-        font-size: 0.76rem;
-        color: var(--color-text-faint);
-        max-width: 26rem;
-        line-height: 1.4;
-    }
 
     .tb-scope-note { max-width: 46rem; margin: 0.35rem 0 0; }
 
