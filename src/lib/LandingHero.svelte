@@ -28,9 +28,16 @@
     <div class="hero-inner">
         <img class="hero-logo" src="/logo-hero.svg" alt="Call to Arms" in:fly={{ y: 18, duration: 600, delay: 120 }} />
 
+        <!-- Two doors, because two different people arrive here. A club member
+             signs in. Someone who just wants a game near them has no account
+             and nothing to sign in to, and used to have to scroll past the
+             whole page to find the club finder. -->
         <div class="hero-cta" in:fly={{ y: 12, duration: 500, delay: 240 }}>
             <a class="hero-button" href={loginUrl}>
                 <span>Sign in with Discord</span>
+            </a>
+            <a class="hero-button hero-button-alt" href="/find">
+                <span>Find a club near you</span>
             </a>
         </div>
 
@@ -73,7 +80,7 @@
         </div>
 
         <ClubsMap />
-        <a class="find-club-cta" href="/find">🗺️ Find a club near you →</a>
+        <a class="find-club-cta" href="/find">See every club on the map →</a>
         <ClubRequestForm />
 
         <a class="hero-footer-link" href="/privacy">Privacy Policy</a>
@@ -195,8 +202,10 @@
     .hero-cta {
         margin-top: clamp(1rem, 2.4vw, 1.5rem);
         display: flex;
-        flex-direction: column;
+        flex-wrap: wrap;
+        gap: 0.7rem;
         align-items: center;
+        justify-content: center;
     }
 
     .hero-button {
@@ -219,6 +228,19 @@
     .hero-button:hover {
         background: var(--color-accent-soft);
         transform: translateY(-1px);
+    }
+
+    /* The quieter of the two doors. Same size and weight so neither reads as
+       the afterthought, but only one of them is filled gold. */
+    .hero-button-alt {
+        background: transparent;
+        border-color: var(--color-accent-border);
+        color: var(--color-text-bright);
+    }
+
+    .hero-button-alt:hover {
+        background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+        border-color: var(--color-accent);
     }
 
     .find-club-cta {

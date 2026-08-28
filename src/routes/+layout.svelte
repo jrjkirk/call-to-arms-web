@@ -30,6 +30,10 @@
     };
 
     let auth = $state<AuthState>({ authenticated: false });
+    // Only clubs that actually sell table space get the booking tab. Fetched
+    // once here rather than per page: the club page and the booking form both
+    // need the same answer, and a tab that 404s is worse than no tab.
+    let venueTakesBookings = $state(false);
     let adminState = $state<AdminState | null>(null);
     let authLoaded = $state(false);
     let drawerOpen = $state(false);
@@ -42,21 +46,26 @@
 
     async function refreshAuth() {
         try {
-            const [authResp, adminResp, venueResp] = await Promise.all([
+            const [authResp, adminResp, venueResp, infoResp] = await Promise.all([
                 fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' }),
                 fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' }),
                 // Venue access is NOT a system scope — the bar manager holds no
                 // game-system rights at all — so it can't be read off
                 // /admin/me's scopes and needs its own always-200 check.
                 fetch(`${PUBLIC_API_URL}/venue/admin/me`, { credentials: 'include' }),
+                // Public, so this one answers for a signed-out visitor too —
+                // which is exactly who the booking tab is for.
+                fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' }),
             ]);
             auth = authResp.ok ? await authResp.json() : { authenticated: false };
             adminState = adminResp.ok ? await adminResp.json() : null;
             venueState = venueResp.ok ? await venueResp.json() : null;
+            venueTakesBookings = infoResp.ok ? (await infoResp.json()).enabled === true : false;
         } catch (_) {
             auth = { authenticated: false };
             adminState = null;
             venueState = null;
+            venueTakesBookings = false;
         } finally {
             authLoaded = true;
         }
@@ -126,6 +135,18 @@
         { href: '/players', label: 'Players' }
     ]);
 
+    // What a signed-out visitor on a club subdomain can actually reach. Without
+    // this the club page, its pairings and its booking form are three separate
+    // dead ends with no way between them, which is how a stranger who followed
+    // one link finds nothing else the club does.
+    const publicNavItems = $derived(
+        isBareHost ? [] : [
+            { href: '/', label: 'Club' },
+            { href: '/pairings', label: 'Pairings' },
+            ...(venueTakesBookings ? [{ href: '/book', label: 'Book a table' }] : [])
+        ]
+    );
+
     function isActive(href: string): boolean {
         if (href === '/') return page.url.pathname === '/';
         return page.url.pathname.startsWith(href);
@@ -171,7 +192,7 @@
         page.url.pathname.startsWith('/find') ||
         page.url.pathname === '/join' ||
         page.url.pathname === '/privacy' ||
-        (!isBareHost && (page.url.pathname === '/' || page.url.pathname === '/book'))
+        (!isBareHost && (page.url.pathname === '/' || page.url.pathname.startsWith('/book')))
     );
     const showingHero = $derived(authLoaded && !isAuthed && !isPublicRoute);
 
@@ -213,7 +234,7 @@
 {/if}
 
 <div class="page-wrap" data-sveltekit-preload-data="hover">
-    <header class="topbar" class:topbar-signed-out={authLoaded && !isAuthed}>
+    <header class="topbar" class:topbar-signed-out={authLoaded && !isAuthed && publicNavItems.length === 0}>
         <!-- Mobile-only: the logo doubles as the menu toggle. It's a normal
              flex child of the topbar row (not a floating fixed button), so
              it sits cleanly beside the nav-tab ribbon instead of
@@ -239,7 +260,16 @@
              of the pre-auth exempt routes like /pairings, /join, /privacy)
              gets no tab ribbon, just the sign-in prompt. Gated on authLoaded
              too so it doesn't flash in during the brief pre-auth-check window. -->
-        {#if authLoaded && isAuthed}
+        {#if authLoaded && !isAuthed && publicNavItems.length > 0 && !showingHero}
+            <nav class="nav-tabs-wrap">
+                <div class="nav-tabs">
+                    {#each publicNavItems as item}
+                        <a href={item.href} class="nav-tab" class:active={isActive(item.href)} data-sveltekit-preload-data="hover">{item.label}</a>
+                    {/each}
+                </div>
+                <div class="nav-tabs-fade"></div>
+            </nav>
+        {:else if authLoaded && isAuthed}
             <nav class="nav-tabs-wrap">
                 <div class="nav-tabs">
                     {#each navItems as item}

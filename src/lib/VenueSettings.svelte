@@ -143,6 +143,34 @@
         </div>
 
         <h3 class="a-subtitle">
+            People without an account
+            <HelpTip
+                label="guest bookings"
+                text={"Most of your customers have no reason to hold a Discord account, so turning this off means only club members can book online.\n\nGuests give an email address, which is where their confirmation and their cancel link go. You can ask for a phone number too, which is what you'll want on the night if someone hasn't turned up.\n\nThey get their own confirmation setting because a stranger is not a regular: you can take members instantly and still look at every guest booking first."}
+            />
+        </h3>
+        <label class="check-row">
+            <input type="checkbox" bind:checked={cfg.guest_bookings} />
+            <span>Let people book without signing in</span>
+        </label>
+        {#if cfg.guest_bookings}
+            <label class="check-row">
+                <input type="checkbox" bind:checked={cfg.require_phone} />
+                <span>Ask guests for a phone number</span>
+            </label>
+            <div class="opt-row">
+                <label class="check-row">
+                    <input type="radio" bind:group={cfg.guest_confirm_mode} value="instant" />
+                    <span>Confirm guest bookings straight away</span>
+                </label>
+                <label class="check-row">
+                    <input type="radio" bind:group={cfg.guest_confirm_mode} value="request" />
+                    <span>Hold guest bookings until staff say yes</span>
+                </label>
+            </div>
+        {/if}
+
+        <h3 class="a-subtitle">
             How you hear about it
             <HelpTip
                 label="notifications"

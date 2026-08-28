@@ -17,6 +17,7 @@
     let systemChoice = $state('');      // '' = not chosen, 'other' = free text
     let gameNote = $state('');
     let contactName = $state('');
+    let contactEmail = $state('');
     let contactPhone = $state('');
     let notes = $state('');
 
@@ -31,16 +32,36 @@
     let slotsLoading = $state(false);
     let submitting = $state(false);
 
+    // Which of the two booking paths this visitor is on. signedIn === null means
+    // we haven't heard back from /auth/me yet, so treat them as a member for now
+    // and don't flash the guest fields in front of someone who is signed in.
+    const asGuest = $derived(signedIn === false);
+    const guestBlocked = $derived(asGuest && info?.guest_bookings === false);
+    const phoneRequired = $derived(asGuest && info?.require_phone !== false);
+    // Guests may be held to a different confirmation policy than members, so the
+    // button has to promise the right thing: "Request" when a human will look at
+    // it first, "Book" when the table is theirs the moment they press it.
+    const effectiveMode = $derived(
+        asGuest ? (info?.guest_confirm_mode ?? 'request') : info?.confirm_mode
+    );
+    // Checked here as well as on the server so the button explains itself by
+    // being disabled, rather than by bouncing back an error after a round trip.
+    const canSubmit = $derived(
+        contactName.trim().length > 0 &&
+        (!asGuest || (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contactEmail.trim()))) &&
+        (!phoneRequired || contactPhone.trim().length > 0)
+    );
+
     /** Some venue-named nights already end in "night" — "Magic Night night". */
     const nightLabel = (name: string) =>
         /night$/i.test(name) ? name : `${name} night`;
     let error = $state<string | null>(null);
     let confirmed = $state<any>(null);
 
-    // The availability side of this page is public, but placing the booking
-    // still needs an account. Rather than let a visitor fill the form in and
-    // meet a bare "Authentication required" on submit, the last step asks them
-    // to sign in. null = not checked yet, so nothing flashes on first paint.
+    // Anyone can book. Signing in is only a convenience: a member's account
+    // already carries their name and gives them the bookings list, so they are
+    // asked for less. null = not checked yet, so the form doesn't flash from
+    // one shape to the other on first paint.
     let signedIn = $state<boolean | null>(null);
     onMount(async () => {
         try {
@@ -127,6 +148,7 @@
                 game_note: systemChoice === 'other' ? gameNote : null,
                 table_id: chosenTable,
                 contact_name: contactName,
+                contact_email: contactEmail,
                 contact_phone: contactPhone,
                 notes
             })
@@ -210,6 +232,20 @@
         {#if confirmed.booking.status === 'requested'}
             <p class="a-note">The venue will confirm this shortly. Your table is held until they do.</p>
         {/if}
+        <!-- The email is the only record a guest keeps: they have no account to
+             come back to, so saying where it went is how they know to look. -->
+        {#if confirmed.booking.email}
+            <p class="a-note">
+                {confirmed.emailed_booker === 'sent'
+                    ? `We've emailed the details to ${confirmed.booking.email}.`
+                    : `Keep this page — we couldn't email ${confirmed.booking.email}, so the venue will be in touch instead.`}
+            </p>
+        {/if}
+        {#if confirmed.manage_token}
+            <a class="secondary-button" href={`/book/manage?token=${confirmed.manage_token}`}>
+                View or cancel this booking
+            </a>
+        {/if}
         {#if info.confirmation_note}<p class="a-note">{info.confirmation_note}</p>{/if}
 
         {#if confirmed.club_night}
@@ -224,9 +260,18 @@
                 <p class="pitch-body">
                     <strong>{confirmed.club_night.system}</strong> {pitchSentence}
                 </p>
-                <a class="secondary-button" href="/signup?system={encodeURIComponent(confirmed.club_night.legacy_system_name ?? confirmed.club_night.system)}">
-                    Sign up for it
-                </a>
+                <!-- Signing up for a club night genuinely does need an account,
+                     unlike booking a table. Say so on the button rather than
+                     sending a guest to a login wall they didn't ask for. -->
+                {#if asGuest}
+                    <a class="secondary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>
+                        Sign in to join
+                    </a>
+                {:else}
+                    <a class="secondary-button" href="/signup?system={encodeURIComponent(confirmed.club_night.legacy_system_name ?? confirmed.club_night.system)}">
+                        Sign up for it
+                    </a>
+                {/if}
             </div>
         {/if}
 
@@ -303,7 +348,7 @@
                     <p class="a-note">
                         {heldForYourGame.system} club night runs that evening and
                         {dayInfo.tables_held} tables are held for it. You can
-                        <a href="/signup?system={encodeURIComponent(heldForYourGame.legacy_system_name ?? heldForYourGame.system)}">sign up for the night</a>
+                        {#if asGuest}<a href={`${PUBLIC_API_URL}/auth/discord/login`}>sign in to join the night</a>{:else}<a href="/signup?system={encodeURIComponent(heldForYourGame.legacy_system_name ?? heldForYourGame.system)}">sign up for the night</a>{/if}
                         instead and be paired with someone — or book one of the tables below.
                     </p>
                 {:else}
@@ -357,12 +402,9 @@
             </p>
         {/if}
 
-        {#if chosenSlot && signedIn === false}
+        {#if chosenSlot && guestBlocked}
             <h2 class="a-subtitle">Almost there</h2>
-            <p class="a-note">
-                Sign in to hold {slotTables.find((t) => t.id === chosenTable)?.name ?? 'this table'}
-                on {dayLabel(chosenDate)} at {chosenSlot}.
-            </p>
+            <p class="a-note">{info.club_name} takes bookings from signed-in members only.</p>
             <a class="primary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in to book</a>
         {:else if chosenSlot}
             <h2 class="a-subtitle">Your details</h2>
@@ -371,9 +413,22 @@
                     <span class="field-label">Name</span>
                     <input class="field-input" type="text" bind:value={contactName} placeholder="Your name" />
                 </label>
+                <!-- A guest has no account behind them, so these are how the venue
+                     confirms the booking and reaches them on the day. A member is
+                     asked for neither: their account already covers both. -->
+                {#if asGuest}
+                    <label class="field">
+                        <span class="field-label">Email</span>
+                        <input class="field-input" type="email" autocomplete="email"
+                               bind:value={contactEmail} placeholder="you@example.com" />
+                    </label>
+                {/if}
                 <label class="field">
-                    <span class="field-label">Phone <span class="field-label-hint">(optional)</span></span>
-                    <input class="field-input" type="tel" bind:value={contactPhone} />
+                    <span class="field-label">
+                        Phone
+                        {#if !phoneRequired}<span class="field-label-hint">(optional)</span>{/if}
+                    </span>
+                    <input class="field-input" type="tel" autocomplete="tel" bind:value={contactPhone} />
                 </label>
             </div>
             <label class="field">
@@ -381,9 +436,12 @@
                 <textarea class="field-input field-textarea" rows="2" bind:value={notes}></textarea>
             </label>
 
+            {#if asGuest}
+                <p class="a-note">Your confirmation goes to that email, along with a link to cancel.</p>
+            {/if}
             {#if error}<p class="field-error">{error}</p>{/if}
-            <button class="primary-button" type="button" disabled={submitting} onclick={book}>
-                {submitting ? 'Booking…' : info.confirm_mode === 'request' ? 'Request this table' : 'Book this table'}
+            <button class="primary-button" type="button" disabled={submitting || !canSubmit} onclick={book}>
+                {submitting ? 'Booking…' : effectiveMode === 'request' ? 'Request this table' : 'Book this table'}
             </button>
         {:else if error}
             <p class="field-error">{error}</p>
