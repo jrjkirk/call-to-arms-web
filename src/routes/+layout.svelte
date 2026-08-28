@@ -147,15 +147,31 @@
     const hasVenueAdminAccess = $derived(
         authLoaded && venueState !== null && venueState.can_admin_venue === true
     );
+    // The bare/www host is the marketing site; a club subdomain is that club's
+    // own public page. Same '/' path, different job, so the gate has to know
+    // which host it's on. localhost counts as a club host so the club page and
+    // booking form are reachable in local dev.
+    const isBareHost = $derived(
+        page.url.hostname === 'calltoarms.app' ||
+        page.url.hostname === 'www.calltoarms.app'
+    );
+
     // The hero page carries its own large logo, so the header shouldn't
     // duplicate it there — only show the header logo everywhere else.
     // Routes a signed-out visitor can see without being bounced to the hero:
     // public pairings, the club finder, the join/add-my-club form, and privacy.
+    //
+    // On a club subdomain the club's own landing page and its booking form are
+    // public too — that page is a shop window (name, hours, address, what they
+    // run) and a stranger following a link to it should not hit a login wall.
+    // Both stay gated on the bare host, which has no club context to resolve:
+    // an anonymous /club there can't know which club is meant.
     const isPublicRoute = $derived(
         page.url.pathname.startsWith('/pairings') ||
         page.url.pathname.startsWith('/find') ||
         page.url.pathname === '/join' ||
-        page.url.pathname === '/privacy'
+        page.url.pathname === '/privacy' ||
+        (!isBareHost && (page.url.pathname === '/' || page.url.pathname === '/book'))
     );
     const showingHero = $derived(authLoaded && !isAuthed && !isPublicRoute);
 
@@ -270,6 +286,15 @@
                 {/if}
                 <a class="sidebar-button" href="/find" onclick={closeDrawer}>Change club</a>
                 <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
+            {:else if !showingHero}
+                <!-- Signed out on a public page (a club's own page, its booking
+                     form, shared pairings, the finder). The hero has its own
+                     sign-in button, so this only fills in the header everywhere
+                     else — without it a visitor who lands on a club page from a
+                     search or a shared link has no way to sign in and no way to
+                     reach another club. -->
+                <a class="sidebar-button" href="/find" onclick={closeDrawer}>Find a club</a>
+                <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>Sign in</a>
             {/if}
         </aside>
     </header>

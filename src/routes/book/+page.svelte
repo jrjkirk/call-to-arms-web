@@ -37,6 +37,20 @@
     let error = $state<string | null>(null);
     let confirmed = $state<any>(null);
 
+    // The availability side of this page is public, but placing the booking
+    // still needs an account. Rather than let a visitor fill the form in and
+    // meet a bare "Authentication required" on submit, the last step asks them
+    // to sign in. null = not checked yet, so nothing flashes on first paint.
+    let signedIn = $state<boolean | null>(null);
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
+            signedIn = r.ok ? (await r.json()).authenticated === true : false;
+        } catch (_) {
+            signedIn = false;
+        }
+    });
+
     async function loadInfo() {
         const r = await fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' });
         info = r.ok ? await r.json() : { enabled: false };
@@ -278,7 +292,7 @@
         {#if slotsLoading}
             <p class="a-note">Checking…</p>
         {:else if slots.length === 0}
-            <p class="a-note">No bookings that day.</p>
+            <p class="a-note">No times free that day.</p>
         {:else}
             {#if dayInfo?.tables_held}
                 {#if heldForYourGame}
@@ -343,7 +357,14 @@
             </p>
         {/if}
 
-        {#if chosenSlot}
+        {#if chosenSlot && signedIn === false}
+            <h2 class="a-subtitle">Almost there</h2>
+            <p class="a-note">
+                Sign in to hold {slotTables.find((t) => t.id === chosenTable)?.name ?? 'this table'}
+                on {dayLabel(chosenDate)} at {chosenSlot}.
+            </p>
+            <a class="primary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in to book</a>
+        {:else if chosenSlot}
             <h2 class="a-subtitle">Your details</h2>
             <div class="form-grid">
                 <label class="field">

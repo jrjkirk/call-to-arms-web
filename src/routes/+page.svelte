@@ -103,7 +103,13 @@
 </script>
 
 <svelte:head>
-    <title>Club — Call to Arms</title>
+    <!-- The club's own name leads, because this page is now public: it's what a
+         search result and a shared link show, and "Club" told a stranger
+         nothing about whose page they'd landed on. -->
+    <title>{data?.club?.name ? `${data.club.name} — Call to Arms` : 'Call to Arms'}</title>
+    {#if data?.club?.blurb}
+        <meta name="description" content={data.club.blurb} />
+    {/if}
 </svelte:head>
 
 {#if loading}
