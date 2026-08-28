@@ -102,9 +102,8 @@ const toHHMM = (mins: number) =>
  * A window around the start rather than one fixed list: "when will you get
  * here" for a night starting at seven is a different question to one starting
  * at half six, and the old fixed 15:00–19:30 could not even contain the answer
- * for a club meeting at eight. Two hours either side covers arriving early to
- * set up and turning up late from work, in the same number of options the
- * fixed list had.
+ * for a club meeting at eight. Three hours either side covers coming straight
+ * from work, arriving early to set terrain out, and rolling in after dinner.
  *
  * No start time set → the original list, unchanged.
  */
@@ -112,7 +111,7 @@ export function etaOptionsFor(startTime?: string | null): string[] {
     const start = startTime ? toMins(startTime) : null;
     if (start === null) return ETA_OPTIONS;
     const out: string[] = [];
-    for (let m = start - 120; m <= start + 120; m += 15) {
+    for (let m = start - 180; m <= start + 180; m += 15) {
         if (m >= 0 && m < 24 * 60) out.push(toHHMM(m));
     }
     return out.length ? out : ETA_OPTIONS;
