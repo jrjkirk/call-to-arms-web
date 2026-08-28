@@ -236,9 +236,18 @@
              come back to, so saying where it went is how they know to look. -->
         {#if confirmed.booking.email}
             <p class="a-note">
-                {confirmed.emailed_booker === 'sent'
-                    ? `We've emailed the details to ${confirmed.booking.email}.`
-                    : `Keep this page — we couldn't email ${confirmed.booking.email}, so the venue will be in touch instead.`}
+                {#if confirmed.emailed_booker === 'sent'}
+                    We've emailed the details to {confirmed.booking.email}.
+                {:else if confirmed.emailed_booker === 'bad_address'}
+                    <!-- The address itself was rejected, so telling them "we'll be
+                         in touch" would be a promise nobody can keep. -->
+                    We couldn't deliver to {confirmed.booking.email}, so it may be
+                    mistyped. Your table is still held — keep the link below, as
+                    it's how you get back to this booking.
+                {:else}
+                    Keep this page — we couldn't email {confirmed.booking.email},
+                    so the venue will be in touch instead.
+                {/if}
             </p>
         {/if}
         {#if confirmed.manage_token}
