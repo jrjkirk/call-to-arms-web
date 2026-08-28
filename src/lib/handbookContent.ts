@@ -60,16 +60,19 @@ export const CLUB_HANDBOOK: Section[] = [
         blocks: [
             { where: 'Club admin › Discord' },
             { p: 'Two different things get confused here. The <strong>invite link</strong> from the last step is how people join your server. A <strong>webhook</strong> is how the app posts into a channel. You need both, and they are set in different places.' },
-            { p: 'Create a webhook in Discord under channel settings, then Integrations, then New Webhook. Copy the URL and paste it into the matching slot.' },
+            { p: 'Two routes to the same place. Either <strong>Server Settings, then Integrations, then Create Webhook</strong>, or hover the channel you want, click its cogwheel, and go to <strong>Integrations</strong>. Name it something you will recognise later, pick the channel, then <strong>Copy Webhook URL</strong> and paste it in here. Discord\u2019s own walkthrough is <a href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" target="_blank" rel="noopener noreferrer">Intro to Webhooks</a>.' },
+            { p: 'You need the <strong>Manage Webhooks</strong> permission on that server, or on that channel. Without it the Integrations panel will not open at all, which is the usual reason this step stalls.' },
+            { note: 'No Manage Webhooks? Ask whoever runs the Discord server to do one of two things: grant you Manage Webhooks, or create the webhook themselves and send you the URL. If they send it, ask for it in a direct message rather than a channel, because anyone who can read it can post as your club.' },
             { fig: 'fig-discord', caption: 'One webhook per kind of message. The per-system ones let each game post to its own channel.' },
-            { table: { head: ['Webhook', 'Posts', 'Scope'], rows: [
-                ['<strong>Signup</strong>', 'Each person as they sign up, and drop-outs', 'Per system'],
-                ['<strong>Pairings</strong>', "The week's matchups, as an image", 'Per system'],
-                ['<strong>Call to arms</strong>', 'The message that opens signups', 'Per system'],
-                ['<strong>League result</strong>', 'Reported games', 'Club-wide'],
-                ['<strong>League rankings</strong>', 'The standings table', 'Club-wide'],
-                ['<strong>Achievement</strong>', 'Level-ups and milestones', 'Club-wide']
+            { table: { head: ['Webhook', 'Posts', 'Where it is set'], rows: [
+                ['<strong>Signup</strong>', 'Each person as they sign up, and drop-outs', "That system's Discord tab"],
+                ['<strong>Pairings</strong>', "The week's matchups, as an image", "That system's Discord tab"],
+                ['<strong>Call to arms</strong>', 'The message that opens signups', "That system's Discord tab"],
+                ['<strong>Level-up</strong>', 'When a player reaches a new level', "That system's Discord tab"],
+                ['<strong>League result, rankings, achievement</strong>', 'Results, standings and unlocks', "That system's Discord tab, once its league is on"],
+                ['<strong>Venue booking</strong>', 'Table bookings for your venue', 'Club-wide, under Table booking']
             ] } },
+            { p: 'Nearly everything is set per system rather than here, because a club can run each game night out of a different server entirely. If you have appointed a system admin, these are theirs to set and you can leave them to it.' },
             { warn: '<b>A webhook URL is a password.</b> Anyone holding it can post into that channel as your club, forever, with no login. If one leaks, delete it in Discord and make a new one. That is the only way to revoke it.' },
             { proof: 'Sign yourself up for this week and watch the post land in the right channel.' }
         ]
@@ -96,7 +99,7 @@ export const CLUB_HANDBOOK: Section[] = [
             { fig: 'fig-grid', caption: 'The summary line above the grid is worth reading before you publish: it counts rematches, mirror matches and vibe mismatches, and shows the widest gap in arrival times.' },
             { warn: '<b>Generate and publish are different actions.</b> Generating produces a draft only you can see. Publishing is what players get. If you regenerate after publishing, publish again, because players are looking at the old set until you do.' },
             { p: 'When somebody drops out they can do it themselves from the signup page. Their opponent is given a bye and Discord is told. Two players can also swap opponents between themselves. You do not need to regenerate the week for either.' },
-            { proof: 'The pairings page shows the week to a logged-out visitor, and the image is in your Discord.' }
+            { proof: 'The grid shows a green <strong>Published</strong> badge, and a club member who is not an admin can open the Pairings page and see the week.' }
         ]
     },
     {
@@ -132,11 +135,39 @@ export const SYSTEM_HANDBOOK: Section[] = [
     {
         id: 'yours',
         title: 'What you have been given',
-        lede: 'You run one game system. Everything on the left under THIS SYSTEM is yours; the club settings below it are not.',
+        lede: 'You run one game system. Everything on the left under THIS SYSTEM is yours.',
         blocks: [
-            { p: 'You decide when your game meets, what game types it offers, how its pairings are made, what its call to arms says, and whether it runs a league. You cannot change the club page, appoint admins, or touch another system.' },
+            { p: 'You decide when your game meets, what game types it offers, where it posts on Discord, how its pairings are made, what its call to arms says, and whether it runs a league.' },
+            { p: 'Club-wide settings are not yours and do not appear in your sidebar at all, so there is nothing here you can break for anybody else. Players and blocks is the one club-level tab you share, because a block between two players matters to every system they play.' },
             { p: 'If more than one system is yours, the picker at the top of the page switches between them. Every setting on this page applies to the system showing there.' },
             { note: 'If a setting you need is missing, it is a club-level one. Ask your club super-admin.' }
+        ]
+    },
+    {
+        id: 'discord',
+        title: 'Point your game at a Discord channel',
+        lede: 'Do this second. Your system posts its own signups, pairings and call to arms, and until you set these it posts nowhere.',
+        blocks: [
+            { where: 'Discord' },
+            { fig: 'fig-sysdiscord', caption: 'Three webhooks, one per kind of message. They are yours to set, and they are what makes your game night visible in the server.' },
+            { p: 'A <strong>webhook</strong> is a URL that lets the app post into one Discord channel. You create it in Discord, not here.' },
+            { p: 'Two routes to the same place. Either <strong>Server Settings, then Integrations, then Create Webhook</strong>, or hover the channel you want, click its cogwheel, and go to <strong>Integrations</strong>. Name it something you will recognise later, pick the channel, then <strong>Copy Webhook URL</strong> and paste it in here. Discord\u2019s own walkthrough is <a href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" target="_blank" rel="noopener noreferrer">Intro to Webhooks</a>.' },
+            { p: 'You need the <strong>Manage Webhooks</strong> permission on that server, or on that channel. Without it the Integrations panel will not open at all, which is the usual reason this step stalls.' },
+            { note: 'No Manage Webhooks? Ask whoever runs the Discord server to do one of two things: grant you Manage Webhooks, or create the webhook themselves and send you the URL. If they send it, ask for it in a direct message rather than a channel, because anyone who can read it can post as your club.' },
+            { table: { head: ['Webhook', 'What lands in the channel', 'When'], rows: [
+                ['<strong>Signup</strong>', 'Each player as they sign up, and anyone who drops out', 'All week'],
+                ['<strong>Pairings</strong>', "The week's matchups as an image", 'When you press Post to Discord'],
+                ['<strong>Call to arms</strong>', 'The message that opens signups', 'On the schedule you set later'],
+                ['<strong>Level-up</strong>', 'When somebody reaches level 10, 20, 30, 40, 50 or 60 in your system', 'As it happens'],
+                ['<strong>League result</strong>', 'Each result as it is submitted', 'Only if your league is on'],
+                ['<strong>League rankings</strong>', 'The standings image', 'Only if your league is on'],
+                ['<strong>Achievement</strong>', 'When a player unlocks one', 'Only if your league is on']
+            ] } },
+            { p: 'The first four are always there. The last three appear once you turn your league on, because until then there are no results to post.' },
+            { p: 'Point them at whichever channels suit your club. Many put signups and the call to arms in a busy general channel and pairings somewhere quieter, so the matchups are easy to find again on the night.' },
+            { warn: '<b>A webhook URL is a password.</b> Anyone holding it can post into that channel as your club, forever, with no login. Never paste one into a public channel or a screenshot. If one leaks, delete it in Discord and create a new one, because that is the only way to revoke it.' },
+            { note: 'All of these are per system, so a club running two game nights out of two different Discord servers can point each one wherever it belongs. The only club-level webhook is venue bookings, which your super-admin sets.' },
+            { proof: 'Sign yourself up for this week and watch the post appear in the channel you chose.' }
         ]
     },
     {
@@ -160,6 +191,45 @@ export const SYSTEM_HANDBOOK: Section[] = [
         ]
     },
     {
+        id: 'missions',
+        title: 'Build a mission pool',
+        lede: 'Optional, and the cheapest thing you can do to make people actually read your call to arms. A post that says signups are open gets skimmed. A post with this week\u2019s map and objectives gets opened.',
+        blocks: [
+            { where: 'Missions' },
+            { fig: 'fig-missions', caption: 'The pool, the upload form and the two toggles above it. Both toggles are off by default, so nothing changes until you turn them on.' },
+            { p: 'Tick <strong>Enable custom missions for this system</strong> to switch the pool on. Tick <strong>This system uses secondary objectives</strong> as well if your game has them, which is what adds the secondary objectives field to the upload form.' },
+            { p: 'Then add your missions one at a time. Each one takes a name, an image, and secondary objectives if you turned those on.' },
+            { table: { head: ['Field', 'What to put in it'], rows: [
+                ['<strong>Name</strong>', 'The scenario as your players say it. <em>King of the Hill</em>, not <em>mission 2b</em>.'],
+                ['<strong>Secondary objectives</strong>', 'A plain comma-separated list, exactly as it should read in the post. For example <em>Baggage Train, Strategic Locations (2), Special Features</em>.'],
+                ['<strong>Mission image</strong>', 'The map or deployment diagram. Landscape, roughly 16:9 or 4:3, around 1200px wide. PNG, JPG or WEBP, up to 5 MB.']
+            ] } },
+            { warn: '<b>Photograph the map, not your screen.</b> A crop from the rulebook PDF or a clean diagram reads well in Discord. A phone photo of a laptop, or a screenshot with browser chrome around it, is the most common thing to get wrong here and it is what every player sees that week.' },
+            { p: 'Once the pool has something in it, each call to arms picks one active mission at random. Untick <strong>Active</strong> on a mission to keep it in the pool without it ever being posted, which is how you retire one without losing it.' },
+            { proof: 'Your pool lists the missions with thumbnails, and the toggle at the top of the card reads On.' }
+        ]
+    },
+    {
+        id: 'tokens',
+        title: 'Wire the mission into your post',
+        lede: 'The mission pool and the call to arms are joined by tokens. Get these right once and every week\u2019s post writes itself.',
+        blocks: [
+            { where: 'Call to Arms Post' },
+            { p: 'A <strong>token</strong> is a word in braces that gets swapped for real text at the moment the post goes out. You type the token; players see the value.' },
+            { table: { head: ['Token', 'Becomes', 'Needs'], rows: [
+                ['<code>{session_date}</code>', 'The date of the next session, like 02/09/2026', 'Nothing, always available'],
+                ['<code>{signup_url}</code>', 'A link straight to your signup page', 'Nothing, always available'],
+                ['<code>{scenario_name}</code>', "The randomly picked mission's name", 'A mission pool with at least one active mission'],
+                ['<code>{secondary_objectives}</code>', "That same mission's secondary objectives", 'The secondary objectives toggle, and text in that field']
+            ] } },
+            { fig: 'fig-cta', caption: 'The tokens available to you are listed under the message box. Only the ones your system can fill are shown.' },
+            { p: 'The mission image is attached automatically. There is no token for it, because it becomes the image on the Discord post rather than part of the text.' },
+            { warn: '<b>A token only fills if the thing behind it exists.</b> Put <code>{secondary_objectives}</code> in your message with the secondary objectives toggle off, or with that field left blank on the mission that gets picked, and the line comes out empty in the channel. If you are not using secondary objectives, take the token out of the message.' },
+            { p: 'Use <strong>Manual post</strong> to check your wording. It sends the real message immediately and changes nothing about the schedule, so the automatic post still goes out as normal. Post it to a quiet channel first if you would rather not test in front of everyone.' },
+            { proof: 'A manual post lands in Discord with a real date, a real mission name and its map attached, and no stray braces anywhere in the text.' }
+        ]
+    },
+    {
         id: 'week',
         title: 'Run a week',
         lede: 'The job you will do most. Signups come in, you make the pairings, you publish them.',
@@ -171,7 +241,7 @@ export const SYSTEM_HANDBOOK: Section[] = [
             { p: 'Publish when you are happy. That is the moment the pairings page goes live for players. Then use Post to Discord to push the image into your channel.' },
             { warn: '<b>Regenerating after publishing does not republish.</b> Players keep seeing the old set until you press Publish again.' },
             { p: 'A player who drops out does it themselves, and their opponent is given a bye automatically. Two players can swap opponents between themselves. Neither needs you to regenerate.' },
-            { proof: 'A logged-out visitor can see the week on the Pairings page.' }
+            { proof: 'The grid shows a green <strong>Published</strong> badge, and your players can see the week on the Pairings page.' }
         ]
     },
     {
@@ -218,16 +288,6 @@ export const SYSTEM_HANDBOOK: Section[] = [
             { p: 'Turn the league on and players can report results from their own profile. Ratings update as results come in, and the standings post to Discord on the club-wide league webhooks.' },
             { p: 'A season gives the ladder a start and an end. Closing one archives its table and crowns a champion, so the next season starts clean without losing the record of the last.' },
             { note: 'Levels and experience tick along from played games whether or not you run a league. They come from published pairings, so you get them for free.' }
-        ]
-    },
-    {
-        id: 'missions',
-        title: 'Add a mission pool',
-        lede: 'Optional, and the cheapest way to make your call to arms worth reading.',
-        blocks: [
-            { where: 'Missions' },
-            { p: 'Add the scenarios you play, each with its objectives and an optional map image. Turn the pool on and the call to arms picks one at random each week and attaches its map.' },
-            { p: 'That is the difference between a post saying signups are open and a post people actually stop to read.' }
         ]
     }
 ];

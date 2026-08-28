@@ -434,9 +434,6 @@
     // Call-to-Arms post behind a generic word, the second described where the
     // output appears rather than what you configure there.
     const SYSTEM_NAV = [
-        // First, deliberately. A handbook filed at the bottom is one nobody
-        // opens on the day they actually need it.
-        { id: 'systemguide', label: 'Handbook' },
         { id: 'pairings', label: 'Pairings' },
         { id: 'league', label: 'League' },
         { id: 'weighting', label: 'Weighting' },
@@ -445,6 +442,10 @@
         { id: 'announcements', label: 'Call to Arms Post' },
         { id: 'systemconfig', label: 'Game System Config' },
         { id: 'systemdiscord', label: 'Discord' },
+        // Last, and marked `guide`, which gives it a rule above and the book
+        // icon. It's a reference rather than a setting, so it shouldn't sit in
+        // the run of things you actually change.
+        { id: 'systemguide', label: 'Handbook', guide: true },
     ];
     // super: true = super-admin only. Blocks are club-wide and matter to
     // system admins too, so they stay visible to any admin.
@@ -454,13 +455,13 @@
     // moved to that system's own Game System Config tab, because it's the
     // system admin's decision. What the club runs at all stays the club's.
     const CLUB_NAV = [
-        { id: 'clubguide', label: 'Club handbook', super: true },
         { id: 'clubpage', label: 'Club page', super: true },
         { id: 'blocks', label: 'Players & blocks', super: false },
         { id: 'systems', label: 'Systems', super: true },
         { id: 'discord', label: 'Discord', super: true },
         { id: 'admins', label: 'Admins', super: true },
         { id: 'booking', label: 'Table booking', super: true },
+        { id: 'clubguide', label: 'Club handbook', super: true, guide: true },
     ];
 
     let adminMe = $state<AdminMe | null>(null);
@@ -3001,8 +3002,9 @@
                         type="button"
                         class="nav-item"
                         class:active={activeNav === item.id}
+                        class:guide={item.guide}
                         onclick={() => (activeNav = item.id)}
-                    >{item.label}</button>
+                    >{#if item.guide}<span class="nav-book" aria-hidden="true">📖</span>{/if}{item.label}</button>
                 {/each}
             {/if}
 
@@ -3014,8 +3016,9 @@
                             type="button"
                             class="nav-item"
                             class:active={activeNav === item.id}
+                            class:guide={item.guide}
                             onclick={() => (activeNav = item.id)}
-                        >{item.label}</button>
+                        >{#if item.guide}<span class="nav-book" aria-hidden="true">📖</span>{/if}{item.label}</button>
                     {/if}
                 {/each}
             {/if}
@@ -5863,6 +5866,20 @@
 {/if}
 
 <style>
+    /* The handbooks are reference, not settings, so they sit below the run of
+       things you change with a rule between. Tinted rather than loud: it needs
+       to be findable when you're stuck, not to compete with the tab you came
+       here to use. */
+    .nav-item.guide {
+        margin-top: 0.45rem;
+        padding-top: 0.55rem;
+        border-top: 1px solid var(--color-steel-border);
+        color: var(--color-accent);
+    }
+    .nav-item.guide:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+    .nav-item.guide.active { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
+    .nav-book { margin-right: 0.4rem; font-size: 0.85em; }
+
     .cta-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 
     .tb-scope-note { max-width: 46rem; margin: 0.35rem 0 0; }
