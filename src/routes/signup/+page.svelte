@@ -637,6 +637,35 @@
 
     let callOuts = $state<CallOut[]>([]);
 
+    // Which call-out the URL fragment is pointing at, so one followed from
+    // Discord is visibly the one you came for. The browser can't scroll to it
+    // on its own: the list arrives after the page does, and by then the
+    // fragment has already been resolved against a page that didn't have it.
+    let targetedCallOut = $state<number | null>(null);
+
+    async function focusTargetedCallOut() {
+        const m = /^#call-out-(\d+)$/.exec(window.location.hash);
+        if (!m) return;
+        const id = Number(m[1]);
+        if (!callOuts.some((c) => c.id === id)) return;
+        targetedCallOut = id;
+
+        // Wait for the element rather than guessing when it appears. The card
+        // is several conditionals deep, so neither a frame callback nor tick()
+        // was enough on its own — both ran while getElementById still returned
+        // null, and the optional chain swallowed it into a silent no-op.
+        // Bounded, so a call-out that never renders costs half a second and
+        // then stops.
+        for (let i = 0; i < 40; i++) {
+            const el = document.getElementById(`call-out-${id}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            await new Promise(requestAnimationFrame);
+        }
+    }
+
     async function loadCallOuts(sys: string) {
         try {
             const params = new URLSearchParams({ system: sys });
@@ -645,6 +674,7 @@
         } catch (_) {
             callOuts = [];
         }
+        focusTargetedCallOut();
     }
 
     let coDate = $state('');
@@ -1097,7 +1127,11 @@
     {#if callOuts.length > 0}
         <div class="callout-list">
             {#each callOuts as co (co.id)}
-                <div class="card callout-item">
+                <!-- id is the anchor the Discord link points at, so someone
+                     following "Take it up in the app" lands on the call-out
+                     itself rather than the top of the page. -->
+                <div class="card callout-item" id={`call-out-${co.id}`}
+                     class:callout-targeted={targetedCallOut === co.id}>
                     <div class="callout-head">
                         <strong>{co.creator_name}</strong> is looking for a game
                         <span class="callout-when">🗓️ {co.when_label}</span>
@@ -1429,6 +1463,22 @@
         flex-direction: column;
         gap: 0.75rem;
         margin-bottom: 0.75rem;
+    }
+
+    /* Marks the call-out a Discord link pointed at. Fades rather than latches,
+       so it says "this one" on arrival without staying shouty afterwards. */
+    .callout-targeted {
+        border-color: var(--color-accent);
+        animation: callout-target-fade 2.6s ease-out forwards;
+    }
+
+    @keyframes callout-target-fade {
+        0%   { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent); }
+        100% { box-shadow: 0 0 0 2px transparent; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .callout-targeted { animation: none; }
     }
 
     .callout-item { padding: 1rem 1.25rem; }

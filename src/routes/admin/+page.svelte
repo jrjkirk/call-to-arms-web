@@ -758,18 +758,19 @@
         signup: 'Signup notifications',
         pairings: 'Pairings post',
         call_to_arms: 'Call to Arms post',
+        call_outs: 'Call Outs',
         league_result: 'League result',
         league_rankings: 'League rankings post',
         achievement: 'Achievement announcements',
         level_up: 'Level-up “ding”',
     };
     // What each webhook actually posts, so an admin can pick the right channel
-    // instead of guessing from the label. Verified against the call sites —
-    // note `signup` carries call-outs too, which its name does not suggest.
+    // instead of guessing from the label. Verified against the call sites.
     const WEBHOOK_TYPE_HELP: Record<string, string> = {
-        signup: 'Every signup and drop-out for this system, plus any call-outs players post.',
+        signup: 'Every signup and drop-out for this system. Also carries call-outs, until you give them a channel of their own below.',
         pairings: "The pairings image, each time a week's pairings are published.",
         call_to_arms: 'The weekly “signups are open” announcement.',
+        call_outs: 'Players posting for an ad-hoc game, plus when one is taken up, withdrawn, or still open a day later. Leave it unset and these go to the signup channel as before.',
         league_result: 'Each league result as it gets submitted.',
         league_rankings: 'The league standings image.',
         achievement: 'When a player unlocks an achievement.',
