@@ -126,49 +126,60 @@
             <span>Take bookings from the public</span>
         </label>
 
-        <h3 class="a-subtitle">When someone books</h3>
-        <div class="opt-row">
-            <label class="check-row">
-                <input type="radio" bind:group={cfg.confirm_mode} value="instant" />
-                <span>Confirm it straight away</span>
-            </label>
-            <label class="check-row">
-                <input type="radio" bind:group={cfg.confirm_mode} value="request" />
-                <span>Hold it until staff say yes</span>
-            </label>
-            <HelpTip
-                label="confirmation"
-                text={"Straight away: the table is theirs the moment they book, and you're told after. This is what stops staff answering booking emails.\n\nHold it: every booking waits for you. It still holds the table while it waits, so an unanswered request blocks the slot."}
-            />
-        </div>
-
-        <h3 class="a-subtitle">
-            People without an account
-            <HelpTip
-                label="guest bookings"
-                text={"Most of your customers have no reason to hold a Discord account, so turning this off means only club members can book online.\n\nGuests give an email address, which is where their confirmation and their cancel link go. You can ask for a phone number too, which is what you'll want on the night if someone hasn't turned up.\n\nThey get their own confirmation setting because a stranger is not a regular: you can take members instantly and still look at every guest booking first."}
-            />
-        </h3>
-        <label class="check-row">
-            <input type="checkbox" bind:checked={cfg.guest_bookings} />
-            <span>Let people book without signing in</span>
-        </label>
-        {#if cfg.guest_bookings}
-            <label class="check-row">
-                <input type="checkbox" bind:checked={cfg.require_phone} />
-                <span>Ask guests for a phone number</span>
-            </label>
+        <!-- Two columns on a wide card. The policy switches and the
+             notification switches are short rows that each left the right
+             half of the card empty while pushing everything below them
+             further down the page. They are also independent of one
+             another, so nothing is lost by reading them side by side. -->
+        <div class="policy-grid">
+            <div class="policy-col">
+            <h3 class="a-subtitle">When someone books</h3>
             <div class="opt-row">
                 <label class="check-row">
-                    <input type="radio" bind:group={cfg.guest_confirm_mode} value="instant" />
-                    <span>Confirm guest bookings straight away</span>
+                    <input type="radio" bind:group={cfg.confirm_mode} value="instant" />
+                    <span>Confirm it straight away</span>
                 </label>
                 <label class="check-row">
-                    <input type="radio" bind:group={cfg.guest_confirm_mode} value="request" />
-                    <span>Hold guest bookings until staff say yes</span>
+                    <input type="radio" bind:group={cfg.confirm_mode} value="request" />
+                    <span>Hold it until staff say yes</span>
                 </label>
+                <HelpTip
+                    label="confirmation"
+                    text={"Straight away: the table is theirs the moment they book, and you're told after. This is what stops staff answering booking emails.\n\nHold it: every booking waits for you. It still holds the table while it waits, so an unanswered request blocks the slot."}
+                />
             </div>
-        {/if}
+
+            </div>
+            <div class="policy-col">
+            <h3 class="a-subtitle">
+                People without an account
+                <HelpTip
+                    label="guest bookings"
+                    text={"Most of your customers have no reason to hold a Discord account, so turning this off means only club members can book online.\n\nGuests give an email address, which is where their confirmation and their cancel link go. You can ask for a phone number too, which is what you'll want on the night if someone hasn't turned up.\n\nThey get their own confirmation setting because a stranger is not a regular: you can take members instantly and still look at every guest booking first."}
+                />
+            </h3>
+            <label class="check-row">
+                <input type="checkbox" bind:checked={cfg.guest_bookings} />
+                <span>Let people book without signing in</span>
+            </label>
+            {#if cfg.guest_bookings}
+                <label class="check-row">
+                    <input type="checkbox" bind:checked={cfg.require_phone} />
+                    <span>Ask guests for a phone number</span>
+                </label>
+                <div class="opt-row opt-stack">
+                    <label class="check-row">
+                        <input type="radio" bind:group={cfg.guest_confirm_mode} value="instant" />
+                        <span>Confirm guest bookings straight away</span>
+                    </label>
+                    <label class="check-row">
+                        <input type="radio" bind:group={cfg.guest_confirm_mode} value="request" />
+                        <span>Hold guest bookings until staff say yes</span>
+                    </label>
+                </div>
+            {/if}
+            </div>
+        </div>
 
         <h3 class="a-subtitle">
             How you hear about it
@@ -237,8 +248,7 @@
         </h3>
         <div class="rules-grid">
             <label class="field">
-                <span class="field-label">Slot length</span>
-                <HelpTip label="slot length" text={"How far apart the start times on the booking form sit. 30 minutes gives 18:00, 18:30, 19:00 — shorter means more choice and a longer list."} />
+                <span class="field-label">Slot length <HelpTip label="slot length" text={"How far apart the start times on the booking form sit. 30 minutes gives 18:00, 18:30, 19:00 — shorter means more choice and a longer list."} /></span>
                 <select class="field-select" bind:value={cfg.slot_minutes}>
                     <option value={15}>15 min</option>
                     <option value={30}>30 min</option>
@@ -254,18 +264,15 @@
                 <input class="field-input" type="number" step="15" min="15" max="720" bind:value={cfg.max_duration_minutes} />
             </label>
             <label class="field">
-                <span class="field-label">Notice needed (min)</span>
-                <HelpTip label="notice needed" text={"How far ahead the public must book. Stops someone booking a table for four minutes' time when nobody is at the door to seat them.\n\nStaff bookings ignore it — someone standing at the bar can see the table."} />
+                <span class="field-label">Notice needed (min) <HelpTip label="notice needed" text={"How far ahead the public must book. Stops someone booking a table for four minutes' time when nobody is at the door to seat them.\n\nStaff bookings ignore it — someone standing at the bar can see the table."} /></span>
                 <input class="field-input" type="number" min="0" max="10080" bind:value={cfg.lead_time_minutes} />
             </label>
             <label class="field">
-                <span class="field-label">Book up to (days)</span>
-                <HelpTip label="how far ahead" text={"How far into the future the public can book. Keeps the diary from filling with bookings nobody remembers making."} />
+                <span class="field-label">Book up to (days) <HelpTip label="how far ahead" text={"How far into the future the public can book. Keeps the diary from filling with bookings nobody remembers making."} /></span>
                 <input class="field-input" type="number" min="1" max="365" bind:value={cfg.max_advance_days} />
             </label>
             <label class="field">
-                <span class="field-label">Biggest party</span>
-                <HelpTip label="biggest party" text={"The most players one booking can be for. Bigger groups have to talk to you — which is usually what you want, since they need several tables together."} />
+                <span class="field-label">Biggest party <HelpTip label="biggest party" text={"The most players one booking can be for. Bigger groups have to talk to you — which is usually what you want, since they need several tables together."} /></span>
                 <input class="field-input" type="number" min="1" max="40" bind:value={cfg.max_party_size} />
             </label>
             <label class="field">
@@ -281,14 +288,18 @@
                 text={"The blurb sits on the booking form — parking, food, house rules.\n\nThe confirmation note goes on the confirmation and in their email: door codes, where the terrain lives, who to ask for."}
             />
         </h3>
-        <label class="field">
-            <span class="field-label">On the booking form</span>
-            <textarea class="field-input field-textarea" rows="2" bind:value={cfg.booking_blurb}></textarea>
-        </label>
-        <label class="field">
-            <span class="field-label">On the confirmation</span>
-            <textarea class="field-input field-textarea" rows="2" bind:value={cfg.confirmation_note}></textarea>
-        </label>
+        <div class="copy-grid">
+            <label class="field">
+                <span class="field-label">On the booking form</span>
+                <textarea class="field-input field-textarea" rows="3" bind:value={cfg.booking_blurb}
+                          placeholder="Parking, food, house rules."></textarea>
+            </label>
+            <label class="field">
+                <span class="field-label">On the confirmation</span>
+                <textarea class="field-input field-textarea" rows="3" bind:value={cfg.confirmation_note}
+                          placeholder="Door code, where the terrain lives, who to ask for."></textarea>
+            </label>
+        </div>
         <label class="check-row">
             <input type="checkbox" bind:checked={cfg.promote_club_nights} />
             <span>Mention your club nights when someone books</span>
@@ -409,10 +420,46 @@
     .hours-note { flex: 1 1 10rem; min-width: 0; }
     .hours-sep { color: var(--color-text-faint); }
 
+    /* Wide enough that no label wraps ("Notice needed (min)" was breaking
+       onto two lines and taking its input with it) and that seven fields land
+       as four-then-three rather than six and a lonely one. */
     .rules-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-        gap: 0.7rem;
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+        gap: 0.75rem 1rem;
+        align-items: end;
+    }
+
+    /* Gap owns the spacing inside every grid here; the field's own margin was
+       doubling it and knocking rows out of line. */
+    .rules-grid .field,
+    .copy-grid .field { margin-bottom: 0; }
+
+    .policy-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(23rem, 1fr));
+        gap: 0.5rem 2.5rem;
+        align-items: start;
+    }
+
+    /* The heading that opens a column shouldn't carry the top margin it needs
+       when it follows other content. */
+    .policy-col > .a-subtitle:first-child { margin-top: 0; }
+
+    /* Long labels in a half-width column: a wrapping row put one option on each
+       line anyway, with a row gap between them that read as a mistake. Stack
+       them on purpose and tighten the spacing to match the checkboxes above. */
+    .opt-stack {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+    }
+
+    .copy-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+        gap: 0.75rem 1rem;
+        margin-bottom: 0.6rem;
     }
 
     .field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.6rem; }
