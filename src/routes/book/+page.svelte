@@ -408,27 +408,32 @@
             <a class="primary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in to book</a>
         {:else if chosenSlot}
             <h2 class="a-subtitle">Your details</h2>
+            <p class="req-legend"><span class="req">*</span> Required</p>
             <div class="form-grid">
                 <label class="field">
-                    <span class="field-label">Name</span>
-                    <input class="field-input" type="text" bind:value={contactName} placeholder="Your name" />
+                    <span class="field-label">Name <span class="req">*</span></span>
+                    <input class="field-input" type="text" required aria-required="true"
+                           bind:value={contactName} placeholder="Your name" />
                 </label>
                 <!-- A guest has no account behind them, so these are how the venue
                      confirms the booking and reaches them on the day. A member is
                      asked for neither: their account already covers both. -->
                 {#if asGuest}
                     <label class="field">
-                        <span class="field-label">Email</span>
+                        <span class="field-label">Email <span class="req">*</span></span>
                         <input class="field-input" type="email" autocomplete="email"
+                               required aria-required="true"
                                bind:value={contactEmail} placeholder="you@example.com" />
                     </label>
                 {/if}
                 <label class="field">
                     <span class="field-label">
                         Phone
-                        {#if !phoneRequired}<span class="field-label-hint">(optional)</span>{/if}
+                        {#if phoneRequired}<span class="req">*</span>{/if}
                     </span>
-                    <input class="field-input" type="tel" autocomplete="tel" bind:value={contactPhone} />
+                    <input class="field-input" type="tel" autocomplete="tel"
+                           required={phoneRequired} aria-required={phoneRequired}
+                           bind:value={contactPhone} />
                 </label>
             </div>
             <label class="field">
@@ -451,6 +456,17 @@
 </div>
 
 <style>
+    .req {
+        color: var(--color-accent);
+        font-weight: 700;
+    }
+
+    .req-legend {
+        margin: -0.4rem 0 0.9rem;
+        font-size: 0.72rem;
+        color: var(--color-text-dim);
+    }
+
     .day-strip { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.4rem; margin-bottom: 1rem; }
 
     .day-chip {

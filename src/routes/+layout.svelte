@@ -147,6 +147,16 @@
         ]
     );
 
+    // Where the brand mark takes you. A signed-out visitor on a club subdomain
+    // gets the marketing site, which is the thing they might actually want to
+    // read and previously had no route back to. A member gets their club home,
+    // because the marketing page has nothing on it for them — and because
+    // redirectBareToHomeClub would bounce them straight back anyway, making the
+    // logo look broken. The Club tab covers club home either way.
+    const logoHref = $derived(
+        !isBareHost && authLoaded && !isAuthed ? 'https://www.calltoarms.app' : '/'
+    );
+
     function isActive(href: string): boolean {
         if (href === '/') return page.url.pathname === '/';
         return page.url.pathname.startsWith(href);
@@ -251,7 +261,7 @@
         {/if}
 
         {#if !showingHero}
-            <a class="topbar-logo-link" href="/" aria-label="Call to Arms">
+            <a class="topbar-logo-link" href={logoHref} aria-label="Call to Arms">
                 <img class="topbar-logo" src="/logo.svg" alt="Call to Arms" />
             </a>
         {/if}
@@ -323,8 +333,20 @@
                      else — without it a visitor who lands on a club page from a
                      search or a shared link has no way to sign in and no way to
                      reach another club. -->
+                <!-- Desktop reaches the marketing site by clicking the logo; on
+                     mobile the logo is the drawer toggle instead, so this is the
+                     only route back to it there. -->
+                <a class="sidebar-button drawer-only" href="https://www.calltoarms.app" onclick={closeDrawer}>
+                    About Call to Arms
+                </a>
                 <a class="sidebar-button" href="/find" onclick={closeDrawer}>Find a club</a>
-                <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>Sign in</a>
+                <div class="signin-stack">
+                    <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>Sign in</a>
+                    <!-- Booking a table needs no account, but signing up for a
+                         game night does. Without saying so, the two look like
+                         the same kind of thing from out here. -->
+                    <span class="signin-note">to join a club night</span>
+                </div>
             {/if}
         </aside>
     </header>
@@ -511,6 +533,24 @@
         background: var(--color-accent-soft);
         border-color: var(--color-accent-soft);
     }
+
+    .signin-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+    }
+
+    .signin-note {
+        font-size: 0.68rem;
+        color: var(--color-text-dim);
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+
+    /* The drawer is mobile-only, so is anything that exists purely to fill in
+       for an affordance the mobile header doesn't have. */
+    .drawer-only { display: none; }
 
     .user-pill {
         display: flex;
@@ -747,6 +787,15 @@
             font-size: 0.85rem;
             padding: 0.6rem;
         }
+
+        .drawer-only { display: block; }
+
+        .signin-stack {
+            width: 100%;
+            align-items: stretch;
+        }
+
+        .signin-note { text-align: center; }
 
         .container { padding: 1rem; }
 
