@@ -32,6 +32,10 @@ export type SystemConfig = {
     // null for systems with a flat list — callers fall back to faction_list.
     faction_groups?: { label: string; factions: string[] }[] | null;
     icon_folder: string;
+    /** When this club's session starts, or null if they haven't set one.
+     *  Club-scoped: absent from the unscoped catalogue. Drives the signup
+     *  form's default arrival time. */
+    session_start_time?: string | null;
 };
 
 export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
@@ -234,7 +238,8 @@ function normalize(raw: any): SystemConfig {
         has_league: !!raw.has_league,
         faction_list: raw.faction_list ?? [],
         faction_groups: raw.faction_groups ?? null,
-        icon_folder: raw.icon_folder ?? ''
+        icon_folder: raw.icon_folder ?? '',
+        session_start_time: raw.session_start_time ?? null
     };
 }
 

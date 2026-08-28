@@ -5,13 +5,13 @@
     import { goto, invalidateAll } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import {
-        SYSTEMS, NONE_FACTION, ETA_OPTIONS, formConfig
+        SYSTEMS, NONE_FACTION, ETA_OPTIONS, etaOptionsFor, defaultEtaFor, formConfig
     } from '$lib/signupOptions';
     import {
         getSystemsConfig, vibeOptionsFor, usesPoints, defaultVibeFor, FALLBACK_SYSTEMS_CONFIG, type SystemConfig
     } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
-    import { fetchMySystems } from '$lib/mySystems';
+    import { fetchMySystems, fetchSessionStart } from '$lib/mySystems';
     import FactionOptions from '$lib/FactionOptions.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
@@ -41,6 +41,7 @@
         // config (falls back to the platform default when the club hasn't set one).
         const club = getClubSlugFromHostname(window.location.hostname);
         getSystemsConfig(club).then((c) => (systemsConfig = c));
+        fetchSessionStart(data.system).then((t) => (mySessionStart = t));
     });
 
     let system = $state(data.system);
@@ -64,6 +65,20 @@
     });
 
     const cfg = $derived(formConfig(data.system, systemsConfig));
+    /** Arrival times, and the one pre-selected: both follow this system's own
+     *  session start. A club that hasn't set one keeps the original list and
+     *  18:30, so nothing changes for them. */
+    // Two sources, best first. The authenticated one knows the caller's real
+    // club; the hostname-derived config only has a start time when they are on
+    // that club's subdomain.
+    let mySessionStart = $state<string | null>(null);
+    const sessionStart = $derived(
+        mySessionStart
+        ?? systemsConfig.find((c) => c.legacy_system_name === data.system)?.session_start_time
+        ?? null
+    );
+    const etaChoices = $derived(etaOptionsFor(sessionStart));
+    const etaDefault = $derived(defaultEtaFor(sessionStart));
 
     function selectSystem(s: string) {
         if (s === system) return;
@@ -112,6 +127,19 @@
     // tab row and sign-up card popping in separately as each fetch lands.
     const pageReady = $derived(authLoaded && systemsResolved);
 
+    // The session time arrives after first paint, so the placeholder default has
+    // to be replaced once it is known. Deliberately does NOT read `eta`: an
+    // effect that both reads and writes it loops, and "is the current value in
+    // range" was the wrong test anyway, because the old 18:30 sits inside most
+    // windows and so was never corrected.
+    let etaTouched = $state(false);
+    $effect(() => {
+        const next = etaDefault;
+        if (etaTouched || !next) return;
+        eta = next;
+        preEta = next;
+    });
+
     onMount(async () => {
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
@@ -157,7 +185,7 @@
     /* ---------- form fields ---------- */
     let faction = $state(NONE_FACTION);
     let points = $state(2000);
-    let eta = $state('18:30');
+    let eta = $state('18:30');   // replaced by etaDefault once the config loads
     // Experience is no longer asked for — it's counted from the games the club
     // has paired this player for in this system (see experience.py). The form
     // shows it; the API derives it again on submit, so the value posted here
@@ -225,7 +253,10 @@
         const c = formConfig(data.system, systemsConfig);
         faction = src?.faction && [NONE_FACTION, ...c.factions].includes(src.faction) ? src.faction : NONE_FACTION;
         points = src?.points != null && src.points > 0 ? src.points : c.defaultPoints;
-        eta = src?.eta && ETA_OPTIONS.includes(src.eta) ? src.eta : '18:30';
+        // A time they already chose is theirs, even if it sits outside the
+        // window this system now offers.
+        if (src?.eta) { eta = src.eta; etaTouched = true; }
+        else eta = etaDefault;
         vibe = src?.vibe && c.vibeOptions?.includes(src.vibe) ? src.vibe : c.defaultVibe;
         standby = !!src?.standby_ok;
         scenario = src?.scenario && c.scenarioOptions.includes(src.scenario) ? src.scenario : c.defaultScenario;
@@ -462,7 +493,7 @@
     let preBIsGuest = $state(false);
     let preBGuestName = $state('');
     let prePoints = $state(2000);
-    let preEta = $state('18:30');
+    let preEta = $state('18:30');   // ditto
     let preVibe = $state('Casual');
 
     let preSubmitting = $state(false);
@@ -800,8 +831,9 @@
 
             <div class="field">
                 <label class="field-label" for="su-eta">Estimated Time of Arrival</label>
-                <select id="su-eta" class="field-select" bind:value={eta}>
-                    {#each ETA_OPTIONS as t}
+                <select id="su-eta" class="field-select" bind:value={eta}
+                        onchange={() => (etaTouched = true)}>
+                    {#each etaChoices as t}
                         <option value={t}>{t}</option>
                     {/each}
                 </select>
@@ -1024,8 +1056,9 @@
 
                 <div class="field">
                     <label class="field-label" for="pre-eta">Estimated Time of Arrival</label>
-                    <select id="pre-eta" class="field-select" bind:value={preEta}>
-                        {#each ETA_OPTIONS as t}
+                    <select id="pre-eta" class="field-select" bind:value={preEta}
+                            onchange={() => (etaTouched = true)}>
+                        {#each etaChoices as t}
                             <option value={t}>{t}</option>
                         {/each}
                     </select>

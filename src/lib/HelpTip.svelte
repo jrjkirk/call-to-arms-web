@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	/**
 	 * A "?" affordance that holds the explanation a control would otherwise
 	 * spend three lines of the page on.
@@ -17,6 +18,21 @@
 	let { label, text }: { label: string; text: string } = $props();
 
 	let open = $state(false);
+	/** Which way the bubble opens. Decided from where the button actually is,
+	 *  not from the viewport width: a tip in a section header sits hard against
+	 *  the right edge of its card on ANY screen size, and the old
+	 *  max-width:560px rule left those clipped. */
+	let flip = $state(false);
+
+	async function place() {
+		flip = false;
+		await tick();
+		const el = wrap?.querySelector('.tip-bubble') as HTMLElement | null;
+		if (!el) return;
+		// Against the viewport, which is the edge that actually clips it. A
+		// margin so it never sits flush against the glass.
+		flip = el.getBoundingClientRect().right > window.innerWidth - 8;
+	}
 	let id = `helptip-${Math.random().toString(36).slice(2, 9)}`;
 	let wrap: HTMLElement | undefined = $state();
 
@@ -49,10 +65,13 @@
 		aria-label={`What is ${label}?`}
 		aria-expanded={open}
 		aria-controls={id}
-		onclick={() => (open = !open)}
+		onclick={() => {
+			open = !open;
+			if (open) place();
+		}}
 	>?</button>
 	{#if open}
-		<span class="tip-bubble" {id} role="tooltip">{text}</span>
+		<span class="tip-bubble" class:flip {id} role="tooltip">{text}</span>
 	{/if}
 </span>
 
@@ -117,12 +136,11 @@
 		white-space: pre-line;
 	}
 
-	/* Near the right edge the bubble would otherwise run off-screen; on narrow
-	   viewports it anchors to the right of the button instead. */
-	@media (max-width: 560px) {
-		.tip-bubble {
-			left: auto;
-			right: 0;
-		}
+	/* Set by place() when the bubble would otherwise run off the right of the
+	   screen. Replaces a max-width:560px media query, which only caught narrow
+	   viewports and left every tip in a right-aligned section header clipped. */
+	.tip-bubble.flip {
+		left: auto;
+		right: 0;
 	}
 </style>

@@ -23,7 +23,9 @@ export const NONE_FACTION = '— None —';
  *  it so nothing breaks if one survives. */
 export const EXPERIENCE_OPTIONS = ['New', 'Experienced', 'Veteran'];
 
-/** 15:00 → 19:30 in 15-minute steps, same as the original. */
+/** 15:00 → 19:30 in 15-minute steps, same as the original. Used when a club
+ *  hasn't set a session start time, so those clubs see exactly what they
+ *  always have. */
 export const ETA_OPTIONS: string[] = (() => {
     const out: string[] = [];
     for (const h of [15, 16, 17, 18, 19]) {
@@ -82,4 +84,46 @@ export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLB
         defaultScenario: entry.default_scenario,
         showCanDemo: entry.allows_demo
     };
+}
+
+/** Fallback default when a club hasn't set a session start time. */
+export const DEFAULT_ETA = '18:30';
+
+const toMins = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+const toHHMM = (mins: number) =>
+    `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+
+/**
+ * Arrival times to offer for a session starting at `startTime`.
+ *
+ * A window around the start rather than one fixed list: "when will you get
+ * here" for a night starting at seven is a different question to one starting
+ * at half six, and the old fixed 15:00–19:30 could not even contain the answer
+ * for a club meeting at eight. Two hours either side covers arriving early to
+ * set up and turning up late from work, in the same number of options the
+ * fixed list had.
+ *
+ * No start time set → the original list, unchanged.
+ */
+export function etaOptionsFor(startTime?: string | null): string[] {
+    const start = startTime ? toMins(startTime) : null;
+    if (start === null) return ETA_OPTIONS;
+    const out: string[] = [];
+    for (let m = start - 120; m <= start + 120; m += 15) {
+        if (m >= 0 && m < 24 * 60) out.push(toHHMM(m));
+    }
+    return out.length ? out : ETA_OPTIONS;
+}
+
+/**
+ * What a player's ETA starts as. The session's own start time, because most
+ * people arrive when it starts, and a default that is right most of the time
+ * is the one nobody has to think about.
+ */
+export function defaultEtaFor(startTime?: string | null): string {
+    const start = startTime ? toMins(startTime) : null;
+    return start === null ? DEFAULT_ETA : toHHMM(start);
 }

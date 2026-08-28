@@ -410,28 +410,41 @@
     // ── Sidebar navigation (function-first console) ─────────────────────
     // activeNav = which panel is shown; activeSystem = the focused system for
     // system-scoped panels (a single var replacing the old per-scope loop).
+    /** Which switch governs a webhook row. The three league types share one:
+     *  results, standings and achievements are one decision to a club, and
+     *  three switches for one decision is three chances to miss one. */
+    const WEBHOOK_SWITCH: Record<string, 'signup' | 'pairings' | 'level_up' | 'league'> = {
+        signup: 'signup', pairings: 'pairings',
+        level_up: 'level_up',
+        league_result: 'league', league_rankings: 'league', achievement: 'league',
+    };
+
     /** Which Discord posts are switched on, per system. All default on, so a
      *  club that has never touched this behaves exactly as before. */
-    let postSwitches = $state<Record<string, { signup: boolean; pairings: boolean; busy: boolean }>>({});
+    type PostSwitches = { signup: boolean; pairings: boolean; level_up: boolean; league: boolean; busy: boolean };
+    let postSwitches = $state<Record<string, PostSwitches>>({});
 
     async function loadPostSwitches(scope: string) {
         if (postSwitches[scope]) return;
-        postSwitches[scope] = { signup: true, pairings: true, busy: false };
+        postSwitches[scope] = { signup: true, pairings: true, level_up: true, league: true, busy: false };
         const r = await fetch(
             `${PUBLIC_API_URL}/admin/post-switches?system=${encodeURIComponent(scope)}`,
             { credentials: 'include' }
         );
         if (r.ok) {
             const d = await r.json();
-            postSwitches[scope] = { signup: d.signup !== false, pairings: d.pairings !== false, busy: false };
+            postSwitches[scope] = {
+                signup: d.signup !== false, pairings: d.pairings !== false,
+                level_up: d.level_up !== false, league: d.league !== false, busy: false
+            };
         }
     }
 
-    async function setPostSwitch(scope: string, kind: 'signup' | 'pairings', enabled: boolean) {
+    async function setPostSwitch(scope: string, kind: keyof PostSwitches, enabled: boolean) {
         const st = postSwitches[scope];
         if (!st) return;
-        const before = st[kind];
-        st[kind] = enabled;          // optimistic: the switch should move at once
+        const before = st[kind] as boolean;
+        (st as Record<string, boolean>)[kind] = enabled;   // optimistic: it should move at once
         st.busy = true;
         const r = await fetch(`${PUBLIC_API_URL}/admin/post-switches`, {
             method: 'POST',
@@ -439,7 +452,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ system: scope, kind, enabled })
         });
-        if (!r.ok) st[kind] = before;
+        if (!r.ok) (st as Record<string, boolean>)[kind] = before;
         st.busy = false;
     }
 
@@ -5470,6 +5483,17 @@
                                         <span class="block-note">
                                             {row.configured ? `Configured (${row.last_four})` : 'Not configured'}
                                         </span>
+                                        {#if postSwitches[scope] && WEBHOOK_SWITCH[row.webhook_type]}
+                                            {@const k = WEBHOOK_SWITCH[row.webhook_type]}
+                                            <span class="wh-switch">
+                                                <Toggle
+                                                    checked={postSwitches[scope][k]}
+                                                    busy={postSwitches[scope].busy}
+                                                    label={WEBHOOK_TYPE_LABELS[row.webhook_type] ?? row.webhook_type}
+                                                    onchange={(v) => setPostSwitch(scope, k, v)}
+                                                />
+                                            </span>
+                                        {/if}
                                         <span class="webhook-actions">
                                             <input
                                                 class="field-input"
@@ -5939,6 +5963,10 @@
 {/if}
 
 <style>
+    /* The switch sits with the row's state, before its input, so "does this
+       post" reads next to "is this configured" rather than after the URL. */
+    .wh-switch { display: inline-flex; align-items: center; margin-right: 0.6rem; }
+
     /* The handbooks are reference, not settings, so they sit below the run of
        things you change with a rule between. Tinted rather than loud: it needs
        to be findable when you're stuck, not to compete with the tab you came
