@@ -8,6 +8,7 @@
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import LandingHero from '$lib/LandingHero.svelte';
+    import SignInPrompt from '$lib/SignInPrompt.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
@@ -204,10 +205,15 @@
         page.url.pathname === '/privacy' ||
         (!isBareHost && (page.url.pathname === '/' || page.url.pathname.startsWith('/book')))
     );
-    const showingHero = $derived(authLoaded && !isAuthed && !isPublicRoute);
+    // True only where the MARKETING page renders, which since the sign-in prompt
+    // arrived means the bare host alone. It gates the header chrome, and a club
+    // subdomain wants that chrome: the prompt is a stop on the way somewhere,
+    // and without the logo and tabs it was a page with no exits.
+    const showingHero = $derived(authLoaded && !isAuthed && !isPublicRoute && isBareHost);
 
-    function loginUrl(): string {
-        return `${PUBLIC_API_URL}/auth/discord/login`;
+    function loginUrl(next?: string): string {
+        const base = `${PUBLIC_API_URL}/auth/discord/login`;
+        return next ? `${base}?next=${encodeURIComponent(next)}` : base;
     }
 
     async function logout() {
@@ -340,13 +346,7 @@
                     About Call to Arms
                 </a>
                 <a class="sidebar-button" href="/find" onclick={closeDrawer}>Find a club</a>
-                <div class="signin-stack">
-                    <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>Sign in</a>
-                    <!-- Booking a table needs no account, but signing up for a
-                         game night does. Without saying so, the two look like
-                         the same kind of thing from out here. -->
-                    <span class="signin-note">to join a club night</span>
-                </div>
+                <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>Sign in</a>
             {/if}
         </aside>
     </header>
@@ -355,6 +355,14 @@
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
+            {:else if !isAuthed && !isPublicRoute && !isBareHost}
+                <!-- On a club subdomain the visitor asked for something specific,
+                     so answer that rather than pitching the product at them. The
+                     bare host below is the one place the marketing page belongs. -->
+                <SignInPrompt
+                    loginUrl={loginUrl(page.url.pathname + page.url.search)}
+                    pathname={page.url.pathname}
+                />
             {:else if !isAuthed && !isPublicRoute}
                 <LandingHero loginUrl={loginUrl()} />
             {:else}
@@ -532,20 +540,6 @@
     .sidebar-button-primary:hover {
         background: var(--color-accent-soft);
         border-color: var(--color-accent-soft);
-    }
-
-    .signin-stack {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.2rem;
-    }
-
-    .signin-note {
-        font-size: 0.68rem;
-        color: var(--color-text-dim);
-        line-height: 1.2;
-        white-space: nowrap;
     }
 
     /* The drawer is mobile-only, so is anything that exists purely to fill in
@@ -789,13 +783,6 @@
         }
 
         .drawer-only { display: block; }
-
-        .signin-stack {
-            width: 100%;
-            align-items: stretch;
-        }
-
-        .signin-note { text-align: center; }
 
         .container { padding: 1rem; }
 

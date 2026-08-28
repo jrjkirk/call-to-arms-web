@@ -38,13 +38,26 @@
     // The hero's Book a table button only appears for a club that actually
     // sells table space, so every other club's page is unchanged.
     let venueEnabled = $state(false);
+    // Defaults to true so the "Sign in to Play" button doesn't flash in front
+    // of a member during the moment before /auth/me answers.
+    let signedIn = $state(true);
     onMount(async () => {
+        const [venueRes, authRes] = await Promise.allSettled([
+            fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' }),
+            fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' })
+        ]);
         try {
-            const r = await fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' });
-            if (r.ok) venueEnabled = (await r.json()).enabled === true;
-        } catch (_) {
-            venueEnabled = false;
-        }
+            venueEnabled =
+                venueRes.status === 'fulfilled' && venueRes.value.ok
+                    ? (await venueRes.value.json()).enabled === true
+                    : false;
+        } catch (_) { venueEnabled = false; }
+        try {
+            signedIn =
+                authRes.status === 'fulfilled' && authRes.value.ok
+                    ? (await authRes.value.json()).authenticated === true
+                    : false;
+        } catch (_) { signedIn = false; }
     });
 
     function currentMonth(): string {
@@ -118,7 +131,7 @@
     <div class="empty-state">Couldn't load the club page right now. Try refreshing.</div>
 {:else}
     <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
-        <ClubHero club={data.club} {venueEnabled} />
+        <ClubHero club={data.club} {venueEnabled} {signedIn} />
 
         <div class="section-title">Systems</div>
         <SystemsCarousel systems={data.systems} />

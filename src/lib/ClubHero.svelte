@@ -22,9 +22,13 @@
         discord_url?: string | null;
     };
 
-    let { club, venueEnabled = false }: {
+    import { PUBLIC_API_URL } from '$env/static/public';
+
+    let { club, venueEnabled = false, signedIn = true }: {
         club: ClubProfile;
         venueEnabled?: boolean;
+        /** Defaults to true so nothing flashes before /auth/me answers. */
+        signedIn?: boolean;
     } = $props();
 </script>
 
@@ -38,16 +42,22 @@
     {#if club.blurb}
         <p class="club-blurb">{club.blurb}</p>
     {/if}
-    {#if club.website_url || venueEnabled || club.discord_url}
+    {#if club.website_url || venueEnabled || club.discord_url || !signedIn}
         <div class="club-actions">
+            <!-- Leads the row when it's there. Booking a table needs no account
+                 and playing in a club night does, and that difference is not
+                 something a visitor can infer from the other buttons. -->
+            {#if !signedIn}
+                <a class="club-btn signin-btn" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in to Play</a>
+            {/if}
             {#if club.discord_url}
                 <a class="club-btn discord-btn" href={club.discord_url} target="_blank" rel="noopener noreferrer">Join our Discord</a>
             {/if}
             {#if venueEnabled}
-                <a class="club-btn book-btn" href="/book">Book a table</a>
+                <a class="club-btn book-btn" href="/book">Book a Table</a>
             {/if}
             {#if club.website_url}
-                <a class="club-btn website-btn" href={club.website_url} target="_blank" rel="noopener noreferrer">Visit website</a>
+                <a class="club-btn website-btn" href={club.website_url} target="_blank" rel="noopener noreferrer">Visit our Website</a>
             {/if}
         </div>
     {/if}
@@ -137,14 +147,29 @@
 
     /* Book a table is the one action a venue is paying for, so it's the
        accented one and it leads. Website stays neutral beside it. */
-    .book-btn {
+    /* Gold is reserved for signing in, here and everywhere else, so one colour
+       means one thing across the app. */
+    .signin-btn {
         background: var(--color-accent);
         color: #1b1206;
         border-color: var(--color-accent);
     }
 
-    .book-btn:hover {
+    .signin-btn:hover {
         background: var(--color-accent-soft);
+        transform: translateY(-1px);
+    }
+
+    /* Cream, a shade down from --color-text-bright so it sits on the dark page
+       without glaring. Distinct from the gold beside it at a glance. */
+    .book-btn {
+        background: #ded3b6;
+        color: #241b09;
+        border-color: #ded3b6;
+    }
+
+    .book-btn:hover {
+        background: #ece3cb;
         transform: translateY(-1px);
     }
 
