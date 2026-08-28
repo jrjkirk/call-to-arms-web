@@ -9,6 +9,7 @@
     // Any structured error detail must go through detailText or it renders as
     // "[object Object]" — see the note in $lib/discordGate.ts.
     import { detailText, DISCORD_GATE_ENABLED } from '$lib/discordGate';
+    import Toggle from '$lib/Toggle.svelte';
     import HelpTip from '$lib/HelpTip.svelte';
     import Handbook from '$lib/Handbook.svelte';
     import { CLUB_HANDBOOK, SYSTEM_HANDBOOK } from '$lib/handbookContent';
@@ -409,6 +410,39 @@
     // ── Sidebar navigation (function-first console) ─────────────────────
     // activeNav = which panel is shown; activeSystem = the focused system for
     // system-scoped panels (a single var replacing the old per-scope loop).
+    /** Which Discord posts are switched on, per system. All default on, so a
+     *  club that has never touched this behaves exactly as before. */
+    let postSwitches = $state<Record<string, { signup: boolean; pairings: boolean; busy: boolean }>>({});
+
+    async function loadPostSwitches(scope: string) {
+        if (postSwitches[scope]) return;
+        postSwitches[scope] = { signup: true, pairings: true, busy: false };
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/post-switches?system=${encodeURIComponent(scope)}`,
+            { credentials: 'include' }
+        );
+        if (r.ok) {
+            const d = await r.json();
+            postSwitches[scope] = { signup: d.signup !== false, pairings: d.pairings !== false, busy: false };
+        }
+    }
+
+    async function setPostSwitch(scope: string, kind: 'signup' | 'pairings', enabled: boolean) {
+        const st = postSwitches[scope];
+        if (!st) return;
+        const before = st[kind];
+        st[kind] = enabled;          // optimistic: the switch should move at once
+        st.busy = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/post-switches`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, kind, enabled })
+        });
+        if (!r.ok) st[kind] = before;
+        st.busy = false;
+    }
+
     let activeNav = $state('overview');
 
     /** Label shown in a handbook crumb -> the nav id that opens it, so
@@ -2822,6 +2856,7 @@
             loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
             loadMissions(scope), initLeagueForScope(scope), initPairingWeightForScope(scope),
             loadCarousel(scope), loadSystemEvents(scope), loadSignupCap(scope),
+            loadPostSwitches(scope),
             loadSystemGate(scope),
         ]);
     }
@@ -3891,6 +3926,20 @@
                                         label="the signup cap"
                                         text="Caps how many players can sign up for this system in a week. Once the cap is reached, later players can still join as standby and get paired if someone drops. Leave it off for unlimited signups."
                                     />
+                                    {#if postSwitches[scope]}
+                                        <span class="a-head-end">
+                                            <HelpTip
+                                                label="signup posts"
+                                                text={"Whether each signup and drop-out is announced in Discord.\n\nTurn it off while you are setting the club up, so your channel is not filling with test signups. The webhook stays saved either way, so switching back on needs nothing else."}
+                                            />
+                                            <Toggle
+                                                checked={postSwitches[scope].signup}
+                                                busy={postSwitches[scope].busy}
+                                                label="signup posts to Discord"
+                                                onchange={(v) => setPostSwitch(scope, 'signup', v)}
+                                            />
+                                        </span>
+                                    {/if}
                                 </div>
                                 <label class="check-row ap-toggle">
                                     <input type="checkbox" bind:checked={cap.enabled} />
@@ -4140,14 +4189,30 @@
                             </div>
 
                             <div class="sub-section pairings-section">
-                                <h4 class="a-title">
-                                    Weekly pairings
-                                    {#if ps.published}
-                                        <span class="pub-badge pub-live">● Published</span>
-                                    {:else}
-                                        <span class="pub-badge pub-draft">○ Unpublished</span>
+                                <div class="a-head">
+                                    <h4 class="a-title">
+                                        Weekly pairings
+                                        {#if ps.published}
+                                            <span class="pub-badge pub-live">● Published</span>
+                                        {:else}
+                                            <span class="pub-badge pub-draft">○ Unpublished</span>
+                                        {/if}
+                                    </h4>
+                                    {#if postSwitches[scope]}
+                                        <span class="a-head-end">
+                                            <HelpTip
+                                                label="pairings posts"
+                                                text={"Whether the pairings image is posted to Discord, by the button below and by auto-pairings.\n\nPublishing is unaffected: your players can still see the week on the Pairings page. This only controls whether it also lands in the channel."}
+                                            />
+                                            <Toggle
+                                                checked={postSwitches[scope].pairings}
+                                                busy={postSwitches[scope].busy}
+                                                label="pairings posts to Discord"
+                                                onchange={(v) => setPostSwitch(scope, 'pairings', v)}
+                                            />
+                                        </span>
                                     {/if}
-                                </h4>
+                                </div>
 
                                 <!-- Week input + action buttons -->
                                 <div class="pairing-controls">
