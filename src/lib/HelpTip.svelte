@@ -18,20 +18,46 @@
 	let { label, text }: { label: string; text: string } = $props();
 
 	let open = $state(false);
-	/** Which way the bubble opens. Decided from where the button actually is,
-	 *  not from the viewport width: a tip in a section header sits hard against
-	 *  the right edge of its card on ANY screen size, and the old
-	 *  max-width:560px rule left those clipped. */
-	let flip = $state(false);
+	/** How far to slide the bubble so it stays inside whatever would clip it.
+	 *
+	 *  Measuring against the VIEWPORT was not enough: the admin panels
+	 *  (.dash-group) set overflow:hidden, so the card clips the bubble long
+	 *  before the window does. A tip in a section header sits against that
+	 *  card's right edge, which is exactly where these are.
+	 *
+	 *  A clamp rather than a left/right flip: flipping still overflows when the
+	 *  bubble is wider than the space on that side, and sliding it always fits
+	 *  whenever the bubble is narrower than its container, which it is. */
+	let shift = $state(0);
+
+	/** The nearest edge that would actually cut the bubble off. */
+	function clipBounds(el: HTMLElement) {
+		let left = 0;
+		let right = window.innerWidth;
+		let n: HTMLElement | null = el.parentElement;
+		while (n && n !== document.body) {
+			const cs = getComputedStyle(n);
+			if (cs.overflow !== 'visible' || cs.overflowX !== 'visible') {
+				const r = n.getBoundingClientRect();
+				left = Math.max(left, r.left);
+				right = Math.min(right, r.right);
+			}
+			n = n.parentElement;
+		}
+		return { left, right };
+	}
 
 	async function place() {
-		flip = false;
+		shift = 0;
 		await tick();
 		const el = wrap?.querySelector('.tip-bubble') as HTMLElement | null;
 		if (!el) return;
-		// Against the viewport, which is the edge that actually clips it. A
-		// margin so it never sits flush against the glass.
-		flip = el.getBoundingClientRect().right > window.innerWidth - 8;
+		const b = el.getBoundingClientRect();
+		const { left, right } = clipBounds(el);
+		const pad = 8;
+		if (b.right > right - pad) shift = -(b.right - (right - pad));
+		// Never push it off the other edge to fix the first one.
+		if (b.left + shift < left + pad) shift = left + pad - b.left;
 	}
 	let id = `helptip-${Math.random().toString(36).slice(2, 9)}`;
 	let wrap: HTMLElement | undefined = $state();
@@ -71,7 +97,7 @@
 		}}
 	>?</button>
 	{#if open}
-		<span class="tip-bubble" class:flip {id} role="tooltip">{text}</span>
+		<span class="tip-bubble" style="--tip-shift: {shift}px" {id} role="tooltip">{text}</span>
 	{/if}
 </span>
 
@@ -117,6 +143,7 @@
 		position: absolute;
 		top: calc(100% + 7px);
 		left: 0;
+		transform: translateX(var(--tip-shift, 0px));
 		z-index: 40;
 		width: max-content;
 		max-width: min(320px, 74vw);
@@ -136,11 +163,7 @@
 		white-space: pre-line;
 	}
 
-	/* Set by place() when the bubble would otherwise run off the right of the
-	   screen. Replaces a max-width:560px media query, which only caught narrow
-	   viewports and left every tip in a right-aligned section header clipped. */
-	.tip-bubble.flip {
-		left: auto;
-		right: 0;
-	}
+	/* --tip-shift is measured by place(): how far to slide so the bubble stays
+	   inside whatever would clip it. Replaces a max-width:560px media query,
+	   which only ever caught narrow viewports. */
 </style>
