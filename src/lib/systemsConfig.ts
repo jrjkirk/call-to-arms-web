@@ -42,7 +42,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         uses_points: true,
         default_points: 2000,
         max_points: 10000,
-        vibe_options: ['Casual', 'Competitive', 'Intro', 'Either'],
+        vibe_options: ['Casual', 'Competitive', 'Intro', 'Open'],
         default_vibe: 'Casual',
         uses_scenarios: true,
         scenario_options: ['Open Battle', 'Weekly Scenario'],
@@ -303,14 +303,18 @@ export function configFor(systemsConfig: SystemConfig[], legacySystemName: strin
 // display order (common option first). Sort by this canonical order;
 // anything not listed here sorts after, alphabetically, so a future new
 // option still shows up instead of being silently dropped.
-const VIBE_DISPLAY_ORDER = ['Casual', 'Competitive', 'Standard', 'Intro', 'Either'];
+const VIBE_DISPLAY_ORDER = ['Casual', 'Competitive', 'Standard', 'Intro', 'Open'];
 
 // The platform-level canonical vibe palette. Vibe configuration (platform
 // catalogue + per-club) is chosen from this fixed set — never free text — so
 // the special-meaning vibes can't be mistyped. `Intro` (drives the pairing
 // intro pre-pass) and `Standard` (baseline) are protected members that always
 // appear in the palette.
-export const CANONICAL_VIBES = ['Casual', 'Competitive', 'Standard', 'Intro', 'Either'];
+// "Open" was "Either" until 2026-08-28 — it has to read on its own next to a
+// checkbox, and "Either" answers a question the label doesn't ask. The API
+// normalises the old stored value on every read (signups.OLD_VIBE_ALIASES), so
+// nothing here needs to know about it.
+export const CANONICAL_VIBES = ['Casual', 'Competitive', 'Standard', 'Intro', 'Open'];
 export const PROTECTED_VIBES = ['Intro', 'Standard'];
 
 export function sortVibeOptions(options: string[]): string[] {
