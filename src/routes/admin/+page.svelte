@@ -10,6 +10,8 @@
     // "[object Object]" — see the note in $lib/discordGate.ts.
     import { detailText } from '$lib/discordGate';
     import HelpTip from '$lib/HelpTip.svelte';
+    import Handbook from '$lib/Handbook.svelte';
+    import { CLUB_HANDBOOK, SYSTEM_HANDBOOK } from '$lib/handbookContent';
     import { UK_REGIONS } from '$lib/regions';
     import {
         NONE_FACTION,
@@ -408,6 +410,23 @@
     // activeNav = which panel is shown; activeSystem = the focused system for
     // system-scoped panels (a single var replacing the old per-scope loop).
     let activeNav = $state('overview');
+
+    /** Label shown in a handbook crumb -> the nav id that opens it, so
+     *  "Take me there" actually goes there instead of describing where. */
+    const HANDBOOK_JUMPS: Record<string, string> = {
+        'Systems': 'systems', 'Club page': 'clubpage', 'Discord': 'discord',
+        'Admins': 'admins', 'Table booking': 'booking',
+        'Game System Config': 'systemconfig', 'Pairings': 'pairings',
+        'Weighting': 'weighting', 'Auto-pairings': 'autopairings',
+        'Call to Arms Post': 'announcements', 'League': 'league', 'Missions': 'missions',
+    };
+    function handbookJump(label: string) {
+        const nav = HANDBOOK_JUMPS[label];
+        if (nav) {
+            activeNav = nav;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
     let activeSystem = $state<string | null>(null);
 
     // Named for what an admin is trying to DO, not for the table it writes to.
@@ -415,6 +434,9 @@
     // Call-to-Arms post behind a generic word, the second described where the
     // output appears rather than what you configure there.
     const SYSTEM_NAV = [
+        // First, deliberately. A handbook filed at the bottom is one nobody
+        // opens on the day they actually need it.
+        { id: 'systemguide', label: 'Handbook' },
         { id: 'pairings', label: 'Pairings' },
         { id: 'league', label: 'League' },
         { id: 'weighting', label: 'Weighting' },
@@ -432,6 +454,7 @@
     // moved to that system's own Game System Config tab, because it's the
     // system admin's decision. What the club runs at all stays the club's.
     const CLUB_NAV = [
+        { id: 'clubguide', label: 'Club handbook', super: true },
         { id: 'clubpage', label: 'Club page', super: true },
         { id: 'blocks', label: 'Players & blocks', super: false },
         { id: 'systems', label: 'Systems', super: true },
@@ -3108,6 +3131,42 @@
             {/if}
         {/if}
     </section>
+    {/if}
+
+    {#if activeNav === 'clubguide' && adminMe.is_super_admin}
+    <div class="dash-group">
+        <div class="dash-group-header static">
+            <span class="dash-group-title">Club Handbook</span>
+        </div>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <Handbook
+                    title="Setting up your club"
+                    standfirst="Everything a new club needs, in the order the app expects it. Each step ends with how to tell it worked."
+                    sections={CLUB_HANDBOOK}
+                    onnavigate={handbookJump}
+                />
+            </section>
+        </div>
+    </div>
+    {/if}
+
+    {#if activeNav === 'systemguide' && activeSystem}
+    <div class="dash-group" style={panelAccentStyle}>
+        <div class="dash-group-header static">
+            <span class="dash-group-title">{activeSystem} Handbook</span>
+        </div>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <Handbook
+                    title="Running {activeSystem}"
+                    standfirst="Your game system, from setting its schedule to running a week and tuning how the pairings are made."
+                    sections={SYSTEM_HANDBOOK}
+                    onnavigate={handbookJump}
+                />
+            </section>
+        </div>
+    </div>
     {/if}
 
     {#if activeNav === 'clubpage' && adminMe.is_super_admin}
