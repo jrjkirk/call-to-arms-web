@@ -21,10 +21,14 @@
 
     export type Section = { id: string; title: string; lede?: string; blocks: Block[] };
 
-    let { title, standfirst, sections, onnavigate }: {
+    let { title, standfirst, sections, communityUrl = null, onnavigate }: {
         title: string;
         standfirst: string;
         sections: Section[];
+        /** The platform's own Discord, set by a platform admin and served on
+         *  /admin/me. Passed in rather than hardcoded so the handbook follows
+         *  whatever that setting says, and quietly omits the link when unset. */
+        communityUrl?: string | null;
         /** Jump the reader to the tab a step is about. */
         onnavigate?: (nav: string) => void;
     } = $props();
@@ -112,9 +116,40 @@
             </article>
         {/if}
     {/each}
+
+    <aside class="hb-help">
+        <strong>Stuck, or want to compare notes?</strong>
+        <p>
+            The Call to Arms Discord is where other club organisers are. Support
+            questions, feature requests and "how does your club handle this" all
+            live there.
+        </p>
+        {#if communityUrl}
+            <a class="primary-button hb-help-btn" href={communityUrl}
+               target="_blank" rel="noopener noreferrer">Join the Call to Arms Discord</a>
+        {:else}
+            <p class="hb-help-none">
+                No community link is set for this platform yet. Ask your platform
+                admin to add one under Platform Admin, Community Discord link.
+            </p>
+        {/if}
+    </aside>
 </div>
 
 <style>
+    .hb-help {
+        max-width: 44rem;
+        margin-top: 2rem;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+    }
+    .hb-help strong { color: var(--color-text-bright); }
+    .hb-help p { margin: 0.3rem 0 0; font-size: 0.92rem; color: var(--color-text-muted); }
+    .hb-help-btn { margin-top: 0.8rem; }
+    .hb-help-none { font-size: 0.86rem; color: var(--color-text-faint); }
+
     .hb-head { margin-bottom: 1rem; }
     .hb-head .a-note { max-width: 44rem; }
 

@@ -8,6 +8,26 @@
  * "[object Object]".
  */
 
+/**
+ * The membership gate is BENCHED (2026-08-28).
+ *
+ * It shipped and works, but it is inert: it is opt-in per (club, system) and
+ * every system is opted out, because switching it on needs the Call to Arms
+ * bot added to each club's Discord server and that has not happened. Until it
+ * does, its admin panels are three cards of configuration for something that
+ * cannot take effect, plus a red warning about a bot nobody has set up, on the
+ * tab admins visit to do something else entirely.
+ *
+ * So the CONFIGURATION UI is hidden and the backend is untouched. Flip this to
+ * true to bring the panels back; nothing else needs changing.
+ *
+ * The player-facing DiscordGateNotice is deliberately NOT behind this flag. It
+ * only renders when the API actually refuses somebody, which cannot happen
+ * while every system is opted out, and leaving it means a gate switched on
+ * directly in the database still explains itself instead of showing a bare 403.
+ */
+export const DISCORD_GATE_ENABLED = false;
+
 export type DiscordGateBlock = {
 	code: 'discord_membership_required';
 	message: string;

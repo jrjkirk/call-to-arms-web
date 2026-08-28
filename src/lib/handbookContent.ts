@@ -58,7 +58,7 @@ export const CLUB_HANDBOOK: Section[] = [
         title: 'Connect Discord',
         lede: 'Almost everything the app does ends in a Discord post. Skip this and the app still works, but it goes very quiet.',
         blocks: [
-            { where: 'Club admin › Discord' },
+            { where: 'pick a system › Discord' },
             { p: 'Two different things get confused here. The <strong>invite link</strong> from the last step is how people join your server. A <strong>webhook</strong> is how the app posts into a channel. You need both, and they are set in different places.' },
             { p: 'Two routes to the same place. Either <strong>Server Settings, then Integrations, then Create Webhook</strong>, or hover the channel you want, click its cogwheel, and go to <strong>Integrations</strong>. Name it something you will recognise later, pick the channel, then <strong>Copy Webhook URL</strong> and paste it in here. Discord\u2019s own walkthrough is <a href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" target="_blank" rel="noopener noreferrer">Intro to Webhooks</a>.' },
             { p: 'You need the <strong>Manage Webhooks</strong> permission on that server, or on that channel. Without it the Integrations panel will not open at all, which is the usual reason this step stalls.' },

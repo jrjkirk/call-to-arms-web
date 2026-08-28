@@ -1,5 +1,6 @@
 <script lang="ts">
 	import HelpTip from './HelpTip.svelte';
+	import { DISCORD_GATE_ENABLED } from './discordGate';
 
 	/**
 	 * Per-system Discord membership gate, owned by that system's own admin —
@@ -130,6 +131,10 @@
 		</p>
 	</section>
 
+	<!-- The gate is benched (discordGate.ts). Only this card is hidden: the
+	     invite above it is a Club-page setting and must stay settable, which is
+	     the bug that nesting it inside the gate originally caused. -->
+	{#if DISCORD_GATE_ENABLED}
 	<section class="a-card">
 		<div class="a-head">
 			<h4 class="a-title">Membership gate</h4>
@@ -327,6 +332,7 @@ Needs the <strong>Manage Server</strong> permission — often not the app admin.
 		</div>
 	{/if}
 	</section>
+	{/if}
 {/if}
 
 <style>

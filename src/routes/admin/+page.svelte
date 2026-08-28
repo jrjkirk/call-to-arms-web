@@ -8,7 +8,7 @@
     import SystemDiscordGatePanel, { type SystemDiscordGate } from '$lib/SystemDiscordGatePanel.svelte';
     // Any structured error detail must go through detailText or it renders as
     // "[object Object]" — see the note in $lib/discordGate.ts.
-    import { detailText } from '$lib/discordGate';
+    import { detailText, DISCORD_GATE_ENABLED } from '$lib/discordGate';
     import HelpTip from '$lib/HelpTip.svelte';
     import Handbook from '$lib/Handbook.svelte';
     import { CLUB_HANDBOOK, SYSTEM_HANDBOOK } from '$lib/handbookContent';
@@ -414,8 +414,11 @@
     /** Label shown in a handbook crumb -> the nav id that opens it, so
      *  "Take me there" actually goes there instead of describing where. */
     const HANDBOOK_JUMPS: Record<string, string> = {
-        'Systems': 'systems', 'Club page': 'clubpage', 'Discord': 'discord',
+        'Systems': 'systems', 'Club page': 'clubpage',
         'Admins': 'admins', 'Table booking': 'booking',
+        // Every webhook is per system; the club-level Discord tab was only the
+        // benched membership gate.
+        'Discord': 'systemdiscord',
         'Game System Config': 'systemconfig', 'Pairings': 'pairings',
         'Weighting': 'weighting', 'Auto-pairings': 'autopairings',
         'Call to Arms Post': 'announcements', 'League': 'league', 'Missions': 'missions',
@@ -458,7 +461,10 @@
         { id: 'clubpage', label: 'Club page', super: true },
         { id: 'blocks', label: 'Players & blocks', super: false },
         { id: 'systems', label: 'Systems', super: true },
-        { id: 'discord', label: 'Discord', super: true },
+        // Club-level Discord holds only the membership gate, which is benched
+        // (see discordGate.ts). With the gate hidden this tab opens onto an
+        // empty panel, so it goes with it. Every webhook is per system anyway.
+        ...(DISCORD_GATE_ENABLED ? [{ id: 'discord', label: 'Discord', super: true }] : []),
         { id: 'admins', label: 'Admins', super: true },
         { id: 'booking', label: 'Table booking', super: true },
         { id: 'clubguide', label: 'Club handbook', super: true, guide: true },
@@ -3004,7 +3010,7 @@
                         class:active={activeNav === item.id}
                         class:guide={item.guide}
                         onclick={() => (activeNav = item.id)}
-                    >{#if item.guide}<span class="nav-book" aria-hidden="true">📖</span>{/if}{item.label}</button>
+                    >{#if item.guide}<span class="nav-book" aria-hidden="true">ⓘ</span>{/if}{item.label}</button>
                 {/each}
             {/if}
 
@@ -3018,7 +3024,7 @@
                             class:active={activeNav === item.id}
                             class:guide={item.guide}
                             onclick={() => (activeNav = item.id)}
-                        >{#if item.guide}<span class="nav-book" aria-hidden="true">📖</span>{/if}{item.label}</button>
+                        >{#if item.guide}<span class="nav-book" aria-hidden="true">ⓘ</span>{/if}{item.label}</button>
                     {/if}
                 {/each}
             {/if}
@@ -3147,6 +3153,7 @@
                     title="Setting up your club"
                     standfirst="Everything a new club needs, in the order the app expects it. Each step ends with how to tell it worked."
                     sections={CLUB_HANDBOOK}
+                    communityUrl={adminMe.community_discord_url}
                     onnavigate={handbookJump}
                 />
             </section>
@@ -3165,6 +3172,7 @@
                     title="Running {activeSystem}"
                     standfirst="Your game system, from setting its schedule to running a week and tuning how the pairings are made."
                     sections={SYSTEM_HANDBOOK}
+                    communityUrl={adminMe.community_discord_url}
                     onnavigate={handbookJump}
                 />
             </section>
@@ -5540,7 +5548,7 @@
         </div>
     {/if}
 
-    {#if activeNav === 'discord' && adminMe.is_super_admin}
+    {#if DISCORD_GATE_ENABLED && activeNav === 'discord' && adminMe.is_super_admin}
         <!-- ══ Discord Integrations ══ -->
         <div class="dash-group">
             <div class="dash-group-header static">
@@ -5878,7 +5886,7 @@
     }
     .nav-item.guide:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
     .nav-item.guide.active { background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
-    .nav-book { margin-right: 0.4rem; font-size: 0.85em; }
+    .nav-book { margin-right: 0.35rem; font-size: 1em; line-height: 1; }
 
     .cta-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 
