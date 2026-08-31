@@ -10,7 +10,7 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let busy = $state(false);
-    let tab = $state<'rounds' | 'entries' | 'standings' | 'schedule' | 'scoring'>('rounds');
+    let tab = $state<'rounds' | 'entries' | 'standings' | 'schedule' | 'scoring' | 'payments'>('rounds');
 
     // Entry the TO is adding at the door
     let newName = $state('');
@@ -55,6 +55,39 @@
     let theirScore = $state<number | ''>('');
     let myResult = $state<'win' | 'loss' | 'draw' | ''>('');
     let listText = $state('');
+    let payments = $state<any>(null);
+    let selected = $state<Set<number>>(new Set());
+
+    async function loadPayments() {
+        const r = await fetch(`${PUBLIC_API_URL}/tournaments/${id}/payments`, { credentials: 'include' });
+        payments = r.ok ? await r.json() : null;
+    }
+    $effect(() => { if (tab === 'payments' && toView) loadPayments(); });
+
+    function toggleSel(entryId: number) {
+        const next = new Set(selected);
+        next.has(entryId) ? next.delete(entryId) : next.add(entryId);
+        selected = next;
+    }
+    async function bulk(status: string) {
+        if (!selected.size) return;
+        await call('/tickets/bulk', 'POST', { entry_ids: [...selected], ticket_status: status });
+        selected = new Set();
+        await loadPayments();
+    }
+    async function payNow() {
+        busy = true;
+        try {
+            const r = await fetch(
+                `${PUBLIC_API_URL}/tournaments/${id}/entries/${t.me.entry_id}/checkout`,
+                { method: 'POST', credentials: 'include' });
+            const body = await r.json().catch(() => ({}));
+            if (r.ok && body.checkout_url) window.location.href = body.checkout_url;
+            else error = body.detail || 'Could not start that payment.';
+        } finally { busy = false; }
+    }
+    const money = (p: number | null | undefined) =>
+        p == null ? '—' : `£${(p / 100).toFixed(2)}`;
 
     async function report(gameId: number) {
         await call(`/games/${gameId}/report`, 'POST', {
@@ -113,6 +146,9 @@
                       : { weekday: 'short', day: 'numeric', month: 'long' });
         return `${first} – ${dayLabel(t.end_date)}`;
     });
+
+    const shortWhen = (iso: string) =>
+        new Date(iso).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
 
     function longDay(iso: string): string {
         return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
@@ -218,10 +254,19 @@
                         {:else if t.me.ticket_status === 'refunded'}Refunded
                         {:else}Not paid{/if}
                     </span>
-                    {#if t.me.ticket_status === 'none' && t.ticket_url}
-                        <a class="res" href={t.ticket_url} target="_blank" rel="noopener">Buy a ticket</a>
-                    {:else if t.me.ticket_status === 'none'}
-                        <span class="me-hint">Pay the organiser — online tickets are coming.</span>
+                    {#if t.me.ticket_status === 'none' && t.charges}
+                        {#if t.can_pay_by_card}
+                            <button class="res pay" disabled={busy} onclick={payNow}>
+                                Pay {money(t.ticket_price_pence)}
+                            </button>
+                        {:else if t.ticket_url}
+                            <a class="res" href={t.ticket_url} target="_blank" rel="noopener">Buy a ticket</a>
+                        {:else}
+                            <span class="me-hint">Pay the organiser and they'll mark your ticket.</span>
+                        {/if}
+                        {#if t.me.hold_expires_at}
+                            <span class="me-hint">Your place is held until {shortWhen(t.me.hold_expires_at)}.</span>
+                        {/if}
                     {/if}
                 </div>
                 <div class="me-row">
@@ -347,6 +392,9 @@
                 Players ({t.entries.length})
             </button>
             <button class="tab" class:on={tab === 'schedule'} onclick={() => (tab = 'schedule')}>Schedule</button>
+            {#if toView && t.charges}
+                <button class="tab" class:on={tab === 'payments'} onclick={() => (tab = 'payments')}>Payments</button>
+            {/if}
             {#if toView}
                 <button class="tab" class:on={tab === 'scoring'} onclick={() => (tab = 'scoring')}>Scoring</button>
             {/if}
@@ -445,6 +493,65 @@
                             {/each}
                         </tbody>
                     </table>
+                </div>
+            {/if}
+
+        {:else if tab === 'payments'}
+            {#if !payments}
+                <p class="a-note">Loading…</p>
+            {:else}
+                <div class="pay-stats">
+                    <div class="stat"><span class="n">{payments.paid}</span><span class="k">paid</span></div>
+                    <div class="stat"><span class="n">{payments.unpaid}</span><span class="k">unpaid</span></div>
+                    <div class="stat"><span class="n">{payments.waitlisted}</span><span class="k">waiting</span></div>
+                    <div class="stat"><span class="n">{money(payments.taken_pence)}</span><span class="k">taken</span></div>
+                    <div class="stat"><span class="n">{money(payments.expected_pence)}</span><span class="k">expected</span></div>
+                </div>
+
+                {#if !payments.card_payments}
+                    <p class="a-note">
+                        {payments.stripe_configured
+                            ? 'Card payments are available — connect this club\'s Stripe account in Venue Admin to switch them on.'
+                            : 'Take payment however you normally do, then mark tickets paid here.'}
+                    </p>
+                {/if}
+
+                {#if payments.lapsing_soon.length}
+                    <p class="field-error">
+                        {payments.lapsing_soon.length} unpaid place{payments.lapsing_soon.length === 1 ? '' : 's'}
+                        lapse within a day: {payments.lapsing_soon.map((l) => l.name).join(', ')}
+                    </p>
+                {/if}
+
+                <div class="bulk-bar">
+                    <span class="a-note">{selected.size} selected</span>
+                    <button class="res" disabled={busy || !selected.size} onclick={() => bulk('paid')}>Mark paid</button>
+                    <button class="res" disabled={busy || !selected.size} onclick={() => bulk('comp')}>Mark comp</button>
+                    <button class="res" disabled={busy || !selected.size} onclick={() => bulk('none')}>Mark unpaid</button>
+                    <HelpTip label="marking tickets" text={"For money that arrived any way other than a card payment here — bank transfer, cash on the day, an external ticket site.\n\nComp is a free place that still counts towards capacity.\n\nAn unpaid place is held for a set time and then goes back to the waiting list, so nobody blocks a seat they never paid for."} />
+                </div>
+
+                <div class="entries">
+                    {#each t.entries.filter((e) => e.status !== 'dropped') as e (e.id)}
+                        <label class="entry pay-row">
+                            <input type="checkbox" checked={selected.has(e.id)}
+                                   onchange={() => toggleSel(e.id)} />
+                            <span class="entry-name">{e.name}</span>
+                            <span class="pill" class:live={e.ticket_status === 'paid' || e.ticket_status === 'comp'}>
+                                {e.ticket_status === 'none' ? 'unpaid' : e.ticket_status}
+                            </span>
+                            <span class="entry-faction">
+                                {e.amount_paid_pence ? money(e.amount_paid_pence) : ''}
+                                {#if e.hold_expires_at}· holds until {shortWhen(e.hold_expires_at)}{/if}
+                            </span>
+                            {#if e.ticket_status === 'paid'}
+                                <button class="res entry-actions" disabled={busy}
+                                        onclick={(ev) => { ev.preventDefault(); call(`/entries/${e.id}/refund`, 'POST'); }}>
+                                    Refund
+                                </button>
+                            {/if}
+                        </label>
+                    {/each}
                 </div>
             {/if}
 
@@ -888,6 +995,26 @@
     }
     .report-row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
     .report .score { width: 7rem; }
+
+    .pay-stats {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+        gap: 1px; background: var(--color-steel-border);
+        border: 1px solid var(--color-steel-border); border-radius: 6px;
+        overflow: hidden; margin-bottom: 0.9rem;
+    }
+    .stat {
+        background: rgba(0, 0, 0, 0.2); padding: 0.6rem 0.7rem;
+        display: flex; flex-direction: column; gap: 0.1rem;
+    }
+    .stat .n { font-size: 1.1rem; font-weight: 700; color: var(--color-accent);
+               font-variant-numeric: tabular-nums; }
+    .stat .k { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+               color: var(--color-text-dim); }
+
+    .bulk-bar { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.7rem; }
+    .pay-row { cursor: pointer; }
+    .pay { background: var(--color-accent); border-color: var(--color-accent);
+           color: #1b1206; font-weight: 700; }
 
     .back { display: inline-block; margin-top: 1rem; color: var(--color-accent); font-size: 0.85rem; }
 </style>
