@@ -132,7 +132,9 @@
         { href: '/', label: 'Club' },
         { href: '/signup', label: 'Signup' },
         { href: '/pairings', label: 'Pairings' },
-        { href: '/tournaments', label: 'Events' },
+        // Tournaments are still being built out, so they're platform-admin
+        // only for now rather than in front of every club's players.
+        ...(hasPlatformAdminAccess ? [{ href: '/tournaments', label: 'Events' }] : []),
         ...(hasAnyLeague ? [{ href: '/leagues', label: 'Leagues' }] : []),
         { href: '/players', label: 'Players' }
     ]);

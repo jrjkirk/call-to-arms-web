@@ -9,7 +9,7 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let busy = $state(false);
-    let tab = $state<'rounds' | 'entries' | 'standings'>('rounds');
+    let tab = $state<'rounds' | 'entries' | 'standings' | 'scoring'>('rounds');
 
     // Entry the TO is adding at the door
     let newName = $state('');
@@ -45,6 +45,24 @@
     }
 
     const isAdmin = $derived(t?.is_admin === true);
+
+    const TB_LABEL: Record<string, string> = {
+        sos: 'Strength of schedule', diff: 'Differential', vp: 'Victory points',
+        wins: 'Games won', sports: 'Sportsmanship', paint: 'Painting', h2h: 'Head to head'
+    };
+
+    /** Patch the scoring policy. Merged server-side, so a partial save can't
+        reset a knob this screen didn't send. */
+    async function save(patch: Record<string, unknown>) {
+        await call('', 'PATCH', { scoring: patch });
+    }
+
+    function toggleTiebreak(tb: string) {
+        const cur: string[] = [...(t.scoring.tiebreakers ?? [])];
+        const i = cur.indexOf(tb);
+        if (i >= 0) cur.splice(i, 1); else cur.push(tb);
+        save({ tiebreakers: cur });
+    }
     const latestRound = $derived(t?.rounds?.length ? t.rounds[t.rounds.length - 1] : null);
     const allRoundsDone = $derived(t && t.rounds.length >= t.rounds_total);
 
@@ -158,6 +176,9 @@
             <button class="tab" class:on={tab === 'entries'} onclick={() => (tab = 'entries')}>
                 Players ({t.entries.length})
             </button>
+            {#if isAdmin}
+                <button class="tab" class:on={tab === 'scoring'} onclick={() => (tab = 'scoring')}>Scoring</button>
+            {/if}
         </div>
 
         {#if tab === 'rounds'}
@@ -210,29 +231,166 @@
             {/each}
 
         {:else if tab === 'standings'}
+            <!-- The sort key belongs next to the table it sorted. A result
+                 nobody can check against a published rule is the complaint
+                 that shaped this whole scoring engine. -->
+            {#if t.scoring_explained?.length}
+                <details class="formula">
+                    <summary>How this event is scored</summary>
+                    <ul>{#each t.scoring_explained as line}<li>{line}</li>{/each}</ul>
+                </details>
+            {/if}
             {#if !t.standings.length}
                 <p class="a-note">Standings appear once the first results are in.</p>
             {:else}
                 <div class="table-scroll">
                     <table class="standings">
                         <thead>
-                            <tr><th>#</th><th>Player</th><th>Pts</th><th>W–D–L</th><th>Diff</th><th>SoS</th></tr>
+                            <tr>
+                                <th>#</th><th>Player</th><th>Pts</th><th>W–D–L</th>
+                                <th>VP</th><th>Diff</th><th>SoS</th>
+                                {#if t.scoring?.sports_enabled}<th>Sport</th>{/if}
+                                {#if t.scoring?.painting_enabled}<th>Paint</th>{/if}
+                            </tr>
                         </thead>
                         <tbody>
                             {#each t.standings as s (s.entry_id)}
                                 <tr class:dropped={s.dropped} class:me={s.entry_id === t.my_entry_id}>
                                     <td>{s.rank}</td>
-                                    <td>{s.name}{#if s.dropped}<span class="tag">dropped</span>{/if}</td>
+                                    <td>
+                                        {s.name}
+                                        {#if s.bracket}<span class="tag">{s.bracket}</span>{/if}
+                                        {#if s.dropped}<span class="tag">dropped</span>{/if}
+                                    </td>
                                     <td class="num">{s.points}</td>
                                     <td class="num">{s.wins}–{s.draws}–{s.losses}</td>
+                                    <td class="num">{s.raw_vp}</td>
                                     <td class="num">{s.diff > 0 ? '+' : ''}{s.diff}</td>
                                     <td class="num">{s.sos}</td>
+                                    {#if t.scoring?.sports_enabled}<td class="num">{s.sports ?? '—'}</td>{/if}
+                                    {#if t.scoring?.painting_enabled}<td class="num">{s.painting ?? '—'}</td>{/if}
                                 </tr>
                             {/each}
                         </tbody>
                     </table>
                 </div>
             {/if}
+
+        {:else if tab === 'scoring'}
+            <p class="a-note">
+                Defaults follow what a written post-event review found went wrong elsewhere:
+                record decides the table, victory points break ties, and sportsmanship
+                never outweighs a game.
+            </p>
+            <div class="form-grid">
+                <label class="field">
+                    <span class="field-label">Ranked primarily on</span>
+                    <select class="field-select" value={t.scoring.primary}
+                            onchange={(e) => save({ primary: e.currentTarget.value })}>
+                        <option value="wins">Win/draw/loss record</option>
+                        <option value="vp">Total victory points</option>
+                        <option value="composite">Record and VP combined</option>
+                    </select>
+                </label>
+                <label class="field">
+                    <span class="field-label">Victory points</span>
+                    <select class="field-select" value={t.scoring.vp_mode}
+                            onchange={(e) => save({ vp_mode: e.currentTarget.value })}>
+                        <option value="raw">Counted in full</option>
+                        <option value="capped">Capped per game</option>
+                        <option value="normalised">Scored within each round</option>
+                    </select>
+                </label>
+                {#if t.scoring.vp_mode === 'capped'}
+                    <label class="field">
+                        <span class="field-label">Cap per game</span>
+                        <input class="field-input" type="number" value={t.scoring.vp_cap ?? 40}
+                               onchange={(e) => save({ vp_cap: Number(e.currentTarget.value) })} />
+                    </label>
+                {/if}
+                <label class="field">
+                    <span class="field-label">A bye is worth</span>
+                    <select class="field-select" value={t.scoring.bye_vp_mode}
+                            onchange={(e) => save({ bye_vp_mode: e.currentTarget.value })}>
+                        <option value="own_average">That player's own average</option>
+                        <option value="field_average">The round's field average</option>
+                        <option value="fixed">A fixed score</option>
+                    </select>
+                </label>
+            </div>
+
+            <h3 class="a-subtitle">Sportsmanship</h3>
+            <label class="check-row">
+                <input type="checkbox" checked={t.scoring.sports_enabled}
+                       onchange={(e) => save({ sports_enabled: e.currentTarget.checked })} />
+                <span>Collect a sportsmanship score each round</span>
+            </label>
+            {#if t.scoring.sports_enabled}
+                <div class="form-grid">
+                    <label class="field">
+                        <span class="field-label">How it counts</span>
+                        <select class="field-select" value={t.scoring.sports_mode}
+                                onchange={(e) => save({ sports_mode: e.currentTarget.value })}>
+                            <option value="tiebreak">Tiebreaker only</option>
+                            <option value="bonus">Bonus points</option>
+                            <option value="multiplier">Multiplier</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Out of</span>
+                        <input class="field-input" type="number" min="1" max="10"
+                               value={t.scoring.sports_scale_max}
+                               onchange={(e) => save({ sports_scale_max: Number(e.currentTarget.value) })} />
+                    </label>
+                </div>
+                <label class="check-row">
+                    <input type="checkbox" checked={t.scoring.sports_drop_lowest}
+                           onchange={(e) => save({ sports_drop_lowest: e.currentTarget.checked })} />
+                    <span>Drop each player's lowest rating, so one sore-loser score can't swing an event</span>
+                </label>
+            {/if}
+
+            <h3 class="a-subtitle">Painting</h3>
+            <label class="check-row">
+                <input type="checkbox" checked={t.scoring.painting_enabled}
+                       onchange={(e) => save({ painting_enabled: e.currentTarget.checked })} />
+                <span>Score painting</span>
+            </label>
+            {#if t.scoring.painting_enabled}
+                <div class="form-grid">
+                    <label class="field">
+                        <span class="field-label">How it counts</span>
+                        <select class="field-select" value={t.scoring.painting_mode}
+                                onchange={(e) => save({ painting_mode: e.currentTarget.value })}>
+                            <option value="tiebreak">Tiebreaker only</option>
+                            <option value="bonus">Bonus points</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Out of</span>
+                        <input class="field-input" type="number" min="1" max="100"
+                               value={t.scoring.painting_max}
+                               onchange={(e) => save({ painting_max: Number(e.currentTarget.value) })} />
+                    </label>
+                </div>
+            {/if}
+
+            <h3 class="a-subtitle">Ties are broken by</h3>
+            <div class="tb-row">
+                {#each ['sos', 'diff', 'vp', 'wins', 'sports', 'paint', 'h2h'] as tb}
+                    <button class="res" class:on={t.scoring.tiebreakers.includes(tb)}
+                            onclick={() => toggleTiebreak(tb)}>
+                        {TB_LABEL[tb]}
+                        {#if t.scoring.tiebreakers.includes(tb)}
+                            <span class="tb-order">{t.scoring.tiebreakers.indexOf(tb) + 1}</span>
+                        {/if}
+                    </button>
+                {/each}
+            </div>
+
+            <div class="formula-live">
+                {#each t.scoring_explained as line}<p class="a-note">{line}</p>{/each}
+            </div>
 
         {:else}
             {#if isAdmin}
@@ -381,6 +539,27 @@
     .entry-name { font-weight: 600; color: var(--color-text-bright); }
     .entry-faction { color: var(--color-text-dim); font-size: 0.82rem; }
     .entry-actions { margin-left: auto; display: flex; gap: 0.3rem; }
+
+    .formula {
+        margin-bottom: 0.9rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: 6px;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.86rem;
+    }
+    .formula summary { cursor: pointer; color: var(--color-accent); }
+    .formula ul { margin: 0.5rem 0 0; padding-left: 1.1rem; color: var(--color-text-dim); }
+    .formula li { margin-bottom: 0.3rem; }
+
+    .formula-live {
+        margin-top: 1.2rem; padding-top: 0.8rem;
+        border-top: 1px solid var(--color-steel-border);
+    }
+
+    .tb-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .tb-order {
+        margin-left: 0.3rem; font-size: 0.66rem; opacity: 0.8;
+    }
 
     .back { display: inline-block; margin-top: 1rem; color: var(--color-accent); font-size: 0.85rem; }
 </style>
