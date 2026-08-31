@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import HelpTip from '$lib/HelpTip.svelte';
 
     const id = $derived(page.params.id);
 
@@ -9,7 +10,7 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let busy = $state(false);
-    let tab = $state<'rounds' | 'entries' | 'standings' | 'scoring'>('rounds');
+    let tab = $state<'rounds' | 'entries' | 'standings' | 'schedule' | 'scoring'>('rounds');
 
     // Entry the TO is adding at the door
     let newName = $state('');
@@ -45,6 +46,76 @@
     }
 
     const isAdmin = $derived(t?.is_admin === true);
+
+    const STAGES = [
+        { key: 'draft', label: 'Draft' },
+        { key: 'open', label: 'Entries open' },
+        { key: 'closed', label: 'Entries closed' },
+        { key: 'running', label: 'Under way' },
+        { key: 'finished', label: 'Finished' }
+    ];
+
+    /** One sentence telling a first-time TO what to do now. Derived from the
+        actual state rather than a static checklist, so it stays true. */
+    const nextStep = $derived.by(() => {
+        if (!t) return '';
+        const checked = t.entries.filter((e: any) => e.status === 'checked_in').length;
+        const registered = t.entries.filter((e: any) => e.status === 'registered').length;
+        if (t.status === 'draft')
+            return 'Set your rounds and schedule, then move to Entries open so players can register.';
+        if (t.status === 'open' && t.entries.length === 0)
+            return 'Waiting for entries. You can also add players yourself on the Players tab.';
+        if (t.status === 'open')
+            return `${t.entries.length} entered. Close entries when you're ready, or leave them open until the morning.`;
+        const last = t.rounds?.length ? t.rounds[t.rounds.length - 1] : null;
+        if (checked === 0 && registered)
+            return `Check in the ${registered} player${registered === 1 ? '' : 's'} who have turned up — only checked-in players get paired.`;
+        if (!last) return `${checked} checked in. Generate round 1 when everyone's here.`;
+        if (last.status === 'paired')
+            return `Round ${last.round_no} is paired but not published. Players can't see it yet.`;
+        const open = last.games.filter((g: any) => !g.result).length;
+        if (open) return `Round ${last.round_no} is running — ${open} result${open === 1 ? '' : 's'} still to come in.`;
+        if (allRoundsDone) return 'Every round is done. Mark the event finished to lock the standings.';
+        return `Round ${last.round_no} is complete. Generate round ${last.round_no + 1}.`;
+    });
+
+    /** "Sat 14 – Sunday 15 November" for a multi-day event, one date otherwise.
+        A two-day event showing only its first date simply reads as wrong. */
+    const dateRange = $derived.by(() => {
+        if (!t) return '';
+        if (!t.end_date || t.end_date === t.date) return dayLabel(t.date);
+        const a = new Date(t.date + 'T00:00:00');
+        const b = new Date(t.end_date + 'T00:00:00');
+        const sameMonth = a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+        const first = a.toLocaleDateString('en-GB',
+            sameMonth ? { weekday: 'short', day: 'numeric' }
+                      : { weekday: 'short', day: 'numeric', month: 'long' });
+        return `${first} – ${dayLabel(t.end_date)}`;
+    });
+
+    function longDay(iso: string): string {
+        return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
+            weekday: 'long', day: 'numeric', month: 'long'
+        });
+    }
+
+    /** Schedule rows are edited as a whole list — the server renumbers rounds
+        by running order, so moving a row is the same operation as editing it. */
+    function saveSchedule(rows: any[]) {
+        call('', 'PATCH', { schedule: rows });
+    }
+    function editRow(row: any, patch: Record<string, unknown>) {
+        saveSchedule(t.schedule.map((r: any) => (r === row ? { ...r, ...patch } : r)));
+    }
+    function removeRow(row: any) {
+        saveSchedule(t.schedule.filter((r: any) => r !== row));
+    }
+    function addBreak(day: number) {
+        const onDay = t.schedule.filter((r: any) => r.day === day);
+        const after = onDay.length ? onDay[onDay.length - 1].end : '12:00';
+        saveSchedule([...t.schedule,
+            { kind: 'break', day, label: 'Break', start: after, end: after }]);
+    }
 
     const TB_LABEL: Record<string, string> = {
         sos: 'Strength of schedule', diff: 'Differential', vp: 'Victory points',
@@ -116,9 +187,9 @@
             </span>
         </div>
         <p class="a-note">
-            {dayLabel(t.date)}{t.system ? ` · ${t.system}` : ''}
+            {dateRange}{t.system ? ` · ${t.system}` : ''}
             {t.points_limit ? ` · ${t.points_limit} pts` : ''}
-            · {t.rounds_total} rounds
+            · {t.rounds_total} round{t.rounds_total === 1 ? '' : 's'}{t.days > 1 ? ` over ${t.days} days` : ''}
         </p>
         {#if t.blurb}<p class="a-note">{t.blurb}</p>{/if}
 
@@ -143,29 +214,39 @@
         {#if error}<p class="field-error">{error}</p>{/if}
 
         {#if isAdmin}
+            <!-- A first-time TO's biggest question is "what do I do now", so
+                 the current step is stated before any of the controls. -->
+            <div class="next-step">
+                <span class="next-label">Next</span>
+                <span>{nextStep}</span>
+            </div>
+
+            <div class="stage">
+                <span class="stage-label">
+                    Stage
+                    <HelpTip label="event stage" text={"Draft is your private workspace — players can't see the event at all.\n\nEntries open lets people register. Closed stops new entries but keeps everyone already in.\n\nUnder way is set for you when you generate the first round. Finished locks the standings.\n\nYou can move back and forth freely, so reopening entries for a latecomer is one click."} />
+                </span>
+                <div class="stage-track">
+                    {#each STAGES as st}
+                        <button class="stage-btn" class:on={t.status === st.key}
+                                disabled={busy}
+                                onclick={() => call('', 'PATCH', { status: st.key })}>{st.label}</button>
+                    {/each}
+                </div>
+            </div>
+
             <div class="to-bar">
-                {#if t.status === 'draft'}
-                    <button class="primary-button" disabled={busy}
-                            onclick={() => call('', 'PATCH', { status: 'open' })}>Open entries</button>
-                {:else if t.status === 'open'}
-                    <button class="secondary-button" disabled={busy}
-                            onclick={() => call('', 'PATCH', { status: 'closed' })}>Close entries</button>
-                {/if}
                 <button class="secondary-button" disabled={busy}
                         onclick={() => call('/check-in-all')}>Check everyone in</button>
-                <!-- The API refuses a round past the configured count; the
-                     button should not offer one in the first place. -->
+                <HelpTip label="check-in" text={"Only checked-in players are paired. Anyone who registered but hasn't turned up is left out rather than given an opponent who then sits alone for an hour.\n\nYou can also check people in one at a time on the Players tab."} />
                 {#if !allRoundsDone}
                     <button class="primary-button" disabled={busy}
                             onclick={() => call('/rounds')}>
                         Generate round {(t.rounds?.length ?? 0) + 1}
                     </button>
+                    <HelpTip label="generating a round" text={"Round one is random, or by seed if you've set seeding. Later rounds pair players on matching records, avoiding anyone they have already played.\n\nThe previous round needs every result in first — pairing on half-finished records produces a table that is simply wrong.\n\nNothing is shown to players until you publish the round."} />
                 {:else}
                     <span class="a-note done-note">All {t.rounds_total} rounds generated.</span>
-                {/if}
-                {#if t.status !== 'finished'}
-                    <button class="secondary-button" disabled={busy}
-                            onclick={() => call('', 'PATCH', { status: 'finished' })}>Finish event</button>
                 {/if}
             </div>
         {/if}
@@ -176,6 +257,7 @@
             <button class="tab" class:on={tab === 'entries'} onclick={() => (tab = 'entries')}>
                 Players ({t.entries.length})
             </button>
+            <button class="tab" class:on={tab === 'schedule'} onclick={() => (tab = 'schedule')}>Schedule</button>
             {#if isAdmin}
                 <button class="tab" class:on={tab === 'scoring'} onclick={() => (tab = 'scoring')}>Scoring</button>
             {/if}
@@ -191,6 +273,7 @@
                         <h3 class="round-title">Round {r.round_no}</h3>
                         {#if r.status === 'paired'}
                             <span class="pill draft">Not published</span>
+                            <HelpTip label="publishing a round" text={"Players can't see a round until you publish it. Look the pairings over first — swap a table, fix a name — then publish and it appears on everyone's page.\n\nRe-pair throws the round away and generates it again, and is only possible while no results are in."} />
                             {#if isAdmin}
                                 <button class="secondary-button small" disabled={busy}
                                         onclick={() => call(`/rounds/${r.id}/publish`)}>Publish</button>
@@ -275,6 +358,83 @@
                     </table>
                 </div>
             {/if}
+
+        {:else if tab === 'schedule'}
+            {#if isAdmin}
+                <div class="form-grid">
+                    <label class="field">
+                        <span class="field-label">Days
+                            <HelpTip label="multi-day events" text={"How many days the event runs over. Rounds are spread across them, earlier days taking the extra when it doesn't divide evenly — people leave early on the last day, not the first.\n\nChanging this rebuilds the running order below."} /></span>
+                        <input class="field-input" type="number" min="1" max="7" value={t.days}
+                               onchange={(e) => call('', 'PATCH', { days: Number(e.currentTarget.value) })} />
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Rounds
+                            <HelpTip label="rounds" text={"Total across the whole event, not per day. Five rounds over two days is three then two."} /></span>
+                        <input class="field-input" type="number" min="1" max="12" value={t.rounds_total}
+                               onchange={(e) => call('', 'PATCH', { rounds: Number(e.currentTarget.value) })} />
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Round length
+                            <HelpTip label="round length" text={"In minutes, and only used to lay the running order out. It enforces nothing on the day — edit any row afterwards and your version is kept."} /></span>
+                        <input class="field-input" type="number" min="30" max="480" step="15" value={t.round_minutes}
+                               onchange={(e) => call('', 'PATCH', { round_minutes: Number(e.currentTarget.value) })} />
+                    </label>
+                    <label class="field">
+                        <span class="field-label">First round starts
+                            <HelpTip label="start time" text={"When round one begins each day. Everything else is laid out from here."} /></span>
+                        <input class="field-input" type="time" value={t.start_time ?? '09:30'}
+                               onchange={(e) => call('', 'PATCH', { start_time: e.currentTarget.value })} />
+                    </label>
+                </div>
+                {#if t.schedule_is_default}
+                    <p class="a-note">
+                        A suggested running order, built from the settings above. Edit any
+                        row and it becomes yours.
+                    </p>
+                {/if}
+            {/if}
+
+            {#each t.day_dates as d, i}
+                {@const dayNo = i + 1}
+                {@const items = t.schedule.filter((r) => r.day === dayNo)}
+                <div class="sched-day">
+                    <h3 class="round-title">
+                        {t.day_dates.length > 1 ? `Day ${dayNo} · ` : ''}{longDay(d)}
+                    </h3>
+                    {#if !items.length}<p class="a-note">Nothing scheduled this day.</p>{/if}
+                    {#each items as row}
+                        <div class="sched-row" class:brk={row.kind === 'break'}>
+                            {#if isAdmin}
+                                <input class="field-input time" type="time" value={row.start}
+                                       onchange={(e) => editRow(row, { start: e.currentTarget.value })} />
+                                <span class="dash">–</span>
+                                <input class="field-input time" type="time" value={row.end}
+                                       onchange={(e) => editRow(row, { end: e.currentTarget.value })} />
+                            {:else}
+                                <span class="sched-time">{row.start}–{row.end}</span>
+                            {/if}
+                            <span class="sched-what">
+                                {#if row.kind === 'round'}
+                                    Round {row.round}
+                                {:else if isAdmin}
+                                    <input class="field-input" type="text" value={row.label}
+                                           onchange={(e) => editRow(row, { label: e.currentTarget.value })} />
+                                {:else}
+                                    {row.label}
+                                {/if}
+                            </span>
+                            {#if isAdmin && row.kind === 'break'}
+                                <button class="res" disabled={busy} onclick={() => removeRow(row)}>Remove</button>
+                            {/if}
+                        </div>
+                    {/each}
+                    {#if isAdmin}
+                        <button class="res add-break" disabled={busy}
+                                onclick={() => addBreak(dayNo)}>+ Add a break</button>
+                    {/if}
+                </div>
+            {/each}
 
         {:else if tab === 'scoring'}
             <p class="a-note">
@@ -395,6 +555,7 @@
         {:else}
             {#if isAdmin}
                 <div class="add-entry">
+                    <HelpTip label="adding players" text={"For someone paying at the door, or a visitor from another club with no profile here — they just need a name.\n\nAdding someone here ignores the capacity limit, because a TO standing in the room knows better than the limit does."} />
                     <input class="field-input" type="text" bind:value={newName} placeholder="Name" />
                     <input class="field-input" type="text" bind:value={newFaction} placeholder="Faction (optional)" />
                     <button class="secondary-button" disabled={busy || !newName.trim()}
@@ -560,6 +721,50 @@
     .tb-order {
         margin-left: 0.3rem; font-size: 0.66rem; opacity: 0.8;
     }
+
+    .next-step {
+        display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
+        margin: 1rem 0 0.8rem; padding: 0.7rem 0.9rem;
+        border: 1px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+        font-size: 0.92rem;
+    }
+    .next-label {
+        font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.09em;
+        font-weight: 700; color: var(--color-accent);
+    }
+
+    .stage { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+    .stage-label {
+        font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em;
+        color: var(--color-text-dim);
+    }
+    .stage-track {
+        display: flex; flex-wrap: wrap;
+        border: 1px solid var(--color-steel-border); border-radius: 999px; overflow: hidden;
+    }
+    .stage-btn {
+        background: none; border: none; border-right: 1px solid var(--color-steel-border);
+        color: var(--color-text-dim); font-family: inherit; font-size: 0.78rem;
+        padding: 0.35rem 0.8rem; cursor: pointer; white-space: nowrap;
+    }
+    .stage-btn:last-child { border-right: none; }
+    .stage-btn:hover:not(.on) { background: rgba(201, 161, 74, 0.08); color: var(--color-text-bright); }
+    .stage-btn.on { background: var(--color-accent); color: #1b1206; font-weight: 700; }
+
+    .sched-day { margin-bottom: 1.4rem; }
+    .sched-row {
+        display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+        padding: 0.35rem 0; border-bottom: 1px solid var(--color-steel-border);
+    }
+    .sched-row.brk { opacity: 0.8; }
+    .sched-row .time { width: 7.5rem; }
+    .sched-time { font-variant-numeric: tabular-nums; color: var(--color-text-dim); width: 9rem; }
+    .sched-what { flex: 1 1 10rem; font-weight: 600; color: var(--color-text-bright); }
+    .sched-row.brk .sched-what { font-weight: 400; color: var(--color-text-dim); }
+    .dash { color: var(--color-text-dim); }
+    .add-break { margin-top: 0.6rem; }
 
     .back { display: inline-block; margin-top: 1rem; color: var(--color-accent); font-size: 0.85rem; }
 </style>
