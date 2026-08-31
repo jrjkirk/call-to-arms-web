@@ -132,6 +132,7 @@
         { href: '/', label: 'Club' },
         { href: '/signup', label: 'Signup' },
         { href: '/pairings', label: 'Pairings' },
+        { href: '/tournaments', label: 'Events' },
         ...(hasAnyLeague ? [{ href: '/leagues', label: 'Leagues' }] : []),
         { href: '/players', label: 'Players' }
     ]);
