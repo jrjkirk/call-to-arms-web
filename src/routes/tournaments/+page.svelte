@@ -41,8 +41,13 @@
                 const s = await a.json();
                 isAdmin = s.is_super_admin || s.is_platform_admin || (s.scopes ?? []).length > 0;
             }
-            const sy = await fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' });
-            if (sy.ok) systems = (await sy.json()).systems ?? [];
+            // /systems/mine, not /venue/info: the latter only lists systems
+            // when the club has table bookings switched on, so the picker was
+            // empty for every club without a venue. This one is club-scoped to
+            // the systems actually enabled here, which is also exactly the set
+            // the create endpoint will accept.
+            const sy = await fetch(`${PUBLIC_API_URL}/systems/mine`, { credentials: 'include' });
+            systems = sy.ok ? await sy.json() : [];
         } catch (_) {
             error = 'Could not load events right now.';
         } finally {
@@ -107,10 +112,16 @@
                     </label>
                     <label class="field">
                         <span class="field-label">Game system <span class="req">*</span></span>
-                        <select class="field-select" bind:value={nSystem}>
-                            <option value="">— Choose —</option>
+                        <select class="field-select" bind:value={nSystem} disabled={!systems.length}>
+                            <option value="">{systems.length ? '— Choose —' : 'No game systems enabled'}</option>
                             {#each systems as s}<option value={s.id}>{s.name}</option>{/each}
                         </select>
+                        {#if !systems.length}
+                            <span class="field-hint">
+                                This club has no game systems enabled yet. Add one under
+                                Admin → Systems, then come back.
+                            </span>
+                        {/if}
                     </label>
                     <label class="field">
                         <span class="field-label">Date <span class="req">*</span></span>
@@ -203,6 +214,7 @@
     }
 
     .req { color: var(--color-accent); font-weight: 700; }
+    .field-hint { font-size: 0.76rem; color: var(--color-text-dim); margin-top: 0.25rem; }
     .req-legend { margin: 0 0 0.8rem; font-size: 0.72rem; color: var(--color-text-dim); }
 
     .event-list { display: flex; flex-direction: column; gap: 0.5rem; }
