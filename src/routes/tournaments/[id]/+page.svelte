@@ -46,6 +46,27 @@
     }
 
     const isAdmin = $derived(t?.is_admin === true);
+    /** Admins default to the TO console but can look at exactly what a player
+        sees — the fastest way to answer "why can't they see round 3". */
+    let asPlayer = $state(false);
+    const toView = $derived(isAdmin && !asPlayer);
+    let reportFor = $state<number | null>(null);
+    let myScore = $state<number | ''>('');
+    let theirScore = $state<number | ''>('');
+    let myResult = $state<'win' | 'loss' | 'draw' | ''>('');
+    let listText = $state('');
+
+    async function report(gameId: number) {
+        await call(`/games/${gameId}/report`, 'POST', {
+            result: myResult || null,
+            my_score: myScore === '' ? null : Number(myScore),
+            their_score: theirScore === '' ? null : Number(theirScore)
+        });
+        reportFor = null; myScore = ''; theirScore = ''; myResult = '';
+    }
+    async function saveList() {
+        await call('/my-list', 'POST', { army_list: listText });
+    }
 
     const STAGES = [
         { key: 'draft', label: 'Draft' },
@@ -137,27 +158,6 @@
     const latestRound = $derived(t?.rounds?.length ? t.rounds[t.rounds.length - 1] : null);
     const allRoundsDone = $derived(t && t.rounds.length >= t.rounds_total);
 
-    // The single most-looked-at thing at an event: where am I and who am I playing.
-    const myGame = $derived.by(() => {
-        if (!t?.my_entry_id || !t.rounds?.length) return null;
-        for (let i = t.rounds.length - 1; i >= 0; i--) {
-            const r = t.rounds[i];
-            if (r.status === 'paired') continue;
-            const g = r.games.find(
-                (g: any) => g.a.entry_id === t.my_entry_id || g.b?.entry_id === t.my_entry_id
-            );
-            if (g) {
-                const meIsA = g.a.entry_id === t.my_entry_id;
-                return {
-                    round: r.round_no, table: g.table,
-                    opponent: meIsA ? g.b?.name : g.a.name,
-                    result: g.result
-                };
-            }
-        }
-        return null;
-    });
-
     function dayLabel(iso: string): string {
         return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
@@ -193,27 +193,116 @@
         </p>
         {#if t.blurb}<p class="a-note">{t.blurb}</p>{/if}
 
-        <!-- Borrowed from how BCP and Hololith open: the one thing a player at
-             an event wants is their table number, so it leads. -->
-        {#if myGame}
-            <div class="my-game">
-                <span class="my-game-round">Round {myGame.round}</span>
-                {#if myGame.opponent}
-                    <span class="my-game-line">
-                        You're playing <strong>{myGame.opponent}</strong>
+        {#if isAdmin}
+            <div class="view-switch">
+                <button class="res" class:on={!asPlayer} onclick={() => (asPlayer = false)}>Organiser view</button>
+                <button class="res" class:on={asPlayer} onclick={() => (asPlayer = true)}>Player view</button>
+                <HelpTip label="views" text={"Player view is exactly what an entrant sees: their own games, the standings, and nothing else. Sportsmanship and painting are never shown to players.\n\nUseful for answering \"why can't they see round three\" without logging out."} />
+            </div>
+        {/if}
+
+        <!-- Ticket, check-in and list: what a player has to do before they play.
+             Ticketing takes no money yet — the TO marks it and check-in reads
+             it, which is the part that actually needs to exist first. -->
+        {#if t.me}
+            <div class="me-panel">
+                <div class="me-row">
+                    <span class="me-k">You're entered as</span>
+                    <span class="me-v">{t.me.name}{t.me.faction ? ` · ${t.me.faction}` : ''}</span>
+                </div>
+                <div class="me-row">
+                    <span class="me-k">Ticket</span>
+                    <span class="me-v">
+                        {#if t.me.ticket_status === 'paid'}Paid
+                        {:else if t.me.ticket_status === 'comp'}Complimentary
+                        {:else if t.me.ticket_status === 'refunded'}Refunded
+                        {:else}Not paid{/if}
                     </span>
-                    {#if myGame.table}<span class="my-game-table">Table {myGame.table}</span>{/if}
-                {:else}
-                    <span class="my-game-line">You have the bye this round.</span>
+                    {#if t.me.ticket_status === 'none' && t.ticket_url}
+                        <a class="res" href={t.ticket_url} target="_blank" rel="noopener">Buy a ticket</a>
+                    {:else if t.me.ticket_status === 'none'}
+                        <span class="me-hint">Pay the organiser — online tickets are coming.</span>
+                    {/if}
+                </div>
+                <div class="me-row">
+                    <span class="me-k">Check-in</span>
+                    <span class="me-v">
+                        {t.me.status === 'checked_in' ? 'Checked in'
+                          : t.me.status === 'dropped' ? 'Dropped'
+                          : t.me.status === 'waitlisted' ? 'On the waiting list'
+                          : 'Not yet — see the organiser on the day'}
+                    </span>
+                </div>
+                {#if t.list_required || t.me.army_list}
+                    <div class="me-row list-row">
+                        <span class="me-k">Army list</span>
+                        <span class="me-v">{t.me.list_submitted ? 'Submitted' : 'Not submitted'}</span>
+                    </div>
+                    <textarea class="field-input field-textarea" rows="3"
+                              placeholder="Paste your list here"
+                              value={t.me.army_list ?? ''}
+                              oninput={(e) => (listText = e.currentTarget.value)}></textarea>
+                    <button class="res" disabled={busy} onclick={saveList}>Save my list</button>
                 {/if}
             </div>
-        {:else if t.my_entry_id}
-            <p class="a-note">You're entered. Your table will show here once the round is published.</p>
+
+            {#if t.me.games.length}
+                <h3 class="round-title my-games-title">Your games</h3>
+                <div class="games">
+                    {#each t.me.games as g (g.game_id)}
+                        <div class="game" class:done={!!g.result}>
+                            <span class="game-table">{g.table ?? '—'}</span>
+                            <span class="game-players">
+                                <span class="vs">R{g.round_no}</span>
+                                {g.opponent ?? 'Bye'}
+                                {#if g.result}
+                                    <span class="my-res" class:won={g.result === 'win'}>
+                                        {g.result === 'bye' ? 'Bye' : g.result}
+                                        {#if g.my_score != null} {g.my_score}–{g.their_score}{/if}
+                                        {#if !g.confirmed && g.result !== 'bye'}
+                                            <span class="me-hint">reported, awaiting the organiser</span>
+                                        {/if}
+                                    </span>
+                                {/if}
+                            </span>
+                            {#if g.opponent && !g.confirmed}
+                                <button class="res" onclick={() => (reportFor = reportFor === g.game_id ? null : g.game_id)}>
+                                    {g.result ? 'Change' : 'Report'}
+                                </button>
+                            {/if}
+                        </div>
+                        {#if reportFor === g.game_id}
+                            <div class="report">
+                                <div class="report-row">
+                                    {#each ['win', 'draw', 'loss'] as r}
+                                        <button class="res" class:on={myResult === r}
+                                                onclick={() => (myResult = r)}>{r}</button>
+                                    {/each}
+                                </div>
+                                <div class="report-row">
+                                    <input class="field-input score" type="number" placeholder="My score"
+                                           bind:value={myScore} />
+                                    <input class="field-input score" type="number" placeholder="Theirs"
+                                           bind:value={theirScore} />
+                                    <button class="primary-button" disabled={busy || !myResult}
+                                            onclick={() => report(g.game_id)}>Submit</button>
+                                </div>
+                                <p class="me-hint">
+                                    The organiser confirms results, so this can be corrected.
+                                </p>
+                            </div>
+                        {/if}
+                    {/each}
+                </div>
+            {/if}
         {/if}
+
+        <!-- Borrowed from how BCP and Hololith open: the one thing a player at
+             an event wants is their table number, so it leads. -->
 
         {#if error}<p class="field-error">{error}</p>{/if}
 
-        {#if isAdmin}
+        {#if toView}
             <!-- A first-time TO's biggest question is "what do I do now", so
                  the current step is stated before any of the controls. -->
             <div class="next-step">
@@ -258,7 +347,7 @@
                 Players ({t.entries.length})
             </button>
             <button class="tab" class:on={tab === 'schedule'} onclick={() => (tab = 'schedule')}>Schedule</button>
-            {#if isAdmin}
+            {#if toView}
                 <button class="tab" class:on={tab === 'scoring'} onclick={() => (tab = 'scoring')}>Scoring</button>
             {/if}
         </div>
@@ -274,7 +363,7 @@
                         {#if r.status === 'paired'}
                             <span class="pill draft">Not published</span>
                             <HelpTip label="publishing a round" text={"Players can't see a round until you publish it. Look the pairings over first — swap a table, fix a name — then publish and it appears on everyone's page.\n\nRe-pair throws the round away and generates it again, and is only possible while no results are in."} />
-                            {#if isAdmin}
+                            {#if toView}
                                 <button class="secondary-button small" disabled={busy}
                                         onclick={() => call(`/rounds/${r.id}/publish`)}>Publish</button>
                                 <button class="danger-button small" disabled={busy}
@@ -293,7 +382,7 @@
                                 </span>
                                 {#if g.result === 'bye'}
                                     <span class="game-result">Bye</span>
-                                {:else if isAdmin}
+                                {:else if toView}
                                     <span class="game-actions">
                                         <button class="res" class:on={g.result === 'a'} disabled={busy}
                                                 onclick={() => call(`/games/${g.id}`, 'PATCH', { result: 'a' })}>1</button>
@@ -360,7 +449,7 @@
             {/if}
 
         {:else if tab === 'schedule'}
-            {#if isAdmin}
+            {#if toView}
                 <div class="form-grid">
                     <label class="field">
                         <span class="field-label">Days
@@ -405,7 +494,7 @@
                     {#if !items.length}<p class="a-note">Nothing scheduled this day.</p>{/if}
                     {#each items as row}
                         <div class="sched-row" class:brk={row.kind === 'break'}>
-                            {#if isAdmin}
+                            {#if toView}
                                 <input class="field-input time" type="time" value={row.start}
                                        onchange={(e) => editRow(row, { start: e.currentTarget.value })} />
                                 <span class="dash">–</span>
@@ -417,19 +506,19 @@
                             <span class="sched-what">
                                 {#if row.kind === 'round'}
                                     Round {row.round}
-                                {:else if isAdmin}
+                                {:else if toView}
                                     <input class="field-input" type="text" value={row.label}
                                            onchange={(e) => editRow(row, { label: e.currentTarget.value })} />
                                 {:else}
                                     {row.label}
                                 {/if}
                             </span>
-                            {#if isAdmin && row.kind === 'break'}
+                            {#if toView && row.kind === 'break'}
                                 <button class="res" disabled={busy} onclick={() => removeRow(row)}>Remove</button>
                             {/if}
                         </div>
                     {/each}
-                    {#if isAdmin}
+                    {#if toView}
                         <button class="res add-break" disabled={busy}
                                 onclick={() => addBreak(dayNo)}>+ Add a break</button>
                     {/if}
@@ -553,7 +642,7 @@
             </div>
 
         {:else}
-            {#if isAdmin}
+            {#if toView}
                 <div class="add-entry">
                     <HelpTip label="adding players" text={"For someone paying at the door, or a visitor from another club with no profile here — they just need a name.\n\nAdding someone here ignores the capacity limit, because a TO standing in the room knows better than the limit does."} />
                     <input class="field-input" type="text" bind:value={newName} placeholder="Name" />
@@ -571,7 +660,7 @@
                         <span class="entry-name">{e.name}</span>
                         <span class="entry-faction">{e.faction ?? ''}</span>
                         <span class="pill" class:live={e.status === 'checked_in'}>{e.status.replace('_', ' ')}</span>
-                        {#if isAdmin}
+                        {#if toView}
                             <span class="entry-actions">
                                 {#if e.status !== 'checked_in' && e.status !== 'dropped'}
                                     <button class="res" disabled={busy}
@@ -765,6 +854,40 @@
     .sched-row.brk .sched-what { font-weight: 400; color: var(--color-text-dim); }
     .dash { color: var(--color-text-dim); }
     .add-break { margin-top: 0.6rem; }
+
+    .view-switch { display: flex; gap: 0.35rem; align-items: center; margin: 0.9rem 0 0.2rem; }
+
+    .me-panel {
+        margin: 0.9rem 0;
+        padding: 0.9rem 1rem;
+        border: 1px solid var(--color-accent-border);
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+        display: flex; flex-direction: column; gap: 0.45rem;
+    }
+    .me-row { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; font-size: 0.9rem; }
+    .me-k {
+        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--color-text-dim); width: 6.5rem; flex: 0 0 auto;
+    }
+    .me-v { color: var(--color-text-bright); font-weight: 600; }
+    .me-hint { font-size: 0.76rem; color: var(--color-text-dim); font-weight: 400; }
+    .list-row { margin-top: 0.3rem; }
+
+    .my-games-title { margin: 1.2rem 0 0.5rem; }
+    .my-res { margin-left: 0.5rem; text-transform: capitalize; color: var(--color-text-dim); }
+    .my-res.won { color: var(--color-accent); font-weight: 700; }
+
+    .report {
+        margin: -0.15rem 0 0.5rem;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--color-accent-border);
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .report-row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+    .report .score { width: 7rem; }
 
     .back { display: inline-block; margin-top: 1rem; color: var(--color-accent); font-size: 0.85rem; }
 </style>

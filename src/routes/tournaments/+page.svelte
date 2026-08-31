@@ -7,6 +7,8 @@
         status: string; rounds: number; entries: number; checked_in: number;
         waitlisted: number; capacity: number | null; points_limit: number | null;
         start_time: string | null; blurb: string | null;
+        end_date: string | null; system_slug: string | null;
+        image_url: string | null; ticket_price_pence: number | null;
     };
 
     let list = $state<T[]>([]);
@@ -80,6 +82,16 @@
     const canCreate = $derived(nName.trim() !== '' && nSystem !== '' && nDate !== '');
     const upcoming = $derived(list.filter((t) => t.status !== 'finished'));
     const past = $derived(list.filter((t) => t.status === 'finished'));
+
+    const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
+    const monthShort = (iso: string) =>
+        new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short' });
+
+    /** "Sat 14 – Sun 15 Nov 2026" for a multi-day event, one date otherwise. */
+    function dateRangeOf(t: T): string {
+        if (!t.end_date || t.end_date === t.date) return dayLabel(t.date);
+        return `${dayLabel(t.date)} – ${dayLabel(t.end_date)}`;
+    }
 
     function dayLabel(iso: string): string {
         return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
@@ -158,26 +170,39 @@
             </p>
         {:else}
             {#if upcoming.length}
-                <div class="event-list">
+                <div class="diary">
                     {#each upcoming as t (t.id)}
-                        <a class="event" href={`/tournaments/${t.id}`}>
-                            <div class="event-main">
-                                <span class="event-name">{t.name}</span>
-                                <span class="event-meta">
-                                    {dayLabel(t.date)}{t.system ? ` · ${t.system}` : ''}
-                                    {t.points_limit ? ` · ${t.points_limit} pts` : ''}
-                                    · {t.rounds} round{t.rounds === 1 ? '' : 's'}
+                        <a class="ev" href={`/tournaments/${t.id}`}>
+                            <div class="ev-img">
+                                <!-- A club's own poster if they've set one, else the game
+                                     system's logo — so every event has a picture without a
+                                     TO having to find one. -->
+                                <img src={t.image_url ?? `/logos/${t.system_slug ?? 'kt'}.png`}
+                                     alt="" loading="lazy" />
+                                <span class="ev-when">
+                                    <span class="ev-day">{dayNum(t.date)}</span>
+                                    <span class="ev-mon">{monthShort(t.date)}</span>
                                 </span>
                             </div>
-                            <div class="event-side">
+                            <div class="ev-body">
                                 <span class="pill" class:live={t.status === 'running'}
                                       class:draft={t.status === 'draft'}>
                                     {STATUS_LABEL[t.status] ?? t.status}
                                 </span>
-                                <span class="event-count">
+                                <h3 class="ev-name">{t.name}</h3>
+                                <p class="ev-meta">{dateRangeOf(t)}</p>
+                                <p class="ev-meta">
+                                    {t.system ?? ''}{t.points_limit ? ` · ${t.points_limit} pts` : ''}
+                                    · {t.rounds} round{t.rounds === 1 ? '' : 's'}
+                                </p>
+                                {#if t.blurb}<p class="ev-blurb">{t.blurb}</p>{/if}
+                                <p class="ev-foot">
                                     {t.entries}{t.capacity ? ` / ${t.capacity}` : ''} entered
-                                    {#if t.waitlisted}<span class="wait">+{t.waitlisted} waiting</span>{/if}
-                                </span>
+                                    {#if t.waitlisted}<span class="wait">· {t.waitlisted} waiting</span>{/if}
+                                    {#if t.ticket_price_pence}
+                                        <span class="price">£{(t.ticket_price_pence / 100).toFixed(2)}</span>
+                                    {/if}
+                                </p>
                             </div>
                         </a>
                     {/each}
@@ -186,14 +211,17 @@
 
             {#if past.length}
                 <h2 class="a-subtitle">Finished</h2>
-                <div class="event-list">
+                <div class="diary past-diary">
                     {#each past as t (t.id)}
-                        <a class="event past" href={`/tournaments/${t.id}`}>
-                            <div class="event-main">
-                                <span class="event-name">{t.name}</span>
-                                <span class="event-meta">{dayLabel(t.date)}{t.system ? ` · ${t.system}` : ''}</span>
+                        <a class="ev past" href={`/tournaments/${t.id}`}>
+                            <div class="ev-img">
+                                <img src={t.image_url ?? `/logos/${t.system_slug ?? 'kt'}.png`}
+                                     alt="" loading="lazy" />
                             </div>
-                            <span class="event-count">{t.entries} played</span>
+                            <div class="ev-body">
+                                <h3 class="ev-name">{t.name}</h3>
+                                <p class="ev-meta">{dateRangeOf(t)} · {t.entries} played</p>
+                            </div>
                         </a>
                     {/each}
                 </div>
@@ -216,6 +244,64 @@
     .req { color: var(--color-accent); font-weight: 700; }
     .field-hint { font-size: 0.76rem; color: var(--color-text-dim); margin-top: 0.25rem; }
     .req-legend { margin: 0 0 0.8rem; font-size: 0.72rem; color: var(--color-text-dim); }
+
+    .diary {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+        gap: 1rem;
+    }
+    .past-diary { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); }
+
+    .ev {
+        display: flex; flex-direction: column;
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.2);
+        text-decoration: none; color: inherit;
+        transition: border-color 0.12s ease, transform 0.12s ease;
+    }
+    .ev:hover { border-color: var(--color-accent-border); transform: translateY(-2px); }
+    .ev.past { opacity: 0.72; }
+
+    .ev-img {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        background: rgba(0, 0, 0, 0.35);
+        display: grid; place-items: center;
+        border-bottom: 1px solid var(--color-steel-border);
+    }
+    .ev-img img { max-width: 72%; max-height: 72%; object-fit: contain; }
+    .ev.past .ev-img { aspect-ratio: 21 / 9; }
+
+    /* The date block reads as a diary entry rather than another line of text. */
+    .ev-when {
+        position: absolute; top: 0.5rem; left: 0.5rem;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 0.25rem 0.5rem; border-radius: 6px;
+        background: rgba(0, 0, 0, 0.72);
+        border: 1px solid var(--color-accent-border);
+        line-height: 1.05;
+    }
+    .ev-day { font-size: 1.15rem; font-weight: 700; color: var(--color-accent); }
+    .ev-mon {
+        font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--color-text-dim);
+    }
+
+    .ev-body { padding: 0.8rem 0.9rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .ev-name { margin: 0; font-size: 1rem; color: var(--color-text-bright); }
+    .ev-meta { margin: 0; font-size: 0.78rem; color: var(--color-text-dim); }
+    .ev-blurb {
+        margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--color-text-dim);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .ev-foot {
+        margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--color-text-dim);
+        display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: baseline;
+    }
+    .price { margin-left: auto; color: var(--color-accent); font-weight: 700; }
 
     .event-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
