@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { page } from '$app/state';
+    import { setPageTitle } from '$lib/pageTitle';
     import { onMount } from 'svelte';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -85,6 +87,14 @@
     // reshuffle itself under a visitor mid-visit.
     let systemOrder = $state<string[] | null>(null);
 
+    // The club's own name leads, because this page is public: it's what a
+    // shared link and a search result show, and "Club" told a stranger nothing
+    // about whose page they'd landed on. Announced to the layout rather than
+    // set here — see $lib/pageTitle for why there is only one <title>.
+    $effect(() => {
+        setPageTitle(page.route.id, data?.club?.name ? `${data.club.name} — Call to Arms` : null);
+    });
+
     async function load(m: string) {
         try {
             const r = await fetch(`${PUBLIC_API_URL}/club?month=${m}`, { credentials: 'include' });
@@ -116,10 +126,6 @@
 </script>
 
 <svelte:head>
-    <!-- The club's own name leads, because this page is now public: it's what a
-         search result and a shared link show, and "Club" told a stranger
-         nothing about whose page they'd landed on. -->
-    <title>{data?.club?.name ? `${data.club.name} — Call to Arms` : 'Call to Arms'}</title>
     {#if data?.club?.blurb}
         <meta name="description" content={data.club.blurb} />
     {/if}

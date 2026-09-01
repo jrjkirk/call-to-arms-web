@@ -12,8 +12,13 @@
     import SiteBanner from '$lib/SiteBanner.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
+    import { resolveTitle, titleOverride } from '$lib/pageTitle';
 
     let { children } = $props();
+
+    // The single source of the browser tab title. Derived from the route so
+    // every page gets one, including any added later that never thinks about it.
+    let documentTitle = $derived(resolveTitle(page.route.id, $titleOverride));
 
     type AuthState = {
         authenticated: boolean;
@@ -237,8 +242,11 @@
     }
 </script>
 
+<!-- The app's ONLY <title>. Pages must not declare their own: a second
+     <title> element is what left the tab stuck on whichever page loaded
+     first. Data-derived names arrive via setPageTitle() — see $lib/pageTitle. -->
 <svelte:head>
-    <title>Call to Arms</title>
+    <title>{documentTitle}</title>
 </svelte:head>
 
 {#if $navigating}

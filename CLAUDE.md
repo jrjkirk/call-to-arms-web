@@ -37,6 +37,12 @@ in a tooltip.
 - `PUBLIC_API_URL` env var holds the backend base URL (set in `.env` locally, as a Vercel env var in production).
 - All API fetches use `credentials: 'include'` — cross-site session-cookie auth.
 - Preserve the dark/gold theme and Svelte 5 runes throughout. Do not switch to Svelte 4 options syntax.
+- **The browser tab title lives in `src/lib/pageTitle.ts`, and only `+layout.svelte`
+  may render a `<title>`.** Add new routes to `ROUTE_TITLES` there; if the title
+  depends on fetched data, call `setPageTitle(page.route.id, ...)` from an
+  `$effect` instead. A page that declares its own `<title>` reintroduces the bug
+  this replaced: two competing `<title>` elements left the tab stuck on whichever
+  page loaded first, and the ten routes that set none inherited it.
 
 ## Dev loop
 

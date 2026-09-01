@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { setPageTitle } from '$lib/pageTitle';
     import { onMount } from 'svelte';
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -15,6 +16,12 @@
     // Entry the TO is adding at the door
     let newName = $state('');
     let newFaction = $state('');
+
+    // The event names its own tab once loaded; until then the layout's
+    // generic "Event" stands in. See $lib/pageTitle.
+    $effect(() => {
+        setPageTitle(page.route.id, t?.name ? `${t.name} · Call to Arms` : null);
+    });
 
     async function load() {
         try {
@@ -205,8 +212,6 @@
         running: 'Under way', finished: 'Finished'
     };
 </script>
-
-<svelte:head><title>{t?.name ?? 'Event'} · Call to Arms</title></svelte:head>
 
 <div class="container">
 {#if loading}

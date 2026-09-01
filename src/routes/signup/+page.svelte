@@ -770,9 +770,6 @@
     }
 </script>
 
-<svelte:head>
-    <title>Signup — Call to Arms</title>
-</svelte:head>
 
 {#if pageReady}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>

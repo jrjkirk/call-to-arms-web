@@ -121,7 +121,6 @@
 </script>
 
 <svelte:head>
-    <title>Find a club — Call to Arms</title>
     <meta name="description" content="Find a wargaming club near you — search by location and filter by the systems you play." />
 </svelte:head>
 

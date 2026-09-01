@@ -74,7 +74,6 @@
     }
 </script>
 
-<svelte:head><title>Venue Admin · Call to Arms</title></svelte:head>
 
 {#if access === 'checking'}
     <p class="a-note">Loading…</p>

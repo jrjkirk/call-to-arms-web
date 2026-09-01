@@ -100,8 +100,6 @@
     }
 </script>
 
-<svelte:head><title>Events · Call to Arms</title></svelte:head>
-
 <div class="container">
     <div class="a-card">
         <div class="a-head">

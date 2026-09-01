@@ -204,7 +204,6 @@
     }
 </script>
 
-<svelte:head><title>Book a table · Call to Arms</title></svelte:head>
 
 <div class="container">
 {#if loading}

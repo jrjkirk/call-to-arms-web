@@ -64,7 +64,6 @@
     };
 </script>
 
-<svelte:head><title>Your booking · Call to Arms</title></svelte:head>
 
 <div class="container">
     <div class="a-card">

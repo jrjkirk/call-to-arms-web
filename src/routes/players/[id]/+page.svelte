@@ -3,6 +3,7 @@
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { page } from '$app/state';
+    import { setPageTitle } from '$lib/pageTitle';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
@@ -87,6 +88,12 @@
 
     const discord = $derived(apiData?.discord ?? null);
     const recentGamesBySystem = $derived(apiData?.recent_games_by_system ?? {});
+
+    // This route had no <title> of its own, so a visitor arriving from another
+    // tab kept whatever title that page had left behind. See $lib/pageTitle.
+    $effect(() => {
+        setPageTitle(page.route.id, player?.name ? `${player.name} · Call to Arms` : null);
+    });
 
     function outcomeClass(result: string | null): string {
         if (result === 'Win') return 'outcome-win';
