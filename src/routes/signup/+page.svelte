@@ -726,7 +726,7 @@
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
                 const g = discordGateFrom(body);
-                if (g) { coGate = g; gateRetry = postCallOut; }
+                if (g) { coGate = g; gateRetry = submitCallOut; }
                 else coError = detailText(body, 'Could not post the call-out.');
             } else {
                 coSuccess = 'Call-out posted — it stays here and in Discord until someone takes it up or the time passes.';
