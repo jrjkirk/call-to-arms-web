@@ -619,6 +619,23 @@
 
     // Per-scope auto-pairings settings
     let autoPairingsSettings = $state<Record<string, AutoPairingsSettings>>({});
+
+    /** When this system's league standings image gets posted to Discord.
+     *  No `enabled` field: whether standings post at all is the League switch
+     *  on the Discord tab, shared with results and achievements. posting_enabled
+     *  and has_webhook come back read-only so the panel can say why nothing
+     *  would happen, instead of looking configured and staying silent. */
+    type LeagueRankingsSettings = {
+        day: string;
+        time: string;
+        last_posted: string | null;
+        posting_enabled: boolean;
+        has_webhook: boolean;
+        saving: boolean;
+        error: string | null;
+        message: string | null;
+    };
+    let leagueRankingsSettings = $state<Record<string, LeagueRankingsSettings>>({});
     let callToArmsSettings = $state<Record<string, CallToArmsSettings>>({});
     // Per-scope missions pool state
     let missionsState = $state<Record<string, MissionsState>>({});
@@ -1333,6 +1350,47 @@
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ system: scope, enabled: s.enabled, day: s.day, time: s.time }),
+        });
+        if (r.ok) {
+            s.message = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            s.error = body.detail || 'Save failed.';
+        }
+        s.saving = false;
+    }
+
+    async function loadLeagueRankingsSettings(scope: string) {
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/league-rankings-settings?system=${encodeURIComponent(scope)}`,
+            { credentials: 'include' }
+        );
+        if (r.ok) {
+            const data = await r.json();
+            leagueRankingsSettings[scope] = {
+                day: data.day,
+                time: data.time,
+                last_posted: data.last_posted,
+                posting_enabled: data.posting_enabled,
+                has_webhook: data.has_webhook,
+                saving: false,
+                error: null,
+                message: null,
+            };
+        }
+    }
+
+    async function saveLeagueRankingsSettings(scope: string) {
+        const s = leagueRankingsSettings[scope];
+        if (!s) return;
+        s.saving = true;
+        s.error = null;
+        s.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/league-rankings-settings`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, day: s.day, time: s.time }),
         });
         if (r.ok) {
             s.message = 'Saved.';
@@ -2868,6 +2926,7 @@
         pairings[scope] = initPairingsState(scope, week);
         await Promise.all([
             loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
+            loadLeagueRankingsSettings(scope),
             loadMissions(scope), initLeagueForScope(scope), initPairingWeightForScope(scope),
             loadCarousel(scope), loadSystemEvents(scope), loadSignupCap(scope),
             loadPostSwitches(scope),
@@ -3815,6 +3874,68 @@
                                         </div>
                                     {/if}
                                 {/if}
+                            </div>
+                        {/if}
+
+                        <!-- When the standings image goes to Discord. Lives here
+                             rather than on the Discord tab because it is a
+                             league decision; the Discord tab still owns which
+                             channel it goes to and whether it goes at all. -->
+                        {#if isSystemScope(scope) && leagueRankingsSettings[scope]}
+                            {@const lrs = leagueRankingsSettings[scope]}
+                            <div class="sub-section pairings-section">
+                                <div class="a-head">
+                                    <h4 class="a-title">Standings post</h4>
+                                    <HelpTip
+                                        label="the standings post"
+                                        text="Posts the league table to Discord each week, on the day and at the time you choose. It posts once a day at most, so a late run catches up rather than doubling up. Which channel it goes to, and whether it posts at all, are on this system's Discord tab."
+                                    />
+                                    <span class="a-head-end">
+                                        <span class="a-state" class:is-on={lrs.posting_enabled && lrs.has_webhook}>
+                                            {lrs.posting_enabled && lrs.has_webhook ? 'On' : 'Off'}
+                                        </span>
+                                    </span>
+                                </div>
+                                <p class="a-note">
+                                    {#if !lrs.posting_enabled}
+                                        League posts are switched off for this system — turn them back on under Discord.
+                                    {:else if !lrs.has_webhook}
+                                        No League rankings channel set yet — add the webhook under Discord.
+                                    {:else}
+                                        Posts every {lrs.day} at {lrs.time}.
+                                    {/if}
+                                </p>
+                                <div class="auto-pairings-form">
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="lr-day-{scope}">Day</label>
+                                        <select id="lr-day-{scope}" class="field-select" bind:value={lrs.day}>
+                                            {#each DAYS as d (d)}
+                                                <option>{d}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
+                                    <div class="field field-narrow">
+                                        <label class="field-label" for="lr-time-{scope}">Time</label>
+                                        <input id="lr-time-{scope}" class="field-input" type="time" bind:value={lrs.time} />
+                                    </div>
+                                    {#if lrs.last_posted}
+                                        <div class="ap-last-ran">
+                                            <span class="muted small">Last posted: {lrs.last_posted}</span>
+                                        </div>
+                                    {/if}
+                                </div>
+                                {#if lrs.error}
+                                    <p class="field-error">{lrs.error}</p>
+                                {/if}
+                                {#if lrs.message}
+                                    <p class="pairing-message">{lrs.message}</p>
+                                {/if}
+                                <button
+                                    class="primary-button"
+                                    type="button"
+                                    disabled={lrs.saving}
+                                    onclick={() => saveLeagueRankingsSettings(scope)}
+                                >{lrs.saving ? 'Saving…' : 'Save'}</button>
                             </div>
                         {/if}
         </section>
