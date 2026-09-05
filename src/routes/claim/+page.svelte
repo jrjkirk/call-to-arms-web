@@ -3,7 +3,20 @@
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { goto } from '$app/navigation';
+    import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
+
+    /** Where onboarding ends.
+     *
+     *  The last hop of join -> claim -> here. `next` is the page the player was
+     *  originally trying to reach, threaded through from the Discord callback;
+     *  without it a first-timer who followed a "sign up for Thursday" link
+     *  finished on the club's front page having never seen the signup form.
+     */
+    function destination(): string {
+        const next = page.url.searchParams.get('next');
+        return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+    }
 
     type AuthState = {
         authenticated: boolean;
@@ -60,7 +73,7 @@
             }
             const refresh = (window as any).__refreshAuth;
             if (typeof refresh === 'function') await refresh();
-            goto('/');
+            goto(destination());
         } catch (_) {
             newErrorMsg = 'Network error. Please try again.';
             newSubmitting = false;

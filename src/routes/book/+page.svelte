@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { page } from '$app/state';
+    import { loginHref } from '$lib/loginUrl';
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import BookingPlanPicker from '$lib/plan/BookingPlanPicker.svelte';
@@ -272,7 +274,7 @@
                      unlike booking a table. Say so on the button rather than
                      sending a guest to a login wall they didn't ask for. -->
                 {#if asGuest}
-                    <a class="secondary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>
+                    <a class="secondary-button" href={loginHref(page.url)}>
                         Sign in to join
                     </a>
                 {:else}
@@ -356,7 +358,7 @@
                     <p class="a-note">
                         {heldForYourGame.system} club night runs that evening and
                         {dayInfo.tables_held} tables are held for it. You can
-                        {#if asGuest}<a href={`${PUBLIC_API_URL}/auth/discord/login`}>sign in to join the night</a>{:else}<a href="/signup?system={encodeURIComponent(heldForYourGame.legacy_system_name ?? heldForYourGame.system)}">sign up for the night</a>{/if}
+                        {#if asGuest}<a href={loginHref(page.url)}>sign in to join the night</a>{:else}<a href="/signup?system={encodeURIComponent(heldForYourGame.legacy_system_name ?? heldForYourGame.system)}">sign up for the night</a>{/if}
                         instead and be paired with someone — or book one of the tables below.
                     </p>
                 {:else}
@@ -413,7 +415,7 @@
         {#if chosenSlot && guestBlocked}
             <h2 class="a-subtitle">Almost there</h2>
             <p class="a-note">{info.club_name} takes bookings from signed-in members only.</p>
-            <a class="primary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in to book</a>
+            <a class="primary-button" href={loginHref(page.url)}>Sign in to book</a>
         {:else if chosenSlot}
             <h2 class="a-subtitle">Your details</h2>
             <p class="req-legend"><span class="req">*</span> Required</p>

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { page } from '$app/state';
+    import { loginHref } from '$lib/loginUrl';
     /**
      * discord_url is read here again, deliberately reversing an earlier call.
      *
@@ -21,8 +23,6 @@
         website_url: string | null;
         discord_url?: string | null;
     };
-
-    import { PUBLIC_API_URL } from '$env/static/public';
 
     let { club, venueEnabled = false, signedIn = true }: {
         club: ClubProfile;
@@ -48,7 +48,7 @@
                  and playing in a club night does, and that difference is not
                  something a visitor can infer from the other buttons. -->
             {#if !signedIn}
-                <a class="club-btn signin-btn" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in to Play</a>
+                <a class="club-btn signin-btn" href={loginHref(page.url)}>Sign in to Play</a>
             {/if}
             {#if club.discord_url}
                 <a class="club-btn discord-btn" href={club.discord_url} target="_blank" rel="noopener noreferrer">Join our Discord</a>

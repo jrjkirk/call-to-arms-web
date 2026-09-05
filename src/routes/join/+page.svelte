@@ -3,6 +3,8 @@
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { goto } from '$app/navigation';
+    import { page } from '$app/state';
+    import { loginHref, loginHrefTo } from '$lib/loginUrl';
     import { PUBLIC_API_URL } from '$env/static/public';
 
     type Club = { id: number; name: string; slug: string };
@@ -33,8 +35,16 @@
         loadClubs();
     });
 
+    // The page the player was originally trying to reach, handed over by
+    // /auth/discord/callback. Onboarding is three hops — join, claim, then
+    // wherever they wanted — and each one has to pass this along or a player
+    // who followed a "sign up for Thursday" link finishes on the front page
+    // wondering what happened.
+    const nextPath = $derived(page.url.searchParams.get('next'));
+
     function loginUrl(): string {
-        return `${PUBLIC_API_URL}/auth/discord/login`;
+        // Signing in again from here must not lose the destination either.
+        return nextPath ? loginHrefTo(nextPath) : loginHref(null);
     }
 
     async function completeSignup() {
@@ -63,7 +73,7 @@
             }
             const refresh = (window as any).__refreshAuth;
             if (typeof refresh === 'function') await refresh();
-            goto('/claim');
+            goto(nextPath ? `/claim?next=${encodeURIComponent(nextPath)}` : '/claim');
         } catch (_) {
             errorMsg = 'Network error. Please try again.';
             submitting = false;

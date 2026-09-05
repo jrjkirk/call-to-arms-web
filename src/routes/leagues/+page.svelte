@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { page } from '$app/state';
+    import { loginHref } from '$lib/loginUrl';
     import { onMount } from 'svelte';
     import { fly, fade } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -494,7 +496,7 @@
             <p class="muted">Loading…</p>
         {:else if !auth.authenticated || !auth.player}
             <p class="sign-in-prompt">
-                <a href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in with Discord</a> to submit a league result.
+                <a href={loginHref(page.url)}>Sign in with Discord</a> to submit a league result.
             </p>
         {:else}
             {#if submitSuccess}

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { page } from '$app/state';
+    import { loginHref } from '$lib/loginUrl';
     import { onMount } from 'svelte';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -815,7 +817,7 @@
 {#if !auth.authenticated}
     <div class="signup-card card">
         <p class="prompt-body">Sign in with Discord to sign up for this week's session.</p>
-        <a class="primary-button" href={`${PUBLIC_API_URL}/auth/discord/login`}>Sign in with Discord</a>
+        <a class="primary-button" href={loginHref(page.url)}>Sign in with Discord</a>
     </div>
 {:else if !isClaimed}
     <div class="signup-card card">

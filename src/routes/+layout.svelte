@@ -13,6 +13,7 @@
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
     import { resolveTitle, titleOverride } from '$lib/pageTitle';
+    import { loginHref, loginHrefTo } from '$lib/loginUrl';
 
     let { children } = $props();
 
@@ -219,9 +220,9 @@
     // and without the logo and tabs it was a page with no exits.
     const showingHero = $derived(authLoaded && !isAuthed && !isPublicRoute && isBareHost);
 
+    // Thin wrapper over $lib/loginUrl so there is one implementation, not two.
     function loginUrl(next?: string): string {
-        const base = `${PUBLIC_API_URL}/auth/discord/login`;
-        return next ? `${base}?next=${encodeURIComponent(next)}` : base;
+        return next ? loginHrefTo(next) : loginHref(null);
     }
 
     async function logout() {
@@ -357,7 +358,8 @@
                     About Call to Arms
                 </a>
                 <a class="sidebar-button" href="/find" onclick={closeDrawer}>Find a club</a>
-                <a class="sidebar-button sidebar-button-primary" href={loginUrl()}>Sign in</a>
+                <a class="sidebar-button sidebar-button-primary"
+                   href={loginUrl(page.url.pathname + page.url.search)}>Sign in</a>
             {/if}
         </aside>
     </header>
