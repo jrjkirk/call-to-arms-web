@@ -547,7 +547,7 @@
     let clubEmailsLoading = $state(false);
     let clubEmailError = $state<string | null>(null);
     let clubEmailMessage = $state<string | null>(null);
-    let clubEmailPreview = $state<{ kind: string; subject: string; html: string; unknown_tokens: string[] } | null>(null);
+    let clubEmailPreview = $state<{ kind: string; subject: string; html: string; text: string; unknown_tokens: string[] } | null>(null);
     let clubEmailTestTo = $state('');
 
     async function loadClubEmails() {
@@ -2833,24 +2833,17 @@
         margin-top: 0.9rem;
     }
 
-    /* The preview is a rendering of an email, so it gets an email's light
-       background rather than the console's dark one — otherwise you are
-       judging copy against a palette no recipient will ever see. */
     .email-preview {
         margin-top: 1rem;
         border-top: 1px solid var(--color-steel-border);
         padding-top: 0.9rem;
     }
 
+    /* The preview now contains a whole email, which brings its own background,
+       logo and button. So this only has to hold it — anything styled here would
+       be styling that no recipient sees, which is the opposite of the point. */
     .email-preview-body {
-        background: #fff;
-        color: #111;
         border-radius: var(--radius);
-        padding: 0.9rem 1.1rem;
-        font-size: 0.9rem;
-    }
-
-    .email-preview-body :global(a) {
-        color: #1a5fb4;
+        overflow: hidden;
     }
 </style>
