@@ -211,6 +211,11 @@
         page.url.pathname.startsWith('/pairings') ||
         page.url.pathname.startsWith('/find') ||
         page.url.pathname === '/join' ||
+        // Public by necessity: it is where someone with no club — and so no
+        // possible account — comes to ask for one. The page runs its own
+        // sign-in step, because the request needs a Discord identity even
+        // though it cannot need an account.
+        page.url.pathname === '/request-club' ||
         page.url.pathname === '/privacy' ||
         (!isBareHost && (page.url.pathname === '/' || page.url.pathname.startsWith('/book')))
     );

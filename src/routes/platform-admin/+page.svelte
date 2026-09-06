@@ -413,6 +413,13 @@
         club_name: string; club_location: string; notes: string | null;
         reviewed_at: string | null; reviewed_by_name: string | null;
         suggested_slug: string; provisioned_club_id: number | null;
+        // Everything the form now asks for, so reviewing is reading rather than
+        // emailing. Nullable throughout: requests predating 2026-09-06 have none
+        // of it, and an old row must still render.
+        discord_name: string | null; discord_id: string | null;
+        region: string | null; preferred_slug: string | null;
+        systems: string[]; club_night_day: string | null; club_night_time: string | null;
+        player_count: number | null; requester_role: string | null; evidence_url: string | null;
     };
     let clubRequests = $state<ClubRequestRow[]>([]);
     let clubRequestsLoading = $state(false);
@@ -425,12 +432,19 @@
     let provisionSlug = $state('');
     let provisionRegion = $state('');
     let provisionBusy = $state(false);
+    // Both default on — the request carries a verified Discord account and the
+    // club's own answers, so the normal case is "set it all up". Unticking is a
+    // deliberate act.
+    let provisionAppoint = $state(true);
+    let provisionSystems = $state(true);
     let provisionDone = $state<{ id: number; name: string; slug: string } | null>(null);
 
     function openProvision(r: ClubRequestRow) {
         provisioningId = r.id;
         provisionSlug = r.suggested_slug;
-        provisionRegion = '';
+        provisionRegion = r.region ?? '';
+        provisionAppoint = r.discord_id != null;
+        provisionSystems = (r.systems?.length ?? 0) > 0;
         provisionDone = null;
         clubRequestError = null;
     }
@@ -443,7 +457,12 @@
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: provisionSlug.trim(), region: provisionRegion || null })
+            body: JSON.stringify({
+                slug: provisionSlug.trim(),
+                region: provisionRegion || null,
+                appoint_super_admin: provisionAppoint,
+                enable_systems: provisionSystems
+            })
         });
         const body = await r.json().catch(() => ({}));
         if (r.ok) {
@@ -1546,7 +1565,27 @@
                                 </span>
                                 <span class="block-note">
                                     {r.requester_name} — <a href={`mailto:${r.requester_email}`}>{r.requester_email}</a>
+                                    {#if r.requester_role} · {r.requester_role}{/if}
                                 </span>
+                                <!-- The identity and the club's own answers. A request
+                                     made before 09/2026 has none of this and simply
+                                     shows less, rather than showing blanks. -->
+                                {#if r.discord_name}
+                                    <span class="block-note">🎮 {r.discord_name}</span>
+                                {:else}
+                                    <span class="block-note req-unverified">⚠ no Discord identity (pre-dates sign-in)</span>
+                                {/if}
+                                {#if r.systems.length}
+                                    <span class="block-note">⚔️ {r.systems.join(', ')}</span>
+                                {/if}
+                                {#if r.club_night_day}
+                                    <span class="block-note">🗓️ {r.club_night_day}{r.club_night_time ? ` ${r.club_night_time}` : ''}{r.player_count ? ` · ~${r.player_count} players` : ''}</span>
+                                {:else if r.player_count}
+                                    <span class="block-note">👥 ~{r.player_count} players</span>
+                                {/if}
+                                {#if r.evidence_url}
+                                    <span class="block-note">🔗 <a href={r.evidence_url} target="_blank" rel="noopener noreferrer">{r.evidence_url}</a></span>
+                                {/if}
                                 {#if r.notes}<span class="block-note club-request-notes">{r.notes}</span>{/if}
                                 <span class="status-badge" class:status-active={r.status === 'approved'} class:status-inactive={r.status !== 'approved'}>
                                     {r.status}
@@ -1571,6 +1610,21 @@
                                                 {/each}
                                             </select>
                                         </div>
+                                        <label class="check-row">
+                                            <input type="checkbox" bind:checked={provisionAppoint} disabled={r.discord_id == null} />
+                                            <span>
+                                                Make {r.discord_name ?? 'the requester'} super-admin
+                                                {#if r.discord_id == null}<em> — needs a Discord identity</em>{/if}
+                                            </span>
+                                        </label>
+                                        <label class="check-row">
+                                            <input type="checkbox" bind:checked={provisionSystems} disabled={!r.systems.length} />
+                                            <span>
+                                                Switch on {r.systems.length ? r.systems.join(', ') : 'their systems'}
+                                                {#if r.club_night_day} on {r.club_night_day}s{/if}
+                                                {#if !r.systems.length}<em> — none given</em>{/if}
+                                            </span>
+                                        </label>
                                         <div class="provision-actions">
                                             <button class="primary-button" type="button" disabled={provisionBusy || !provisionSlug.trim()} onclick={() => provisionClubRequest(r.id)}>
                                                 {provisionBusy ? 'Creating…' : 'Create club'}
@@ -2477,6 +2531,12 @@
 
     .club-request-row {
         align-items: flex-start;
+    }
+
+    /* A request with no Discord account behind it — only possible for rows
+       that predate the sign-in requirement. Worth a reviewer's eye. */
+    .req-unverified {
+        color: var(--color-loss);
     }
 
     .club-request-notes {
