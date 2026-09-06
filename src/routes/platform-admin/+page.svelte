@@ -467,6 +467,9 @@
         const body = await r.json().catch(() => ({}));
         if (r.ok) {
             provisionDone = { id: body.club.id, name: body.club.name, slug: body.club.slug };
+            if (body.email && body.email !== 'sent') {
+                clubRequestError = `Club created, but the welcome email didn't send (${body.email}). They haven't been told.`;
+            }
             provisioningId = null;
             await loadClubRequests();
         } else {
@@ -497,15 +500,37 @@
 
     async function reviewClubRequest(id: number, action: 'approve' | 'deny') {
         clubRequestError = null;
+        // Declining now emails the person who asked, so it needs a sentence
+        // they'll actually read. Cancelling the prompt cancels the decline;
+        // leaving it blank declines quietly, which is what spam deserves.
+        let body: string | undefined;
+        if (action === 'deny') {
+            const reason = window.prompt(
+                'Why are you declining? This is emailed to them — leave blank to decline without notifying.',
+                ''
+            );
+            if (reason === null) return;
+            body = JSON.stringify(
+                reason.trim() ? { reason: reason.trim(), notify: true } : { notify: false }
+            );
+        }
         const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-requests/${id}/${action}`, {
             method: 'POST',
             credentials: 'include',
+            headers: body ? { 'Content-Type': 'application/json' } : undefined,
+            body
         });
         if (r.ok) {
+            const result = await r.json().catch(() => ({}));
+            // A failed email is worth knowing about: the decision stands either
+            // way, but someone is now waiting on a message that never arrived.
+            if (result.email && result.email !== 'sent') {
+                clubRequestError = `Request updated, but the email didn't send (${result.email}). Worth following up by hand.`;
+            }
             await loadClubRequests();
         } else {
-            const body = await r.json().catch(() => ({}));
-            clubRequestError = body.detail || 'Failed to update request.';
+            const rb = await r.json().catch(() => ({}));
+            clubRequestError = rb.detail || 'Failed to update request.';
         }
     }
 
