@@ -523,8 +523,9 @@
     // First-run onboarding checklist (GET /admin/onboarding). Each item is a
     // real-state boolean, so it ticks itself off as the admin does the setup.
     type OnboardingItems = {
-        profile_blurb: boolean; logo: boolean; discord_link: boolean; systems_enabled: boolean;
-        discord_webhook: boolean; co_admin: boolean; first_pairings_published: boolean;
+        profile_blurb: boolean; logo: boolean; map_pin: boolean; discord_link: boolean;
+        systems_enabled: boolean; discord_webhook: boolean; co_admin: boolean;
+        first_pairings_published: boolean;
     };
     type Onboarding = {
         club: { id: number; name: string; slug: string; active: boolean };
@@ -536,6 +537,7 @@
         { key: 'profile_blurb', label: 'Write your club blurb', hint: 'A short welcome shown on your public club page.', nav: 'clubpage' },
         { key: 'logo', label: 'Upload your club logo', hint: 'Shown on your club page and pairings posts.', nav: 'clubpage' },
         { key: 'discord_link', label: 'Add your Discord invite', hint: 'The join link shown front-and-centre on your club page.', nav: 'clubpage' },
+        { key: 'map_pin', label: 'Put yourself on the map', hint: 'Set your coordinates so players find you on the club finder. Without them you are a list entry with no marker.', nav: 'clubpage' },
         { key: 'discord_webhook', label: 'Connect Discord', hint: 'Post signups and pairings to your club’s Discord.', nav: 'discord' },
         { key: 'co_admin', label: 'Appoint a game-system admin', hint: 'Optional — delegate a specific system to another member.', nav: 'admins' },
         { key: 'first_pairings_published', label: 'Publish your first pairings', hint: 'Generate and publish a week of pairings.', nav: 'pairings' }

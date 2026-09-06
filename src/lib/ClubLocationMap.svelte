@@ -30,13 +30,24 @@
             zoom: 14,
             scrollWheelZoom: false,
         });
-        // CARTO's free dark basemap (no API key) — matches the app's dark
-        // theme instead of the default light/colourful OSM tile style.
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        // Esri's dark grey canvas. Keyless, and dark enough to sit under the
+        // app's own palette.
+        //
+        // Was CARTO's dark_all, which was keyless when it went in and is not
+        // any more: as of 09/2026 every tile comes back stamped "API KEY
+        // REQUIRED / carto.com/basemaps/apikey" across the middle of it. The
+        // tiles still return HTTP 200, so nothing failed loudly, it just
+        // quietly started looking broken to every visitor.
+        //
+        // Note the {z}/{y}/{x} order: Esri puts y before x, unlike the usual
+        // Leaflet template.
+        L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             attribution:
-                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
-                '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+                'Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, HERE, Garmin, ' +
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19,
+            // The layer stops at 16; upscale past it rather than 404.
+            maxNativeZoom: 16,
         }).addTo(map);
         L.marker([latitude, longitude]).addTo(map).bindPopup(label);
     });

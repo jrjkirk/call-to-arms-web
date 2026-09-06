@@ -421,6 +421,7 @@
         region: string | null; preferred_slug: string | null;
         systems: string[]; club_night_day: string | null; club_night_time: string | null;
         player_count: number | null; requester_role: string | null; evidence_url: string | null;
+        possible_duplicates: { id: number; name: string; slug: string; address: string | null; active: boolean }[];
     };
     let clubRequests = $state<ClubRequestRow[]>([]);
     let clubRequestsLoading = $state(false);
@@ -438,6 +439,10 @@
     // deliberate act.
     let provisionAppoint = $state(true);
     let provisionSystems = $state(true);
+    // Off means the club exists and its owner can set it up, but it stays off
+    // the public finder until someone says otherwise. An inactive club is
+    // unreachable at its own subdomain, so this is a real hold, not cosmetic.
+    let provisionPublish = $state(true);
     let provisionDone = $state<{ id: number; name: string; slug: string } | null>(null);
 
     function openProvision(r: ClubRequestRow) {
@@ -445,7 +450,8 @@
         provisionSlug = r.suggested_slug;
         provisionRegion = r.region ?? '';
         provisionAppoint = r.discord_id != null;
-        provisionSystems = (r.systems?.length ?? 0) > 0;
+        provisionSystems = (r.systems?.length ?? 0) > 0 && !!r.club_night_day;
+        provisionPublish = true;
         provisionDone = null;
         clubRequestError = null;
     }
@@ -462,7 +468,8 @@
                 slug: provisionSlug.trim(),
                 region: provisionRegion || null,
                 appoint_super_admin: provisionAppoint,
-                enable_systems: provisionSystems
+                enable_systems: provisionSystems,
+                active: provisionPublish
             })
         });
         const body = await r.json().catch(() => ({}));
@@ -1689,6 +1696,12 @@
                                 {:else if r.player_count}
                                     <span class="block-note">👥 ~{r.player_count} players</span>
                                 {/if}
+                                {#if r.possible_duplicates?.length}
+                                    <span class="block-note req-duplicate">
+                                        ⚠ Might already exist:
+                                        {r.possible_duplicates.map((d) => `${d.name} (${d.slug}${d.address ? ', ' + d.address : ''})`).join(', ')}
+                                    </span>
+                                {/if}
                                 {#if r.evidence_url}
                                     <span class="block-note">🔗 <a href={r.evidence_url} target="_blank" rel="noopener noreferrer">{r.evidence_url}</a></span>
                                 {/if}
@@ -1720,7 +1733,7 @@
                                             <input type="checkbox" bind:checked={provisionAppoint} disabled={r.discord_id == null} />
                                             <span>
                                                 Make {r.discord_name ?? 'the requester'} super-admin
-                                                {#if r.discord_id == null}<em> — needs a Discord identity</em>{/if}
+                                                {#if r.discord_id == null}<em>(needs a Discord identity)</em>{/if}
                                             </span>
                                         </label>
                                         <label class="check-row">
@@ -1728,9 +1741,25 @@
                                             <span>
                                                 Switch on {r.systems.length ? r.systems.join(', ') : 'their systems'}
                                                 {#if r.club_night_day} on {r.club_night_day}s{/if}
-                                                {#if !r.systems.length}<em> — none given</em>{/if}
+                                                {#if !r.systems.length}<em>(none given)</em>{/if}
                                             </span>
                                         </label>
+                                        <label class="check-row">
+                                            <input type="checkbox" bind:checked={provisionPublish} />
+                                            <span>List publicly on the club finder straight away</span>
+                                        </label>
+                                        {#if !provisionPublish}
+                                            <p class="muted small">
+                                                The club will exist and its owner can set it up, but its public
+                                                page stays dark until you activate it in Club Management.
+                                            </p>
+                                        {/if}
+                                        {#if r.systems.length && !r.club_night_day}
+                                            <p class="field-error">
+                                                No club night on this request, so nothing can be scheduled.
+                                                Systems stay off and the club sets them up itself.
+                                            </p>
+                                        {/if}
                                         <div class="provision-actions">
                                             <button class="primary-button" type="button" disabled={provisionBusy || !provisionSlug.trim()} onclick={() => provisionClubRequest(r.id)}>
                                                 {provisionBusy ? 'Creating…' : 'Create club'}
@@ -2726,7 +2755,8 @@
 
     /* A request with no Discord account behind it — only possible for rows
        that predate the sign-in requirement. Worth a reviewer's eye. */
-    .req-unverified {
+    .req-unverified,
+    .req-duplicate {
         color: var(--color-loss);
     }
 

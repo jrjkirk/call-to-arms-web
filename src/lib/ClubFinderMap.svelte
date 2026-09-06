@@ -46,11 +46,13 @@
             scrollWheelZoom: false,
             worldCopyJump: false,
         });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
             attribution:
-                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
-                '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+                'Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, HERE, Garmin, ' +
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19,
+            // The layer stops at 16; upscale past it rather than 404.
+            maxNativeZoom: 16,
             // Stop the basemap tiling infinitely sideways (the repeated-world
             // look) when zoomed out — a common source of odd map artefacts.
             noWrap: true,

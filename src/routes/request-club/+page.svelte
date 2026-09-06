@@ -93,6 +93,18 @@
 			error = 'Pick at least one game system. It decides what we switch on for you.';
 			return;
 		}
+		// Both required, because both are used the moment we approve you. The
+		// club night sets up every system's schedule, and guessing it published a
+		// specific wrong night on a club's public page. The region is how players
+		// find you on the finder.
+		if (!clubNightDay) {
+			error = 'Tell us which night you meet. It sets up your schedule when we approve you.';
+			return;
+		}
+		if (!region) {
+			error = 'Pick your region so players can find you.';
+			return;
+		}
 		submitting = true;
 		try {
 			const r = await fetch(`${PUBLIC_API_URL}/club-requests`, {
