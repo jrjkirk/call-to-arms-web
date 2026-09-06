@@ -90,7 +90,7 @@
 			return;
 		}
 		if (!systems.length) {
-			error = 'Pick at least one game system — it decides what we switch on for you.';
+			error = 'Pick at least one game system. It decides what we switch on for you.';
 			return;
 		}
 		submitting = true;
@@ -119,10 +119,10 @@
 				submitted = true;
 			} else {
 				const body = await r.json().catch(() => ({}));
-				error = body.detail || 'Something went wrong — try again in a moment.';
+				error = body.detail || 'Something went wrong. Try again in a moment.';
 			}
 		} catch {
-			error = 'Something went wrong — try again in a moment.';
+			error = 'Something went wrong. Try again in a moment.';
 		} finally {
 			submitting = false;
 		}
@@ -133,7 +133,7 @@
 	<div class="request-section">
 		<div class="request-heading">Add your club</div>
 		<p class="request-tagline">
-			Tell us about it and we'll get you set up — usually the same day.
+			Tell us about it and we'll get you set up, usually the same day.
 		</p>
 
 		{#if !identityLoaded}
@@ -141,7 +141,7 @@
 		{:else if submitted}
 			<div class="request-card request-success">
 				<p>
-					Thanks — your request is in. We'll review it and be in touch at
+					Thanks, your request is in. We'll review it and be in touch at
 					<strong>{requesterEmail}</strong>. Once it's approved you'll be able to sign in and
 					you'll land straight in your club's admin.
 				</p>
@@ -149,9 +149,9 @@
 		{:else if !signedIn}
 			<div class="request-card request-success">
 				<p>
-					Sign in with Discord to request your club. It's how we know who's asking, and it
-					means we can make you your club's admin the moment we approve it — no back and
-					forth.
+					Sign in with Discord to request your club. It's how we know who's asking,
+					and it means we can make you your club's admin the moment we approve it,
+					with no back and forth.
 				</p>
 				<a class="request-button" href={loginHrefTo('/request-club')}>Sign in with Discord</a>
 			</div>

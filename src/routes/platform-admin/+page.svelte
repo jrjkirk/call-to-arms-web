@@ -507,7 +507,7 @@
         let body: string | undefined;
         if (action === 'deny') {
             const reason = window.prompt(
-                'Why are you declining? This is emailed to them — leave blank to decline without notifying.',
+                'Why are you declining? This is emailed to them. Leave blank to decline without notifying.',
                 ''
             );
             if (reason === null) return;
@@ -1764,7 +1764,7 @@
         <div class="dash-group-body">
             <section class="admin-section">
                 <p class="muted">
-                    Written as plain text — a blank line starts a new paragraph, and links
+                    Written as plain text. A blank line starts a new paragraph, and links
                     are made automatically. Tokens in curly braces are filled in when the
                     email is sent.
                 </p>
@@ -1811,7 +1811,7 @@
                                     {#if clubEmailPreview.unknown_tokens.length}
                                         <p class="field-error">
                                             Unknown token{clubEmailPreview.unknown_tokens.length > 1 ? 's' : ''}:
-                                            {clubEmailPreview.unknown_tokens.join(', ')} — these will appear in the
+                                            {clubEmailPreview.unknown_tokens.join(', ')}. These will appear in the
                                             email exactly as written.
                                         </p>
                                     {/if}

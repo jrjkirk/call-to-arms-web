@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { page } from '$app/state';
     import { onMount } from 'svelte';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -2957,6 +2958,22 @@
         if (!adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)) {
             pageLoading = false;
             return;
+        }
+        // ?tab= opens a specific panel, so something outside the app can point
+        // at one. The welcome email uses it to send a new club owner straight to
+        // the handbook instead of telling them to go and find it.
+        //
+        // Applied after loadAdminMe so permissions are known: clubguide is
+        // super-admin only, and an unrecognised or unpermitted tab falls back to
+        // the overview rather than rendering an empty panel.
+        const wanted = page.url.searchParams.get('tab');
+        if (wanted) {
+            const allowed: string[] = ['overview'];
+            for (const item of CLUB_NAV) {
+                if (!item.super || adminMe.is_super_admin) allowed.push(item.id);
+            }
+            if (activeSystem) for (const item of SYSTEM_NAV) allowed.push(item.id);
+            if (allowed.includes(wanted)) activeNav = wanted;
         }
         const tasks: Promise<void>[] = [loadBlocks()];
         if (adminMe.is_super_admin) {
