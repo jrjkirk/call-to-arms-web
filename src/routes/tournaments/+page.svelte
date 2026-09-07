@@ -123,7 +123,7 @@
                     <label class="field">
                         <span class="field-label">Game system <span class="req">*</span></span>
                         <select class="field-select" bind:value={nSystem} disabled={!systems.length}>
-                            <option value="">{systems.length ? '— Choose —' : 'No game systems enabled'}</option>
+                            <option value="">{systems.length ? 'Choose' : 'No game systems enabled'}</option>
                             {#each systems as s}<option value={s.id}>{s.name}</option>{/each}
                         </select>
                         {#if !systems.length}
@@ -163,7 +163,7 @@
             <p class="a-note">Loading…</p>
         {:else if list.length === 0}
             <p class="a-note">
-                No events yet.{#if isAdmin} Create one above — you can set it up as a draft
+                No events yet.{#if isAdmin} Create one above. You can set it up as a draft
                 and open entries when you're ready.{/if}
             </p>
         {:else}

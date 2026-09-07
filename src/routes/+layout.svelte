@@ -219,6 +219,13 @@
         page.url.pathname === '/privacy' ||
         (!isBareHost && (page.url.pathname === '/' || page.url.pathname.startsWith('/book')))
     );
+    // The three admin consoles. Not reading pages, so they get the wider
+    // container above.
+    const isConsole = $derived(
+        page.url.pathname.startsWith('/admin') ||
+        page.url.pathname.startsWith('/venue-admin') ||
+        page.url.pathname.startsWith('/platform-admin')
+    );
     // True only where the MARKETING page renders, which since the sign-in prompt
     // arrived means the bare host alone. It gates the header chrome, and a club
     // subdomain wants that chrome: the prompt is a stop on the way somewhere,
@@ -369,7 +376,7 @@
         </aside>
     </header>
 
-    <main class="container">
+    <main class="container" class:container-console={isConsole}>
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
@@ -388,8 +395,8 @@
                     <div class="claim-banner">
                         <strong>Welcome, {auth.user.discord_name}.</strong>
                         {#if auth.active_club}
-                            You don't have a profile at <strong>{auth.active_club.name}</strong> yet —
-                            <a href="/claim">create one here</a> to play.
+                            You don't have a profile at <strong>{auth.active_club.name}</strong> yet.
+                            <a href="/claim">Create one here</a> to play.
                         {:else}
                             Before you can use the app, please
                             <a href="/claim">create your player profile</a>.
@@ -619,6 +626,17 @@
         margin: 0 auto;
         padding: 1.8rem 2rem 1.5rem;
         background: var(--color-bg-deep);
+    }
+
+    /* The three consoles are the only pages that are not reading. 1100px is a
+       column of prose; an admin panel is a sidebar plus a form, and on a
+       laptop the sidebar was eating a fifth of a column already narrower than
+       the screen. Widened only here, and only once there is screen to spend:
+       below 1400px it stays exactly as it was. */
+    @media (min-width: 1400px) {
+        .container-console {
+            max-width: 1360px;
+        }
     }
 
     /* Wrapper around the scrollable tab row, needed for the fade overlay */

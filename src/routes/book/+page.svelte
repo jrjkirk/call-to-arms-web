@@ -169,7 +169,7 @@
         const at = n.start_time ? ` from ${n.start_time}` : '';
         if (n.same_evening) {
             const who = n.signups
-                ? ` — ${n.signups} ${n.signups === 1 ? 'player is' : 'players are'} already signed up`
+                ? `, and ${n.signups} ${n.signups === 1 ? 'player is' : 'players are'} already signed up`
                 : '';
             return `runs here the same night you've booked${at ? ',' + at : ''}${who}.` +
                 ' Sign up and you\'ll be paired with someone.';
@@ -243,10 +243,10 @@
                     <!-- The address itself was rejected, so telling them "we'll be
                          in touch" would be a promise nobody can keep. -->
                     We couldn't deliver to {confirmed.booking.email}, so it may be
-                    mistyped. Your table is still held — keep the link below, as
+                    mistyped. Your table is still held. Keep the link below, as
                     it's how you get back to this booking.
                 {:else}
-                    Keep this page — we couldn't email {confirmed.booking.email},
+                    Keep this page. We couldn't email {confirmed.booking.email},
                     so the venue will be in touch instead.
                 {/if}
             </p>
@@ -330,7 +330,7 @@
             <label class="field">
                 <span class="field-label">What are you playing</span>
                 <select class="field-select" bind:value={systemChoice}>
-                    <option value="">— Choose —</option>
+                    <option value="">Choose</option>
                     {#each info.systems as s}<option value={String(s.id)}>{s.name}</option>{/each}
                     <option value="other">Something else</option>
                 </select>
@@ -359,7 +359,7 @@
                         {heldForYourGame.system} club night runs that evening and
                         {dayInfo.tables_held} tables are held for it. You can
                         {#if asGuest}<a href={loginHref(page.url)}>sign in to join the night</a>{:else}<a href="/signup?system={encodeURIComponent(heldForYourGame.legacy_system_name ?? heldForYourGame.system)}">sign up for the night</a>{/if}
-                        instead and be paired with someone — or book one of the tables below.
+                        instead and be paired with someone, or book one of the tables below.
                     </p>
                 {:else}
                     <p class="a-note">

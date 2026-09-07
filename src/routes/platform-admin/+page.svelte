@@ -443,7 +443,17 @@
     // the public finder until someone says otherwise. An inactive club is
     // unreachable at its own subdomain, so this is a real hold, not cosmetic.
     let provisionPublish = $state(true);
-    let provisionDone = $state<{ id: number; name: string; slug: string } | null>(null);
+    // What provisioning actually did, not what it used to do. It now appoints
+    // the super-admin and switches the systems on, and both are optional, so the
+    // reviewer needs telling which of them happened.
+    let provisionDone = $state<{
+        id: number;
+        name: string;
+        slug: string;
+        admin: string | null;
+        systems: string[];
+        skipped: string | null;
+    } | null>(null);
 
     function openProvision(r: ClubRequestRow) {
         provisioningId = r.id;
@@ -474,7 +484,14 @@
         });
         const body = await r.json().catch(() => ({}));
         if (r.ok) {
-            provisionDone = { id: body.club.id, name: body.club.name, slug: body.club.slug };
+            provisionDone = {
+                id: body.club.id,
+                name: body.club.name,
+                slug: body.club.slug,
+                admin: body.appointed_super_admin?.discord_name ?? null,
+                systems: body.enabled_systems ?? [],
+                skipped: body.skipped_systems_reason ?? null
+            };
             if (body.email && body.email !== 'sent') {
                 clubRequestError = `Club created, but the welcome email didn't send (${body.email}). They haven't been told.`;
             }
@@ -576,7 +593,7 @@
             body: JSON.stringify({ kind: e.kind, subject: e.subject, body: e.body })
         });
         if (r.ok) {
-            clubEmailMessage = `Saved — ${e.label}.`;
+            clubEmailMessage = `Saved: ${e.label}.`;
             await loadClubEmails();
         } else {
             const b = await r.json().catch(() => ({}));
@@ -1070,7 +1087,7 @@
     <p class="muted">You don't have platform admin access.</p>
 {:else}
     <p class="section-intro platform-banner" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
-        Cross-club management — creating clubs, configuring their systems, appointing their
+        Cross-club management: creating clubs, configuring their systems, appointing their
         delegates, and toggling which clubs are live. Separate from, and more powerful than, a
         club's own <a href="/admin">Admin</a> tools.
     </p>
@@ -1100,14 +1117,10 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Club Health</span>
-                <HelpTip label="club health" text={"Every club on the platform and whether it's actually being used — signups this week, last activity, whether anyone has set it up. The place to spot a club that signed up and then stalled."} />
+                <HelpTip label="club health" text={"Every club on the platform and whether it's actually being used: signups this week, last activity, whether anyone has set it up. The place to spot a club that signed up and then stalled."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
-                <p class="section-intro">
-                    At-a-glance health of every club in the network. Rows flagged in gold need a
-                    look — no systems, no admin, no Discord, or gone quiet.
-                </p>
                 {#if clubsHealthLoading}
                     <p class="muted">Loading…</p>
                 {:else if clubsHealth.length === 0}
@@ -1254,15 +1267,10 @@
     <div class="dash-group">
             <div class="dash-group-header static">
                 <span class="dash-group-title">Game Systems</span>
-                <HelpTip label="game systems" text={"The catalogue every club picks from. A system added here doesn't appear anywhere until a club enables it on their own Systems tab.\n\nThese are platform-wide defaults — most of them can be overridden per club."} />
+                <HelpTip label="game systems" text={"The catalogue every club picks from. A system added here doesn't appear anywhere until a club enables it on their own Systems tab.\n\nThese are platform-wide defaults. Most of them can be overridden per club."} />
             </div>
         <div class="dash-group-body">
     <section class="admin-section">
-        <p class="section-intro">
-            The global catalogue of systems any club can enable for itself. New systems are
-            created in code; here you edit an existing one. Deactivating a system is a
-            platform-wide kill switch — no club can self-service-enable it while inactive.
-        </p>
         {#if gameSystemsLoading}
             <p class="muted">Loading…</p>
         {:else if gameSystemsError}
@@ -1319,7 +1327,7 @@
             </div>
             <div class="field">
                 <label class="field-label" for="gs-slug">Slug
-                    <HelpTip label="the slug" text={"Short identifier for this system — tow, hh, kt. It's what the logo and faction-icon files are named after (static/logos/<slug>.png, icons/<FOLDER>), so a system with no matching files shows no artwork.\n\nNot stored on signups or pairings — that's the legacy system name."} /></label>
+                    <HelpTip label="the slug" text={"Short identifier for this system: tow, hh, kt. It's what the logo and faction-icon files are named after (static/logos/<slug>.png, icons/<FOLDER>), so a system with no matching files shows no artwork.\n\nNot stored on signups or pairings. That's the legacy system name."} /></label>
                 <input
                     id="gs-slug"
                     class="field-input"
@@ -1331,7 +1339,7 @@
             </div>
             <div class="field">
                 <label class="field-label" for="gs-legacy">Legacy system name
-                    <HelpTip label="the legacy system name" text={"The exact string stored on every signup, pairing and publish record for this system, and the key its per-club settings are filed under.\n\nCHANGING IT ON A LIVE SYSTEM ORPHANS ALL OF THAT — the history stays under the old string. Set it once, at creation, and leave it."} /></label>
+                    <HelpTip label="the legacy system name" text={"The exact string stored on every signup, pairing and publish record for this system, and the key its per-club settings are filed under.\n\nCHANGING IT ON A LIVE SYSTEM ORPHANS ALL OF THAT. The history stays under the old string. Set it once, at creation, and leave it."} /></label>
                 <input id="gs-legacy" class="field-input" type="text" bind:value={gsLegacyName} required />
             </div>
             <div class="field-row-break"></div>
@@ -1357,7 +1365,7 @@
                 <span class="field-label">Vibe options</span>
                 <HelpTip
                     label="vibe options"
-                    text={"The game types this system offers, and the list every club STARTS from. A club can override it on their own Game System Config tab — and if they haven't, changing this changes theirs too.\n\nDefault vibe is what a signup falls back to when its choice isn't in the list."}
+                    text={"The game types this system offers, and the list every club STARTS from. A club can override it on their own Game System Config tab. If they haven't, changing this changes theirs too.\n\nDefault vibe is what a signup falls back to when its choice isn't in the list."}
                 />
                 <div class="vibe-checkboxes">
                     {#each CANONICAL_VIBES as v}
@@ -1416,7 +1424,7 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsUsesStandby} />
                 <span>Offers standby option</span>
-                <HelpTip label="the standby option" text={"Adds “I can be on standby” to this system's signup form — happy to sit out if the numbers are odd. Off, and nobody is asked."} />
+                <HelpTip label="the standby option" text={"Adds “I can be on standby” to this system's signup form, for someone happy to sit out if the numbers are odd. Off, and nobody is asked."} />
             </label>
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsHasIntroPrepass} />
@@ -1426,18 +1434,18 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsHasLeague} />
                 <span>Has league</span>
-                <HelpTip label="has league" text={"Whether this system generally supports a league ladder. It's only the platform default — whether a given club actually runs one is theirs to set on their own League tab."} />
+                <HelpTip label="has league" text={"Whether this system generally supports a league ladder. It's only the platform default. Whether a given club actually runs one is theirs to set on their own League tab."} />
             </label>
             <div class="field-row-break"></div>
 
             <div class="field field-narrow">
                 <label class="field-label" for="gs-recent-weeks">Recent weeks
-                    <HelpTip label="recent weeks" text={"How far back the matcher treats a repeat opponent as recent. A pair who met inside this window is skipped on the first pass and penalised hardest after that.\n\nRoughly double it for a fortnightly system — six weeks of a fortnightly night is three sessions, not six."} /></label>
+                    <HelpTip label="recent weeks" text={"How far back the matcher treats a repeat opponent as recent. A pair who met inside this window is skipped on the first pass and penalised hardest after that.\n\nRoughly double it for a fortnightly system. Six weeks of a fortnightly night is three sessions, not six."} /></label>
                 <input id="gs-recent-weeks" class="field-input" type="number" min="1" bind:value={gsRecentWeeks} />
             </div>
             <div class="field field-narrow">
                 <label class="field-label" for="gs-extended-weeks">Extended weeks
-                    <HelpTip label="extended weeks" text={"The wider window. A repeat in here is discouraged but allowed — half the penalty of the recent window. Set it larger than Recent weeks."} /></label>
+                    <HelpTip label="extended weeks" text={"The wider window. A repeat in here is discouraged but allowed, at half the penalty of the recent window. Set it larger than Recent weeks."} /></label>
                 <input id="gs-extended-weeks" class="field-input" type="number" min="1" bind:value={gsExtendedWeeks} />
             </div>
             <div class="field-row-break"></div>
@@ -1445,7 +1453,7 @@
             <label class="check-row">
                 <input type="checkbox" bind:checked={gsActive} />
                 <span>Active</span>
-                <HelpTip label="active" text={"Unticking hides this system from the catalogue everywhere — clubs can no longer enable it and it drops out of the pickers. Existing signups and pairings are untouched; this is the off switch, not a delete."} />
+                <HelpTip label="active" text={"Unticking hides this system from the catalogue everywhere. Clubs can no longer enable it and it drops out of the pickers. Existing signups and pairings are untouched; this is the off switch, not a delete."} />
             </label>
 
             {#if gsError}
@@ -1481,10 +1489,6 @@
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">Announcement Banner</h3>
-                <p class="section-intro">
-                    Shown at the top of every page, for every visitor, across every club — logged in
-                    or not. Use it sparingly (scheduled maintenance, a platform-wide notice).
-                </p>
                 {#if siteBannerLoading}
                     <p class="muted">Loading…</p>
                 {:else}
@@ -1519,14 +1523,10 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Community Discord link</span>
-                <HelpTip label="community discord link" text={"The platform's own Discord, offered to players who haven't joined a club yet. Nothing to do with any club's own server."} />
+                <HelpTip label="community discord link" text={"The platform's own Discord:\n\n\u2022 Offered to players who haven't joined a club yet\n\u2022 Shown as a button on every club admin page\n\u2022 Leave blank to hide it\n\nNothing to do with any club's own server."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
-                <p class="section-intro">
-                    A support / community Discord server, shown as a button on every club's admin
-                    page so admins can request features and report bugs. Leave blank to hide it.
-                </p>
                 <div class="field">
                     <label class="field-label" for="community-discord">Invite URL</label>
                     <input id="community-discord" class="field-input" type="text" placeholder="https://discord.gg/…" bind:value={communityDiscordUrl} />
@@ -1546,15 +1546,11 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Scheduled Jobs</span>
-                <HelpTip label="scheduled jobs" text={"The background jobs — pairings, call to arms, call-outs, booking cutoffs. Each row is the last run and whether it succeeded, so a job that has quietly stopped shows up here rather than as a missing Discord post."} />
+                <HelpTip label="scheduled jobs" text={"The background jobs: pairings, call to arms, call-outs, booking cutoffs. Each row is the last run and whether it succeeded, so a job that has quietly stopped shows up here rather than as a missing Discord post."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">Scheduled Job Health</h3>
-                <p class="section-intro">
-                    Each job's most recent run — a job that's gone quiet (or keeps erroring) means a
-                    club's pairings or call-to-arms posts silently stopped firing.
-                </p>
                 {#if jobRunsLoading}
                     <p class="muted">Loading…</p>
                 {:else}
@@ -1566,7 +1562,7 @@
                                     <span class="status-badge" class:status-active={j.latest.status === 'ok'} class:status-inactive={j.latest.status !== 'ok'}>
                                         {j.latest.status === 'ok' ? 'OK' : 'Error'}
                                     </span>
-                                    <span class="block-note">{formatRelativeTime(j.latest.ran_at)}{j.latest.detail ? ` — ${j.latest.detail}` : ''}</span>
+                                    <span class="block-note">{formatRelativeTime(j.latest.ran_at)}{j.latest.detail ? `: ${j.latest.detail}` : ''}</span>
                                 {:else}
                                     <span class="status-badge status-inactive">Never run</span>
                                 {/if}
@@ -1634,25 +1630,26 @@
             </span>
             <HelpTip
                 label="club requests"
-                text={"Clubs that have applied to join through the public Find a club page. Approving one provisions it — creates the club, makes the applicant its super-admin and lets them in.\n\nThe badge counts the ones still waiting."}
+                text={"Clubs that applied through the public Find a club page.\n\nProvision creates the club, appoints the applicant as its super-admin and enables the systems they asked for. Name, contact and address come from the request; you confirm the subdomain slug.\n\nBoth of those are checkboxes you can untick. Deny to dismiss.\n\nThe badge counts the ones still waiting."}
             />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">"Add My Club" Requests</h3>
-                <p class="section-intro">
-                    Submitted from the logged-out hero page. <strong>Provision</strong> creates the
-                    club in one step (name, contact, and address come straight from the request);
-                    you just confirm the subdomain slug. Deny to dismiss. Provisioning doesn't
-                    enable systems or appoint the admin — the club's own onboarding checklist walks
-                    them through that.
-                </p>
                 {#if provisionDone}
                     <p class="pairing-message">
                         ✓ Provisioned <strong>{provisionDone.name}</strong> at
-                        <code>{provisionDone.slug}.calltoarms.app</code>. Next: once
-                        {provisionDone.name}'s admin has signed in with Discord, appoint them as
-                        super-admin via <strong>Club Management → Super-admins</strong>.
+                        <code>{provisionDone.slug}.calltoarms.app</code>.
+                        {#if provisionDone.admin}
+                            <br />Super-admin: <strong>{provisionDone.admin}</strong>.
+                        {:else}
+                            <br />No super-admin appointed. Do it under Club Management once they have signed in.
+                        {/if}
+                        {#if provisionDone.systems.length}
+                            <br />Systems on: {provisionDone.systems.join(', ')}.
+                        {:else if provisionDone.skipped}
+                            <br />No systems enabled: {provisionDone.skipped}.
+                        {/if}
                     </p>
                 {/if}
                 <div class="field field-narrow">
@@ -1677,7 +1674,7 @@
                                     <span class="block-note">{r.club_location}</span>
                                 </span>
                                 <span class="block-note">
-                                    {r.requester_name} — <a href={`mailto:${r.requester_email}`}>{r.requester_email}</a>
+                                    {r.requester_name} · <a href={`mailto:${r.requester_email}`}>{r.requester_email}</a>
                                     {#if r.requester_role} · {r.requester_role}{/if}
                                 </span>
                                 <!-- The identity and the club's own answers. A request
@@ -1723,7 +1720,7 @@
                                         <div class="field">
                                             <label class="field-label" for={`prov-region-${r.id}`}>Region (optional)</label>
                                             <select id={`prov-region-${r.id}`} class="field-select" bind:value={provisionRegion}>
-                                                <option value="">— None —</option>
+                                                <option value="">None</option>
                                                 {#each UK_REGIONS as reg}
                                                     <option value={reg}>{reg}</option>
                                                 {/each}
@@ -1789,14 +1786,10 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Onboarding Emails</span>
+                <HelpTip label="onboarding emails" text={"The three messages a club organiser gets: acknowledgement, welcome, decline.\n\n\u2022 Write plain text, not HTML\n\u2022 A blank line starts a new paragraph\n\u2022 Links are made automatically\n\u2022 {tokens} in curly braces are filled in on send\n\nClear a field to go back to the built-in wording."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
-                <p class="muted">
-                    Written as plain text. A blank line starts a new paragraph, and links
-                    are made automatically. Tokens in curly braces are filled in when the
-                    email is sent.
-                </p>
                 {#if clubEmailsLoading}
                     <p class="muted">Loading…</p>
                 {:else}
@@ -1874,15 +1867,11 @@
     <div class="dash-group">
         <div class="dash-group-header static">
             <span class="dash-group-title">Find a User</span>
-                <HelpTip label="find a user" text={"Search every club at once, by Discord name or player name. For “they say they can't log in” — it finds which club their account actually sits on."} />
+                <HelpTip label="find a user" text={"Search every club at once, by Discord name or player name. For “they say they can't log in”. It finds which club their account actually sits on."} />
         </div>
         <div class="dash-group-body">
             <section class="admin-section">
                 <h3 class="section-heading">Cross-club User Search</h3>
-                <p class="section-intro">
-                    Search by Discord name or linked player name across every club — for support
-                    requests when you don't know which club someone belongs to.
-                </p>
                 <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); searchUsers(); }}>
                     <div class="field">
                         <label class="field-label" for="user-search-q">Search</label>
@@ -1941,7 +1930,7 @@
                     <span class="status-badge" class:status-active={selectedClub.active} class:status-inactive={!selectedClub.active}>
                         {selectedClub.active ? 'Active' : 'Inactive'}
                     </span>
-                    {selectedClub.active ? '— visible on the public club picker.' : '— hidden from the public club picker.'}
+                    {selectedClub.active ? 'and visible on the public club picker.' : 'and hidden from the public club picker.'}
                 </p>
                 {#if activeError}
                     <p class="field-error">{activeError}</p>
@@ -1965,8 +1954,8 @@
                     {#if editSlug.trim().toLowerCase() !== selectedClub.slug}
                         <p class="section-intro slug-warning">
                             ⚠ Changing the slug renames this club's URL to
-                            <strong>{(editSlug.trim().toLowerCase() || '…')}.calltoarms.app</strong> —
-                            existing links, bookmarks, and subdomain logins using the old slug
+                            <strong>{(editSlug.trim().toLowerCase() || '…')}.calltoarms.app</strong>.
+                            Existing links, bookmarks, and subdomain logins using the old slug
                             (<strong>{selectedClub.slug}</strong>) will stop working.
                         </p>
                     {/if}
@@ -1987,11 +1976,8 @@
             </div>
 
             <div class="sub-section">
-                <h4 class="sub-heading">Club Page: Location, Hours &amp; Logo</h4>
-                <p class="section-intro">
-                    The location, opening hours, and logo shown on this club's Club page. The blurb,
-                    website, and Discord link stay editable only by the club's own super-admin.
-                </p>
+                <h4 class="sub-heading">Club Page: Location, Hours &amp; Logo
+                    <HelpTip label="the club page editor" text={"What a visitor sees on this club's Club page.\n\nThe blurb, website and Discord link are not here \u2014 only the club's own super-admin can edit those."} /></h4>
                 {#if clubProfileLoading}
                     <p class="muted">Loading…</p>
                 {:else if !clubProfile}
@@ -2012,11 +1998,10 @@
                         </div>
                     </div>
                     <p class="field-label-hint">
-                        Coordinates place the pin on this club's Club-page map and on the multi-club map
-                        logged-out visitors see. No coordinates, no pin — the address text still shows.
                         <a class="hint-link" href={googleMapsSearchUrl(clubProfile.address)} target="_blank" rel="noopener noreferrer">
                             Find this address on Google Maps ↗
-                        </a> — right-click the exact spot, click the lat/long shown at the top of the menu to copy it, then paste the two numbers in above.
+                        </a>
+                        <HelpTip label="coordinates" text={"They place the map pin, on this club's own page and on the map logged-out visitors see.\n\n\u2022 Open the address in Google Maps\n\u2022 Right-click the exact spot\n\u2022 Click the lat/long at the top of the menu to copy it\n\u2022 Paste the two numbers above\n\nNo coordinates, no pin. The address text still shows."} />
                     </p>
 
                     <h5 class="sub-heading">Opening Hours</h5>
@@ -2054,8 +2039,8 @@
 
                     <h5 class="sub-heading">Logo</h5>
                     <p class="field-label-hint">
-                        <strong>Image guidelines:</strong> square, at least 400×400px. Transparent PNG
-                        works best against the dark background. Accepted formats: PNG, JPEG, WEBP. Max 5 MB.
+                        Square, 400×400px or larger. PNG, JPEG or WEBP, max 5 MB. A transparent
+                        PNG sits best on the dark background.
                     </p>
                     {#if clubProfile.logo_url}
                         <div class="club-logo-preview">
@@ -2092,7 +2077,7 @@
                             <li class="block-row">
                                 <span class="block-names"><strong>{row.system_name}</strong></span>
                                 <span class="block-note">
-                                    {row.enabled ? 'Enabled' : 'Disabled'} — {row.session_cadence} {row.session_day}
+                                    {row.enabled ? 'Enabled' : 'Disabled'} · {row.session_cadence} {row.session_day}
                                     {#if row.cadence_anchor}(anchor {row.cadence_anchor}){/if}
                                 </span>
                             </li>
@@ -2106,7 +2091,7 @@
                         <div class="field">
                             <label class="field-label" for="sys-select">System</label>
                             <select id="sys-select" class="field-select" bind:value={systemSelectId} onchange={onSystemPick}>
-                                <option value="">— Select system —</option>
+                                <option value="">Select system</option>
                                 {#each systemsCatalogue as s}
                                     <option value={String(s.id)}>
                                         {s.legacy_system_name}
@@ -2175,7 +2160,7 @@
                         <div class="field">
                             <label class="field-label" for="appoint-user">User</label>
                             <select id="appoint-user" class="field-select" bind:value={appointUserIdStr}>
-                                <option value="">— Select user —</option>
+                                <option value="">Select user</option>
                                 {#each clubGrantableUsers as u}
                                     <option value={String(u.id)}>{u.player_name} ({u.discord_name})</option>
                                 {/each}

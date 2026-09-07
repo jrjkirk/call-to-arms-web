@@ -35,15 +35,15 @@ export const SITE_NAME = 'Call to Arms';
  * Titles by SvelteKit route id (`page.route.id`), not pathname, so the
  * parameterised routes have one stable key each.
  *
- * The separator is inconsistent — some titles use an em dash, some a middot.
- * That is preserved from the original per-page titles rather than quietly
- * normalised: these strings are what shows in a shared link and a search
- * result, and changing them is a content decision, not a refactor.
+ * The separator is a middot throughout. Two titles used an em dash instead,
+ * which was inherited from the original per-page titles; it is normalised here
+ * because these strings show in a shared link and a search result and should
+ * not read as two different sites.
  */
 const ROUTE_TITLES: Record<string, string> = {
 	'/': SITE_NAME, // replaced by the club's own name once loaded
-	'/find': 'Find a club — Call to Arms',
-	'/signup': 'Signup — Call to Arms',
+	'/find': 'Find a club · Call to Arms',
+	'/signup': 'Signup · Call to Arms',
 	'/pairings': 'Pairings · Call to Arms',
 	'/league': 'League · Call to Arms',
 	'/leagues': 'Leagues · Call to Arms',

@@ -5,7 +5,7 @@
 <div class="policy">
     <p>
         Call to Arms is a small, club-run tool for organising tabletop
-        wargaming sessions — sign-ups, pairings, and league standings. This
+        wargaming sessions: sign-ups, pairings, and league standings. This
         page explains what information the app collects, how it's used, and
         who can see it. It's written in plain language for a small hobby
         project, not as a substitute for legal advice.
@@ -27,13 +27,13 @@
         <li>
             <strong>Sign-ups and game activity.</strong> Which sessions
             you've signed up for, your pairings, and league results
-            (opponent, faction, outcome, rating changes) — this is the core
+            (opponent, faction, outcome, rating changes). This is the core
             record-keeping the app exists to do.
         </li>
         <li>
             <strong>Session cookie.</strong> A single cookie that keeps you
-            signed in. It contains no personal data itself — just a signed
-            token the server uses to recognise your session — and expires
+            signed in. It contains no personal data itself, just a signed
+            token the server uses to recognise your session, and it expires
             automatically.
         </li>
     </ul>
@@ -42,7 +42,7 @@
     <h3>How it's used</h3>
     <p>
         Your information is used to run the club's sign-up sheets, generate
-        weekly pairings, and keep league standings — nothing else. Some of
+        weekly pairings, and keep league standings. Nothing else. Some of
         this (your name, faction, results) is inherently visible to other
         members of your club, since that's the point of the app.
     </p>
@@ -50,7 +50,7 @@
     <h3>Who can see it</h3>
     <p>
         Other members of your own club can see your name, sign-ups,
-        pairings, and league record — the same information they'd see on a
+        pairings, and league record: the same information they'd see on a
         physical sign-up sheet. Club admins can additionally see and edit
         signup/pairing details for their club. Your data is scoped to your
         own club; members of other clubs on this platform cannot see it.
@@ -69,14 +69,14 @@
         We don't sell or share your information with third parties for
         marketing or advertising. The only external services involved are
         Discord (for sign-in) and, if your club uses them, Discord webhooks
-        (to post activity to your club's own server) — both are things you
+        (to post activity to your club's own server). Both are things you
         or your club have chosen to use.
     </p>
 
     <h3>Your data</h3>
     <p>
         If you'd like to see what's stored about you, have it corrected, or
-        have it removed, ask your club's admin or contact us — see below.
+        have it removed, ask your club's admin or contact us. See below.
     </p>
 
     <h3>Questions</h3>

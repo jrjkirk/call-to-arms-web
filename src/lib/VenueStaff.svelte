@@ -54,7 +54,7 @@
         <h2 class="a-title">Venue staff</h2>
         <HelpTip
             label="venue staff"
-            text={"Who can open this tab. Venue access is on its own — it gives the diary, tables and settings, and nothing else. Someone running the bar doesn't need to be a game-system admin.\n\nClub super-admins and platform admins already have it and aren't listed here, because this screen can't take it away from them."}
+            text={"Who can open this tab. Venue access is on its own. It gives the diary, tables and settings, and nothing else. Someone running the bar doesn't need to be a game-system admin.\n\nClub super-admins and platform admins already have it and aren't listed here, because this screen can't take it away from them."}
         />
         <span class="a-head-end a-state" class:is-on={staff.length > 0}>{staff.length}</span>
     </div>
@@ -75,7 +75,7 @@
     <h3 class="a-subtitle">Give someone access</h3>
     <div class="add-row">
         <select class="field-select" bind:value={chosen}>
-            <option value="">— Choose a person —</option>
+            <option value="">Choose a person</option>
             {#each candidates as c}
                 <option value={String(c.id)}>{c.player_name} ({c.discord_name})</option>
             {/each}

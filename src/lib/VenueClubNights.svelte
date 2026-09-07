@@ -264,7 +264,7 @@
             {/if}
             <HelpTip
                 label="club night tables"
-                text={"Set aside how many tables this night needs, and which ones are its own.\n\nTap a table once to HOLD it: the public can't book it on this night, and it shows gold on the Diary. Staff can still seat someone on it.\n\nTap again for \"suits\" — offered first to anyone booking this game, but still bookable by the public. A third tap clears it.\n\nThe review underneath checks your number against real published pairings, one pairing to a table."}
+                text={"Set aside how many tables this night needs, and which ones are its own.\n\nTap a table once to HOLD it: the public can't book it on this night, and it shows gold on the Diary. Staff can still seat someone on it.\n\nTap again for \"suits\": offered first to anyone booking this game, but still bookable by the public. A third tap clears it.\n\nThe review underneath checks your number against real published pairings, one pairing to a table."}
             />
             <span class="a-head-end a-state" class:is-on={n.reserved_table_ids.length > 0}>
                 {cadence(n)}
@@ -293,7 +293,7 @@
                     <label class="field sched-anchor">
                         <span class="field-label">
                             A date it ran
-                            <HelpTip label="fortnightly anchor" text={"Any date this night actually ran.\n\nFor a fortnightly night we count fortnights from there. For a monthly one we read WHICH weekday of the month it was — a night anchored to the second Wednesday runs on the second Wednesday."} />
+                            <HelpTip label="fortnightly anchor" text={"Any date this night actually ran.\n\nFor a fortnightly night we count fortnights from there. For a monthly one we read WHICH weekday of the month it was. A night anchored to the second Wednesday runs on the second Wednesday."} />
                         </span>
                         <input class="field-input" type="date" bind:value={n.cadence_anchor} />
                     </label>
@@ -308,13 +308,13 @@
         <div class="plan-row">
             <label class="field plan-count">
                 <span class="field-label">Tables needed</span>
-                <HelpTip label="tables needed" text={"How many tables to expect this night to use. It's a forecast, and only used until the pairings are out — after that the Diary counts the real games.\n\nLeave it blank and the number of tables you've held is used instead."} />
+                <HelpTip label="tables needed" text={"How many tables to expect this night to use. It's a forecast, and only used until the pairings are out. After that the Diary counts the real games.\n\nLeave it blank and the number of tables you've held is used instead."} />
                 <input class="field-input" type="number" min="0" max="200"
                        bind:value={n.expected_tables} placeholder="—" />
             </label>
             <label class="field plan-notes">
                 <span class="field-label">Notes <span class="field-label-hint">(staff only)</span></span>
-                <HelpTip label="notes" text={"Anything the bar needs to know on the night — terrain out at six, the far room is cold. Never shown to players or on the public booking page."} />
+                <HelpTip label="notes" text={"Anything the bar needs to know on the night: terrain out at six, the far room is cold. Never shown to players or on the public booking page."} />
                 <input class="field-input" type="text" bind:value={n.notes}
                        placeholder="Terrain goes out at 6" />
             </label>
@@ -324,7 +324,7 @@
             Colour
             <HelpTip
                 label="night colour"
-                text={"How this night's held tables are drawn on the Diary.\n\nA venue running several game nights needs to see WHICH one has the far corner on a Wednesday — one shade for everything held can't say that."}
+                text={"How this night's held tables are drawn on the Diary.\n\nA venue running several game nights needs to see WHICH one has the far corner on a Wednesday. One shade for everything held can't say that."}
             />
         </h3>
         <div class="swatches">
@@ -357,7 +357,7 @@
             {#if n.preferred_table_ids.length > n.reserved_table_ids.length}
                 <br /><strong>Suits:</strong>
                 {summarise(n.preferred_table_ids.filter((id) => !n.reserved_table_ids.includes(id)))}
-                <span class="s-quiet">— offered first, still bookable</span>
+                <span class="s-quiet">(offered first, still bookable)</span>
             {/if}
         </p>
 
@@ -373,6 +373,7 @@
                 <button class="bulk" type="button" onclick={() => setAll(n, 'none')}>
                     Clear {filter[n.night_id] ? 'these' : 'all'}
                 </button>
+                <HelpTip label="holding tables" text={"Tap a table to cycle it:\n\n\u2022 Held \u2014 kept off the public booking page\n\u2022 Suits \u2014 offered first to anyone booking this game, still bookable\n\u2022 Tap again to clear"} />
             </div>
             <div class="table-grid">
                 {#each shown(n.night_id) as t (t.id)}
@@ -391,16 +392,12 @@
                     <p class="a-note">No table matches that.</p>
                 {/each}
             </div>
-            <p class="a-note picker-note">
-                Tap once to <strong>hold</strong> a table for this night, again for
-                <strong>suits</strong> — offered first to anyone booking this game, but still
-                bookable — and again to clear it. Held tables show {n.color} on the Diary.
-            </p>
+            <p class="a-note picker-note">Held tables show {n.color} on the Diary.</p>
         </div>
         {/if}
 
         <h3 class="a-subtitle">How the plan is holding up</h3>
-        <HelpTip label="how the plan is holding up" text={"Your tables-needed figure against what actually happened: published pairings from recent sessions, one game to a table. Byes take no table and aren't counted, and a week with no pairings is skipped rather than averaged in as a quiet night.\n\nThe advice is written against the BUSIEST recent session, not the average — laying out for the mean means coming up short every other week."} />
+        <HelpTip label="how the plan is holding up" text={"Your tables-needed figure against what actually happened: published pairings from recent sessions, one game to a table. Byes take no table and aren't counted, and a week with no pairings is skipped rather than averaged in as a quiet night.\n\nThe advice is written against the BUSIEST recent session, not the average. Laying out for the mean means coming up short every other week."} />
         {#if !n.review.measurable}
             <p class="a-note">
                 This night doesn't run through Call to Arms, so there are no pairings to
@@ -451,7 +448,7 @@
         <h2 class="a-title">Add a club night</h2>
         <HelpTip
             label="other club nights"
-            text={"For a night this app doesn't run — Magic, Bolt Action, Warmachine.\n\nNobody signs up to it here and no pairings are generated, so there's nothing to check a plan against. It still holds its tables and still shows in your diary, which is what stops the public booking over it."}
+            text={"For a night this app doesn't run: Magic, Bolt Action, Warmachine.\n\nNobody signs up to it here and no pairings are generated, so there's nothing to check a plan against. It still holds its tables and still shows in your diary, which is what stops the public booking over it."}
         />
     </div>
     <p class="a-note">

@@ -92,7 +92,7 @@
     // about whose page they'd landed on. Announced to the layout rather than
     // set here — see $lib/pageTitle for why there is only one <title>.
     $effect(() => {
-        setPageTitle(page.route.id, data?.club?.name ? `${data.club.name} — Call to Arms` : null);
+        setPageTitle(page.route.id, data?.club?.name ? `${data.club.name} · Call to Arms` : null);
     });
 
     async function load(m: string) {

@@ -858,7 +858,7 @@
             <span class="a-title">Floor plan</span>
             <HelpTip
                 label="floor plan"
-                text={"Your venue drawn to scale. Click something to pick it up: drag to move, corner handles to resize, the arm above it to turn.\n\nTurning snaps to 15°, and resizing to your snap setting — hold Shift to override either.\n\nSwitch to Tonight to see the same room with its bookings on it."}
+                text={"Your venue drawn to scale. Click something to pick it up: drag to move, corner handles to resize, the arm above it to turn.\n\nTurning snaps to 15°, and resizing to your snap setting. Hold Shift to override either.\n\nSwitch to Tonight to see the same room with its bookings on it."}
             />
         </span>
         <span class="bar-mid">
@@ -1111,7 +1111,7 @@
 
                     {#if flippable.length}
                         <span class="field-label">Opening</span>
-                        <HelpTip label="the door opening" text={"Which jamb the door is hinged on, and which way it swings. Rotation alone can't separate the two — turning a door 180° swaps both at once — so these are the missing axis."} />
+                        <HelpTip label="the door opening" text={"Which jamb the door is hinged on, and which way it swings. Rotation alone can't separate the two, because turning a door 180° swaps both at once. These are the missing axis."} />
                         <div class="seg">
                             <button class="seg-btn" class:active={sole?.o.flip_h}
                                     onclick={() => flip('h')} title="Swap the hinge to the other jamb">
@@ -1156,7 +1156,7 @@
                         {#if isTable}
                             <label class="p-field">
                                 <span class="field-label">Seats</span>
-                                <HelpTip label="seats" text={"How many people this table comfortably takes. The public booking form won't offer it to a bigger party than this, and it's how “smallest table that fits” is decided — so a pair doesn't get given the only big board."} />
+                                <HelpTip label="seats" text={"How many people this table comfortably takes. The public booking form won't offer it to a bigger party than this, and it's how “smallest table that fits” is decided, so a pair doesn't get given the only big board."} />
                                 <input class="field-input" type="number" min="1" max="20"
                                        bind:value={sole!.o.seats} oninput={() => (dirty = true)} />
                             </label>

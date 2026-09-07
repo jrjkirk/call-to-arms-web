@@ -94,7 +94,7 @@
         const r = await fetch(`${PUBLIC_API_URL}/venue/admin/webhook/test`, {
             method: 'POST', credentials: 'include'
         });
-        if (r.ok) webhookMessage = 'Test message sent — check the channel.';
+        if (r.ok) webhookMessage = 'Test message sent. Check the channel.';
         else error = (await r.json().catch(() => ({}))).detail || 'Test failed.';
         webhookBusy = false;
     }
@@ -115,7 +115,7 @@
             <h2 class="a-title">Bookings</h2>
             <HelpTip
                 label="public bookings"
-                text={"Off means there's no booking page at all — no button on your club page, and the booking links stop working.\n\nYou need at least one table before this will turn on."}
+                text={"Off means there's no booking page at all: no button on your club page, and the booking links stop working.\n\nYou need at least one table before this will turn on."}
             />
             <span class="a-head-end a-state" class:is-on={cfg.enabled}>
                 {cfg.enabled ? 'Open' : 'Closed'}
@@ -185,7 +185,7 @@
             How you hear about it
             <HelpTip
                 label="notifications"
-                text={"Pick whichever suits how your venue is run — a staff Discord, an inbox, both, or neither.\n\nWith both off, bookings still arrive and still show in the Diary. You just won't be told."}
+                text={"Pick whichever suits how your venue is run: a staff Discord, an inbox, both, or neither.\n\nWith both off, bookings still arrive and still show in the Diary. You just won't be told."}
             />
         </h3>
 
@@ -217,7 +217,7 @@
                     Booking channel
                     <HelpTip
                         label="webhook"
-                        text={"In Discord: Server Settings → Integrations → Webhooks → New Webhook. Pick the channel your staff watch, copy the URL, paste it here.\n\nWe never show the whole URL back — anyone holding it can post to that channel."}
+                        text={"In Discord: Server Settings → Integrations → Webhooks → New Webhook. Pick the channel your staff watch, copy the URL, paste it here.\n\nWe never show the whole URL back. Anyone holding it can post to that channel."}
                     />
                 </span>
                 {#if profile.webhook.configured}
@@ -243,12 +243,12 @@
             Rules
             <HelpTip
                 label="booking rules"
-                text={"Slot length is how start times are offered — 30 minutes means 18:00, 18:30, 19:00.\n\nNotice is how close to the start someone may still book, so a table can't appear on you with no warning.\n\nPer person caps how many upcoming bookings one account can hold at once. Booking needs a login, so this is what stops one person taking the room."}
+                text={"Slot length is how start times are offered. 30 minutes means 18:00, 18:30, 19:00.\n\nNotice is how close to the start someone may still book, so a table can't appear on you with no warning.\n\nPer person caps how many upcoming bookings one account can hold at once. Booking needs a login, so this is what stops one person taking the room."}
             />
         </h3>
         <div class="rules-grid">
             <label class="field">
-                <span class="field-label">Slot length <HelpTip label="slot length" text={"How far apart the start times on the booking form sit. 30 minutes gives 18:00, 18:30, 19:00 — shorter means more choice and a longer list."} /></span>
+                <span class="field-label">Slot length <HelpTip label="slot length" text={"How far apart the start times on the booking form sit. 30 minutes gives 18:00, 18:30, 19:00. Shorter means more choice and a longer list."} /></span>
                 <select class="field-select" bind:value={cfg.slot_minutes}>
                     <option value={15}>15 min</option>
                     <option value={30}>30 min</option>
@@ -264,7 +264,7 @@
                 <input class="field-input" type="number" step="15" min="15" max="720" bind:value={cfg.max_duration_minutes} />
             </label>
             <label class="field">
-                <span class="field-label">Notice needed (min) <HelpTip label="notice needed" text={"How far ahead the public must book. Stops someone booking a table for four minutes' time when nobody is at the door to seat them.\n\nStaff bookings ignore it — someone standing at the bar can see the table."} /></span>
+                <span class="field-label">Notice needed (min) <HelpTip label="notice needed" text={"How far ahead the public must book. Stops someone booking a table for four minutes' time when nobody is at the door to seat them.\n\nStaff bookings ignore it, because someone standing at the bar can see the table."} /></span>
                 <input class="field-input" type="number" min="0" max="10080" bind:value={cfg.lead_time_minutes} />
             </label>
             <label class="field">
@@ -272,7 +272,7 @@
                 <input class="field-input" type="number" min="1" max="365" bind:value={cfg.max_advance_days} />
             </label>
             <label class="field">
-                <span class="field-label">Biggest party <HelpTip label="biggest party" text={"The most players one booking can be for. Bigger groups have to talk to you — which is usually what you want, since they need several tables together."} /></span>
+                <span class="field-label">Biggest party <HelpTip label="biggest party" text={"The most players one booking can be for. Bigger groups have to talk to you, which is usually what you want, since they need several tables together."} /></span>
                 <input class="field-input" type="number" min="1" max="40" bind:value={cfg.max_party_size} />
             </label>
             <label class="field">
@@ -285,7 +285,7 @@
             What bookers see
             <HelpTip
                 label="booking page text"
-                text={"The blurb sits on the booking form — parking, food, house rules.\n\nThe confirmation note goes on the confirmation and in their email: door codes, where the terrain lives, who to ask for."}
+                text={"The blurb sits on the booking form: parking, food, house rules.\n\nThe confirmation note goes on the confirmation and in their email: door codes, where the terrain lives, who to ask for."}
             />
         </h3>
         <div class="copy-grid">
@@ -305,7 +305,7 @@
             <span>Mention your club nights when someone books</span>
             <HelpTip
                 label="club nights"
-                text={"After booking, they're told about your club night for the game they've booked to play — the same evening if it's on then, otherwise the next date it runs.\n\nOnly ever that game. Someone booking for The Old World won't be pitched 40k."}
+                text={"After booking, they're told about your club night for the game they've booked to play. The same evening if it's on then, otherwise the next date it runs.\n\nOnly ever that game. Someone booking for The Old World won't be pitched 40k."}
             />
         </label>
     </div>
@@ -316,7 +316,7 @@
             <h2 class="a-title">Venue</h2>
             <HelpTip
                 label="venue details"
-                text={"Your venue's own details and when it takes bookings.\n\nThe blurb, website and Discord invite all show on your public club page — the Discord invite becomes a button beside Book a table."}
+                text={"Your venue's own details and when it takes bookings.\n\nThe blurb, website and Discord invite all show on your public club page. The Discord invite becomes a button beside Book a table."}
             />
         </div>
 
@@ -324,7 +324,7 @@
             Open hours
             <HelpTip
                 label="open hours"
-                text={"Your venue's hours, in one place. They show on your club page and they're the window bookings are offered inside — a day left closed takes no bookings at all.\n\nThe note is optional and shows under that day on your club page: \"kitchen closes 9\", \"members only\"."}
+                text={"Your venue's hours, in one place. They show on your club page and they're the window bookings are offered inside. A day left closed takes no bookings at all.\n\nThe note is optional and shows under that day on your club page: \"kitchen closes 9\", \"members only\"."}
             />
         </h3>
         <div class="hours-grid">
@@ -362,7 +362,7 @@
                 Discord invite
                 <HelpTip
                     label="club Discord"
-                    text={"Becomes a Join our Discord button on your club page, beside Book a table.\n\nThis is the club's own server. Each game night can point at a different one from its own carousel card — set those under Admin."}
+                    text={"Becomes a Join our Discord button on your club page, beside Book a table.\n\nThis is the club's own server. Each game night can point at a different one from its own carousel card. Set those under Admin."}
                 />
             </span>
             <input class="field-input hook-input" type="text" bind:value={profile.discord_url}

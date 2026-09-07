@@ -98,7 +98,7 @@
             <a href="/players/{player.id}" class="player-link">
                 <span class="player-name">{player.name}</span>
                 {#if player.default_faction}
-                    <span class="player-faction">— {player.default_faction}</span>
+                    <span class="player-faction">· {player.default_faction}</span>
                 {/if}
             </a>
         </li>

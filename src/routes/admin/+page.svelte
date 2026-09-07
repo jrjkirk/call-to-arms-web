@@ -355,7 +355,7 @@
 
     const STATUS_META: Record<string, { glyph: string; label: string; cls: string }> = {
         live: { glyph: '●', label: 'Pairings live', cls: 'live' },
-        drafted: { glyph: '◐', label: 'Drafted — unpublished', cls: 'drafted' },
+        drafted: { glyph: '◐', label: 'Drafted, unpublished', cls: 'drafted' },
         none: { glyph: '○', label: 'No pairings yet', cls: 'none' },
     };
     // "DD/MM/YYYY" → "DD/MM" for compact chart ticks.
@@ -539,7 +539,7 @@
         { key: 'discord_link', label: 'Add your Discord invite', hint: 'The join link shown front-and-centre on your club page.', nav: 'clubpage' },
         { key: 'map_pin', label: 'Put yourself on the map', hint: 'Set your coordinates so players find you on the club finder. Without them you are a list entry with no marker.', nav: 'clubpage' },
         { key: 'discord_webhook', label: 'Connect Discord', hint: 'Post signups and pairings to your club’s Discord.', nav: 'discord' },
-        { key: 'co_admin', label: 'Appoint a game-system admin', hint: 'Optional — delegate a specific system to another member.', nav: 'admins' },
+        { key: 'co_admin', label: 'Appoint a game-system admin', hint: 'Optional. Delegate a specific system to another member.', nav: 'admins' },
         { key: 'first_pairings_published', label: 'Publish your first pairings', hint: 'Generate and publish a week of pairings.', nav: 'pairings' }
     ];
     const onboardingDoneCount = $derived(
@@ -860,7 +860,7 @@
             gateInviteCopied = true;
             setTimeout(() => (gateInviteCopied = false), 2000);
         } catch {
-            gateError = 'Could not copy — select the link and copy it manually.';
+            gateError = 'Could not copy. Select the link and copy it manually.';
         }
     }
 
@@ -904,7 +904,11 @@
      *  Stored as plain strings when the name already implies the behaviour, so
      *  a club that never touches this leaves its row exactly as it was.
      */
-    type VibeOption = { name: string; behaviour: 'soft' | 'wildcard' | 'exclusive' };
+    // `uid` exists only so the {#each} has a key that does not change while
+    // someone types. Keying on the name recreated the input on every
+    // keystroke, which dropped focus after each letter.
+    type VibeOption = { uid: number; name: string; behaviour: 'soft' | 'wildcard' | 'exclusive' };
+    let vibeUid = 0;
     let csVibeOptions = $state<VibeOption[]>([]);
 
     const VIBE_BEHAVIOURS: { value: VibeOption['behaviour']; label: string }[] = [
@@ -918,19 +922,19 @@
     function toVibeOptions(raw: (string | VibeOption)[] | null | undefined): VibeOption[] {
         return (raw ?? []).map((v) =>
             typeof v === 'string'
-                ? { name: v, behaviour: /^(open|either)$/i.test(v) ? 'wildcard' : 'soft' }
-                : { name: v.name, behaviour: v.behaviour ?? 'soft' }
+                ? { uid: ++vibeUid, name: v, behaviour: /^(open|either)$/i.test(v) ? 'wildcard' : 'soft' }
+                : { uid: ++vibeUid, name: v.name, behaviour: v.behaviour ?? 'soft' }
         ) as VibeOption[];
     }
 
     function addVibe(name: string, behaviour: VibeOption['behaviour'] = 'soft') {
         if (csVibeOptions.some((v) => v.name.toLowerCase() === name.toLowerCase())) return;
-        csVibeOptions = [...csVibeOptions, { name, behaviour }];
+        csVibeOptions = [...csVibeOptions, { uid: ++vibeUid, name, behaviour }];
         if (!csDefaultVibe) csDefaultVibe = name;
     }
 
-    function removeVibe(name: string) {
-        csVibeOptions = csVibeOptions.filter((v) => v.name !== name);
+    function removeVibe(uid: number) {
+        csVibeOptions = csVibeOptions.filter((v) => v.uid !== uid);
         if (!csVibeOptions.some((v) => v.name === csDefaultVibe)) {
             csDefaultVibe = csVibeOptions[0]?.name ?? '';
         }
@@ -1513,7 +1517,7 @@
             // Not "the ${scope} call to arms" — system names carry their own
             // article, and "the The Old World" is how you get it wrong.
             `Post the call to arms for ${scope} to Discord now?\n\n` +
-            `This doesn't change the schedule — the automatic post still goes out ` +
+            `This doesn't change the schedule. The automatic post still goes out ` +
             `as normal, so members may see it twice this week.`
         )) return;
 
@@ -1864,7 +1868,7 @@
         st.message = null;
         await loadSystemGate(scope, true);
         st.message = systemGateState[scope]?.gate?.connected
-            ? 'Connected — the bot can see that server.'
+            ? 'Connected. The bot can see that server.'
             : "Still can't see that server. Give Discord a moment, then try again.";
         st.saving = false;
     }
@@ -1877,7 +1881,7 @@
             st.copied = true;
             setTimeout(() => (st.copied = false), 2000);
         } catch {
-            st.error = 'Could not copy — select the link and copy it manually.';
+            st.error = 'Could not copy. Select the link and copy it manually.';
         }
     }
 
@@ -2264,7 +2268,7 @@
             await loadClubSystemsMine();
             const added = clubSystemsMine.find((x) => String(x.system_id) === String(systemId));
             if (added) {
-                csMessage = `${added.system_name} added — set its day and cadence below.`;
+                csMessage = `${added.system_name} added. Set its day and cadence below.`;
                 // Only jump if the caller can actually administer it; a
                 // super-admin without that scope would land on an empty tab.
                 if (adminMe?.scopes.includes(added.legacy_system_name)) {
@@ -2514,7 +2518,7 @@
         const body = await r.json().catch(() => ({}));
         if (r.ok) {
             const skipped = (body.skipped ?? []).length;
-            ls.logMessage = `Logged ${body.created} result${body.created === 1 ? '' : 's'}${skipped ? ` (${skipped} skipped)` : ''} — ratings updated.`;
+            ls.logMessage = `Logged ${body.created} result${body.created === 1 ? '' : 's'}${skipped ? ` (${skipped} skipped)` : ''}. Ratings updated.`;
             ls.logRows = [];
             await loadLeagueResults(scope);
         } else {
@@ -2570,7 +2574,7 @@
             body: JSON.stringify({ system: scope, ...ls.config }),
         });
         if (r.ok) {
-            ls.configMessage = 'Saved — this season’s ratings have been recalculated.';
+            ls.configMessage = 'Saved. This season’s ratings have been recalculated.';
             await loadLeagueResults(scope);
         } else {
             const body = await r.json().catch(() => ({}));
@@ -2651,7 +2655,7 @@
             }),
         });
         if (r.ok) {
-            ws.message = 'Saved — takes effect on the next pairings preview/generate.';
+            ws.message = 'Saved. Takes effect on the next pairings preview/generate.';
         } else {
             const body = await r.json().catch(() => ({}));
             ws.error = body.detail || 'Failed to save.';
@@ -3372,7 +3376,7 @@
                              a venue one. -->
                         <div class="a-head club-page-subhead">
                             <h4 class="a-title">Location</h4>
-                            <HelpTip label="location" text="Your address drives the map pin on your Club page and your marker on the club finder — set latitude and longitude to place it precisely. Your blurb, website and Discord invite moved to Venue Admin → Settings → Venue." />
+                            <HelpTip label="location" text="Your address drives the map pin on your Club page and your marker on the club finder. Set latitude and longitude to place it precisely. Your blurb, website and Discord invite moved to Venue Admin → Settings → Venue." />
                         </div>
                         <div class="form-grid">
                         </div>
@@ -3383,7 +3387,7 @@
                         <div class="field">
                             <label class="field-label" for="club-region">Region</label>
                             <select id="club-region" class="field-input" bind:value={clubProfile.region}>
-                                <option value={null}>— Not set —</option>
+                                <option value={null}>Not set</option>
                                 {#each UK_REGIONS as region}
                                     <option value={region}>{region}</option>
                                 {/each}
@@ -3403,11 +3407,13 @@
                             </div>
                         </div>
                         <p class="field-label-hint">
-                            Coordinates place the pin on the Club page's map and on the multi-club map
-                            logged-out visitors see. No coordinates, no pin — the address text still shows.
                             <a class="hint-link" href={googleMapsSearchUrl(clubProfile.address)} target="_blank" rel="noopener noreferrer">
                                 Find this address on Google Maps ↗
-                            </a> — right-click the exact spot, click the lat/long shown at the top of the menu to copy it, then paste the two numbers in above.
+                            </a>
+                            <HelpTip
+                                label="finding your coordinates"
+                                text={"• Right-click the exact spot on the map.\n• Click the numbers at the top of the menu to copy them.\n• Paste them into the two boxes above.\n\nWithout coordinates you have no map pin. The address still shows."}
+                            />
                         </p>
 
                         {#if clubProfileError}<p class="field-error">{clubProfileError}</p>{/if}
@@ -3424,8 +3430,8 @@
                             <HelpTip label="the club logo" text="Shown beside your club name at the top of the Club page, and on posted pairings images. A square image works best." />
                         </div>
                         <p class="field-label-hint mission-guidelines">
-                            <strong>Image guidelines:</strong> square, at least 400×400px. Transparent PNG
-                            works best against the dark background. Accepted formats: PNG, JPEG, WEBP. Max 5 MB.
+                            Square, 400×400px or larger. PNG, JPEG or WEBP, max 5 MB. A transparent
+                            PNG sits best on the dark background.
                         </p>
                         {#if clubProfile.logo_url}
                             <div class="club-logo-preview">
@@ -3462,7 +3468,7 @@
                                     <HelpTip label="club events" text="Closures, open days, anything that isn't tied to one game night. For a single system's tournament or campaign day, use that system's own events instead so it shows in the right colour." />
                                 </p>
                                 {#if clubWideEvents.events.length === 0 && !clubWideEvents.loading}
-                                    <p class="muted small">No club-wide events yet — add one below.</p>
+                                    <p class="muted small">No club-wide events yet. Add one below.</p>
                                 {:else}
                                     <ul class="history-list">
                                         {#each clubWideEvents.events as ev (ev.id)}
@@ -3491,7 +3497,7 @@
                                         <div class="field">
                                             <label class="field-label" for="club-ev-start">Start time</label>
                                             <select id="club-ev-start" class="field-select" bind:value={clubWideEvents.addStart}>
-                                                <option value="">— Not set —</option>
+                                                <option value="">Not set</option>
                                                 {#each HALF_HOUR_OPTIONS as t}
                                                     <option value={t}>{t}</option>
                                                 {/each}
@@ -3500,7 +3506,7 @@
                                         <div class="field">
                                             <label class="field-label" for="club-ev-end">End time</label>
                                             <select id="club-ev-end" class="field-select" bind:value={clubWideEvents.addEnd}>
-                                                <option value="">— Not set —</option>
+                                                <option value="">Not set</option>
                                                 {#each HALF_HOUR_OPTIONS as t}
                                                     <option value={t}>{t}</option>
                                                 {/each}
@@ -3542,7 +3548,7 @@
                                     <h4 class="a-title">League</h4>
                                     <HelpTip
                                         label="the league"
-                                        text="Tracks ratings and standings for this system across a season. Players submit their own results; ratings recalculate from scratch on every submission, so a corrected result fixes the table. Seasons reset ratings — start a new one when you want a clean slate."
+                                        text="Tracks ratings and standings for this system across a season. Players submit their own results; ratings recalculate from scratch on every submission, so a corrected result fixes the table. Seasons reset ratings, so start a new one when you want a clean slate."
                                     />
                                     <span class="a-head-end">
                                         <span class="a-state" class:is-on={ls.config?.league_enabled}>
@@ -3572,27 +3578,11 @@
                                         <div class="league-settings-details">
                                             <div class="league-settings-heading">League settings</div>
                                             <div class="league-settings-body">
-                                                <p class="league-help-text">
-                                                    <strong>ELO rating</strong> gives every player a number (starting
-                                                    at 1000 by default) that goes up after a win and down after a
-                                                    loss — how much it moves depends on the gap between the two
-                                                    players' ratings, so beating a higher-rated opponent earns more
-                                                    than beating a lower-rated one, and vice versa. The
-                                                    <strong>K value</strong> controls how big those swings are (higher
-                                                    K = ratings move faster); it's common to use a lower K for casual
-                                                    games and a higher K for competitive ones. <strong>Painting
-                                                    bonuses</strong> add a small flat boost for fielding a painted
-                                                    army, on top of the result. <strong>Flat win/loss points</strong>
-                                                    is the simpler alternative: everyone just earns a fixed number of
-                                                    points per win/draw/loss, with no opponent-strength weighting.
-                                                    The defaults below (1000 start, K 10/40, +3/+1 painting) match a
-                                                    typical club setup — adjust them if you like.
-                                                </p>
-
                                                 <!-- Scoring config -->
                                                 <div class="league-config-form">
                                                     <div class="field">
-                                                        <span class="field-label">Scoring method</span>
+                                                        <span class="field-label">Scoring method
+                                                            <HelpTip label="scoring method" text={"ELO rating gives every player a number that rises on a win and falls on a loss. How far it moves depends on the gap between the two ratings, so beating a stronger opponent is worth more.\n\nFlat win/loss points is the simpler one: a fixed score per win, draw and loss, with no opponent strength involved.\n\nThe defaults suit a typical club."} /></span>
                                                         <label class="radio-row">
                                                             <input type="radio" bind:group={ls.config.scoring_method} value="elo" />
                                                             <span>ELO rating</span>
@@ -3610,7 +3600,8 @@
 
                                                     {#if ls.config.scoring_method === 'elo'}
                                                         <div class="field field-narrow">
-                                                            <label class="field-label" for="lc-kc-{scope}">K (casual)</label>
+                                                            <label class="field-label" for="lc-kc-{scope}">K (casual)
+                                                                <HelpTip label="the K value" text={"How big the rating swings are. Higher K, faster movement.\n\n\u2022 Lower K for casual games\n\u2022 Higher K for competitive ones\n\nDefaults are 10 and 40."} /></label>
                                                             <input id="lc-kc-{scope}" class="field-input" type="number" bind:value={ls.config.k_casual} />
                                                         </div>
                                                         <div class="field field-narrow">
@@ -3618,7 +3609,8 @@
                                                             <input id="lc-kk-{scope}" class="field-input" type="number" bind:value={ls.config.k_competitive} />
                                                         </div>
                                                         <div class="field field-narrow">
-                                                            <label class="field-label" for="lc-pf-{scope}">Painting bonus (fully)</label>
+                                                            <label class="field-label" for="lc-pf-{scope}">Painting bonus (fully)
+                                                                <HelpTip label="painting bonuses" text={"A small flat boost for fielding a painted army, added on top of the result.\n\nDefaults are +3 fully painted, +1 partially."} /></label>
                                                             <input id="lc-pf-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
                                                         </div>
                                                         <div class="field field-narrow">
@@ -3661,7 +3653,7 @@
                                                         disabled={ls.configSaving}
                                                         onclick={() => saveLeagueConfig(scope)}
                                                     >{ls.configSaving ? 'Saving…' : 'Save scoring config'}</button>
-                                                    <p class="muted small">Saving replays this season's results under the new config — ratings update immediately.</p>
+                                                    <p class="muted small">Saving replays this season's results under the new config. Ratings update immediately.</p>
                                                 </div>
 
                                                 <!-- Seasons -->
@@ -3670,7 +3662,7 @@
                                                     {#if ls.seasonsLoading}
                                                         <p class="muted small">Loading…</p>
                                                     {:else if ls.seasons.length === 0}
-                                                        <p class="muted small">No season yet — create one below to start recording results.</p>
+                                                        <p class="muted small">No season yet. Create one below to start recording results.</p>
                                                     {:else}
                                                         <p class="muted small">Click a season to browse its results below.</p>
                                                         <ul class="season-list">
@@ -3705,7 +3697,13 @@
                                                             <label class="field-label" for="ns-end-{scope}">End date (optional)</label>
                                                             <input id="ns-end-{scope}" class="field-input" type="date" bind:value={ls.newSeasonEnd} />
                                                         </div>
-                                                        <p class="muted small">Starting a new season resets ratings to the starting rating above; the currently open season (if any) is automatically closed the day before this one starts. Past seasons and their results stay archived.</p>
+                                                        <p class="muted small">
+                                                            Starting a season resets ratings.
+                                                            <HelpTip
+                                                                label="starting a season"
+                                                                text={"• Ratings reset to the starting rating above.\n• Any open season closes the day before this one starts.\n• Past seasons and their results stay archived."}
+                                                            />
+                                                        </p>
                                                         <button
                                                             class="primary-button"
                                                             type="button"
@@ -3721,7 +3719,7 @@
                                         <div class="league-log-results">
                                             <h5 class="sub-heading-minor">Log results from pairings</h5>
                                             <p class="muted small">
-                                                Pull a week's games straight from its pairings — players and factions
+                                                Pull a week's games straight from its pairings. Players and factions
                                                 are already filled in, so you just record who won.
                                             </p>
                                             <div class="log-week-row">
@@ -3754,7 +3752,7 @@
                                                                     <td><span class="cell-text">{row.a_name}{row.a_faction ? ` (${row.a_faction})` : ''} vs {row.b_name}{row.b_faction ? ` (${row.b_faction})` : ''}</span></td>
                                                                     <td>
                                                                         <select class="field-select" bind:value={row.result}>
-                                                                            <option value="">— pick —</option>
+                                                                            <option value="">Pick</option>
                                                                             <option value="Player 1 Victory">{row.a_name} won</option>
                                                                             <option value="Draw">Draw</option>
                                                                             <option value="Player 2 Victory">{row.b_name} won</option>
@@ -3853,7 +3851,7 @@
                                                                             bind:value={r.player_1_painting_bonus}
                                                                             onchange={() => patchLeagueResult(scope, r.id, 'player_1_painting_bonus', r.player_1_painting_bonus)}
                                                                         >
-                                                                            <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                            <option value={NONE_FACTION}>None</option>
                                                                             {#each PAINTING_OPTIONS as opt}
                                                                                 <option>{opt}</option>
                                                                             {/each}
@@ -3908,7 +3906,7 @@
                                                                             bind:value={r.player_2_painting_bonus}
                                                                             onchange={() => patchLeagueResult(scope, r.id, 'player_2_painting_bonus', r.player_2_painting_bonus)}
                                                                         >
-                                                                            <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                            <option value={NONE_FACTION}>None</option>
                                                                             {#each PAINTING_OPTIONS as opt}
                                                                                 <option>{opt}</option>
                                                                             {/each}
@@ -3957,9 +3955,9 @@
                                 </div>
                                 <p class="a-note">
                                     {#if !lrs.posting_enabled}
-                                        League posts are switched off for this system — turn them back on under Discord.
+                                        League posts are switched off for this system. Turn them back on under Discord.
                                     {:else if !lrs.has_webhook}
-                                        No League rankings channel set yet — add the webhook under Discord.
+                                        No League rankings channel set yet. Add the webhook under Discord.
                                     {:else}
                                         Posts every {lrs.day} at {lrs.time}.
                                     {/if}
@@ -4201,7 +4199,7 @@
                                                                 bind:value={su.faction}
                                                                 onchange={() => patchSignup(scope, su, 'faction', su.faction)}
                                                             >
-                                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                <option value={NONE_FACTION}>None</option>
                                                                 <FactionOptions {systemsConfig} system={scope} />
                                                             </select>
                                                         </td>
@@ -4305,7 +4303,7 @@
                                         <div class="field">
                                             <label class="field-label" for="add-player-{scope}">Player</label>
                                             <select id="add-player-{scope}" class="field-select" bind:value={ps.addSignup.playerId}>
-                                                <option value="">— Select —</option>
+                                                <option value="">Select</option>
                                                 {#each blockPlayers as p}
                                                     <option value={String(p.id)}>{p.name}</option>
                                                 {/each}
@@ -4314,7 +4312,7 @@
                                         <div class="field">
                                             <label class="field-label" for="add-faction-{scope}">Faction</label>
                                             <select id="add-faction-{scope}" class="field-select" bind:value={ps.addSignup.faction}>
-                                                <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                <option value={NONE_FACTION}>None</option>
                                                 <FactionOptions {systemsConfig} system={scope} />
                                             </select>
                                         </div>
@@ -4497,7 +4495,7 @@
                                                                     }}
                                                                 >
                                                                     {#each ps.signups as su}
-                                                                        <option value={String(su.id)}>{su.id} — {su.name}</option>
+                                                                        <option value={String(su.id)}>{su.id} · {su.name}</option>
                                                                     {/each}
                                                                 </select>
                                                             {/if}
@@ -4512,7 +4510,7 @@
                                                                     bind:value={er.a_faction}
                                                                     onchange={() => (ps.dirty = true)}
                                                                 >
-                                                                    <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                    <option value={NONE_FACTION}>None</option>
                                                                     <FactionOptions {systemsConfig} system={scope} />
                                                                 </select>
                                                             {/if}
@@ -4550,7 +4548,7 @@
                                                                 >
                                                                     <option value="">BYE</option>
                                                                     {#each ps.signups as su}
-                                                                        <option value={String(su.id)}>{su.id} — {su.name}</option>
+                                                                        <option value={String(su.id)}>{su.id} · {su.name}</option>
                                                                     {/each}
                                                                 </select>
                                                             {/if}
@@ -4565,7 +4563,7 @@
                                                                     bind:value={er.b_faction}
                                                                     onchange={() => (ps.dirty = true)}
                                                                 >
-                                                                    <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                                                                    <option value={NONE_FACTION}>None</option>
                                                                     <FactionOptions {systemsConfig} system={scope} />
                                                                 </select>
                                                             {/if}
@@ -4679,7 +4677,7 @@
                                         <div class="field">
                                             <label class="field-label" for="rearrange-p1-{scope}">Player 1</label>
                                             <select id="rearrange-p1-{scope}" class="field-select" bind:value={ps.rearrange.player1Id}>
-                                                <option value="">— Select —</option>
+                                                <option value="">Select</option>
                                                 {#each ps.signupRows as su}
                                                     <option value={String(su.player_id)}>{su.player_name}</option>
                                                 {/each}
@@ -4688,7 +4686,7 @@
                                         <div class="field">
                                             <label class="field-label" for="rearrange-p2-{scope}">Player 2</label>
                                             <select id="rearrange-p2-{scope}" class="field-select" bind:value={ps.rearrange.player2Id}>
-                                                <option value="">— Select —</option>
+                                                <option value="">Select</option>
                                                 {#each ps.signupRows as su}
                                                     <option value={String(su.player_id)}>{su.player_name}</option>
                                                 {/each}
@@ -4740,7 +4738,7 @@
                                                 </span>
                                             {:else}
                                                 <span class="history-matchup">
-                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) — bye
+                                                    {entry.player_a_name} ({fmt(entry.player_a_faction)}) · bye
                                                 </span>
                                             {/if}
                                         </li>
@@ -4769,7 +4767,7 @@
                                     <h4 class="a-title">Generate pairings automatically</h4>
                                     <HelpTip
                                         label="auto-pairings"
-                                        text="Runs the matcher for you at a set day and time each week, then publishes and posts the pairings — so you don't have to be at a computer on club night. Leave it off to keep generating them by hand from the Pairings tab."
+                                        text="Runs the matcher for you at a set day and time each week, then publishes and posts the pairings, so you don't have to be at a computer on club night. Leave it off to keep generating them by hand from the Pairings tab."
                                     />
                                     <span class="a-head-end">
                                         <span class="a-state" class:is-on={aps.enabled}>{aps.enabled ? 'On' : 'Off'}</span>
@@ -5029,7 +5027,7 @@
                                     </div>
 
                                     {#if ms.missions.length === 0}
-                                        <p class="muted small">No missions yet — add your first one above.</p>
+                                        <p class="muted small">No missions yet. Add your first one above.</p>
                                     {:else}
                                         <div class="mission-table-wrap">
                                             <table class="mission-table">
@@ -5075,9 +5073,11 @@
                                             </table>
                                         </div>
                                         <p class="muted small">
-                                            Inactive missions stay in your pool but are never posted. Each week's post
-                                            picks at random from the active ones. Edit a name or secondary objective
-                                            inline — changes save automatically.
+                                            Edits save automatically.
+                                            <HelpTip
+                                                label="the mission pool"
+                                                text={"• Each week's post picks at random from the active missions.\n• Inactive ones stay in your pool but are never posted."}
+                                            />
                                         </p>
                                     {/if}
                                     </div>
@@ -5109,7 +5109,7 @@
                                 <h4 class="a-title">Schedule &amp; vibes</h4>
                                 <p class="a-note">
                                     When this game night runs, and how players sign up for it.
-                                    <HelpTip label="schedule and vibes" text="The schedule drives the Club page calendar and decides which week a signup lands in. Vibes are the game types players choose from — leave it on the platform default unless your club runs something different." />
+                                    <HelpTip label="schedule and vibes" text="The schedule drives the Club page calendar and decides which week a signup lands in. Vibes are the game types players choose from. Leave it on the platform default unless your club runs something different." />
                                 </p>
                                 <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveSystemConfig(); }}>
                                     <div class="field field-narrow">
@@ -5117,7 +5117,7 @@
                                             Day
                                             <HelpTip
                                                 label="the session day"
-                                                text={"The day this system meets. It decides which week a signup lands in, what the Club page calendar shows, and — because the call to arms posts a set number of days BEFORE the session — when that goes out too.\n\nMoving it moves all three."}
+                                                text={"The day this system meets. It decides which week a signup lands in, what the Club page calendar shows, and, because the call to arms posts a set number of days BEFORE the session, when that goes out too.\n\nMoving it moves all three."}
                                             />
                                         </label>
                                         <select id="sc-day" class="field-select" bind:value={csSessionDay}>
@@ -5131,7 +5131,7 @@
                                             Cadence
                                             <HelpTip
                                                 label="cadence"
-                                                text={"Weekly runs every week. Fortnightly runs every other week — and needs an anchor date, which appears when you choose it, so we know which of the two weeks is a session week."}
+                                                text={"Weekly runs every week. Fortnightly runs every other week, and needs an anchor date. That appears when you choose it, so we know which of the two weeks is a session week."}
                                             />
                                         </label>
                                         <select id="sc-cadence" class="field-select" bind:value={csSessionCadence}>
@@ -5146,7 +5146,7 @@
                                                 Anchor date
                                                 <HelpTip
                                                     label="the anchor date"
-                                                    text={"Any date a session actually ran. Fortnights are counted from there, so it's what separates a session week from an off week — it doesn't have to be recent, and it never needs changing once it's right."}
+                                                    text={"Any date a session actually ran. Fortnights are counted from there, so it's what separates a session week from an off week. It doesn't have to be recent, and it never needs changing once it's right."}
                                                 />
                                             </label>
                                             <input id="sc-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
@@ -5161,7 +5161,7 @@
                                             />
                                         </label>
                                         <select id="sc-start-time" class="field-select" bind:value={csSessionStartTime}>
-                                            <option value="">— Not set —</option>
+                                            <option value="">Not set</option>
                                             {#each HALF_HOUR_OPTIONS as t}
                                                 <option value={t}>{t}</option>
                                             {/each}
@@ -5174,16 +5174,26 @@
                                             Vibes
                                             <HelpTip
                                                 label="the vibe list"
-                                                text={"The game types players pick from when they sign up — and what the matcher tries to pair like with like on.\n\nLeave it on the platform default and this system follows the catalogue: if the default list changes, yours changes with it. Untick to set your own, and it stays exactly as you leave it."}
+                                                text={"What players pick when they sign up.\n\n• Platform defaults follow the catalogue, so the list changes when that does.\n• Your own list stays exactly as you leave it."}
                                             />
                                         </span>
                                         <label class="check-row">
                                             <input type="checkbox" bind:checked={csUseDefaultVibes} />
-                                            <span>Use the platform default vibes for this system</span>
+                                            <span>Use the platform defaults</span>
                                         </label>
                                         {#if !csUseDefaultVibes}
+                                            <div class="vibe-head">
+                                                <span class="vibe-head-name">Name</span>
+                                                <span class="vibe-head-behaviour">
+                                                    How it pairs
+                                                    <HelpTip
+                                                        label="how a vibe pairs"
+                                                        text={"• Preference: matched like with like where possible.\n• Matches anything: pairs with any vibe.\n• Own bracket: only pairs with itself, for a different game such as a smaller points Battle March.\n\nMatches anything does not satisfy an own bracket."}
+                                                    />
+                                                </span>
+                                            </div>
                                             <div class="vibe-rows">
-                                                {#each csVibeOptions as v, i (v.name)}
+                                                {#each csVibeOptions as v, i (v.uid)}
                                                     <div class="vibe-row">
                                                         <input
                                                             class="field-input vibe-name"
@@ -5196,7 +5206,7 @@
                                                                 <option value={b.value}>{b.label}</option>
                                                             {/each}
                                                         </select>
-                                                        <button class="remove-btn" type="button" title="Remove this vibe" onclick={() => removeVibe(v.name)}>×</button>
+                                                        <button class="remove-btn" type="button" title="Remove this vibe" onclick={() => removeVibe(v.uid)}>×</button>
                                                     </div>
                                                 {/each}
                                             </div>
@@ -5206,22 +5216,13 @@
                                                 {/each}
                                                 <button class="secondary-button vibe-chip" type="button" onclick={() => addVibe('New vibe')}>+ Your own</button>
                                             </div>
-                                            <p class="field-label-hint">
-                                                <strong>Preference</strong> is the normal one: players would rather be
-                                                matched with the same, but will take another.
-                                                <strong>Matches anything</strong> is for a "happy with whatever" option.
-                                                <strong>Own bracket</strong> is a different game, like a smaller points
-                                                Battle March, and only ever pairs with itself. Someone on "matches
-                                                anything" is not pulled into one, because they did not bring the army
-                                                for it.
-                                            </p>
                                             {#if csVibeOptions.length > 0}
                                                 <div class="field field-narrow">
                                                     <label class="field-label" for="sc-default-vibe">
                                                         Default vibe
                                                         <HelpTip
                                                             label="the default vibe"
-                                                            text={"The one used when a signup arrives without a valid choice — an older form, or a vibe you've since removed from the list. Pick the one most of your games are."}
+                                                            text={"The one used when a signup arrives without a valid choice: an older form, or a vibe you've since removed from the list. Pick the one most of your games are."}
                                                         />
                                                     </label>
                                                     <select id="sc-default-vibe" class="field-select" bind:value={csDefaultVibe}>
@@ -5261,7 +5262,7 @@
                                 <h4 class="a-title">Club page card</h4>
                                 <p class="a-note">
                                     How this system looks on your Club page.
-                                    <HelpTip label="the carousel card" text="Blurb, photo and the accent colour that threads through this system's carousel card, its calendar entries and its pairing cards. Position isn't settable — the carousel is shuffled for every visitor so no system is always first." />
+                                    <HelpTip label="the carousel card" text="Blurb, photo and the accent colour that threads through this system's carousel card, its calendar entries and its pairing cards. Position isn't settable. The carousel is shuffled for every visitor so no system is always first." />
                                 </p>
 
                                 <div class="field">
@@ -5275,7 +5276,7 @@
                                         Accent colour
                                         <HelpTip
                                             label="the accent colour"
-                                            text={"This system's colour everywhere it appears: its carousel card, its entries on the Club page calendar, its pairing cards — and the accent down the side of these admin panels while you have it selected."}
+                                            text={"This system's colour everywhere it appears: its carousel card, its entries on the Club page calendar, its pairing cards, and the accent down the side of these admin panels while you have it selected."}
                                         />
                                     </label>
                                     <div class="accent-row">
@@ -5294,8 +5295,8 @@
                                 <div class="field carousel-photo-field">
                                     <label class="field-label" for="carousel-photo-{scope}">Carousel photo (optional)</label>
                                     <p class="field-label-hint mission-guidelines">
-                                        <strong>Image guidelines:</strong> landscape, 16:9 (e.g. 800×450px). Accepted
-                                        formats: PNG, JPEG, WEBP. Max 5 MB. Leave unset to show the system's logo instead.
+                                        Landscape 16:9, e.g. 800×450px. PNG, JPEG or WEBP, max 5 MB.
+                                        Leave it unset to show the system's logo.
                                     </p>
                                     {#if cs.photo_url}
                                         <div class="carousel-photo-preview">
@@ -5330,7 +5331,7 @@
                                                 <HelpTip label="system events" text="Shown on the Club page calendar in this system's accent colour, alongside its regular weekly or fortnightly sessions." />
                                             </p>
                                             {#if es.events.length === 0 && !es.loading}
-                                                <p class="muted small">No events yet — add one below.</p>
+                                                <p class="muted small">No events yet. Add one below.</p>
                                             {:else}
                                                 <ul class="history-list">
                                                     {#each es.events as ev (ev.id)}
@@ -5359,7 +5360,7 @@
                                                     <div class="field">
                                                         <label class="field-label" for="ev-start-{scope}">Start time</label>
                                                         <select id="ev-start-{scope}" class="field-select" bind:value={es.addStart}>
-                                                            <option value="">— Not set —</option>
+                                                            <option value="">Not set</option>
                                                             {#each HALF_HOUR_OPTIONS as t}
                                                                 <option value={t}>{t}</option>
                                                             {/each}
@@ -5368,7 +5369,7 @@
                                                     <div class="field">
                                                         <label class="field-label" for="ev-end-{scope}">End time</label>
                                                         <select id="ev-end-{scope}" class="field-select" bind:value={es.addEnd}>
-                                                            <option value="">— Not set —</option>
+                                                            <option value="">Not set</option>
                                                             {#each HALF_HOUR_OPTIONS as t}
                                                                 <option value={t}>{t}</option>
                                                             {/each}
@@ -5412,7 +5413,7 @@
                         bind:value={editPlayerIdStr}
                         onchange={onEditPlayerChange}
                     >
-                        <option value="">— Select player —</option>
+                        <option value="">Select player</option>
                         {#each editPlayerList as p}
                             <option value={String(p.id)}>{p.name} (#{p.id})</option>
                         {/each}
@@ -5439,7 +5440,7 @@
                             <span>On the roster</span>
                             <HelpTip
                                 label="roster"
-                                text={"Off = archived, for someone who has left.\n\nThey disappear from signup, pairings and the league, but every game they played stays on record — and if they come back, turning this on returns them to their own profile.\n\nArchiving never unlinks their account. Don't delete a player who has left; archive them."}
+                                text={"Off = archived, for someone who has left.\n\nThey disappear from signup, pairings and the league, but every game they played stays on record. If they come back, turning this on returns them to their own profile.\n\nArchiving never unlinks their account. Don't delete a player who has left; archive them."}
                             />
                         </label>
                         <label class="check-row">
@@ -5453,7 +5454,7 @@
                     </div>
                     <div class="field player-edit-wide">
                         <label class="field-label" for="edit-player-notes">
-                            Admin Notes <span class="field-label-hint">(private — not shown publicly)</span>
+                            Admin Notes <span class="field-label-hint">(private, not shown publicly)</span>
                         </label>
                         <textarea
                             id="edit-player-notes"
@@ -5483,7 +5484,7 @@
                         >{editPlayerDeleting ? 'Deleting…' : 'Delete'}</button>
                         <HelpTip
                             label="delete"
-                            text={"Only for a row that should never have existed — a duplicate, a typo, a test entry.\n\nA player with games behind them can't be deleted; the club would keep their old pairings and league results with nobody attached to them. Archive those instead.\n\n" + (editPlayerClaimed ? "This player has a Discord account linked to them." : "No Discord account is linked to this player.")}
+                            text={"Only for a row that should never have existed: a duplicate, a typo, a test entry.\n\nA player with games behind them can't be deleted; the club would keep their old pairings and league results with nobody attached to them. Archive those instead.\n\n" + (editPlayerClaimed ? "This player has a Discord account linked to them." : "No Discord account is linked to this player.")}
                         />
                     </div>
                 {/if}
@@ -5507,7 +5508,7 @@
                     <div class="field">
                         <label class="field-label" for="block-p1">Player A</label>
                         <select id="block-p1" class="field-select" bind:value={addBlockP1Str}>
-                            <option value="">— Select —</option>
+                            <option value="">Select</option>
                             {#each blockPlayers as p}
                                 <option value={String(p.id)}>{p.name}</option>
                             {/each}
@@ -5516,7 +5517,7 @@
                     <div class="field">
                         <label class="field-label" for="block-p2">Player B</label>
                         <select id="block-p2" class="field-select" bind:value={addBlockP2Str}>
-                            <option value="">— Select —</option>
+                            <option value="">Select</option>
                             {#each blockPlayers as p}
                                 <option value={String(p.id)}>{p.name}</option>
                             {/each}
@@ -5598,13 +5599,13 @@
              club can run each night out of a different server entirely. -->
         <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
-                <span class="dash-group-title">Discord — {scope}</span>
+                <span class="dash-group-title">Discord · {scope}</span>
             </div>
             <div class="dash-group-body">
                 <section class="a-card">
                     <div class="a-head">
                         <h4 class="a-title">Webhooks</h4>
-                        <HelpTip label="webhooks" text="Each row is independent — send pairings to one channel and chatter to another, or point them all at the same place. Any left unset simply post nothing." />
+                        <HelpTip label="webhooks" text="Each row is independent. Send pairings to one channel and chatter to another, or point them all at the same place. Any left unset simply post nothing." />
                         <span class="a-head-end">
                             <span class="a-state" class:is-on={webhookRows.filter((r) => r.legacy_system_name === scope).some((r) => r.configured)}>
                                 {webhookRows.filter((r) => r.legacy_system_name === scope && r.configured).length}
@@ -5638,7 +5639,7 @@
                             </li>
                             <li>
                                 Pick the channel it should post into, and give it a name you'll
-                                recognise later — e.g. “{scope} pairings”.
+                                recognise later, e.g. “{scope} pairings”.
                                 <span class="wh-note">
                                     The name and avatar are what members see on the post, so it's
                                     worth setting.
@@ -5648,14 +5649,15 @@
                             <li>Paste it into the matching row below and hit Save.</li>
                         </ol>
                         <p class="field-label-hint">
-                            <strong>Treat the URL as a password.</strong> Anyone holding it can post
-                            into that channel as this app. We store it write-only — once saved it's
-                            never shown again, only its last four characters so you can tell two
-                            apart. If one leaks, delete it in Discord and make a new one.
+                            <strong>Treat the URL as a password.</strong>
+                            <HelpTip
+                                label="webhook URLs"
+                                text={"• Anyone holding it can post into that channel as this app.\n• Saved write-only. You'll only ever see the last four characters again.\n• If one leaks, delete it in Discord and make a new one."}
+                            />
                             <a
                                 href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"
                                 target="_blank"
-                                rel="noopener noreferrer">Discord's own guide to webhooks</a
+                                rel="noopener noreferrer">Discord's guide to webhooks ↗</a
                             >
                         </p>
                     </details>
@@ -5761,7 +5763,7 @@
         <section class="admin-section sub-section">
             <div class="a-head">
                 <h3 class="section-heading">Game nights</h3>
-                <HelpTip label="enabling systems" text="Disabling a system stops new signups and pairing generation and hides it from league standings — it does not touch existing signups, pairings or results. How each one runs (day, cadence, start time, vibes) is set on that system's own Game System Config tab, by its admin." />
+                <HelpTip label="enabling systems" text="Disabling a system stops new signups and pairing generation and hides it from league standings. It does not touch existing signups, pairings or results. How each one runs (day, cadence, start time, vibes) is set on that system's own Game System Config tab, by its admin." />
                 <span class="a-head-end">
                     <span class="a-state" class:is-on={clubSystemsMine.some((r) => r.enabled)}>
                         {clubSystemsMine.filter((r) => r.enabled).length} running
@@ -5805,7 +5807,7 @@
                     </li>
                 {/each}
                 {#if clubSystemsMine.length === 0}
-                    <p class="muted">No systems configured yet — add one below.</p>
+                    <p class="muted">No systems configured yet. Add one below.</p>
                 {/if}
             </ul>
 
@@ -5818,7 +5820,7 @@
                         value=""
                         onchange={(e) => { const v = (e.target as HTMLSelectElement).value; (e.target as HTMLSelectElement).value = ''; if (v) addClubSystem(v); }}
                     >
-                        <option value="">— Add a system —</option>
+                        <option value="">Add a system</option>
                         {#each fullCatalogue.filter((s) => !clubSystemsMine.some((cs) => cs.system_id === s.id)) as s}
                             <option value={String(s.id)}>{s.legacy_system_name}</option>
                         {/each}
@@ -5869,7 +5871,7 @@
             <div class="sub-section">
                 <div class="a-head">
                     <h4 class="a-title">Super-admins</h4>
-                    <HelpTip label="super-admins" text="Full control of the club: every system, plus club-level settings like the Club page, admins and table booking. Set directly in the database — a club super-admin can't appoint another one from here." />
+                    <HelpTip label="super-admins" text="Full control of the club: every system, plus club-level settings like the Club page, admins and table booking. Set directly in the database. A club super-admin can't appoint another one from here." />
                     <span class="a-head-end"><span class="a-state">managed via SQL</span></span>
                 </div>
                 {#if rolesData && rolesData.super_admins.length > 0}
@@ -5888,7 +5890,7 @@
             <div class="sub-section">
                 <div class="a-head">
                     <h4 class="a-title">Scope roles</h4>
-                    <HelpTip label="scope roles" text="A scope role makes someone the admin of one game night. They can run its pairings, league, missions, Discord and schedule — but not club-level settings, and not any other system." />
+                    <HelpTip label="scope roles" text="A scope role makes someone the admin of one game night. They can run its pairings, league, missions, Discord and schedule, but not club-level settings and not any other system." />
                 </div>
                 {#if rolesLoading}
                     <p class="muted">Loading…</p>
@@ -5924,7 +5926,7 @@
                     <div class="field">
                         <label class="field-label" for="grant-user">User</label>
                         <select id="grant-user" class="field-select" bind:value={grantUserIdStr}>
-                            <option value="">— Select user —</option>
+                            <option value="">Select user</option>
                             {#each grantableUsers as u}
                                 <option value={String(u.id)}>{u.player_name} ({u.discord_name})</option>
                             {/each}
@@ -5933,7 +5935,7 @@
                     <div class="field">
                         <label class="field-label" for="grant-scope">Scope</label>
                         <select id="grant-scope" class="field-select" bind:value={grantScope}>
-                            <option value="">— Select scope —</option>
+                            <option value="">Select scope</option>
                             {#each adminMe.scopes as s}
                                 <option>{s}</option>
                             {/each}
@@ -5966,7 +5968,7 @@
         <section class="admin-section sub-section">
             <div class="a-head">
                 <h3 class="section-heading">Venue table-booking emails</h3>
-                <HelpTip label="table booking" text="Sends your venue a table and player count ahead of each session, once signups are in, so they know how much to set out. Configured per system — pick one below." />
+                <HelpTip label="table booking" text="Sends your venue a table and player count ahead of each session, once signups are in, so they know how much to set out. Configured per system. Pick one below." />
             </div>
             <p class="a-note">
                 Email the venue how many tables to set out.
@@ -5981,7 +5983,7 @@
                     value={tbSelectScope}
                     onchange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) loadTableBooking(v); }}
                 >
-                    <option value="">— Select a system —</option>
+                    <option value="">Select a system</option>
                     {#each adminMe.scopes as s}
                         <option value={s}>{s}</option>
                     {/each}
@@ -5995,13 +5997,8 @@
                     <label class="check-row">
                         <input type="checkbox" bind:checked={tbEnabled} />
                         <span>Send table-booking emails for {tbSelectScope}</span>
+                        <HelpTip label="table-booking emails" text={"Emails an outside venue how many tables to expect.\n\nLeave it off if the club runs its own venue through Venue Admin \u2014 that already works the number out and lays the tables out on the plan."} />
                     </label>
-                    <p class="muted tb-scope-note">
-                        This emails an <strong>outside</strong> venue how many tables to expect.
-                        If the club runs its own venue through Venue Admin, that already works
-                        the number out and lays the tables out on the plan — you'd be emailing
-                        yourself a count you can see.
-                    </p>
                     <div class="field-row-break"></div>
 
                     <div class="field field-narrow">
@@ -6049,7 +6046,7 @@
                             <input id="tb-cutoff-time" class="field-input" type="time" bind:value={tbCutoffTime} />
                         </div>
                         <p class="field-caption">
-                            Sent at this day/time (UK local) based on headcount so far — pairings may not exist yet.
+                            Sent at this day/time (UK local) based on headcount so far, so pairings may not exist yet.
                         </p>
                     {/if}
                     <div class="field-row-break"></div>
@@ -6179,7 +6176,6 @@
 
     .cta-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 
-    .tb-scope-note { max-width: 46rem; margin: 0.35rem 0 0; }
 
     .page-heading {
         font-size: 1.5rem;
@@ -6349,7 +6345,15 @@
         padding: 0.2rem 0.7rem;
     }
 
-    .ob-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .ob-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+
+    /* Eight uniform rows is a tall list to scroll past every time the tab
+       opens, and each row only ever fills half the panel. Two columns once
+       there is room for them; auto-fit rather than a fixed 2, so it collapses
+       on its own at narrow widths without a second breakpoint. */
+    @media (min-width: 1000px) {
+        .ob-list { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+    }
 
     .ob-item {
         display: flex;
@@ -6556,10 +6560,16 @@
         font-variant-numeric: tabular-nums;
     }
 
+    /* There are four charts. auto-fit gave three across on a wide console and
+       left the fourth on its own, which reads as a missing chart rather than a
+       full set. Capped at two so it stays a 2x2 block. */
     .trend-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 1rem;
+    }
+    @media (min-width: 900px) {
+        .trend-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     .chart-card {
         background: var(--color-surface-dark);
@@ -7881,12 +7891,6 @@
         flex-direction: column;
         gap: 0.5rem;
     }
-    .league-help-text {
-        font-size: 0.8rem;
-        line-height: 1.5;
-        color: var(--color-text-dim);
-        margin: 0 0 0.25rem;
-    }
 
     /* Club landing page: carousel accent picker, photo preview, event form */
     .accent-row {
@@ -8018,7 +8022,7 @@
 
     .vibe-behaviour {
         flex: 0 0 auto;
-        width: auto;
+        width: 11.5rem;
     }
 
     .vibe-add {
@@ -8031,5 +8035,25 @@
     .vibe-chip {
         padding: 0.32rem 0.7rem;
         font-size: 0.82rem;
+    }
+
+    .vibe-head {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin-bottom: 0.3rem;
+        color: var(--color-text-dim);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+    }
+
+    .vibe-head-name {
+        flex: 1 1 auto;
+    }
+
+    .vibe-head-behaviour {
+        flex: 0 0 auto;
+        width: 11.5rem;
     }
 </style>

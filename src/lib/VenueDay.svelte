@@ -86,7 +86,7 @@
             // the moment it happens, not on the night.
             if (made.short_by > 0) {
                 error = `Held ${made.tables_held} of the ${made.tables_needed} tables you asked ` +
-                        `for — the rest were already taken. Free something up, or edit the event.`;
+                        `for. The rest were already taken. Free something up, or edit the event.`;
             }
             // The event takes empty tables first, but a big one runs out of
             // them. Whoever it moved has to be named at the moment it happens.
@@ -277,7 +277,7 @@
             <h3 class="a-subtitle">Events</h3>
             <HelpTip
                 label="events"
-                text={"Something the venue is running that takes tables out of circulation — a tournament, a launch night, a party.\n\nIt holds its tables exactly like a booking, so the public can't book over it. Cancel it and they come straight back."}
+                text={"Something the venue is running that takes tables out of circulation: a tournament, a launch night, a party.\n\nIt holds its tables exactly like a booking, so the public can't book over it. Cancel it and they come straight back."}
             />
             <span class="a-head-end">
                 <button class="secondary-button" type="button"
@@ -304,7 +304,7 @@
                 </label>
                 <label class="field">
                     <span class="field-label">Tables</span>
-                    <HelpTip label="tables for an event" text={"How many tables to hold. It takes the EMPTY ones first, then whatever's left — so a big event on a busy night can come up short, and it tells you by how many rather than failing."} />
+                    <HelpTip label="tables for an event" text={"How many tables to hold. It takes the EMPTY ones first, then whatever's left, so a big event on a busy night can come up short. It tells you by how many rather than failing."} />
                     <input class="field-input" type="number" min="1" max="200"
                            bind:value={newEvent.tables_needed} />
                 </label>
@@ -340,7 +340,7 @@
                             {#if ev.status !== 'approved'}
                                 <span class="ev-status">
                                     {ev.status === 'pending' ? 'Waiting for approval' : 'Turned down'}
-                                    {#if ev.rejection_reason} — {ev.rejection_reason}{/if}
+                                    {#if ev.rejection_reason}: {ev.rejection_reason}{/if}
                                 </span>
                             {/if}
                             {#if ev.table_names.length}
@@ -372,7 +372,7 @@
         {/if}
 
         <h3 class="a-subtitle">Bookings</h3>
-        <HelpTip label="bookings" text={"Everything booked on this date, except an event's own tables — those are listed above as the one thing they are, rather than as six identical rows.\n\nClick a table on the plan to narrow this to it."} />
+        <HelpTip label="bookings" text={"Everything booked on this date, except an event's own tables. Those are listed above as the one thing they are, rather than as six identical rows.\n\nClick a table on the plan to narrow this to it."} />
         {#if shown.length === 0}
             <p class="a-note">
                 {#if focusTable === null}

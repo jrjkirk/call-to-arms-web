@@ -40,7 +40,7 @@
                 geoBusy = false;
             },
             () => {
-                geoError = "Couldn't get your location — check the browser permission.";
+                geoError = "Couldn't get your location. Check the browser permission.";
                 geoBusy = false;
             },
             { timeout: 10000, maximumAge: 60000 }
@@ -121,7 +121,7 @@
 </script>
 
 <svelte:head>
-    <meta name="description" content="Find a wargaming club near you — search by location and filter by the systems you play." />
+    <meta name="description" content="Find a wargaming club near you. Search by location and filter by the systems you play." />
 </svelte:head>
 
 {#if !loaded}
@@ -186,7 +186,7 @@
             <div class="finder-list">
                 {#if sorted.length === 0}
                     <div class="empty-state">
-                        No clubs match. Try clearing filters — or <a href="#add-club">add your club</a>.
+                        No clubs match. Try clearing filters, or <a href="#add-club">add your club</a>.
                     </div>
                 {:else}
                     {#each sorted as c (c.id)}

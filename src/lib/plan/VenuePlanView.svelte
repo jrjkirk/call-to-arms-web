@@ -263,7 +263,7 @@
             await exportPlanPng(svgEl, {
                 view,
                 name: `${room.name}-${date}`,
-                caption: [`${room.name} — ${pretty}`, legend.join('  ·  ')]
+                caption: [`${room.name} · ${pretty}`, legend.join('  ·  ')]
             });
         } catch (_) {
             exportError = "Couldn't render the plan to an image.";
@@ -274,7 +274,7 @@
 {#if loading}
     <p class="a-note">Loading the plan…</p>
 {:else if !room}
-    <p class="a-note">No floor plan yet — build one under Tables &amp; plan.</p>
+    <p class="a-note">No floor plan yet. Build one under Tables &amp; plan.</p>
 {:else}
     <div class="planview">
         <div class="pv-bar">

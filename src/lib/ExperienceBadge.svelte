@@ -57,8 +57,8 @@
 			<HelpTip
 				label="experience"
 				text={`${exp.total_games} games of ${exp.system}
-• ${exp.experienced_at}+ games — Experienced
-• ${exp.veteran_at}+ games — Veteran`}
+• ${exp.experienced_at}+ games: Experienced
+• ${exp.veteran_at}+ games: Veteran`}
 			/>
 			{#if !editing}
 				<button class="exp-link" type="button" onclick={open}>Edit</button>

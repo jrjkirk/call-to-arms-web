@@ -307,7 +307,7 @@
                             <strong>{g.opponent_name}</strong>
                             (<em>{g.opponent_faction ?? '?'}</em>)
                         {:else}
-                            <span class="result-vs result-bye">— BYE</span>
+                            <span class="result-vs result-bye">BYE</span>
                         {/if}
                     </span>
                 </div>

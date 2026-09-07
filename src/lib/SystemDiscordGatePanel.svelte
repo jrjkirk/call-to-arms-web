@@ -97,7 +97,7 @@
 			<h4 class="a-title">Discord invite</h4>
 			<HelpTip
 				label="the Discord invite"
-				text="This is the “Join the {system} Discord” button on your Club page. Set a link here only if this game night has its own Discord server — otherwise it uses your club's link. If you switch the membership gate on, blocked players are sent here too, so it must point at the same server the gate checks."
+				text="This is the “Join the {system} Discord” button on your Club page. Set a link here only if this game night has its own Discord server. Otherwise it uses your club's link. If you switch the membership gate on, blocked players are sent here too, so it must point at the same server the gate checks."
 			/>
 			<span class="a-head-end">
 				<span class="a-state" class:is-on={!!gate.discord_url}>
@@ -124,7 +124,7 @@
 		</div>
 		<p class="field-label-hint">
 			{#if gate.inherits_url}
-				Using your club's link — <code>{gate.discord_url}</code>. Leave empty to keep it.
+				Using your club's link, <code>{gate.discord_url}</code>. Leave empty to keep it.
 			{:else if !gate.discord_url}
 				Nothing set here or on your club, so no button appears.
 			{/if}
@@ -140,7 +140,7 @@
 			<h4 class="a-title">Membership gate</h4>
 			<HelpTip
 				label="the membership gate"
-				text="Requires players to be in this system's Discord before they can sign up, arrange a game, post a call-out or submit a result. Pairings and drops are announced there, so someone outside the server can't find out they've been paired. Each player is only ever checked once — existing members are never affected."
+				text="Requires players to be in this system's Discord before they can sign up, arrange a game, post a call-out or submit a result. Pairings and drops are announced there, so someone outside the server can't find out they've been paired. Each player is only ever checked once, so existing members are never affected."
 			/>
 			<span class="a-head-end">
 				<span class="a-state" class:is-on={gate.enabled && gate.connected}>
@@ -156,9 +156,9 @@
 			{:else if gate.connected}
 				Checking <strong>{gate.guild_name}</strong>{#if gate.inherits_guild} (your club's server){/if}.
 			{:else if gate.guild_id}
-				Server set, but the bot isn't in it yet — nobody is being checked.
+				Server set, but the bot isn't in it yet. Nobody is being checked.
 			{:else}
-				No server set — nobody is being checked.
+				No server set. Nobody is being checked.
 			{/if}
 		</p>
 	{#if !gate.bot_configured}
@@ -166,7 +166,7 @@
 		     it's just a link on your Club page and needs no bot. -->
 		<p class="field-error">
 			The Call to Arms Discord bot isn't set up on this platform yet, so the membership gate
-			can't run. Contact the platform admin — this isn't something your club can fix.
+			can't run. Contact the platform admin. This isn't something your club can fix.
 		</p>
 	{/if}
 	<div class="field gate-optin">
@@ -180,7 +180,7 @@
 			<span>Use the Discord gate for {system}</span>
 		</label>
 		<p class="field-label-hint">
-			Off by default, and set per game night — your club's other systems are unaffected either
+			Off by default, and set per game night. Your club's other systems are unaffected either
 			way.
 		</p>
 	</div>
@@ -205,7 +205,7 @@
 					onchange={(e) => onSave({ guild_id: e.currentTarget.value })}
 					disabled={saving}
 				>
-					<option value="">— use my club's server —</option>
+					<option value="">Use my club's server</option>
 					{#each gate.available_guilds as g}
 						<option value={g.id}>{g.name}</option>
 					{/each}
@@ -246,12 +246,12 @@
 
 			{#if gate.connected}
 				<p class="a-note">
-					Already done — the bot is in <strong>{gate.guild_name}</strong> and can see who's a
+					Already done. The bot is in <strong>{gate.guild_name}</strong> and can see who's a
 					member. Nothing to do here unless you point this system at a different server.
 				</p>
 			{:else}
 				<p class="a-note">
-Needs the <strong>Manage Server</strong> permission — often not the app admin.
+Needs the <strong>Manage Server</strong> permission, often not the app admin.
 				Send them the link; they need no account here.
 				</p>
 				<details class="a-disclosure">
@@ -262,14 +262,14 @@ Needs the <strong>Manage Server</strong> permission — often not the app admin.
 						Discord shows an <strong>“Add to Server”</strong> screen with a dropdown. Pick the
 						server this game night runs in.
 						<span class="gate-note">
-							Not in the list? That account doesn't have Manage Server on it — ask whoever
+							Not in the list? That account doesn't have Manage Server on it. Ask whoever
 							set the server up.
 						</span>
 					</li>
 					<li>
 						Press <strong>Continue</strong>, then <strong>Authorize</strong>.
 						<span class="gate-note">
-							The permissions list will be <em>empty</em>. That's correct, not a bug — see
+							The permissions list will be <em>empty</em>. That's correct, not a bug. See
 							below.
 						</span>
 					</li>
@@ -298,7 +298,7 @@ Needs the <strong>Manage Server</strong> permission — often not the app admin.
 			<p class="field-label-hint">
 				<strong>What the bot can do:</strong> nothing except check whether a named person has
 				joined. The invite requests <em>zero</em> permissions, which is why the authorize screen
-				looks empty — it can't read or post messages, can't see your channels, and can't list
+				looks empty. It can't read or post messages, can't see your channels, and can't list
 				your members.
 				<a
 					href="https://support.discord.com/hc/en-us/articles/21334461140375-Using-Apps-on-Discord"
@@ -312,7 +312,7 @@ Needs the <strong>Manage Server</strong> permission — often not the app admin.
 			<div class="a-step-title">3. Monitor or enforce</div>
 			{#if !gate.can_enforce}
 				<p class="field-label-hint">
-					Enforce is locked until the bot is connected — otherwise the check can't run and the
+					Enforce is locked until the bot is connected. Otherwise the check can't run and the
 					gate would look active while letting everyone through.
 				</p>
 			{/if}
@@ -322,8 +322,8 @@ Needs the <strong>Manage Server</strong> permission — often not the app admin.
 				onchange={(e) => onSave({ mode: e.currentTarget.value })}
 				disabled={saving || !gate.can_enforce}
 			>
-				<option value="monitor">Monitor — log who would be blocked, block nobody</option>
-				<option value="enforce">Enforce — require Discord membership</option>
+				<option value="monitor">Monitor: log who would be blocked, block nobody</option>
+				<option value="enforce">Enforce: require Discord membership</option>
 			</select>
 			<p class="field-label-hint">
 				Starts on <strong>Monitor</strong>. Leave it there for a couple of club nights before

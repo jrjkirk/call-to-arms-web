@@ -10,6 +10,7 @@
     import { factionIconUrl, systemFolder } from '$lib/factions';
     import { getSystemsConfig, configFor, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
+    import { NONE_FACTION } from '$lib/signupOptions';
     import SystemPicker from '$lib/SystemPicker.svelte';
 
     // One "Leagues" page for the whole club: a row of system tiles (same
@@ -221,10 +222,10 @@
     /* ---------- submission form ---------- */
     let p1IdStr = $state('');
     let p2IdStr = $state('');
-    let p1Faction = $state('— None —');
-    let p2Faction = $state('— None —');
-    let p1Painting = $state('— None —');
-    let p2Painting = $state('— None —');
+    let p1Faction = $state(NONE_FACTION);
+    let p2Faction = $state(NONE_FACTION);
+    let p1Painting = $state(NONE_FACTION);
+    let p2Painting = $state(NONE_FACTION);
     let gameType = $state('Competitive');
     let resultValue = $state('Player 1 Victory');
 
@@ -276,10 +277,10 @@
                 body: JSON.stringify({
                     player_1_id: Number(p1IdStr),
                     player_2_id: Number(p2IdStr),
-                    player_1_faction: p1Faction === '— None —' ? null : p1Faction,
-                    player_2_faction: p2Faction === '— None —' ? null : p2Faction,
-                    player_1_painting_bonus: p1Painting === '— None —' ? null : p1Painting,
-                    player_2_painting_bonus: p2Painting === '— None —' ? null : p2Painting,
+                    player_1_faction: p1Faction === NONE_FACTION ? null : p1Faction,
+                    player_2_faction: p2Faction === NONE_FACTION ? null : p2Faction,
+                    player_1_painting_bonus: p1Painting === NONE_FACTION ? null : p1Painting,
+                    player_2_painting_bonus: p2Painting === NONE_FACTION ? null : p2Painting,
                     game_type: gameType,
                     result: resultValue,
                     system: selectedSystem,
@@ -448,7 +449,7 @@
                         BAYESIAN WIN RATE
                         <span
                             class="info-tooltip"
-                            title="Bayesian-adjusted win rate — draws count as half a win. Players with fewer games are weighted toward 50% to account for small samples. After around 10 games your record speaks for itself. Formula: (wins + 0.5 × draws + 2.5) / (games + 5)"
+                            title="Bayesian-adjusted win rate. Draws count as half a win. Players with fewer games are weighted toward 50% to account for small samples. After around 10 games your record speaks for itself. Formula: (wins + 0.5 × draws + 2.5) / (games + 5)"
                         >ⓘ</span>
                     </th>
                     <th class="center games-col">Games</th>
@@ -529,9 +530,9 @@
                         {#if canLogForOthers}
                             <label class="field-label" for="lr-p1">Player 1</label>
                             <select id="lr-p1" class="field-select" bind:value={p1IdStr}>
-                                <option value="">— None —</option>
+                                <option value="">None</option>
                                 {#each sortedPlayers as p}
-                                    <option value={String(p.id)}>#{p.id} — {p.name}</option>
+                                    <option value={String(p.id)}>#{p.id} · {p.name}</option>
                                 {/each}
                             </select>
                         {:else}
@@ -552,9 +553,9 @@
                              on p1IdStr rather than the logged-in player, so it stays
                              correct for an admin who has picked someone else. -->
                         <select id="lr-p2" class="field-select" bind:value={p2IdStr}>
-                            <option value="">— None —</option>
+                            <option value="">None</option>
                             {#each sortedPlayers.filter((p) => String(p.id) !== p1IdStr) as p}
-                                <option value={String(p.id)}>#{p.id} — {p.name}</option>
+                                <option value={String(p.id)}>#{p.id} · {p.name}</option>
                             {/each}
                         </select>
                     </div>
@@ -564,7 +565,7 @@
                     <div class="field">
                         <label class="field-label" for="lr-p1-faction">Player 1 Faction</label>
                         <select id="lr-p1-faction" class="field-select" bind:value={p1Faction}>
-                            <option>— None —</option>
+                            <option value={NONE_FACTION}>None</option>
                             {#each leagueFactions as f}
                                 <option>{f}</option>
                             {/each}
@@ -573,7 +574,7 @@
                     <div class="field">
                         <label class="field-label" for="lr-p2-faction">Player 2 Faction</label>
                         <select id="lr-p2-faction" class="field-select" bind:value={p2Faction}>
-                            <option>— None —</option>
+                            <option value={NONE_FACTION}>None</option>
                             {#each leagueFactions as f}
                                 <option>{f}</option>
                             {/each}
@@ -585,7 +586,7 @@
                     <div class="field">
                         <label class="field-label" for="lr-p1-paint">Player 1 Painting Bonus</label>
                         <select id="lr-p1-paint" class="field-select" bind:value={p1Painting}>
-                            <option>— None —</option>
+                            <option value={NONE_FACTION}>None</option>
                             <option>Partially Painted</option>
                             <option>Fully Painted</option>
                         </select>
@@ -593,7 +594,7 @@
                     <div class="field">
                         <label class="field-label" for="lr-p2-paint">Player 2 Painting Bonus</label>
                         <select id="lr-p2-paint" class="field-select" bind:value={p2Painting}>
-                            <option>— None —</option>
+                            <option value={NONE_FACTION}>None</option>
                             <option>Partially Painted</option>
                             <option>Fully Painted</option>
                         </select>
@@ -607,7 +608,7 @@
                             <option>Competitive</option>
                             <option>Casual</option>
                         </select>
-                        <p class="field-caption">Casual and Competitive use different rating weights (K values) — see this system's league settings in the admin panel.</p>
+                        <p class="field-caption">Casual and Competitive use different rating weights (K values). See this system's league settings in the admin panel.</p>
                     </div>
                     <div class="field">
                         <label class="field-label" for="lr-result">Result</label>

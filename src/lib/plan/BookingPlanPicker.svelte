@@ -84,7 +84,7 @@
                    (recSet.has(t.id) ? ', recommended for your game' : '') +
                    (selected === t.id ? ', selected' : '');
         }
-        return `${t.name} — ${WHY[reasonOf.get(t.id) ?? 'unavailable']}`;
+        return `${t.name}: ${WHY[reasonOf.get(t.id) ?? 'unavailable']}`;
     }
 
     function pick(t: any) {
@@ -113,7 +113,7 @@
         {/if}
 
         <svg class="canvas" viewBox="{view.x} {view.y} {view.w} {view.h}"
-             role="group" aria-label="{room.name} — tap a free table to choose it">
+             role="group" aria-label="{room.name}: tap a free table to choose it">
             <rect class="floor" x="0" y="0" width={room.width_ft} height={room.depth_ft} />
             <rect class="walls"
                   x={WALL_FT / 2} y={WALL_FT / 2}
@@ -156,7 +156,7 @@
 
         <p class="chosen" aria-live="polite">
             {#if chosen}
-                <strong>{chosen.name}</strong> — {chosen.size_label ?? `seats ${chosen.seats}`}.
+                <strong>{chosen.name}</strong>, {chosen.size_label ?? `seats ${chosen.seats}`}.
                 We’ll hold that one for you.
             {:else}
                 {freeHere} table{freeHere === 1 ? '' : 's'} free at that time. Tap one, or leave

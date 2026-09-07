@@ -97,7 +97,7 @@
     <div class="empty-state">{loadError}</div>
 {:else}
     <p class="lead">
-        You're almost signed up — pick your club below to continue.
+        You're almost signed up. Pick your club below to continue.
     </p>
     <p class="lead-sub">
         Once you've chosen, you'll be able to link or create your player profile.

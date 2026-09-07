@@ -55,7 +55,7 @@
 	<h3 class="a-title">Club-wide Discord server</h3>
 	<HelpTip
 		label="the club-wide server"
-		text="The default any game night uses when it hasn't been given its own Discord. If everything at your club runs out of one server, set it here once and you're done. Switching the membership gate ON happens per game night, on that system's own Discord tab — a club can run each night out of a different server, so “require the Discord” has to mean a specific one."
+		text="The default any game night uses when it hasn't been given its own Discord. If everything at your club runs out of one server, set it here once and you're done. Switching the membership gate ON happens per game night, on that system's own Discord tab. A club can run each night out of a different server, so “require the Discord” has to mean a specific one."
 	/>
 	{#if gate}
 		<span class="a-head-end">
@@ -80,7 +80,7 @@
 	{#if !gate.bot_configured}
 		<p class="field-error">
 			The Call to Arms Discord bot isn't set up on this platform yet, so membership checks
-			can't run anywhere. Contact the platform admin — this isn't something your club can
+			can't run anywhere. Contact the platform admin. This isn't something your club can
 			fix. Setting your server below still works.
 		</p>
 	{/if}
@@ -99,7 +99,7 @@
 				onchange={(e) => onSave({ guild_id: e.currentTarget.value })}
 				disabled={saving}
 			>
-				<option value="">— not set —</option>
+				<option value="">Not set</option>
 				{#each gate.available_guilds as g}
 					<option value={g.id}>{g.name}</option>
 				{/each}
@@ -144,12 +144,12 @@
 
 		{#if gate.connected}
 			<p class="a-note">
-				Already done — the bot is in <strong>{gate.guild_name}</strong> and can see who's a
+				Already done. The bot is in <strong>{gate.guild_name}</strong> and can see who's a
 				member.
 			</p>
 		{:else}
 			<p class="a-note">
-Needs the <strong>Manage Server</strong> permission — often not the app admin.
+Needs the <strong>Manage Server</strong> permission, often not the app admin.
 				Send them the link; they need no account here.
 			</p>
 			<details class="a-disclosure">
@@ -160,14 +160,14 @@ Needs the <strong>Manage Server</strong> permission — often not the app admin.
 					Discord shows an <strong>“Add to Server”</strong> screen with a dropdown. Pick your
 					club's server.
 					<span class="gate-note">
-						Not in the list? That account doesn't have Manage Server on it — ask whoever set
+						Not in the list? That account doesn't have Manage Server on it. Ask whoever set
 						the server up.
 					</span>
 				</li>
 				<li>
 					Press <strong>Continue</strong>, then <strong>Authorize</strong>.
 					<span class="gate-note">
-						The permissions list will be <em>empty</em>. That's correct, not a bug — see below.
+						The permissions list will be <em>empty</em>. That's correct, not a bug. See below.
 					</span>
 				</li>
 				<li>Solve the captcha if Discord shows one.</li>
@@ -192,7 +192,7 @@ Needs the <strong>Manage Server</strong> permission — often not the app admin.
 		<p class="field-label-hint">
 			<strong>What the bot can do:</strong> nothing except check whether a named person has
 			joined. The invite requests <em>zero</em> permissions, which is why the authorize screen
-			looks empty — it can't read or post messages, can't see your channels, and can't list your
+			looks empty. It can't read or post messages, can't see your channels, and can't list your
 			members.
 			<a
 				href="https://support.discord.com/hc/en-us/articles/21334461140375-Using-Apps-on-Discord"

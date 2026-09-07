@@ -731,7 +731,7 @@
                 if (g) { coGate = g; gateRetry = submitCallOut; }
                 else coError = detailText(body, 'Could not post the call-out.');
             } else {
-                coSuccess = 'Call-out posted — it stays here and in Discord until someone takes it up or the time passes.';
+                coSuccess = 'Call-out posted. It stays here and in Discord until someone takes it up or the time passes.';
                 coDate = '';
                 coNotes = '';
                 await loadCallOuts(data.system);
@@ -822,7 +822,7 @@
 {:else if !isClaimed}
     <div class="signup-card card">
         <p class="prompt-body">
-            Almost there, <strong>{auth.user?.discord_name}</strong> — link your player profile
+            Almost there, <strong>{auth.user?.discord_name}</strong>. Link your player profile
             first so your signups count toward your record.
         </p>
         <a class="primary-button" href="/claim">Link my player profile</a>
@@ -843,7 +843,7 @@
             <div class="field">
                 <label class="field-label" for="su-faction">{cfg.factionLabel}</label>
                 <select id="su-faction" class="field-select" bind:value={faction}>
-                    <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                    <option value={NONE_FACTION}>None</option>
                     <FactionOptions {systemsConfig} system={data.system} />
                 </select>
             </div>
@@ -963,7 +963,7 @@
                 <div class="field">
                     <label class="field-label" for="swap-target">Re-arrange with</label>
                     <select id="swap-target" class="field-select" bind:value={swapTarget}>
-                        <option value="">— Select player —</option>
+                        <option value="">Select player</option>
                         {#each otherPlayers as p}
                             <option value={p.player_id}>{p.player_name}</option>
                         {/each}
@@ -1000,14 +1000,12 @@
     <div class="section-title">Pre-Arranged Game</div>
     <details class="card prearranged-card">
         <summary>Set up a pre-arranged game</summary>
-        <p class="prompt-body small">
-            Use this if you've already arranged a game with someone outside the regular
-            signup process. Bringing someone who isn't on the system? Tick
-            <em>“Player B is a guest”</em> and just type their name — no profile needed.
-            Neither player can already be signed up for {data.week} — drop first using the
-            form above if needed. If one player later drops out, the other remains in the
-            weekly pairings pool.
-        </p>
+        <p class="prompt-body small">For a game you have already arranged with someone.</p>
+        <ul class="prompt-body small prearranged-points">
+            <li>Neither player can already be signed up for {data.week}. Drop first if you are.</li>
+            <li>Playing someone who isn't on the system? Tick <em>“Player B is a guest”</em> and type their name.</li>
+            <li>If one of you drops out later, the other goes back into the pairings pool.</li>
+        </ul>
 
         {#if players.length < 1}
             <p class="muted">Pre-arranged games need at least one active player in the system.</p>
@@ -1017,7 +1015,7 @@
                     {#if preCanArrangeForOthers}
                         <label class="field-label" for="pre-a">Player A</label>
                         <select id="pre-a" class="field-select" bind:value={preA}>
-                            <option value="">— Select —</option>
+                            <option value="">Select</option>
                             {#each players as p}
                                 <option value={p.id}>{p.name}</option>
                             {/each}
@@ -1035,7 +1033,7 @@
                 <div class="field">
                     <label class="field-label" for="pre-a-fac">Player A's {prePlayerFactionLabel}</label>
                     <select id="pre-a-fac" class="field-select" bind:value={preAFaction}>
-                        <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                        <option value={NONE_FACTION}>None</option>
                         <FactionOptions {systemsConfig} system={data.system} />
                     </select>
                 </div>
@@ -1057,7 +1055,7 @@
                              on preA rather than the logged-in player, so it stays
                              correct for an admin who has picked someone else. -->
                         <select id="pre-b" class="field-select" bind:value={preB}>
-                            <option value="">— Select —</option>
+                            <option value="">Select</option>
                             {#each players.filter((p) => p.id !== preA) as p}
                                 <option value={p.id}>{p.name}</option>
                             {/each}
@@ -1071,7 +1069,7 @@
                 <div class="field">
                     <label class="field-label" for="pre-b-fac">Player B's {prePlayerFactionLabel}</label>
                     <select id="pre-b-fac" class="field-select" bind:value={preBFaction}>
-                        <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                        <option value={NONE_FACTION}>None</option>
                         <FactionOptions {systemsConfig} system={data.system} />
                     </select>
                 </div>
@@ -1167,11 +1165,11 @@
             <!-- A nudge, not a link between the two: posting a call-out doesn't
                  book anything, and a table you haven't asked for isn't waiting
                  for you. Deliberately kept as a reminder rather than an
-                 automatic booking — the game might not get taken up, and
+                 automatic booking. The game might not get taken up, and
                  holding a table on the chance it does costs the venue money. -->
             <p class="prompt-body small callout-book">
-                Playing at the club? A call-out doesn’t reserve anything —
-                <a href="/book" target="_blank" rel="noopener">book a table</a>
+                Playing at the club? A call-out doesn’t reserve anything.
+                <a href="/book" target="_blank" rel="noopener">Book a table</a>
                 once someone takes you up on it.
             </p>
         {/if}
@@ -1189,7 +1187,7 @@
             <div class="field">
                 <label class="field-label" for="co-fac">Your {prePlayerFactionLabel}</label>
                 <select id="co-fac" class="field-select" bind:value={coFaction}>
-                    <option value={NONE_FACTION}>{NONE_FACTION}</option>
+                    <option value={NONE_FACTION}>None</option>
                     <FactionOptions {systemsConfig} system={data.system} />
                 </select>
             </div>
@@ -1212,7 +1210,7 @@
 
             <div class="field field-full">
                 <label class="field-label" for="co-notes">Notes (optional)</label>
-                <textarea id="co-notes" class="field-input callout-notes-input" maxlength="500" rows="2" placeholder="Recommended: SBC. Plus anything else — parking, what you're after…" bind:value={coNotes}></textarea>
+                <textarea id="co-notes" class="field-input callout-notes-input" maxlength="500" rows="2" placeholder="Recommended: SBC. Plus anything else: parking, what you're after…" bind:value={coNotes}></textarea>
             </div>
         </div>
 
@@ -1424,6 +1422,11 @@
         accent-color: var(--color-gold, #c9a14a);
     }
 
+    .prearranged-points {
+        margin: 0.35rem 0 0;
+        padding-left: 1.1rem;
+    }
+    .prearranged-points li { margin-bottom: 0.25rem; }
     .prearranged-card summary {
         cursor: pointer;
         font-weight: 600;

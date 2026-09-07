@@ -55,7 +55,7 @@
                 <strong>{plan.system_name ?? night.system}</strong>
                 <HelpTip
                     label="tonight's tables"
-                    text={'Worked out from this night\'s own pairings: one table per game, none for a bye. It runs by itself when the pairings are published.\n\nWho is on which table is drawn on the plan above — click a table to see the game.'}
+                    text={'Worked out from this night\'s own pairings: one table per game, none for a bye. It runs by itself when the pairings are published.\n\nWho is on which table is drawn on the plan above. Click a table to see the game.'}
                 />
                 <!-- Games and held tables, both counted rather than derived. An
                      "X of Y in use" phrasing kept coming out subtly wrong,
@@ -88,8 +88,8 @@
                     <strong>{plan.needs_table.length} game{plan.needs_table.length === 1 ? '' : 's'}
                     with no table.</strong>
                     <span class="s-quiet">
-                        {plan.tables_needed} games, {plan.tables_held} tables held for this night —
-                        pick a table for {plan.needs_table.length === 1 ? 'it' : 'each'}, or
+                        {plan.tables_needed} games, {plan.tables_held} tables held for this night.
+                        Pick a table for {plan.needs_table.length === 1 ? 'it' : 'each'}, or
                         {plan.needs_table.length === 1 ? "it's" : "they're"} playing on the floor.
                     </span>
                 </p>
@@ -110,8 +110,8 @@
                             {#each plan.table_options as t}
                                 <option value={t.id}>
                                     {t.name}{t.size ? ` · ${t.size}` : ''}{t.taken_by
-                                        ? ` — ${t.taken_by} would move off`
-                                        : t.allocated ? '' : ' — not held for this night'}
+                                        ? ` (${t.taken_by} would move off)`
+                                        : t.allocated ? '' : ' (not held for this night)'}
                                 </option>
                             {/each}
                         </select>
@@ -127,7 +127,7 @@
                     {plan.spare_tables.join(', ')}
                     <p class="s-quiet">
                         {#if plan.released}
-                            Back on sale — the public can book {spare === 1 ? 'it' : 'them'} tonight.
+                            Back on sale. The public can book {spare === 1 ? 'it' : 'them'} tonight.
                         {:else}
                             Held for this night, but tonight’s games don’t need
                             {spare === 1 ? 'it' : 'them'}.

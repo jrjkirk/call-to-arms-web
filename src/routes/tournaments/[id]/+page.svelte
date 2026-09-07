@@ -130,12 +130,12 @@
             return `${t.entries.length} entered. Close entries when you're ready, or leave them open until the morning.`;
         const last = t.rounds?.length ? t.rounds[t.rounds.length - 1] : null;
         if (checked === 0 && registered)
-            return `Check in the ${registered} player${registered === 1 ? '' : 's'} who have turned up — only checked-in players get paired.`;
+            return `Check in the ${registered} player${registered === 1 ? '' : 's'} who have turned up. Only checked-in players get paired.`;
         if (!last) return `${checked} checked in. Generate round 1 when everyone's here.`;
         if (last.status === 'paired')
             return `Round ${last.round_no} is paired but not published. Players can't see it yet.`;
         const open = last.games.filter((g: any) => !g.result).length;
-        if (open) return `Round ${last.round_no} is running — ${open} result${open === 1 ? '' : 's'} still to come in.`;
+        if (open) return `Round ${last.round_no} is running, ${open} result${open === 1 ? '' : 's'} still to come in.`;
         if (allRoundsDone) return 'Every round is done. Mark the event finished to lock the standings.';
         return `Round ${last.round_no} is complete. Generate round ${last.round_no + 1}.`;
     });
@@ -243,7 +243,7 @@
         {/if}
 
         <!-- Ticket, check-in and list: what a player has to do before they play.
-             Ticketing takes no money yet — the TO marks it and check-in reads
+             Ticketing takes no money yet. The TO marks it and check-in reads
              it, which is the part that actually needs to exist first. -->
         {#if t.me}
             <div class="me-panel">
@@ -280,7 +280,7 @@
                         {t.me.status === 'checked_in' ? 'Checked in'
                           : t.me.status === 'dropped' ? 'Dropped'
                           : t.me.status === 'waitlisted' ? 'On the waiting list'
-                          : 'Not yet — see the organiser on the day'}
+                          : 'Not yet. See the organiser on the day'}
                     </span>
                 </div>
                 {#if t.list_required || t.me.army_list}
@@ -363,7 +363,7 @@
             <div class="stage">
                 <span class="stage-label">
                     Stage
-                    <HelpTip label="event stage" text={"Draft is your private workspace — players can't see the event at all.\n\nEntries open lets people register. Closed stops new entries but keeps everyone already in.\n\nUnder way is set for you when you generate the first round. Finished locks the standings.\n\nYou can move back and forth freely, so reopening entries for a latecomer is one click."} />
+                    <HelpTip label="event stage" text={"Draft is your private workspace. Players can't see the event at all.\n\nEntries open lets people register. Closed stops new entries but keeps everyone already in.\n\nUnder way is set for you when you generate the first round. Finished locks the standings.\n\nYou can move back and forth freely, so reopening entries for a latecomer is one click."} />
                 </span>
                 <div class="stage-track">
                     {#each STAGES as st}
@@ -383,7 +383,7 @@
                             onclick={() => call('/rounds')}>
                         Generate round {(t.rounds?.length ?? 0) + 1}
                     </button>
-                    <HelpTip label="generating a round" text={"Round one is random, or by seed if you've set seeding. Later rounds pair players on matching records, avoiding anyone they have already played.\n\nThe previous round needs every result in first — pairing on half-finished records produces a table that is simply wrong.\n\nNothing is shown to players until you publish the round."} />
+                    <HelpTip label="generating a round" text={"Round one is random, or by seed if you've set seeding. Later rounds pair players on matching records, avoiding anyone they have already played.\n\nThe previous round needs every result in first. Pairing on half-finished records produces a table that is simply wrong.\n\nNothing is shown to players until you publish the round."} />
                 {:else}
                     <span class="a-note done-note">All {t.rounds_total} rounds generated.</span>
                 {/if}
@@ -415,7 +415,7 @@
                         <h3 class="round-title">Round {r.round_no}</h3>
                         {#if r.status === 'paired'}
                             <span class="pill draft">Not published</span>
-                            <HelpTip label="publishing a round" text={"Players can't see a round until you publish it. Look the pairings over first — swap a table, fix a name — then publish and it appears on everyone's page.\n\nRe-pair throws the round away and generates it again, and is only possible while no results are in."} />
+                            <HelpTip label="publishing a round" text={"Players can't see a round until you publish it. Look the pairings over first, swapping a table or fixing a name, then publish and it appears on everyone's page.\n\nRe-pair throws the round away and generates it again, and is only possible while no results are in."} />
                             {#if toView}
                                 <button class="secondary-button small" disabled={busy}
                                         onclick={() => call(`/rounds/${r.id}/publish`)}>Publish</button>
@@ -516,7 +516,7 @@
                 {#if !payments.card_payments}
                     <p class="a-note">
                         {payments.stripe_configured
-                            ? 'Card payments are available — connect this club\'s Stripe account in Venue Admin to switch them on.'
+                            ? 'Card payments are available. Connect this club\'s Stripe account in Venue Admin to switch them on.'
                             : 'Take payment however you normally do, then mark tickets paid here.'}
                     </p>
                 {/if}
@@ -533,7 +533,7 @@
                     <button class="res" disabled={busy || !selected.size} onclick={() => bulk('paid')}>Mark paid</button>
                     <button class="res" disabled={busy || !selected.size} onclick={() => bulk('comp')}>Mark comp</button>
                     <button class="res" disabled={busy || !selected.size} onclick={() => bulk('none')}>Mark unpaid</button>
-                    <HelpTip label="marking tickets" text={"For money that arrived any way other than a card payment here — bank transfer, cash on the day, an external ticket site.\n\nComp is a free place that still counts towards capacity.\n\nAn unpaid place is held for a set time and then goes back to the waiting list, so nobody blocks a seat they never paid for."} />
+                    <HelpTip label="marking tickets" text={"For money that arrived any way other than a card payment here: bank transfer, cash on the day, an external ticket site.\n\nComp is a free place that still counts towards capacity.\n\nAn unpaid place is held for a set time and then goes back to the waiting list, so nobody blocks a seat they never paid for."} />
                 </div>
 
                 <div class="entries">
@@ -565,7 +565,7 @@
                 <div class="form-grid">
                     <label class="field">
                         <span class="field-label">Days
-                            <HelpTip label="multi-day events" text={"How many days the event runs over. Rounds are spread across them, earlier days taking the extra when it doesn't divide evenly — people leave early on the last day, not the first.\n\nChanging this rebuilds the running order below."} /></span>
+                            <HelpTip label="multi-day events" text={"How many days the event runs over. Rounds are spread across them, earlier days taking the extra when it doesn't divide evenly. People leave early on the last day, not the first.\n\nChanging this rebuilds the running order below."} /></span>
                         <input class="field-input" type="number" min="1" max="7" value={t.days}
                                onchange={(e) => call('', 'PATCH', { days: Number(e.currentTarget.value) })} />
                     </label>
@@ -577,7 +577,7 @@
                     </label>
                     <label class="field">
                         <span class="field-label">Round length
-                            <HelpTip label="round length" text={"In minutes, and only used to lay the running order out. It enforces nothing on the day — edit any row afterwards and your version is kept."} /></span>
+                            <HelpTip label="round length" text={"In minutes, and only used to lay the running order out. It enforces nothing on the day. Edit any row afterwards and your version is kept."} /></span>
                         <input class="field-input" type="number" min="30" max="480" step="15" value={t.round_minutes}
                                onchange={(e) => call('', 'PATCH', { round_minutes: Number(e.currentTarget.value) })} />
                     </label>
@@ -589,10 +589,7 @@
                     </label>
                 </div>
                 {#if t.schedule_is_default}
-                    <p class="a-note">
-                        A suggested running order, built from the settings above. Edit any
-                        row and it becomes yours.
-                    </p>
+                    <p class="a-note">Suggested. Edit any row and it becomes yours.</p>
                 {/if}
             {/if}
 
@@ -638,11 +635,8 @@
             {/each}
 
         {:else if tab === 'scoring'}
-            <p class="a-note">
-                Defaults follow what a written post-event review found went wrong elsewhere:
-                record decides the table, victory points break ties, and sportsmanship
-                never outweighs a game.
-            </p>
+            <h3 class="a-subtitle">How players are ranked
+                <HelpTip label="the defaults" text={"The defaults are what a written post-event review found worked:\n\n\u2022 Record decides the table\n\u2022 Victory points break ties\n\u2022 Sportsmanship never outweighs a game"} /></h3>
             <div class="form-grid">
                 <label class="field">
                     <span class="field-label">Ranked primarily on</span>
@@ -756,7 +750,7 @@
         {:else}
             {#if toView}
                 <div class="add-entry">
-                    <HelpTip label="adding players" text={"For someone paying at the door, or a visitor from another club with no profile here — they just need a name.\n\nAdding someone here ignores the capacity limit, because a TO standing in the room knows better than the limit does."} />
+                    <HelpTip label="adding players" text={"For someone paying at the door, or a visitor from another club with no profile here. They just need a name.\n\nAdding someone here ignores the capacity limit, because a TO standing in the room knows better than the limit does."} />
                     <input class="field-input" type="text" bind:value={newName} placeholder="Name" />
                     <input class="field-input" type="text" bind:value={newFaction} placeholder="Faction (optional)" />
                     <button class="secondary-button" disabled={busy || !newName.trim()}

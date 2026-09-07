@@ -161,9 +161,8 @@
 		{:else if !signedIn}
 			<div class="request-card request-success">
 				<p>
-					Sign in with Discord to request your club. It's how we know who's asking,
-					and it means we can make you your club's admin the moment we approve it,
-					with no back and forth.
+					Sign in with Discord to request your club. It tells us who's asking, and it
+					lets us make you the club's admin the moment we approve it.
 				</p>
 				<a class="request-button" href={loginHrefTo('/request-club')}>Sign in with Discord</a>
 			</div>

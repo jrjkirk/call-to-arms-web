@@ -102,7 +102,7 @@
                     <h2 class="a-title">Events waiting for approval</h2>
                     <HelpTip
                         label="event approval"
-                        text={"An event takes the room out of circulation for a whole evening, so it needs a yes from a club super-admin rather than from whoever is on shift.\n\nIt holds its tables while it waits — the room isn't sold from under it — and turning it down gives them straight back."}
+                        text={"An event takes the room out of circulation for a whole evening, so it needs a yes from a club super-admin rather than from whoever is on shift.\n\nIt holds its tables while it waits, so the room isn't sold from under it. Turning it down gives them straight back."}
                     />
                     <span class="a-head-end a-state is-on">{pendingEvents.length}</span>
                 </div>

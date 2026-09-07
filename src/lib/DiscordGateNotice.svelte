@@ -33,7 +33,7 @@
 				{gate.server_label ? `Join ${gate.server_label}` : 'Join the Discord'}
 			</a>
 			<button class="gate-retry" type="button" onclick={onRetry} disabled={retrying}>
-				{retrying ? 'Checking…' : "I've joined — try again"}
+				{retrying ? 'Checking…' : "I've joined. Try again"}
 			</button>
 		</div>
 		<p class="gate-hint">Join in the new tab, then come back and hit “try again”.</p>
