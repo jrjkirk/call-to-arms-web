@@ -875,9 +875,9 @@
         session_cadence: string;
         cadence_anchor: string | null;
         session_start_time: string | null;
-        vibe_options: string[] | null;
+        vibe_options: (string | VibeOption)[] | null;
         default_vibe: string | null;
-        default_vibe_options: string[] | null;
+        default_vibe_options: (string | VibeOption)[] | null;
         default_default_vibe: string | null;
     };
     type CatalogueSystem = { id: number; name: string; legacy_system_name: string };
@@ -894,7 +894,47 @@
     let csSessionStartTime = $state('');
     let csEnabled = $state(true);
     let csUseDefaultVibes = $state(true);
-    let csVibeOptions = $state<string[]>([]);
+    /** A vibe is a name plus how the matcher should treat it.
+     *
+     *  soft      a preference, costing the vibe weight when two players differ
+     *  wildcard  matches anything at no cost (what "Open" has always done)
+     *  exclusive only pairs with the same vibe, for a different game entirely
+     *            such as The Old World's smaller "Battle March" 
+     *
+     *  Stored as plain strings when the name already implies the behaviour, so
+     *  a club that never touches this leaves its row exactly as it was.
+     */
+    type VibeOption = { name: string; behaviour: 'soft' | 'wildcard' | 'exclusive' };
+    let csVibeOptions = $state<VibeOption[]>([]);
+
+    const VIBE_BEHAVIOURS: { value: VibeOption['behaviour']; label: string }[] = [
+        { value: 'soft', label: 'Preference' },
+        { value: 'wildcard', label: 'Matches anything' },
+        { value: 'exclusive', label: 'Own bracket' }
+    ];
+
+    /** Read either stored shape: plain strings from before this existed, or
+     *  objects. "Open" keeps the wildcard behaviour the engine always gave it. */
+    function toVibeOptions(raw: (string | VibeOption)[] | null | undefined): VibeOption[] {
+        return (raw ?? []).map((v) =>
+            typeof v === 'string'
+                ? { name: v, behaviour: /^(open|either)$/i.test(v) ? 'wildcard' : 'soft' }
+                : { name: v.name, behaviour: v.behaviour ?? 'soft' }
+        ) as VibeOption[];
+    }
+
+    function addVibe(name: string, behaviour: VibeOption['behaviour'] = 'soft') {
+        if (csVibeOptions.some((v) => v.name.toLowerCase() === name.toLowerCase())) return;
+        csVibeOptions = [...csVibeOptions, { name, behaviour }];
+        if (!csDefaultVibe) csDefaultVibe = name;
+    }
+
+    function removeVibe(name: string) {
+        csVibeOptions = csVibeOptions.filter((v) => v.name !== name);
+        if (!csVibeOptions.some((v) => v.name === csDefaultVibe)) {
+            csDefaultVibe = csVibeOptions[0]?.name ?? '';
+        }
+    }
     let csDefaultVibe = $state('');
     let csSaving = $state(false);
     let csError = $state<string | null>(null);
@@ -2171,14 +2211,14 @@
             csEnabled = existing.enabled;
             if (existing.vibe_options && existing.vibe_options.length > 0) {
                 csUseDefaultVibes = false;
-                csVibeOptions = existing.vibe_options;
-                csDefaultVibe = existing.default_vibe ?? existing.vibe_options[0];
+                csVibeOptions = toVibeOptions(existing.vibe_options);
+                csDefaultVibe = existing.default_vibe ?? csVibeOptions[0]?.name ?? '';
             } else {
                 // No override: default to "use platform default", but pre-fill
                 // the checkboxes with that default for when they opt into custom.
                 csUseDefaultVibes = true;
-                csVibeOptions = existing.default_vibe_options ?? [];
-                csDefaultVibe = existing.default_default_vibe ?? (existing.default_vibe_options ?? [])[0] ?? '';
+                csVibeOptions = toVibeOptions(existing.default_vibe_options);
+                csDefaultVibe = existing.default_default_vibe ?? csVibeOptions[0]?.name ?? '';
             }
         } else {
             csSessionDay = 'Wednesday';
@@ -5142,24 +5182,39 @@
                                             <span>Use the platform default vibes for this system</span>
                                         </label>
                                         {#if !csUseDefaultVibes}
-                                            <div class="vibe-checkboxes">
-                                                {#each CANONICAL_VIBES as v}
-                                                    <label class="check-row">
+                                            <div class="vibe-rows">
+                                                {#each csVibeOptions as v, i (v.name)}
+                                                    <div class="vibe-row">
                                                         <input
-                                                            type="checkbox"
-                                                            checked={csVibeOptions.includes(v)}
-                                                            onchange={(e) => {
-                                                                const set = new Set(csVibeOptions);
-                                                                if ((e.target as HTMLInputElement).checked) set.add(v);
-                                                                else set.delete(v);
-                                                                csVibeOptions = CANONICAL_VIBES.filter((x) => set.has(x));
-                                                                if (!csVibeOptions.includes(csDefaultVibe)) csDefaultVibe = csVibeOptions[0] ?? '';
-                                                            }}
+                                                            class="field-input vibe-name"
+                                                            type="text"
+                                                            aria-label="Vibe name"
+                                                            bind:value={csVibeOptions[i].name}
                                                         />
-                                                        <span>{v}</span>
-                                                    </label>
+                                                        <select class="field-select vibe-behaviour" aria-label="How it pairs" bind:value={csVibeOptions[i].behaviour}>
+                                                            {#each VIBE_BEHAVIOURS as b (b.value)}
+                                                                <option value={b.value}>{b.label}</option>
+                                                            {/each}
+                                                        </select>
+                                                        <button class="remove-btn" type="button" title="Remove this vibe" onclick={() => removeVibe(v.name)}>×</button>
+                                                    </div>
                                                 {/each}
                                             </div>
+                                            <div class="vibe-add">
+                                                {#each CANONICAL_VIBES.filter((c) => !csVibeOptions.some((v) => v.name.toLowerCase() === c.toLowerCase())) as c (c)}
+                                                    <button class="secondary-button vibe-chip" type="button" onclick={() => addVibe(c, /^(open|either)$/i.test(c) ? 'wildcard' : 'soft')}>+ {c}</button>
+                                                {/each}
+                                                <button class="secondary-button vibe-chip" type="button" onclick={() => addVibe('New vibe')}>+ Your own</button>
+                                            </div>
+                                            <p class="field-label-hint">
+                                                <strong>Preference</strong> is the normal one: players would rather be
+                                                matched with the same, but will take another.
+                                                <strong>Matches anything</strong> is for a "happy with whatever" option.
+                                                <strong>Own bracket</strong> is a different game, like a smaller points
+                                                Battle March, and only ever pairs with itself. Someone on "matches
+                                                anything" is not pulled into one, because they did not bring the army
+                                                for it.
+                                            </p>
                                             {#if csVibeOptions.length > 0}
                                                 <div class="field field-narrow">
                                                     <label class="field-label" for="sc-default-vibe">
@@ -5170,8 +5225,8 @@
                                                         />
                                                     </label>
                                                     <select id="sc-default-vibe" class="field-select" bind:value={csDefaultVibe}>
-                                                        {#each csVibeOptions as v}
-                                                            <option value={v}>{v}</option>
+                                                        {#each csVibeOptions as v (v.name)}
+                                                            <option value={v.name}>{v.name}</option>
                                                         {/each}
                                                     </select>
                                                 </div>
@@ -7941,5 +7996,40 @@
         border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
         padding: 0.4rem;
+    }
+
+    .vibe-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .vibe-row {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+    }
+
+    .vibe-name {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .vibe-behaviour {
+        flex: 0 0 auto;
+        width: auto;
+    }
+
+    .vibe-add {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .vibe-chip {
+        padding: 0.32rem 0.7rem;
+        font-size: 0.82rem;
     }
 </style>
