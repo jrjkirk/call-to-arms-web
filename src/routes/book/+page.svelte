@@ -451,9 +451,6 @@
                 <textarea class="field-input field-textarea" rows="2" bind:value={notes}></textarea>
             </label>
 
-            {#if asGuest}
-                <p class="a-note">Your confirmation goes to that email, along with a link to cancel.</p>
-            {/if}
             {#if error}<p class="field-error">{error}</p>{/if}
             <button class="primary-button" type="button" disabled={submitting || !canSubmit} onclick={book}>
                 {submitting ? 'Booking…' : effectiveMode === 'request' ? 'Request this table' : 'Book this table'}

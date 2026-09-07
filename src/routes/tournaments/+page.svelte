@@ -127,10 +127,7 @@
                             {#each systems as s}<option value={s.id}>{s.name}</option>{/each}
                         </select>
                         {#if !systems.length}
-                            <span class="field-hint">
-                                This club has no game systems enabled yet. Add one under
-                                Admin → Systems, then come back.
-                            </span>
+                            <span class="field-hint">No systems enabled yet. Add one under Admin → Systems.</span>
                         {/if}
                     </label>
                     <label class="field">
@@ -163,8 +160,7 @@
             <p class="a-note">Loading…</p>
         {:else if list.length === 0}
             <p class="a-note">
-                No events yet.{#if isAdmin} Create one above. You can set it up as a draft
-                and open entries when you're ready.{/if}
+                No events yet.{#if isAdmin} Create one above.{/if}
             </p>
         {:else}
             {#if upcoming.length}

@@ -73,8 +73,8 @@
             <p class="a-note">Loading…</p>
         {:else if notFound}
             <p class="a-note">
-                We couldn't find that booking. The link may have expired, or the booking may
-                already have been removed. If you're not sure, contact the venue directly.
+                We couldn't find that booking. The link may have expired, or it may already
+                have been removed. Contact the venue if you're not sure.
             </p>
             <a class="secondary-button" href="/book">Book a table</a>
         {:else}

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { PUBLIC_API_URL } from '$env/static/public';
+    import HelpTip from './HelpTip.svelte';
 
     // `version` is bumped by the parent whenever anything changes a day —
     // an event created, a booking confirmed. Without it the month kept showing
@@ -87,7 +88,7 @@
         {/each}
     </div>
     <p class="a-note cal-key">
-        Bar shows how full the day is · dot per club night · ★ event · number is bookings
+        <HelpTip label="reading the calendar" text={"\u2022 The bar is how full the day is\n\u2022 One dot per club night\n\u2022 \u2605 marks an event\n\u2022 The number is bookings"} />
     </p>
 {/if}
 

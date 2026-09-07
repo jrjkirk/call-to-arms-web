@@ -11,6 +11,7 @@
     import { getSystemsConfig, configFor, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { NONE_FACTION } from '$lib/signupOptions';
+    import HelpTip from '$lib/HelpTip.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
 
     // One "Leagues" page for the whole club: a row of system tiles (same
@@ -603,12 +604,12 @@
 
                 <div class="form-row">
                     <div class="field">
-                        <label class="field-label" for="lr-game-type">Game Type</label>
+                        <label class="field-label" for="lr-game-type">Game Type
+                            <HelpTip label="game type" text={"Casual and Competitive use different rating weights (K values), set in this system's league settings."} /></label>
                         <select id="lr-game-type" class="field-select" bind:value={gameType}>
                             <option>Competitive</option>
                             <option>Casual</option>
                         </select>
-                        <p class="field-caption">Casual and Competitive use different rating weights (K values). See this system's league settings in the admin panel.</p>
                     </div>
                     <div class="field">
                         <label class="field-label" for="lr-result">Result</label>

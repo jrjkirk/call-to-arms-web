@@ -65,8 +65,6 @@
 		</span>
 	{/if}
 </div>
-<p class="a-note">The default server your game nights inherit.</p>
-
 {#if error}
 	<p class="gate-alert gate-alert-bad">{error}</p>
 {/if}
@@ -104,7 +102,7 @@
 					<option value={g.id}>{g.name}</option>
 				{/each}
 			</select>
-			<p class="field-label-hint">Servers the bot has been added to.</p>
+			
 		{/if}
 
 		<label class="gate-label" for="gate-guild-id">Server ID</label>
@@ -121,7 +119,7 @@
 			</button>
 		</div>
 		<p class="field-label-hint">
-			You can paste a server invite link here instead and we'll work it out.
+			<HelpTip label="the server ID" text={"You can paste a server invite link here instead and we'll work it out."} />
 			<a
 				href="https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID"
 				target="_blank"
@@ -149,8 +147,8 @@
 			</p>
 		{:else}
 			<p class="a-note">
-Needs the <strong>Manage Server</strong> permission, often not the app admin.
-				Send them the link; they need no account here.
+Needs the <strong>Manage Server</strong> permission.
+				<HelpTip label="who adds it" text={"Often not the club's app admin. Send them the link; they need no account here."} />
 			</p>
 			<details class="a-disclosure">
 				<summary>Show me how</summary>
@@ -185,21 +183,25 @@ Needs the <strong>Manage Server</strong> permission, often not the app admin.
 			</div>
 		{/if}
 
-		<!-- The "what can this thing see" answer, spelled out. Whoever adds the
-		     bot is often outside the club's admin team and is being asked to put
-		     an unknown app into their server — a vague reassurance is not enough
-		     to get a reasonable person to say yes. -->
-		<p class="field-label-hint">
-			<strong>What the bot can do:</strong> nothing except check whether a named person has
-			joined. The invite requests <em>zero</em> permissions, which is why the authorize screen
-			looks empty. It can't read or post messages, can't see your channels, and can't list your
-			members.
+		<!-- The "what can this thing see" answer, still spelled out in full, but
+		     folded away. Whoever adds the bot is often outside the club's admin
+		     team and is being asked to put an unknown app into their server, so a
+		     vague reassurance is not enough to get a reasonable person to say
+		     yes. A summary they can open is: the answer is one click away and
+		     the panel is no longer a wall of reassurance nobody asked for. -->
+		<details class="gate-disclosure">
+			<summary>What can the bot see?</summary>
+			<p>
+				Nothing except whether a named person has joined. The invite requests
+				<em>zero</em> permissions, which is why the authorize screen looks empty. It can't
+				read or post messages, can't see your channels, and can't list your members.
+			</p>
 			<a
 				href="https://support.discord.com/hc/en-us/articles/21334461140375-Using-Apps-on-Discord"
 				target="_blank"
 				rel="noopener noreferrer">Discord's own guide to adding apps</a
 			>
-		</p>
+		</details>
 	</section>
 
 {/if}
@@ -345,9 +347,6 @@ Needs the <strong>Manage Server</strong> permission, often not the app admin.
 		user-select: all;
 	}
 
-	.gate-hint a {
-		color: var(--color-accent);
-	}
 
 	.gate-suggest {
 		display: flex;
@@ -358,4 +357,25 @@ Needs the <strong>Manage Server</strong> permission, often not the app admin.
 		font-size: 0.82rem;
 		color: var(--color-text-dim);
 	}
+
+	/* The bot-permissions disclosure. Folded, not deleted: someone being asked
+	   to install an unknown app deserves the full answer, but not before they
+	   have asked the question. */
+	.gate-disclosure {
+		margin: 0.9rem 0 0;
+		border-left: 2px solid var(--color-steel-border);
+		padding-left: 0.8rem;
+		font-size: 0.85rem;
+		color: var(--color-text-dim);
+	}
+	.gate-disclosure summary {
+		cursor: pointer;
+		font-weight: 700;
+		color: var(--color-accent);
+		list-style: none;
+	}
+	.gate-disclosure summary::-webkit-details-marker { display: none; }
+	.gate-disclosure summary::before { content: "? "; }
+	.gate-disclosure p { margin: 0.5rem 0; line-height: 1.5; }
+	.gate-disclosure a { color: var(--color-accent); }
 </style>

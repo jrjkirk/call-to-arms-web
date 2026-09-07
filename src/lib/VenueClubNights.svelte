@@ -399,10 +399,8 @@
         <h3 class="a-subtitle">How the plan is holding up</h3>
         <HelpTip label="how the plan is holding up" text={"Your tables-needed figure against what actually happened: published pairings from recent sessions, one game to a table. Byes take no table and aren't counted, and a week with no pairings is skipped rather than averaged in as a quiet night.\n\nThe advice is written against the BUSIEST recent session, not the average. Laying out for the mean means coming up short every other week."} />
         {#if !n.review.measurable}
-            <p class="a-note">
-                This night doesn't run through Call to Arms, so there are no pairings to
-                check your plan against. Set the number you need and hold its tables below.
-            </p>
+            <p class="a-note">Nothing to check against.
+                <HelpTip label="this night" text={"It doesn't run through Call to Arms, so there are no pairings to measure the plan against.\n\nSet the number of tables you need and hold them below."} /></p>
         {:else if n.review.samples.length === 0}
             <p class="a-note">No published pairings yet, so there's nothing to compare against.</p>
         {:else}
@@ -451,10 +449,8 @@
             text={"For a night this app doesn't run: Magic, Bolt Action, Warmachine.\n\nNobody signs up to it here and no pairings are generated, so there's nothing to check a plan against. It still holds its tables and still shows in your diary, which is what stops the public booking over it."}
         />
     </div>
-    <p class="a-note">
-        Your Call to Arms game nights are already listed above. Add anything else that
-        takes up your tables.
-    </p>
+    <p class="a-note">Anything else that takes up your tables.
+        <HelpTip label="other nights" text={"Your Call to Arms game nights are listed above already. This is for everything else the room loses tables to."} /></p>
     <div class="add-grid">
         <label class="field add-name">
             <span class="field-label">Name</span>

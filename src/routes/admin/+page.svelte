@@ -12,6 +12,7 @@
     import { detailText, DISCORD_GATE_ENABLED } from '$lib/discordGate';
     import Toggle from '$lib/Toggle.svelte';
     import HelpTip from '$lib/HelpTip.svelte';
+    import CommandPalette, { type Command } from '$lib/CommandPalette.svelte';
     import Handbook from '$lib/Handbook.svelte';
     import { CLUB_HANDBOOK, SYSTEM_HANDBOOK } from '$lib/handbookContent';
     import { UK_REGIONS } from '$lib/regions';
@@ -484,15 +485,18 @@
     // "Announcements" and "Club card" both failed that: the first hid the
     // Call-to-Arms post behind a generic word, the second described where the
     // output appears rather than what you configure there.
+    // `find` is only ever read by the command palette: the words someone
+    // types when they are looking for a thing the tab is not named after.
+    // Nobody hunting for a webhook thinks "Discord tab".
     const SYSTEM_NAV = [
-        { id: 'pairings', label: 'Pairings' },
-        { id: 'league', label: 'League' },
-        { id: 'weighting', label: 'Weighting' },
-        { id: 'missions', label: 'Missions' },
-        { id: 'autopairings', label: 'Auto-pairings' },
-        { id: 'announcements', label: 'Call to Arms Post' },
-        { id: 'systemconfig', label: 'Game System Config' },
-        { id: 'systemdiscord', label: 'Discord' },
+        { id: 'pairings', label: 'Pairings', find: 'matchups opponents generate publish' },
+        { id: 'league', label: 'League', find: 'elo rankings ratings standings season table' },
+        { id: 'weighting', label: 'Weighting', find: 'matcher sliders rematch weights' },
+        { id: 'missions', label: 'Missions', find: 'scenarios pool images' },
+        { id: 'autopairings', label: 'Auto-pairings', find: 'schedule automatic cron' },
+        { id: 'announcements', label: 'Call to Arms Post', find: 'signup announcement template' },
+        { id: 'systemconfig', label: 'Game System Config', find: 'schedule day cadence vibes carousel' },
+        { id: 'systemdiscord', label: 'Discord', find: 'webhook webhooks channel gate' },
         // Last, and marked `guide`, which gives it a rule above and the book
         // icon. It's a reference rather than a setting, so it shouldn't sit in
         // the run of things you actually change.
@@ -506,19 +510,68 @@
     // moved to that system's own Game System Config tab, because it's the
     // system admin's decision. What the club runs at all stays the club's.
     const CLUB_NAV = [
-        { id: 'clubpage', label: 'Club page', super: true },
-        { id: 'blocks', label: 'Players & blocks', super: false },
-        { id: 'systems', label: 'Systems', super: true },
+        { id: 'clubpage', label: 'Club page', super: true, find: 'logo address map pin hours blurb region' },
+        { id: 'blocks', label: 'Players & blocks', super: false, find: 'roster archive delete member' },
+        { id: 'systems', label: 'Systems', super: true, find: 'enable disable game night add' },
         // Club-level Discord holds only the membership gate, which is benched
         // (see discordGate.ts). With the gate hidden this tab opens onto an
         // empty panel, so it goes with it. Every webhook is per system anyway.
-        ...(DISCORD_GATE_ENABLED ? [{ id: 'discord', label: 'Discord', super: true }] : []),
-        { id: 'admins', label: 'Admins', super: true },
-        { id: 'booking', label: 'Table booking', super: true },
+        ...(DISCORD_GATE_ENABLED ? [{ id: 'discord', label: 'Discord', super: true, find: 'gate server' }] : []),
+        { id: 'admins', label: 'Admins', super: true, find: 'permissions scope super-admin appoint' },
+        { id: 'booking', label: 'Table booking', super: true, find: 'venue tables email cutoff' },
         { id: 'clubguide', label: 'Club handbook', super: true, guide: true },
     ];
 
     let adminMe = $state<AdminMe | null>(null);
+
+    /* Everything the sidebar can reach, as a flat searchable list. Derived from
+       the same arrays and the same permission checks the sidebar uses, so the
+       palette cannot drift out of step with it or offer a tab this admin is not
+       allowed to open. Switching system is in here too: it is a destination as
+       far as anyone using it is concerned, even though the sidebar spells it as
+       a dropdown. */
+    const paletteCommands = $derived.by<Command[]>(() => {
+        const me = adminMe;
+        if (!me) return [];
+        const out: Command[] = [
+            { id: 'nav:overview', label: 'Overview', group: 'Console', run: () => (activeNav = 'overview') },
+        ];
+        const systems = me.scopes.filter(isSystemScope);
+        if (systems.length > 0) {
+            for (const item of SYSTEM_NAV) {
+                out.push({
+                    id: `sys:${item.id}`,
+                    label: item.label,
+                    group: activeSystem ?? 'This system',
+                    keywords: `system game night ${item.find ?? ''}`,
+                    run: () => (activeNav = item.id),
+                });
+            }
+        }
+        for (const item of CLUB_NAV) {
+            if (item.super && !me.is_super_admin) continue;
+            out.push({
+                id: `club:${item.id}`,
+                label: item.label,
+                group: 'Club admin',
+                keywords: item.find ?? '',
+                run: () => (activeNav = item.id),
+            });
+        }
+        // Only worth offering when there is something to switch to.
+        if (systems.length > 1) {
+            for (const s of systems) {
+                out.push({
+                    id: `switch:${s}`,
+                    label: `Switch to ${s}`,
+                    group: 'System',
+                    keywords: 'change select',
+                    run: () => (activeSystem = s),
+                });
+            }
+        }
+        return out;
+    });
 
     // First-run onboarding checklist (GET /admin/onboarding). Each item is a
     // real-state boolean, so it ticks itself off as the admin does the setup.
@@ -538,13 +591,30 @@
         { key: 'logo', label: 'Upload your club logo', hint: 'Shown on your club page and pairings posts.', nav: 'clubpage' },
         { key: 'discord_link', label: 'Add your Discord invite', hint: 'The join link shown front-and-centre on your club page.', nav: 'clubpage' },
         { key: 'map_pin', label: 'Put yourself on the map', hint: 'Set your coordinates so players find you on the club finder. Without them you are a list entry with no marker.', nav: 'clubpage' },
-        { key: 'discord_webhook', label: 'Connect Discord', hint: 'Post signups and pairings to your club’s Discord.', nav: 'discord' },
+        // NOT 'discord'. That tab is the membership gate, and it is benched
+        // behind DISCORD_GATE_ENABLED, so it renders nothing and appears in no
+        // sidebar. This step's "Set up" button was landing a first-time admin
+        // on a blank panel, on the one step the welcome email tells them to do
+        // before their next club night. Webhooks are per system and always
+        // have been, so this is also simply the right destination.
+        { key: 'discord_webhook', label: 'Connect Discord', hint: 'Post signups and pairings to your club’s Discord.', nav: 'systemdiscord' },
         { key: 'co_admin', label: 'Appoint a game-system admin', hint: 'Optional. Delegate a specific system to another member.', nav: 'admins' },
         { key: 'first_pairings_published', label: 'Publish your first pairings', hint: 'Generate and publish a week of pairings.', nav: 'pairings' }
     ];
     const onboardingDoneCount = $derived(
         onboarding ? ONBOARDING_STEPS.filter((s) => onboarding!.items[s.key]).length : 0
     );
+    /* Which nav tabs still have unfinished setup behind them.
+       The checklist already knows what is outstanding and already knows which
+       tab each item lives on; it just kept that to itself, on a card you only
+       see from Overview. Marking the tabs turns the list into navigation: you
+       can see where the work is without going back to read it. Empty once the
+       club is set up, which is the point. */
+    const navNeedsAttention = $derived.by(() => {
+        const items = onboarding?.items;
+        if (!items) return new Set<string>();
+        return new Set(ONBOARDING_STEPS.filter((s) => !items[s.key]).map((s) => s.nav));
+    });
 
     async function loadOnboarding() {
         try {
@@ -3156,6 +3226,7 @@
 
     <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
         <aside class="admin-sidebar">
+            <CommandPalette commands={paletteCommands} label="Jump to" />
             <button
                 type="button"
                 class="nav-item"
@@ -3181,7 +3252,7 @@
                         class:active={activeNav === item.id}
                         class:guide={item.guide}
                         onclick={() => (activeNav = item.id)}
-                    >{#if item.guide}<span class="nav-book" aria-hidden="true">ⓘ</span>{/if}{item.label}</button>
+                    >{#if item.guide}<span class="nav-book" aria-hidden="true">ⓘ</span>{/if}{item.label}{#if navNeedsAttention.has(item.id)}<span class="nav-dot" title="Setup outstanding"></span>{/if}</button>
                 {/each}
             {/if}
 
@@ -3195,7 +3266,7 @@
                             class:active={activeNav === item.id}
                             class:guide={item.guide}
                             onclick={() => (activeNav = item.id)}
-                        >{#if item.guide}<span class="nav-book" aria-hidden="true">ⓘ</span>{/if}{item.label}</button>
+                        >{#if item.guide}<span class="nav-book" aria-hidden="true">ⓘ</span>{/if}{item.label}{#if navNeedsAttention.has(item.id)}<span class="nav-dot" title="Setup outstanding"></span>{/if}</button>
                     {/if}
                 {/each}
             {/if}
@@ -3363,10 +3434,6 @@
                 <h3 class="section-heading">Club profile</h3>
                 <HelpTip label="the club profile" text="Your blurb, logo, links, address and opening hours, shown at the top of your Club page. Each system's own carousel card is edited separately, on that system's Game System Config tab." />
             </div>
-                    <p class="a-note">
-                        What visitors see at the top of your Club page.
-                        <HelpTip label="the Club page" text="Your blurb, logo, links and opening hours. Each system's own carousel card is edited separately, on that system's Game System Config tab, by that system's admin." />
-                    </p>
                     {#if clubProfile}
                         <!-- Blurb, website and Discord invite moved to Venue
                              Admin → Settings → Venue: they're venue facts,
@@ -3392,9 +3459,6 @@
                                     <option value={region}>{region}</option>
                                 {/each}
                             </select>
-                            <p class="field-label-hint">
-                                Groups your club under a region heading when players browse the club network.
-                            </p>
                         </div>
                         <div class="form-grid">
                             <div class="field">
@@ -3427,12 +3491,8 @@
                         <!-- Logo -->
                         <div class="a-head club-page-subhead">
                             <h4 class="a-title">Logo</h4>
-                            <HelpTip label="the club logo" text="Shown beside your club name at the top of the Club page, and on posted pairings images. A square image works best." />
+                            <HelpTip label="the club logo" text={"Shown beside your club name at the top of the Club page, and on posted pairings images.\n\n\u2022 Square, 400\u00d7400px or larger\n\u2022 PNG, JPEG or WEBP, max 5 MB\n\u2022 A transparent PNG sits best on the dark background"} />
                         </div>
-                        <p class="field-label-hint mission-guidelines">
-                            Square, 400×400px or larger. PNG, JPEG or WEBP, max 5 MB. A transparent
-                            PNG sits best on the dark background.
-                        </p>
                         {#if clubProfile.logo_url}
                             <div class="club-logo-preview">
                                 <img src={clubProfile.logo_url} alt="Club logo" />
@@ -3461,12 +3521,9 @@
 
                         <!-- Club-wide Events -->
                         <div class="league-settings-details">
-                            <div class="league-settings-heading">Club-wide Events</div>
+                            <div class="league-settings-heading">Club-wide Events
+                                <HelpTip label="club events" text={"One-off dates for the whole club.\n\n\u2022 Closures, open days, anything not tied to one game night\n\u2022 For a single system's tournament or campaign day, use that system's own events so it shows in the right colour"} /></div>
                             <div class="league-settings-body">
-                                <p class="a-note">
-                                    One-off dates for the whole club.
-                                    <HelpTip label="club events" text="Closures, open days, anything that isn't tied to one game night. For a single system's tournament or campaign day, use that system's own events instead so it shows in the right colour." />
-                                </p>
                                 {#if clubWideEvents.events.length === 0 && !clubWideEvents.loading}
                                     <p class="muted small">No club-wide events yet. Add one below.</p>
                                 {:else}
@@ -3556,8 +3613,6 @@
                                         </span>
                                     </span>
                                 </div>
-                                <p class="a-note">Ratings and standings for {scope}.</p>
-
                                 {#if ls.configLoading}
                                     <p class="muted small">Loading…</p>
                                 {:else if ls.config}
@@ -3653,7 +3708,7 @@
                                                         disabled={ls.configSaving}
                                                         onclick={() => saveLeagueConfig(scope)}
                                                     >{ls.configSaving ? 'Saving…' : 'Save scoring config'}</button>
-                                                    <p class="muted small">Saving replays this season's results under the new config. Ratings update immediately.</p>
+                                                    <HelpTip label="saving scoring" text={"Saving replays this season's results under the new settings. Ratings update immediately."} />
                                                 </div>
 
                                                 <!-- Seasons -->
@@ -3664,7 +3719,6 @@
                                                     {:else if ls.seasons.length === 0}
                                                         <p class="muted small">No season yet. Create one below to start recording results.</p>
                                                     {:else}
-                                                        <p class="muted small">Click a season to browse its results below.</p>
                                                         <ul class="season-list">
                                                             {#each ls.seasons as s}
                                                                 <li>
@@ -3717,11 +3771,8 @@
 
                                         <!-- Log results from a week's published pairings -->
                                         <div class="league-log-results">
-                                            <h5 class="sub-heading-minor">Log results from pairings</h5>
-                                            <p class="muted small">
-                                                Pull a week's games straight from its pairings. Players and factions
-                                                are already filled in, so you just record who won.
-                                            </p>
+                                            <h5 class="sub-heading-minor">Log results from pairings
+                                                <HelpTip label="logging from pairings" text={"Pulls a week's games straight from its published pairings.\n\nPlayers and factions are filled in already, so you only record who won."} /></h5>
                                             <div class="log-week-row">
                                                 <div class="field field-narrow">
                                                     <label class="field-label" for="log-week-{scope}">Week</label>
@@ -4062,8 +4113,8 @@
                                                 {/if}
 
                                                 <div class="pw-window-block">
-                                                    <div class="pw-window-title">Rematch windows</div>
-                                                    <p class="muted small">How far back a repeat counts as a rematch. Leave blank to use the system default.</p>
+                                                    <div class="pw-window-title">Rematch windows
+                                                        <HelpTip label="rematch windows" text={"How far back a repeat opponent counts as a rematch.\n\n\u2022 Inside the first window, a pair is skipped on the first pass\n\u2022 Inside the wider one, it is discouraged but allowed\n\u2022 Leave blank to use the system default"} /></div>
                                                     <div class="pw-window-row">
                                                         <div class="field field-narrow">
                                                             <label class="field-label" for="pw-recent-{scope}">Don't rematch within (weeks)</label>
@@ -4145,8 +4196,7 @@
                                         </div>
                                         <p class="muted small">
                                             = up to <strong>{(Number(cap.tables) || 0) * cap.players_per_table}</strong> players
-                                            ({cap.players_per_table} per table). New sign-ups are blocked once full;
-                                            already-signed-up players can still edit.
+                                            <HelpTip label="the cap" text={"\u2022 " + cap.players_per_table + " players per table.\n\u2022 New sign-ups are blocked once it is full.\n\u2022 Anyone already signed up can still edit theirs."} />
                                         </p>
                                     </div>
                                 {/if}
@@ -4668,11 +4718,8 @@
 
                             {#if ps.published}
                                 <div class="sub-section pairings-section">
-                                    <h4 class="a-title">Re-arrange a game</h4>
-                                    <p class="a-note">
-                                        Pair two players together by hand.
-                                        <HelpTip label="manual pairing" text="Overrides the matcher for these two players. Whoever they were each paired with becomes a bye, so you may need to re-pair those players too." />
-                                    </p>
+                                    <h4 class="a-title">Re-arrange a game
+                                        <HelpTip label="manual pairing" text={"Pairs two players by hand, overriding the matcher.\n\nWhoever they were each paired with becomes a bye, so you may need to re-pair those two as well."} /></h4>
                                     <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); rearrangeGame(scope); }}>
                                         <div class="field">
                                             <label class="field-label" for="rearrange-p1-{scope}">Player 1</label>
@@ -4875,8 +4922,8 @@
                                     ></textarea>
                                     {#if cta.tokens.length > 0}
                                         <p class="field-label-hint">
-                                            Tokens filled in automatically when posted:
                                             {#each cta.tokens as tok}<code class="cta-token">&#123;{tok}&#125;</code>{/each}
+                                            <HelpTip label="tokens" text={"Anything in curly braces is filled in when the post goes out."} />
                                         </p>
                                     {/if}
                                     <button
@@ -4903,12 +4950,9 @@
                                             <input type="radio" bind:group={cta.image_mode} value="custom" />
                                             <span>Custom image URL</span>
                                         </label>
+                                        <HelpTip label="the image" text={"Default attaches a random image from this system's Missions pool below, or the built-in mission list when custom missions are off.\n\nCustom always attaches the one URL you give it."} />
                                     </div>
                                     {#if cta.supports_mission_image && cta.image_mode === 'default'}
-                                        <p class="field-label-hint">
-                                            Attaches a random image from this system's Missions pool below
-                                            (or the built-in mission list if custom missions aren't enabled).
-                                        </p>
                                     {/if}
                                     {#if cta.image_mode === 'custom'}
                                         <input
@@ -4968,8 +5012,6 @@
                                         <span class="a-state" class:is-on={ms.missions_enabled}>{ms.missions_enabled ? 'On' : 'Off'}</span>
                                     </span>
                                 </div>
-                                <p class="a-note">A pool of missions to pick from each week.</p>
-
                                 <div class="auto-pairings-form">
                                     <label class="check-row ap-toggle">
                                         <input type="checkbox" bind:checked={ms.missions_enabled} onchange={() => saveMissionsSettings(scope)} />
@@ -4984,14 +5026,9 @@
 
                                 {#if ms.missions_enabled}
                                 <div class="league-settings-details">
-                                    <div class="league-settings-heading">Mission pool</div>
+                                    <div class="league-settings-heading">Mission pool
+                                        {#if ms.guidelines}<HelpTip label="images" text={ms.guidelines.recommended + " " + ms.guidelines.formats.join(", ") + ". Max " + ms.guidelines.max_size_mb + " MB each."} />{/if}</div>
                                     <div class="league-settings-body">
-                                    {#if ms.guidelines}
-                                        <p class="field-label-hint mission-guidelines">
-                                            <strong>Image guidelines:</strong> {ms.guidelines.recommended}
-                                            Accepted formats: {ms.guidelines.formats.join(', ')}. Max {ms.guidelines.max_size_mb} MB per image.
-                                        </p>
-                                    {/if}
 
                                     <div class="mission-upload">
                                         <div class="field">
@@ -5073,10 +5110,9 @@
                                             </table>
                                         </div>
                                         <p class="muted small">
-                                            Edits save automatically.
                                             <HelpTip
                                                 label="the mission pool"
-                                                text={"• Each week's post picks at random from the active missions.\n• Inactive ones stay in your pool but are never posted."}
+                                                text={"• Edits here save on their own.\n• Each week's post picks at random from the active missions.\n• Inactive ones stay in your pool but are never posted."}
                                             />
                                         </p>
                                     {/if}
@@ -5106,11 +5142,8 @@
                              that decides what the club runs, not how. -->
                         {#if activeClubSystemRow}
                             <div class="sub-section pairings-section">
-                                <h4 class="a-title">Schedule &amp; vibes</h4>
-                                <p class="a-note">
-                                    When this game night runs, and how players sign up for it.
-                                    <HelpTip label="schedule and vibes" text="The schedule drives the Club page calendar and decides which week a signup lands in. Vibes are the game types players choose from. Leave it on the platform default unless your club runs something different." />
-                                </p>
+                                <h4 class="a-title">Schedule &amp; vibes
+                                    <HelpTip label="schedule and vibes" text={"When this game night runs, and how players sign up for it.\n\n\u2022 The schedule drives the Club page calendar and decides which week a signup lands in\n\u2022 Vibes are the game types players choose from\n\u2022 Leave vibes on the platform default unless your club runs something different"} /></h4>
                                 <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveSystemConfig(); }}>
                                     <div class="field field-narrow">
                                         <label class="field-label" for="sc-day">
@@ -5239,9 +5272,8 @@
 
                                     {#if !activeClubSystemRow.enabled}
                                         <p class="field-label-hint">
-                                            This system is currently <strong>disabled</strong> for your club, so it
-                                            takes no signups. Only a club super-admin can re-enable it, from the
-                                            club's Systems tab.
+                                            <strong>Disabled</strong>, so it takes no signups.
+                                            <HelpTip label="re-enabling" text={"Only a club super-admin can turn it back on, from the club's Systems tab."} />
                                         </p>
                                     {/if}
                                     {#if csError}<p class="field-error">{csError}</p>{/if}
@@ -5259,11 +5291,8 @@
                         {#if isSystemScope(scope) && carouselState[scope]}
                             {@const cs = carouselState[scope]}
                             <div class="sub-section pairings-section">
-                                <h4 class="a-title">Club page card</h4>
-                                <p class="a-note">
-                                    How this system looks on your Club page.
-                                    <HelpTip label="the carousel card" text="Blurb, photo and the accent colour that threads through this system's carousel card, its calendar entries and its pairing cards. Position isn't settable. The carousel is shuffled for every visitor so no system is always first." />
-                                </p>
+                                <h4 class="a-title">Club page card
+                                    <HelpTip label="the carousel card" text={"How this system looks on your Club page.\n\n\u2022 Blurb, photo and the accent colour that threads through its carousel card, calendar entries and pairing cards\n\u2022 Position isn't settable: the carousel is shuffled for every visitor, so no system is always first"} /></h4>
 
                                 <div class="field">
                                     <label class="field-label" for="carousel-blurb-{scope}">Blurb</label>
@@ -5293,11 +5322,8 @@
                                 </div>
 
                                 <div class="field carousel-photo-field">
-                                    <label class="field-label" for="carousel-photo-{scope}">Carousel photo (optional)</label>
-                                    <p class="field-label-hint mission-guidelines">
-                                        Landscape 16:9, e.g. 800×450px. PNG, JPEG or WEBP, max 5 MB.
-                                        Leave it unset to show the system's logo.
-                                    </p>
+                                    <label class="field-label" for="carousel-photo-{scope}">Carousel photo (optional)
+                                        <HelpTip label="the photo" text={"Landscape 16:9, e.g. 800\u00d7450px. PNG, JPEG or WEBP, max 5 MB.\n\nLeave it unset to show the system's logo."} /></label>
                                     {#if cs.photo_url}
                                         <div class="carousel-photo-preview">
                                             <img src={cs.photo_url} alt="" />
@@ -5324,12 +5350,9 @@
                                 {#if systemEventsState[scope]}
                                     {@const es = systemEventsState[scope]}
                                     <div class="league-settings-details">
-                                        <div class="league-settings-heading">Events</div>
+                                        <div class="league-settings-heading">Events
+                                            <HelpTip label="system events" text={"Tournaments, campaign days, one-off sessions.\n\nShown on the Club page calendar in this system's accent colour, alongside its regular sessions."} /></div>
                                         <div class="league-settings-body">
-                                            <p class="a-note">
-                                                Tournaments, campaign days, one-off sessions.
-                                                <HelpTip label="system events" text="Shown on the Club page calendar in this system's accent colour, alongside its regular weekly or fortnightly sessions." />
-                                            </p>
                                             {#if es.events.length === 0 && !es.loading}
                                                 <p class="muted small">No events yet. Add one below.</p>
                                             {:else}
@@ -5454,7 +5477,7 @@
                     </div>
                     <div class="field player-edit-wide">
                         <label class="field-label" for="edit-player-notes">
-                            Admin Notes <span class="field-label-hint">(private, not shown publicly)</span>
+                            Admin Notes <HelpTip label="admin notes" text={"Only ever seen by your club's admins. Never shown to the player or on any public page."} />
                         </label>
                         <textarea
                             id="edit-player-notes"
@@ -5499,8 +5522,6 @@
                 <span class="a-state" class:is-on={blocks.length > 0}>{blocks.length} active</span>
             </span>
         </div>
-        <p class="a-note">Stop two players being paired together.</p>
-
         {#if adminMe.is_super_admin}
             <div class="sub-section">
                 <h4 class="a-title">Add a block</h4>
@@ -5614,8 +5635,6 @@
                             </span>
                         </span>
                     </div>
-                    <p class="a-note">Where this system's posts go.</p>
-
                     <!-- Open by default until something is configured, then out of
                          the way. A first-time admin shouldn't have to find the
                          instructions; someone on their fourth system shouldn't have
@@ -5649,7 +5668,6 @@
                             <li>Paste it into the matching row below and hit Save.</li>
                         </ol>
                         <p class="field-label-hint">
-                            <strong>Treat the URL as a password.</strong>
                             <HelpTip
                                 label="webhook URLs"
                                 text={"• Anyone holding it can post into that channel as this app.\n• Saved write-only. You'll only ever see the last four characters again.\n• If one leaks, delete it in Discord and make a new one."}
@@ -5675,7 +5693,7 @@
                                         <span class="block-names wh-name">
                                             <strong>{WEBHOOK_TYPE_LABELS[row.webhook_type] ?? row.webhook_type}</strong>
                                             {#if WEBHOOK_TYPE_HELP[row.webhook_type]}
-                                                <span class="wh-what">{WEBHOOK_TYPE_HELP[row.webhook_type]}</span>
+                                                <HelpTip label={WEBHOOK_TYPE_LABELS[row.webhook_type] ?? row.webhook_type} text={WEBHOOK_TYPE_HELP[row.webhook_type]} />
                                             {/if}
                                         </span>
                                         <span class="block-note">
@@ -5770,8 +5788,6 @@
                     </span>
                 </span>
             </div>
-            <p class="a-note">What your club runs, and whether it's taking signups.</p>
-
             {#if clubSystemsMineError}
                 <p class="field-error">{clubSystemsMineError}</p>
             {/if}
@@ -5970,10 +5986,6 @@
                 <h3 class="section-heading">Venue table-booking emails</h3>
                 <HelpTip label="table booking" text="Sends your venue a table and player count ahead of each session, once signups are in, so they know how much to set out. Configured per system. Pick one below." />
             </div>
-            <p class="a-note">
-                Email the venue how many tables to set out.
-                <HelpTip label="table booking" text="Sends the venue a table and player count ahead of each session, once signups are in. Set the address and timing below." />
-            </p>
 
             <div class="field field-narrow">
                 <label class="field-label" for="tb-scope">System</label>
@@ -6042,12 +6054,10 @@
                             </select>
                         </div>
                         <div class="field field-narrow">
-                            <label class="field-label" for="tb-cutoff-time">Cutoff time</label>
+                            <label class="field-label" for="tb-cutoff-time">Cutoff time
+                                <HelpTip label="the cutoff" text={"UK local time.\n\nSent on headcount so far, so the pairings may not exist yet."} /></label>
                             <input id="tb-cutoff-time" class="field-input" type="time" bind:value={tbCutoffTime} />
                         </div>
-                        <p class="field-caption">
-                            Sent at this day/time (UK local) based on headcount so far, so pairings may not exist yet.
-                        </p>
                     {/if}
                     <div class="field-row-break"></div>
 
@@ -6188,6 +6198,28 @@
         grid-template-columns: minmax(180px, 220px) 1fr;
         gap: 1.5rem;
         align-items: start;
+    }
+
+    /* The palette trigger is a different kind of thing from the nav buttons
+       under it, so it gets air rather than the 0.15rem the buttons share. */
+    .admin-sidebar :global(.palette-trigger) {
+        margin-bottom: 0.5rem;
+    }
+
+    /* A tab with setup still outstanding. Deliberately a dot and not a count:
+       the number is on the checklist, and a sidebar full of badges reads as an
+       error state rather than a to-do list. */
+    .nav-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-left: 0.4rem;
+        vertical-align: 0.12em;
+        border-radius: 50%;
+        background: var(--color-accent);
+    }
+    .nav-item.active .nav-dot {
+        background: var(--color-text-base);
     }
 
     .admin-sidebar {
@@ -6907,19 +6939,15 @@
         color: var(--color-text-muted);
         font-size: 0.85em;
     }
-    /* .block-names is a flex ROW, so the description would otherwise sit beside
-       the label instead of under it. Stack just the webhook rows, and top-align
-       the row so a two-line name column doesn't centre against the controls. */
-    /* .block-names is `flex: 1`, which against the 320px-basis input column
-       collapsed the label to ~110px — the description then wrapped to four
-       lines beside a huge empty field. Give the name column a real basis so
-       the two read as a pair. */
+    /* Back to a row. This column used to stack, because each webhook carried a
+       sentence of description under its name and .block-names is a flex ROW
+       that would have put it alongside. The description is a tooltip now, so
+       stacking only pushed the "?" onto a line of its own. */
     .wh-name {
         grid-column: 1;
         min-width: 0;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0;
+        align-items: center;
+        gap: 0.35rem;
     }
 
     /* Hard right on the first row, whatever the name beside it is doing. */
@@ -6969,15 +6997,6 @@
     }
 
     /* What this particular webhook posts, under its name in the grid. */
-    .wh-what {
-        display: block;
-        margin-top: 0.15rem;
-        font-weight: 400;
-        font-size: 0.82rem;
-        color: var(--color-text-muted);
-        line-height: 1.4;
-    }
-
     .webhook-actions {
         display: flex;
         align-items: center;

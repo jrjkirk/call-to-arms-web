@@ -6,6 +6,7 @@
     import { CANONICAL_VIBES } from '$lib/systemsConfig';
     import { UK_REGIONS } from '$lib/regions';
     import HelpTip from '$lib/HelpTip.svelte';
+    import CommandPalette, { type Command } from '$lib/CommandPalette.svelte';
 
     type AdminMe = { is_super_admin: boolean; is_platform_admin: boolean; scopes: string[] };
     type PlatformClub = {
@@ -90,6 +91,17 @@
         { id: 'emails', label: 'Onboarding Emails' },
         { id: 'finduser', label: 'Find a User' },
     ];
+
+    // Same nav, addressed by name. Nine tabs is enough to be worth searching,
+    // and this console is the one people visit least often.
+    const paletteCommands = $derived<Command[]>(
+        PLATFORM_NAV.map((item) => ({
+            id: `pa:${item.id}`,
+            label: item.label,
+            group: 'Platform',
+            run: () => (activeNav = item.id),
+        }))
+    );
 
     type ClubHealthRow = {
         id: number; name: string; slug: string; active: boolean; region: string | null;
@@ -1087,13 +1099,14 @@
     <p class="muted">You don't have platform admin access.</p>
 {:else}
     <p class="section-intro platform-banner" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
-        Cross-club management: creating clubs, configuring their systems, appointing their
-        delegates, and toggling which clubs are live. Separate from, and more powerful than, a
-        club's own <a href="/admin">Admin</a> tools.
+        Cross-club management.
+        <HelpTip label="this console" text={"Creating clubs, configuring their systems, appointing their delegates, and toggling which clubs are live.\n\nSeparate from, and more powerful than, a club's own Admin tools."} />
+        <a href="/admin">Club admin</a>
     </p>
 
     <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
         <aside class="admin-sidebar">
+            <CommandPalette commands={paletteCommands} label="Jump to" />
             {#each PLATFORM_NAV as item}
                 <button
                     type="button"
@@ -1744,13 +1757,8 @@
                                         <label class="check-row">
                                             <input type="checkbox" bind:checked={provisionPublish} />
                                             <span>List publicly on the club finder straight away</span>
+                                            <HelpTip label="listing publicly" text={"Left off, the club still exists and its owner can set it up. Its public page stays dark until you activate it in Club Management."} />
                                         </label>
-                                        {#if !provisionPublish}
-                                            <p class="muted small">
-                                                The club will exist and its owner can set it up, but its public
-                                                page stays dark until you activate it in Club Management.
-                                            </p>
-                                        {/if}
                                         {#if r.systems.length && !r.club_night_day}
                                             <p class="field-error">
                                                 No club night on this request, so nothing can be scheduled.
@@ -2037,11 +2045,8 @@
                         {clubProfileSaving ? 'Saving…' : 'Save'}
                     </button>
 
-                    <h5 class="sub-heading">Logo</h5>
-                    <p class="field-label-hint">
-                        Square, 400×400px or larger. PNG, JPEG or WEBP, max 5 MB. A transparent
-                        PNG sits best on the dark background.
-                    </p>
+                    <h5 class="sub-heading">Logo
+                        <HelpTip label="the logo" text={"\u2022 Square, 400\u00d7400px or larger\n\u2022 PNG, JPEG or WEBP, max 5 MB\n\u2022 A transparent PNG sits best on the dark background"} /></h5>
                     {#if clubProfile.logo_url}
                         <div class="club-logo-preview">
                             <img src={clubProfile.logo_url} alt="Club logo" />
@@ -2198,6 +2203,10 @@
         grid-template-columns: minmax(180px, 220px) 1fr;
         gap: 1.5rem;
         align-items: start;
+    }
+
+    .admin-sidebar :global(.palette-trigger) {
+        margin-bottom: 0.5rem;
     }
 
     .admin-sidebar {

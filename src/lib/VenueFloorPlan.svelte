@@ -1209,10 +1209,8 @@
                     {#if rooms.length > 1}
                         <button class="danger-button" onclick={deleteRoom}>Delete room</button>
                     {/if}
-                    <p class="a-note panel-hint">
-                        Click a table to edit it. Drag to move · handles to resize ·
-                        the arm above to turn · <kbd>R</kbd> · arrows · <kbd>Del</kbd>
-                    </p>
+                    <p class="a-note panel-hint">Click a table to edit it.
+                        <HelpTip label="moving things" text={"\u2022 Drag to move\n\u2022 Corner handles to resize\n\u2022 The arm above it to turn\n\u2022 R rotates, arrow keys nudge, Del removes"} /></p>
                 {/if}
 
                 {#if unplaced.length}
@@ -1535,13 +1533,6 @@
     }
     .tray { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
-    kbd {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid var(--color-steel-border);
-        border-radius: 3px;
-        padding: 0 0.22rem;
-        font-size: 0.7rem;
-    }
 
     @media (max-width: 900px) {
         .body { flex-direction: column; }
