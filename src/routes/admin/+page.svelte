@@ -470,7 +470,10 @@
         'Discord': 'systemdiscord',
         'Game System Config': 'systemconfig', 'Pairings': 'pairings',
         'Weighting': 'weighting', 'Auto-pairings': 'autopairings',
-        'Call to Arms Post': 'announcements', 'League': 'league', 'Missions': 'missions',
+        // Missions folded into the Call to Arms tab (2026-09-07). The two old
+        // labels stay mapped so an older handbook string still resolves.
+        'Call to Arms': 'announcements', 'Call to Arms Post': 'announcements',
+        'Missions': 'announcements', 'League': 'league',
     };
     function handbookJump(label: string) {
         const nav = HANDBOOK_JUMPS[label];
@@ -492,9 +495,8 @@
         { id: 'pairings', label: 'Pairings', find: 'matchups opponents generate publish' },
         { id: 'league', label: 'League', find: 'elo rankings ratings standings season table' },
         { id: 'weighting', label: 'Weighting', find: 'matcher sliders rematch weights' },
-        { id: 'missions', label: 'Missions', find: 'scenarios pool images' },
         { id: 'autopairings', label: 'Auto-pairings', find: 'schedule automatic cron' },
-        { id: 'announcements', label: 'Call to Arms Post', find: 'signup announcement template' },
+        { id: 'announcements', label: 'Call to Arms', find: 'signup announcement template post missions scenarios pool images' },
         { id: 'systemconfig', label: 'Game System Config', find: 'schedule day cadence vibes carousel' },
         { id: 'systemdiscord', label: 'Discord', find: 'webhook webhooks channel gate' },
         // Last, and marked `guide`, which gives it a rule above and the book
@@ -3089,7 +3091,9 @@
                 if (!item.super || adminMe.is_super_admin) allowed.push(item.id);
             }
             if (activeSystem) for (const item of SYSTEM_NAV) allowed.push(item.id);
-            if (allowed.includes(wanted)) activeNav = wanted;
+            // Missions folded into the Call to Arms tab. Old links keep working.
+            const resolved = wanted === 'missions' ? 'announcements' : wanted;
+            if (allowed.includes(resolved)) activeNav = resolved;
         }
         const tasks: Promise<void>[] = [loadBlocks()];
         if (adminMe.is_super_admin) {
@@ -4872,7 +4876,7 @@
         {@const scope = activeSystem}
         <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
-                <span class="dash-group-title">Call to Arms Post</span>
+                <span class="dash-group-title">Call to Arms</span>
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
@@ -4989,17 +4993,10 @@
                             </div>
                         {/if}
         </section>
-            </div>
-        </div>
-    {/if}
 
-    {#if activeNav === 'missions' && activeSystem}
-        {@const scope = activeSystem}
-        <div class="dash-group" style={panelAccentStyle}>
-            <div class="dash-group-header static">
-                <span class="dash-group-title">Missions</span>
-            </div>
-            <div class="dash-group-body">
+        <!-- Same panel as the post above, and deliberately after it: the pool
+             exists to give that post an image, so the post is the thing you
+             came for and the pool is how you feed it. -->
         <section class="admin-section">
                         <!-- Missions pool (system scopes only) -->
                         {#if isSystemScope(scope) && missionsState[scope]}
@@ -6198,12 +6195,6 @@
         grid-template-columns: minmax(180px, 220px) 1fr;
         gap: 1.5rem;
         align-items: start;
-    }
-
-    /* The palette trigger is a different kind of thing from the nav buttons
-       under it, so it gets air rather than the 0.15rem the buttons share. */
-    .admin-sidebar :global(.palette-trigger) {
-        margin-bottom: 0.5rem;
     }
 
     /* A tab with setup still outstanding. Deliberately a dot and not a count:

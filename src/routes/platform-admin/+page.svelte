@@ -2205,10 +2205,6 @@
         align-items: start;
     }
 
-    .admin-sidebar :global(.palette-trigger) {
-        margin-bottom: 0.5rem;
-    }
-
     .admin-sidebar {
         position: sticky;
         top: 1rem;

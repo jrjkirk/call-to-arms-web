@@ -14,6 +14,14 @@
 	 * new capability — it is the same nav, addressed by name instead of by
 	 * position.
 	 *
+	 * **It renders nothing until it is opened.** There was a trigger button at
+	 * the top of the sidebar advertising the shortcut, and it was cut: a box
+	 * that says "Jump to" is exactly the kind of furniture this console has
+	 * been having stripped out of it. The cost is discoverability — nobody
+	 * finds ⌘K unless they try it — which is the right trade for a shortcut
+	 * that speeds up someone who already knows the console and costs nothing
+	 * to anyone who does not.
+	 *
 	 * Matching is subsequence, not substring: "gsc" finds "Game System Config".
 	 * That is what makes a short query worth typing, and it is why the ranking
 	 * below prefers matches that are contiguous and start on a word.
@@ -37,10 +45,6 @@
 	let cursor = $state(0);
 	let input = $state<HTMLInputElement | null>(null);
 	let listEl = $state<HTMLElement | null>(null);
-
-	/** Mac shows ⌘K, everything else Ctrl K. Resolved once, in the browser. */
-	const isMac =
-		typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '');
 
 	const BOUNDARY = /[\s\-&·]/;
 
@@ -203,11 +207,6 @@
 
 <svelte:window onkeydown={onWindowKey} />
 
-<button class="palette-trigger" type="button" onclick={show}>
-	<span class="pt-label">{label}</span>
-	<kbd class="pt-key">{isMac ? '⌘' : 'Ctrl'} K</kbd>
-</button>
-
 {#if open}
 	<!-- The scrim closes on click. It is not a focus trap: the panel takes
 	     focus on open and Escape closes, which is the behaviour people expect
@@ -260,39 +259,6 @@
 {/if}
 
 <style>
-	.palette-trigger {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-		width: 100%;
-		padding: 0.4rem 0.55rem;
-		background: var(--color-bg-deep);
-		border: 1px solid var(--color-steel-border);
-		border-radius: var(--radius);
-		color: var(--color-text-dim);
-		font-size: 0.8rem;
-		font-family: inherit;
-		cursor: pointer;
-		transition: border-color 0.15s ease, color 0.15s ease;
-	}
-	.palette-trigger:hover {
-		border-color: var(--color-accent);
-		color: var(--color-text-base);
-	}
-	.pt-label::before {
-		content: '⌕ ';
-	}
-	.pt-key {
-		font-size: 0.66rem;
-		letter-spacing: 0.04em;
-		padding: 0.08rem 0.3rem;
-		border: 1px solid var(--color-steel-border);
-		border-radius: 3px;
-		color: var(--color-text-dim);
-		white-space: nowrap;
-	}
-
 	.palette-scrim {
 		position: fixed;
 		inset: 0;

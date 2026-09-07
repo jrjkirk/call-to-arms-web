@@ -195,7 +195,7 @@ export const SYSTEM_HANDBOOK: Section[] = [
         title: 'Build a mission pool',
         lede: 'Optional, and the cheapest thing you can do to make people actually read your call to arms. A post that says signups are open gets skimmed. A post with this week\u2019s map and objectives gets opened.',
         blocks: [
-            { where: 'Missions' },
+            { where: 'Call to Arms' },
             { fig: 'fig-missions', caption: 'The pool, the upload form and the two toggles above it. Both toggles are off by default, so nothing changes until you turn them on.' },
             { p: 'Tick <strong>Enable custom missions for this system</strong> to switch the pool on. Tick <strong>This system uses secondary objectives</strong> as well if your game has them, which is what adds the secondary objectives field to the upload form.' },
             { p: 'Then add your missions one at a time. Each one takes a name, an image, and secondary objectives if you turned those on.' },
@@ -214,7 +214,7 @@ export const SYSTEM_HANDBOOK: Section[] = [
         title: 'Wire the mission into your post',
         lede: 'The mission pool and the call to arms are joined by tokens. Get these right once and every week\u2019s post writes itself.',
         blocks: [
-            { where: 'Call to Arms Post' },
+            { where: 'Call to Arms' },
             { p: 'A <strong>token</strong> is a word in braces that gets swapped for real text at the moment the post goes out. You type the token; players see the value.' },
             { table: { head: ['Token', 'Becomes', 'Needs'], rows: [
                 ['<code>{session_date}</code>', 'The date of the next session, like 02/09/2026', 'Nothing, always available'],
@@ -249,7 +249,7 @@ export const SYSTEM_HANDBOOK: Section[] = [
         title: 'Stop doing it by hand',
         lede: 'Once you trust the matcher, hand the weekly job over.',
         blocks: [
-            { where: 'Call to Arms Post' },
+            { where: 'Call to Arms' },
             { fig: 'fig-cta', caption: 'Tokens in braces are filled in when the message posts, so it stays correct without editing.' },
             { p: 'Set how many days before the session the call to arms goes out and at what time, then write the message. <strong>Manual post</strong> sends it immediately for testing a wording change. It does not touch the schedule, so the automatic post still goes out as normal.' },
             { where: 'Auto-pairings' },
