@@ -67,6 +67,9 @@
         player_b_id: number;
         player_b_name: string;
         note: string | null;
+        /** null when the block is club-wide. */
+        system: string | null;
+        club_wide: boolean;
     };
     type BlockPlayer = { id: number; name: string };
     type DisplayRow = {
@@ -493,6 +496,7 @@
     // Nobody hunting for a webhook thinks "Discord tab".
     const SYSTEM_NAV = [
         { id: 'pairings', label: 'Pairings', find: 'matchups opponents generate publish' },
+        { id: 'systemplayers', label: 'Players', find: 'roster who plays block blocks experience games level rating' },
         { id: 'league', label: 'League', find: 'elo rankings ratings standings season table' },
         { id: 'weighting', label: 'Weighting', find: 'matcher sliders rematch weights' },
         { id: 'autopairings', label: 'Auto-pairings', find: 'schedule automatic cron' },
@@ -635,6 +639,47 @@
     let grantableUsers = $state<GrantableUser[]>([]);
     let pageLoading = $state(true);
     let rolesLoading = $state(false);
+
+    /* The per-system roster and its blocks, one entry per scope.
+       Keyed by scope like every other per-system panel, so switching system
+       does not refetch a system you already looked at. */
+    type SystemPlayer = {
+        player_id: number;
+        name: string;
+        active: boolean;
+        league_visible: boolean;
+        weeks_signed_up: number;
+        last_signup_at: string | null;
+        games: number;
+        experience: string;
+        extra_games: number;
+        level: number;
+        rating: number | null;
+    };
+    type SystemPlayersState = {
+        players: SystemPlayer[];
+        blocks: BlockEntry[];
+        loading: boolean;
+        error: string | null;
+        message: string | null;
+        addP1: string;
+        addP2: string;
+        addNote: string;
+        adding: boolean;
+        addError: string | null;
+        /** player_id currently being edited in the experience field. */
+        editingExp: number | null;
+        expValue: string;
+    };
+    let systemPlayersState = $state<Record<string, SystemPlayersState>>({});
+
+    function initSystemPlayersState(): SystemPlayersState {
+        return {
+            players: [], blocks: [], loading: false, error: null, message: null,
+            addP1: '', addP2: '', addNote: '', adding: false, addError: null,
+            editingExp: null, expValue: '',
+        };
+    }
 
     let blocks = $state<BlockEntry[]>([]);
     let blocksLoading = $state(false);
@@ -2505,6 +2550,113 @@
         if (r.ok) grantableUsers = await r.json();
     }
 
+    /* Deliberately NOT part of initSystemScope.
+       That function already fires a dozen parallel requests per scope, and the
+       comment above it records why that burst is the thing to keep small. The
+       roster is two more requests that most visits to a system never need, so
+       it loads when its own tab is opened, the same way the onboarding
+       checklist does. */
+    $effect(() => {
+        if (activeNav !== 'systemplayers') return;
+        const scope = activeSystem;
+        if (!scope || !isSystemScope(scope)) return;
+        if (systemPlayersState[scope]) return;
+        loadSystemPlayers(scope);
+    });
+
+    async function loadSystemPlayers(scope: string) {
+        // Assign FIRST, then read the state back, and never hold the object
+        // that was assigned. $state deep-proxies on assignment, so the local
+        // here and systemPlayersState[scope] are two different references to
+        // the same target: mutating the local writes through without ever
+        // notifying, and the panel sat on "Loading…" with the data fetched and
+        // sitting in memory. Every other per-scope loader in this file reads
+        // through the store for the same reason.
+        if (!systemPlayersState[scope]) systemPlayersState[scope] = initSystemPlayersState();
+        const st = systemPlayersState[scope];
+        st.loading = true;
+        st.error = null;
+        const q = `system=${encodeURIComponent(scope)}`;
+        const [pr, br] = await Promise.all([
+            fetch(`${PUBLIC_API_URL}/admin/system-players?${q}`, { credentials: 'include' }),
+            fetch(`${PUBLIC_API_URL}/admin/blocks?${q}`, { credentials: 'include' }),
+        ]);
+        if (pr.ok) {
+            st.players = await pr.json();
+        } else {
+            const body = await pr.json().catch(() => ({}));
+            st.error = body.detail || 'Could not load the roster.';
+        }
+        if (br.ok) st.blocks = await br.json();
+        st.loading = false;
+    }
+
+    async function addSystemBlock(scope: string) {
+        const st = systemPlayersState[scope];
+        st.adding = true;
+        st.addError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/blocks`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                player_a_id: Number(st.addP1),
+                player_b_id: Number(st.addP2),
+                note: st.addNote.trim() || null,
+                system: scope,
+            }),
+        });
+        if (r.ok) {
+            st.addP1 = '';
+            st.addP2 = '';
+            st.addNote = '';
+            await loadSystemPlayers(scope);
+        } else {
+            const body = await r.json().catch(() => ({}));
+            st.addError = body.detail || 'Could not add the block.';
+        }
+        st.adding = false;
+    }
+
+    async function removeSystemBlock(scope: string, aId: number, bId: number) {
+        const params = new URLSearchParams({
+            player_a_id: String(aId),
+            player_b_id: String(bId),
+            system: scope,
+        });
+        const r = await fetch(`${PUBLIC_API_URL}/admin/blocks?${params}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (r.ok) await loadSystemPlayers(scope);
+    }
+
+    async function saveSystemExperience(scope: string, playerId: number) {
+        const st = systemPlayersState[scope];
+        const value = Number(st.expValue);
+        st.error = null;
+        st.message = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/system-players/experience`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system: scope, player_id: playerId, extra_games: value }),
+        });
+        if (r.ok) {
+            const body = await r.json();
+            const row = st.players.find((p) => p.player_id === playerId);
+            if (row) {
+                row.extra_games = body.extra_games;
+                row.experience = body.experience;
+            }
+            st.editingExp = null;
+            st.message = 'Saved.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            st.error = body.detail || 'Could not save.';
+        }
+    }
+
     async function loadBlocks() {
         blocksLoading = true;
         const r = await fetch(`${PUBLIC_API_URL}/admin/blocks`, { credentials: 'include' });
@@ -3201,11 +3353,14 @@
         addingBlock = false;
     }
 
-    async function removeBlock(playerAId: number, playerBId: number) {
+    async function removeBlock(playerAId: number, playerBId: number, system: string | null = null) {
         const params = new URLSearchParams({
             player_a_id: String(playerAId),
             player_b_id: String(playerBId),
         });
+        // Uniqueness is per (pair, system) now. Without this the delete looks
+        // for a club-wide row that does not exist and quietly removes nothing.
+        if (system) params.set('system', system);
         const r = await fetch(`${PUBLIC_API_URL}/admin/blocks?${params}`, {
             method: 'DELETE',
             credentials: 'include',
@@ -5123,6 +5278,164 @@
         </div>
     {/if}
 
+    {#if activeNav === 'systemplayers' && activeSystem}
+        {@const scope = activeSystem}
+        {@const sp = systemPlayersState[scope]}
+        <div class="dash-group" style={panelAccentStyle}>
+            <div class="dash-group-header static">
+                <span class="dash-group-title">Players &middot; {scope}</span>
+            </div>
+            <div class="dash-group-body">
+                {#if !sp || sp.loading}
+                    <p class="muted">Loading…</p>
+                {:else}
+                    {#if sp.error}<p class="field-error">{sp.error}</p>{/if}
+
+                    <section class="admin-section">
+                        <div class="a-head">
+                            <h3 class="section-heading">Roster</h3>
+                            <HelpTip label="this roster" text={"Everyone who has ever signed up for " + scope + " at your club.\n\n\u2022 There is no separate list to keep: turning up is what puts someone on it\n\u2022 Games and level count pairings only, never byes\n\u2022 Rating is this season's, and blank until they have a league result"} />
+                            <span class="a-head-end">
+                                <span class="a-state" class:is-on={sp.players.length > 0}>{sp.players.length} players</span>
+                            </span>
+                        </div>
+                        {#if sp.players.length === 0}
+                            <p class="muted">Nobody has signed up for {scope} yet.</p>
+                        {:else}
+                            <div class="table-wrap">
+                                <table class="sp-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Player</th>
+                                            <th class="num">Games</th>
+                                            <th class="num">Level</th>
+                                            <th class="num">Rating</th>
+                                            <th>Experience
+                                                <HelpTip label="experience" text={"What the matcher sees when it pairs them, and what shows on the pairings card.\n\n\u2022 Counted from games played here, plus any they have declared from elsewhere\n\u2022 Editing it only moves the tier, never the level"} /></th>
+                                            <th class="num">Elsewhere</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#each sp.players as p (p.player_id)}
+                                            <tr class:is-archived={!p.active}>
+                                                <td>
+                                                    {p.name}
+                                                    {#if !p.active}<span class="sp-tag">archived</span>{/if}
+                                                    {#if !p.league_visible}<span class="sp-tag">not in league</span>{/if}
+                                                </td>
+                                                <td class="num">{p.games}</td>
+                                                <td class="num">{p.level}</td>
+                                                <td class="num">{p.rating != null ? Math.round(p.rating) : '—'}</td>
+                                                <td>{p.experience}</td>
+                                                <td class="num">
+                                                    {#if sp.editingExp === p.player_id}
+                                                        <input
+                                                            class="field-input sp-exp-input"
+                                                            type="number"
+                                                            min="0"
+                                                            bind:value={sp.expValue}
+                                                        />
+                                                    {:else}
+                                                        {p.extra_games || 0}
+                                                    {/if}
+                                                </td>
+                                                <td class="sp-actions">
+                                                    {#if sp.editingExp === p.player_id}
+                                                        <button class="secondary-button" type="button"
+                                                            onclick={() => saveSystemExperience(scope, p.player_id)}>Save</button>
+                                                        <button class="secondary-button" type="button"
+                                                            onclick={() => (sp.editingExp = null)}>Cancel</button>
+                                                    {:else}
+                                                        <button class="secondary-button" type="button"
+                                                            onclick={() => { sp.editingExp = p.player_id; sp.expValue = String(p.extra_games || 0); }}
+                                                        >Edit</button>
+                                                    {/if}
+                                                </td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {#if sp.message}<p class="pairing-message">{sp.message}</p>{/if}
+                        {/if}
+                    </section>
+
+                    <section class="admin-section">
+                        <div class="a-head">
+                            <h3 class="section-heading">Blocks</h3>
+                            <HelpTip label="blocks here" text={"A block stops the matcher ever pairing those two.\n\n\u2022 One added here applies to " + scope + " only\n\u2022 Club-wide blocks are listed too, and only a super-admin can lift one"} />
+                            <span class="a-head-end">
+                                <span class="a-state" class:is-on={sp.blocks.length > 0}>{sp.blocks.length} active</span>
+                            </span>
+                        </div>
+
+                        <div class="sub-section">
+                            <h4 class="a-title">Add a block</h4>
+                            <form class="appoint-form" onsubmit={(e) => { e.preventDefault(); addSystemBlock(scope); }}>
+                                <div class="field">
+                                    <label class="field-label" for="sp-block-a-{scope}">Player A</label>
+                                    <select id="sp-block-a-{scope}" class="field-select" bind:value={sp.addP1}>
+                                        <option value="">Select</option>
+                                        {#each sp.players as p (p.player_id)}
+                                            <option value={String(p.player_id)}>{p.name}</option>
+                                        {/each}
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label class="field-label" for="sp-block-b-{scope}">Player B</label>
+                                    <select id="sp-block-b-{scope}" class="field-select" bind:value={sp.addP2}>
+                                        <option value="">Select</option>
+                                        {#each sp.players as p (p.player_id)}
+                                            <option value={String(p.player_id)}>{p.name}</option>
+                                        {/each}
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label class="field-label" for="sp-block-note-{scope}">Note</label>
+                                    <input id="sp-block-note-{scope}" class="field-input" type="text"
+                                           bind:value={sp.addNote} placeholder="optional reason…" />
+                                </div>
+                                {#if sp.addP1 && sp.addP2 && sp.addP1 === sp.addP2}
+                                    <p class="field-error">Players must be different.</p>
+                                {/if}
+                                {#if sp.addError}<p class="field-error">{sp.addError}</p>{/if}
+                                <button type="submit" class="primary-button"
+                                        disabled={!sp.addP1 || !sp.addP2 || sp.addP1 === sp.addP2 || sp.adding}
+                                >{sp.adding ? 'Adding…' : 'Add block'}</button>
+                            </form>
+                        </div>
+
+                        <div class="sub-section">
+                            {#if sp.blocks.length === 0}
+                                <p class="muted">No blocks for {scope}.</p>
+                            {:else}
+                                <ul class="block-list">
+                                    {#each sp.blocks as block (block.block_id)}
+                                        <li class="block-row">
+                                            <span class="block-names">
+                                                <strong>{block.player_a_name}</strong>
+                                                <span class="block-x">✕</span>
+                                                <strong>{block.player_b_name}</strong>
+                                                {#if block.club_wide}<span class="sp-tag">club-wide</span>{/if}
+                                            </span>
+                                            {#if block.note}<span class="block-note">{block.note}</span>{/if}
+                                            {#if !block.club_wide}
+                                                <button class="remove-btn block-remove" type="button" title="Remove block"
+                                                        onclick={() => removeSystemBlock(scope, block.player_a_id, block.player_b_id)}
+                                                >×</button>
+                                            {/if}
+                                        </li>
+                                    {/each}
+                                </ul>
+                            {/if}
+                        </div>
+                    </section>
+                {/if}
+            </div>
+        </div>
+    {/if}
+
     {#if activeNav === 'systemconfig' && activeSystem}
         {@const scope = activeSystem}
         <div class="dash-group" style={panelAccentStyle}>
@@ -5514,7 +5827,7 @@
     <section class="admin-section">
         <div class="a-head">
             <h3 class="section-heading">Pairing blocks</h3>
-            <HelpTip label="player blocks" text="A block stops the matcher ever pairing those two players. It applies across every system your club runs, not just one game night." />
+            <HelpTip label="player blocks" text={"A block stops the matcher ever pairing those two players.\n\n\u2022 Added here it covers every system your club runs\n\u2022 A system's own admin can add one that covers only their game night, from that system's Players tab\n\u2022 Both kinds are listed here"} />
             <span class="a-head-end">
                 <span class="a-state" class:is-on={blocks.length > 0}>{blocks.length} active</span>
             </span>
@@ -5581,6 +5894,7 @@
                                 <strong>{block.player_a_name}</strong>
                                 <span class="block-x">✕</span>
                                 <strong>{block.player_b_name}</strong>
+                                <span class="sp-tag">{block.club_wide ? 'club-wide' : block.system}</span>
                             </span>
                             {#if block.note}
                                 <span class="block-note">{block.note}</span>
@@ -5589,8 +5903,8 @@
                                 <button
                                     class="remove-btn block-remove"
                                     type="button"
-                                    title="Remove block"
-                                    onclick={() => removeBlock(block.player_a_id, block.player_b_id)}
+                                    title={block.club_wide ? 'Remove block' : `Remove this ${block.system} block`}
+                                    onclick={() => removeBlock(block.player_a_id, block.player_b_id, block.system)}
                                 >×</button>
                             {/if}
                         </li>
@@ -6200,6 +6514,47 @@
     /* A tab with setup still outstanding. Deliberately a dot and not a count:
        the number is on the checklist, and a sidebar full of badges reads as an
        error state rather than a to-do list. */
+    /* Per-system roster table. Its own scroll container: seven columns is
+       fine on a console and too many on a phone, and the page itself must
+       never scroll sideways. */
+    .table-wrap {
+        overflow-x: auto;
+        margin-bottom: 0.6rem;
+    }
+    .sp-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+    .sp-table th,
+    .sp-table td {
+        padding: 0.4rem 0.6rem;
+        text-align: left;
+        border-bottom: 1px solid var(--color-steel-border-soft);
+        white-space: nowrap;
+    }
+    .sp-table th {
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-dim);
+        font-weight: 700;
+    }
+    .sp-table .num { text-align: right; }
+    .sp-table tr.is-archived td { opacity: 0.55; }
+    .sp-actions { text-align: right; }
+    .sp-exp-input { width: 5rem; }
+    .sp-tag {
+        margin-left: 0.4rem;
+        padding: 0.05rem 0.35rem;
+        border: 1px solid var(--color-steel-border);
+        border-radius: 3px;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-dim);
+    }
+
     .nav-dot {
         display: inline-block;
         width: 6px;
