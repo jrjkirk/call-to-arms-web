@@ -5315,8 +5315,6 @@
                                             <th class="num">Level</th>
                                             <th>Experience
                                                 <HelpTip label="experience" text={"What the matcher sees when it pairs them, and what shows on the pairings card.\n\n\u2022 Counted from games played here, plus any they have declared from elsewhere\n\u2022 New under 10 games, Experienced from 10, Veteran from 20"} /></th>
-                                            <th>Titles
-                                                <HelpTip label="titles" text={"Awards this player carries on their profile.\n\n\u2022 One per line\n\u2022 Shown club-wide, not only on this game night, so two systems editing them will overwrite each other"} /></th>
                                             <th></th>
                                         </tr>
                                     </thead>
@@ -5334,33 +5332,43 @@
                                                 <td class="num">{p.games}</td>
                                                 <td class="num">{p.level}</td>
                                                 <td>{p.experience}</td>
-                                                <td class="sp-titles">
-                                                    {#if sp.editingTitles === p.player_id}
-                                                        <textarea
-                                                            class="field-input sp-titles-input"
-                                                            rows="3"
-                                                            placeholder="One per line…"
-                                                            bind:value={sp.titlesValue}
-                                                        ></textarea>
-                                                    {:else if p.titles.length}
-                                                        {#each p.titles as t}<span class="sp-title">{t}</span>{/each}
-                                                    {:else}
-                                                        <span class="sp-unclaimed">—</span>
-                                                    {/if}
-                                                </td>
                                                 <td class="sp-actions">
-                                                    {#if sp.editingTitles === p.player_id}
-                                                        <button class="secondary-button" type="button"
-                                                            onclick={() => saveSystemTitles(scope, p.player_id)}>Save</button>
-                                                        <button class="secondary-button" type="button"
-                                                            onclick={() => (sp.editingTitles = null)}>Cancel</button>
-                                                    {:else}
-                                                        <button class="secondary-button" type="button"
-                                                            onclick={() => { sp.editingTitles = p.player_id; sp.titlesValue = p.titles.join('\n'); }}
-                                                        >Edit</button>
-                                                    {/if}
+                                                    <button class="secondary-button" type="button"
+                                                        aria-expanded={sp.editingTitles === p.player_id}
+                                                        onclick={() => {
+                                                            if (sp.editingTitles === p.player_id) { sp.editingTitles = null; return; }
+                                                            sp.editingTitles = p.player_id;
+                                                            sp.titlesValue = p.titles.join('\n');
+                                                        }}
+                                                    >{sp.editingTitles === p.player_id ? 'Close' : 'Edit'}</button>
                                                 </td>
                                             </tr>
+                                            {#if sp.editingTitles === p.player_id}
+                                                <!-- One open at a time, and only the open one is in the DOM.
+                                                     A column of awards most players do not have was a lot of
+                                                     table width spent on empty cells. -->
+                                                <tr class="sp-edit-row">
+                                                    <td colspan="6">
+                                                        <div class="sp-edit">
+                                                            <label class="field-label" for="sp-titles-{p.player_id}">Titles for {p.name}
+                                                                <HelpTip label="titles" text={"Awards this player carries on their profile.\n\n\u2022 One per line\n\u2022 Shown club-wide, not only on this game night, so two systems editing them will overwrite each other"} /></label>
+                                                            <textarea
+                                                                id="sp-titles-{p.player_id}"
+                                                                class="field-input sp-titles-input"
+                                                                rows="3"
+                                                                placeholder="One per line…"
+                                                                bind:value={sp.titlesValue}
+                                                            ></textarea>
+                                                            <div class="sp-edit-actions">
+                                                                <button class="primary-button" type="button"
+                                                                    onclick={() => saveSystemTitles(scope, p.player_id)}>Save</button>
+                                                                <button class="secondary-button" type="button"
+                                                                    onclick={() => (sp.editingTitles = null)}>Cancel</button>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {/if}
                                         {/each}
                                     </tbody>
                                 </table>
@@ -6553,21 +6561,23 @@
     .sp-actions { text-align: right; }
     .sp-discord { color: var(--color-text-dim); }
     .sp-unclaimed { color: var(--color-text-dim); opacity: 0.7; }
-    /* Titles are the one column that can be long, so it is the one allowed to
-       wrap rather than widen the table until it scrolls. */
-    .sp-table td.sp-titles { white-space: normal; max-width: 22rem; }
-    .sp-titles-input { width: 100%; min-width: 14rem; }
-    .sp-title {
-        display: inline-block;
-        margin: 0.1rem 0.25rem 0.1rem 0;
-        padding: 0.05rem 0.35rem;
-        /* Steel border, gold text. --color-accent-soft is a SOLID gold, not a
-           wash, and a row of chips outlined in it reads as a row of buttons. */
-        border: 1px solid var(--color-steel-border);
-        border-radius: 3px;
-        font-size: 0.76rem;
-        color: var(--color-accent);
+
+    /* The editor that opens under a player's row. It is a full-width cell in
+       the table rather than a panel outside it, so it stays attached to the
+       row it belongs to when the table scrolls sideways. */
+    .sp-edit-row > td {
+        white-space: normal;
+        padding: 0.6rem 0.6rem 0.9rem;
+        background: var(--color-bg-deep);
     }
+    .sp-edit {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        max-width: 34rem;
+    }
+    .sp-titles-input { width: 100%; }
+    .sp-edit-actions { display: flex; gap: 0.5rem; }
     .sp-tag {
         margin-left: 0.4rem;
         padding: 0.05rem 0.35rem;
