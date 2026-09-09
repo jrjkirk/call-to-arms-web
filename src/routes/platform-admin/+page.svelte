@@ -431,7 +431,11 @@
         // of it, and an old row must still render.
         discord_name: string | null; discord_id: string | null;
         region: string | null; preferred_slug: string | null;
-        systems: string[]; club_night_day: string | null; club_night_time: string | null;
+        systems: string[];
+        /* Per-system nights, keyed on legacy system name. Empty on requests
+           submitted before 2026-09-09, which still carry the flat fields. */
+        system_details: Record<string, { day?: string; time?: string; cadence?: string; players?: number }>;
+        club_night_day: string | null; club_night_time: string | null;
         player_count: number | null; requester_role: string | null; evidence_url: string | null;
         possible_duplicates: { id: number; name: string; slug: string; address: string | null; active: boolean }[];
     };
@@ -472,7 +476,10 @@
         provisionSlug = r.suggested_slug;
         provisionRegion = r.region ?? '';
         provisionAppoint = r.discord_id != null;
-        provisionSystems = (r.systems?.length ?? 0) > 0 && !!r.club_night_day;
+        provisionSystems =
+            (r.systems?.length ?? 0) > 0 &&
+            (!!r.club_night_day ||
+                Object.values(r.system_details ?? {}).some((d) => !!d?.day));
         provisionPublish = true;
         provisionDone = null;
         clubRequestError = null;
@@ -1698,12 +1705,17 @@
                                 {:else}
                                     <span class="block-note req-unverified">⚠ no Discord identity (pre-dates sign-in)</span>
                                 {/if}
-                                {#if r.systems.length}
+                                {#if r.systems.length && Object.keys(r.system_details ?? {}).length}
+                                    {#each r.systems as sysName (sysName)}
+                                        {@const d = r.system_details?.[sysName]}
+                                        <span class="block-note">⚔️ {sysName}{#if d?.day}{' '}· {d.day}{/if}{#if d?.time}{' '}{d.time}{/if}{#if d?.cadence && d.cadence !== 'weekly'}{' '}({d.cadence}){/if}{#if d?.players}{' '}· ~{d.players} players{/if}</span>
+                                    {/each}
+                                {:else if r.systems.length}
                                     <span class="block-note">⚔️ {r.systems.join(', ')}</span>
                                 {/if}
-                                {#if r.club_night_day}
+                                {#if r.club_night_day && !Object.keys(r.system_details ?? {}).length}
                                     <span class="block-note">🗓️ {r.club_night_day}{r.club_night_time ? ` ${r.club_night_time}` : ''}{r.player_count ? ` · ~${r.player_count} players` : ''}</span>
-                                {:else if r.player_count}
+                                {:else if r.player_count && !Object.keys(r.system_details ?? {}).length}
                                     <span class="block-note">👥 ~{r.player_count} players</span>
                                 {/if}
                                 {#if r.possible_duplicates?.length}

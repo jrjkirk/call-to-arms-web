@@ -28,9 +28,32 @@
 	let region = $state('');
 	let preferredSlug = $state('');
 	let systems = $state<string[]>([]);
-	let clubNightDay = $state('');
-	let clubNightTime = $state('');
-	let playerCount = $state<number | null>(null);
+
+	/* One night per system, not one for the club.
+	   A club running The Old World on a Thursday and Kill Team fortnightly on a
+	   Tuesday is ordinary, and asking a single question got the answer that
+	   fitted their biggest night and published the wrong one for the rest.
+	   Keyed on legacy_system_name, which is what the API stores and what
+	   ClubSystem resolves against. */
+	type SystemDetail = { day: string; time: string; cadence: string; players: number | null };
+	let systemDetails = $state<Record<string, SystemDetail>>({});
+
+	const CADENCES = [
+		{ value: 'weekly', label: 'Every week' },
+		{ value: 'fortnightly', label: 'Every other week' },
+		{ value: 'monthly', label: 'Once a month' }
+	];
+
+	/* Most clubs run everything on the same night, so a newly ticked system
+	   copies whatever was filled in first and can then be changed. That keeps
+	   the common case to one set of answers while still allowing the exception,
+	   which is the whole reason this is per system. */
+	function blankDetail(): SystemDetail {
+		const seed = Object.values(systemDetails)[0];
+		return seed
+			? { day: seed.day, time: seed.time, cadence: seed.cadence, players: null }
+			: { day: '', time: '', cadence: 'weekly', players: null };
+	}
 	let evidenceUrl = $state('');
 	let notes = $state('');
 
@@ -80,7 +103,17 @@
 	});
 
 	function toggleSystem(name: string) {
-		systems = systems.includes(name) ? systems.filter((s) => s !== name) : [...systems, name];
+		if (systems.includes(name)) {
+			systems = systems.filter((s) => s !== name);
+			// Drop its schedule too, or unticking and resubmitting would send
+			// detail for a system they no longer play. The API narrows to the
+			// selected list as well, but the form should not be sending it.
+			const { [name]: _removed, ...rest } = systemDetails;
+			systemDetails = rest;
+		} else {
+			systems = [...systems, name];
+			systemDetails = { ...systemDetails, [name]: blankDetail() };
+		}
 	}
 
 	async function submit() {
@@ -93,12 +126,16 @@
 			error = 'Pick at least one game system. It decides what we switch on for you.';
 			return;
 		}
-		// Both required, because both are used the moment we approve you. The
-		// club night sets up every system's schedule, and guessing it published a
-		// specific wrong night on a club's public page. The region is how players
-		// find you on the finder.
-		if (!clubNightDay) {
-			error = 'Tell us which night you meet. It sets up your schedule when we approve you.';
+		// A night per system, because provisioning SKIPS any system it has no
+		// night for rather than guessing one — guessing published a specific
+		// wrong night on a club's public page. Caught here so that shows up as a
+		// question rather than as a system quietly missing after approval.
+		const missing = systems.filter((s) => !systemDetails[s]?.day);
+		if (missing.length) {
+			error =
+				missing.length === systems.length
+					? 'Tell us which night you meet. It sets up your schedule when we approve you.'
+					: `Which night do you play ${missing.join(' and ')}?`;
 			return;
 		}
 		if (!region) {
@@ -120,9 +157,26 @@
 					region: region || null,
 					preferred_slug: preferredSlug.trim() || null,
 					systems,
-					club_night_day: clubNightDay || null,
-					club_night_time: clubNightTime || null,
-					player_count: playerCount,
+					system_details: Object.fromEntries(
+						systems.map((s) => [
+							s,
+							{
+								day: systemDetails[s]?.day || null,
+								time: systemDetails[s]?.time || null,
+								cadence: systemDetails[s]?.cadence || 'weekly',
+								players: systemDetails[s]?.players ?? null
+							}
+						])
+					),
+					// Still sent, and still what the API falls back to. The first
+					// system's answers stand in for the club as a whole so a
+					// reviewer glancing at the old fields sees something true.
+					club_night_day: systemDetails[systems[0]]?.day || null,
+					club_night_time: systemDetails[systems[0]]?.time || null,
+					player_count: systems.reduce(
+						(sum, s) => sum + (systemDetails[s]?.players ?? 0),
+						0
+					) || null,
 					evidence_url: evidenceUrl.trim() || null,
 					notes: notes.trim() || null
 				})
@@ -186,10 +240,6 @@
 							{#each ROLES as r (r)}<option>{r}</option>{/each}
 						</select>
 					</div>
-					<div class="field">
-						<label class="field-label" for="req-players">Roughly how many players</label>
-						<input id="req-players" class="field-input" type="number" min="1" bind:value={playerCount} />
-					</div>
 				</div>
 
 				<div class="request-grid">
@@ -237,19 +287,42 @@
 					</div>
 				</div>
 
-				<div class="request-grid">
-					<div class="field">
-						<label class="field-label" for="req-night">Club night</label>
-						<select id="req-night" class="field-input" bind:value={clubNightDay}>
-							<option value="">Select…</option>
-							{#each DAYS as d (d)}<option>{d}</option>{/each}
-						</select>
+				<!-- One block per system they picked, in the order they picked
+				     them. Nothing shows until a chip is on, so the form is no
+				     longer than it was for a club running one game. -->
+				{#each systems as name (name)}
+					{@const label = systemOptions.find((o) => o.legacy_system_name === name)?.name ?? name}
+					<div class="sys-block">
+						<div class="sys-name">{label}</div>
+						<div class="sys-grid">
+							<div class="field">
+								<label class="field-label" for="sys-day-{name}">Night</label>
+								<select id="sys-day-{name}" class="field-input" bind:value={systemDetails[name].day}>
+									<option value="">Select…</option>
+									{#each DAYS as d (d)}<option>{d}</option>{/each}
+								</select>
+							</div>
+							<div class="field">
+								<label class="field-label" for="sys-time-{name}">Start time</label>
+								<input id="sys-time-{name}" class="field-input" type="time"
+								       bind:value={systemDetails[name].time} />
+							</div>
+							<div class="field">
+								<label class="field-label" for="sys-cadence-{name}">How often</label>
+								<select id="sys-cadence-{name}" class="field-input"
+								        bind:value={systemDetails[name].cadence}>
+									{#each CADENCES as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+								</select>
+							</div>
+							<div class="field">
+								<label class="field-label" for="sys-players-{name}">Roughly how many players</label>
+								<input id="sys-players-{name}" class="field-input" type="number" min="1"
+								       bind:value={systemDetails[name].players} />
+							</div>
+						</div>
 					</div>
-					<div class="field">
-						<label class="field-label" for="req-time">Usual start time</label>
-						<input id="req-time" class="field-input" type="time" bind:value={clubNightTime} />
-					</div>
-				</div>
+				{/each}
+
 
 				<div class="field">
 					<label class="field-label" for="req-evidence">Where can we see your club?</label>
@@ -412,9 +485,33 @@
 		margin: 0.6rem 0 0;
 	}
 
+	/* One system's schedule, set apart from the club-wide fields so four more
+	   inputs per system read as a group rather than as the form getting longer. */
+	.sys-block {
+		margin: 0.6rem 0 0;
+		padding: 0.7rem 0.8rem 0.8rem;
+		border: 1px solid var(--color-steel-border);
+		border-left: 2px solid var(--color-accent);
+		border-radius: var(--radius);
+		background: var(--color-bg-deep);
+	}
+	.sys-name {
+		margin-bottom: 0.5rem;
+		font-weight: 700;
+		font-size: 0.85rem;
+		color: var(--color-accent);
+	}
+	.sys-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 0.6rem;
+	}
+
+	/* Centred, because it is the one thing on the page you are meant to press
+	   and it was hanging off the left edge under a full-width form. */
 	.request-button {
-		margin-top: 1rem;
-		display: inline-flex;
+		margin: 1rem auto 0;
+		display: flex;
 		align-items: center;
 		justify-content: center;
 		background: var(--color-accent);
