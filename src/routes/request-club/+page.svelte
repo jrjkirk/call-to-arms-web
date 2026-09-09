@@ -495,16 +495,60 @@
 		border-radius: var(--radius);
 		background: var(--color-bg-deep);
 	}
+	/* The field that follows the last system block. Without this it sits flush
+	   against the block's border and reads as part of it, rather than as the
+	   club-wide question it is. Only applies when a block is actually there, so
+	   spacing is unchanged before any system is picked. */
+	.sys-block + .field {
+		margin-top: 1.1rem;
+	}
+
 	.sys-name {
 		margin-bottom: 0.5rem;
 		font-weight: 700;
 		font-size: 0.85rem;
 		color: var(--color-accent);
 	}
+	/* Two rows, and each field spans both via subgrid, so every label sits in
+	   the same band and every input starts on the same line. Without it the one
+	   label long enough to wrap ("Roughly how many players") pushed its own
+	   input a line lower than the other three.
+
+	   Fixed to two rows rather than auto-fit: four columns that reflow to two
+	   would put a wrapped label in one row and not the other, and the problem
+	   comes back. They stack below 620px instead. */
 	.sys-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 0.6rem;
+		/* The last column is wider because "Roughly how many players" is the
+		   only label long enough to wrap, and a wrapped label makes every block
+		   a line taller for the sake of one word. Night and How often are
+		   dropdowns with short fixed contents, so they can give the room up. */
+		grid-template-columns: 0.9fr 0.9fr 1fr 1.2fr;
+		grid-template-rows: auto auto;
+		gap: 0.35rem 0.6rem;
+		align-items: start;
+	}
+	.sys-grid .field {
+		display: grid;
+		grid-template-rows: subgrid;
+		grid-row: span 2;
+		margin-bottom: 0;
+	}
+	.sys-grid .field-label {
+		align-self: end;
+		margin-bottom: 0;
+	}
+
+	/* Below the four-across width, let the columns decide for themselves. Two
+	   across on a phone squeezed "How often" until it read "Every we…", which
+	   is the one field where weekly and fortnightly have to be told apart at a
+	   glance. 170px is enough for the longest option; a 390px screen therefore
+	   gets one column, a tablet two. */
+	@media (max-width: 620px) {
+		.sys-grid {
+			grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+			grid-auto-rows: auto;
+		}
 	}
 
 	/* Centred, because it is the one thing on the page you are meant to press
