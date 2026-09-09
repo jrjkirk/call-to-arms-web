@@ -1,9 +1,30 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { fly, fade } from 'svelte/transition';
+    import { PUBLIC_API_URL } from '$env/static/public';
     import ClubsMap from './ClubsMap.svelte';
     import ClubRequestForm from './ClubRequestForm.svelte';
 
     let { loginUrl }: { loginUrl: string } = $props();
+
+    /* Headline numbers, fetched rather than rendered server-side because this
+       is the one page that must still draw when the API is unreachable. The
+       API was down for hours on 2026-09-09 and the marketing page carried on
+       serving; a stat that could break that trade is not worth having.
+
+       So: null until it arrives, and the line simply does not render. Never a
+       spinner, never "0 players" — an outage should cost a sentence, not put a
+       wrong number on the front page. */
+    let stats = $state<{ players: number; clubs: number } | null>(null);
+
+    onMount(async () => {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/stats`);
+            if (r.ok) stats = await r.json();
+        } catch (_) {
+            // Left null. See above.
+        }
+    });
 
     const pillars = [
         {
@@ -40,6 +61,21 @@
                 <span>Find a club near you</span>
             </a>
         </div>
+
+        {#if stats && stats.players > 0}
+            <!-- The club count is only worth saying once there is more than one
+                 to say it about: "142 players across 1 club" undersells the
+                 thing it is trying to sell. -->
+            <p class="hero-stat" in:fade={{ duration: 400, delay: 320 }}>
+                <strong>{stats.players.toLocaleString()}</strong>
+                <!-- The space before `across` is written as an expression on
+                     purpose. Left as a newline-plus-indent inside the {#if},
+                     Svelte trims it away and the line renders
+                     "1,420 playersacross 7 clubs". -->
+                {stats.players === 1 ? 'player' : 'players'}{#if stats.clubs > 1}{' '}across
+                    <strong>{stats.clubs}</strong> clubs{/if}
+            </p>
+        {/if}
 
         <div class="hero-about" in:fade={{ duration: 500, delay: 400 }}>
             <div class="hero-about-heading">What is Call to Arms?</div>
@@ -206,6 +242,20 @@
         gap: 0.7rem;
         align-items: center;
         justify-content: center;
+    }
+
+    /* Sits under the two doors as a quiet line, not a badge. It is
+       reassurance for someone deciding whether this thing is used by anyone,
+       so it should read after the buttons rather than compete with them. */
+    .hero-stat {
+        margin: 0.85rem 0 0;
+        font-size: 0.9rem;
+        color: var(--color-text-dim);
+        letter-spacing: 0.01em;
+    }
+    .hero-stat strong {
+        color: var(--color-accent);
+        font-weight: 700;
     }
 
     .hero-button {
