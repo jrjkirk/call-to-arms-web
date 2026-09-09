@@ -646,6 +646,8 @@
     type SystemPlayer = {
         player_id: number;
         name: string;
+        discord_name: string | null;
+        titles: string[];
         active: boolean;
         league_visible: boolean;
         weeks_signed_up: number;
@@ -667,9 +669,9 @@
         addNote: string;
         adding: boolean;
         addError: string | null;
-        /** player_id currently being edited in the experience field. */
-        editingExp: number | null;
-        expValue: string;
+        /** player_id whose titles are open for editing, if any. */
+        editingTitles: number | null;
+        titlesValue: string;
     };
     let systemPlayersState = $state<Record<string, SystemPlayersState>>({});
 
@@ -677,7 +679,7 @@
         return {
             players: [], blocks: [], loading: false, error: null, message: null,
             addP1: '', addP2: '', addNote: '', adding: false, addError: null,
-            editingExp: null, expValue: '',
+            editingTitles: null, titlesValue: '',
         };
     }
 
@@ -2631,25 +2633,24 @@
         if (r.ok) await loadSystemPlayers(scope);
     }
 
-    async function saveSystemExperience(scope: string, playerId: number) {
+    /* One title per line, which is how the club-level editor already takes
+       them and how an admin types a list without thinking about separators. */
+    async function saveSystemTitles(scope: string, playerId: number) {
         const st = systemPlayersState[scope];
-        const value = Number(st.expValue);
         st.error = null;
         st.message = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/system-players/experience`, {
+        const titles = st.titlesValue.split('\n').map((t) => t.trim()).filter(Boolean);
+        const r = await fetch(`${PUBLIC_API_URL}/admin/system-players/titles`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ system: scope, player_id: playerId, extra_games: value }),
+            body: JSON.stringify({ system: scope, player_id: playerId, titles }),
         });
         if (r.ok) {
             const body = await r.json();
             const row = st.players.find((p) => p.player_id === playerId);
-            if (row) {
-                row.extra_games = body.extra_games;
-                row.experience = body.experience;
-            }
-            st.editingExp = null;
+            if (row) row.titles = body.titles;
+            st.editingTitles = null;
             st.message = 'Saved.';
         } else {
             const body = await r.json().catch(() => ({}));
@@ -5284,6 +5285,11 @@
         <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
                 <span class="dash-group-title">Players &middot; {scope}</span>
+                {#if sp && !sp.loading}
+                    <span class="a-head-end">
+                        <span class="a-state" class:is-on={sp.players.length > 0}>{sp.players.length} players</span>
+                    </span>
+                {/if}
             </div>
             <div class="dash-group-body">
                 {#if !sp || sp.loading}
@@ -5294,10 +5300,7 @@
                     <section class="admin-section">
                         <div class="a-head">
                             <h3 class="section-heading">Roster</h3>
-                            <HelpTip label="this roster" text={"Everyone who has ever signed up for " + scope + " at your club.\n\n\u2022 There is no separate list to keep: turning up is what puts someone on it\n\u2022 Games and level count pairings only, never byes\n\u2022 Rating is this season's, and blank until they have a league result"} />
-                            <span class="a-head-end">
-                                <span class="a-state" class:is-on={sp.players.length > 0}>{sp.players.length} players</span>
-                            </span>
+                            <HelpTip label="this roster" text={"Everyone who has ever signed up for " + scope + " at your club.\n\n\u2022 There is no separate list to keep: turning up is what puts someone on it\n\u2022 Games and level count pairings only, never byes\n\u2022 Experience is the tier the matcher reads"} />
                         </div>
                         {#if sp.players.length === 0}
                             <p class="muted">Nobody has signed up for {scope} yet.</p>
@@ -5307,12 +5310,13 @@
                                     <thead>
                                         <tr>
                                             <th>Player</th>
+                                            <th>Discord</th>
                                             <th class="num">Games</th>
                                             <th class="num">Level</th>
-                                            <th class="num">Rating</th>
                                             <th>Experience
-                                                <HelpTip label="experience" text={"What the matcher sees when it pairs them, and what shows on the pairings card.\n\n\u2022 Counted from games played here, plus any they have declared from elsewhere\n\u2022 Editing it only moves the tier, never the level"} /></th>
-                                            <th class="num">Elsewhere</th>
+                                                <HelpTip label="experience" text={"What the matcher sees when it pairs them, and what shows on the pairings card.\n\n\u2022 Counted from games played here, plus any they have declared from elsewhere\n\u2022 New under 10 games, Experienced from 10, Veteran from 20"} /></th>
+                                            <th>Titles
+                                                <HelpTip label="titles" text={"Awards this player carries on their profile.\n\n\u2022 One per line\n\u2022 Shown club-wide, not only on this game night, so two systems editing them will overwrite each other"} /></th>
                                             <th></th>
                                         </tr>
                                     </thead>
@@ -5324,31 +5328,35 @@
                                                     {#if !p.active}<span class="sp-tag">archived</span>{/if}
                                                     {#if !p.league_visible}<span class="sp-tag">not in league</span>{/if}
                                                 </td>
+                                                <td class="sp-discord">
+                                                    {#if p.discord_name}@{p.discord_name}{:else}<span class="sp-unclaimed">not linked</span>{/if}
+                                                </td>
                                                 <td class="num">{p.games}</td>
                                                 <td class="num">{p.level}</td>
-                                                <td class="num">{p.rating != null ? Math.round(p.rating) : '—'}</td>
                                                 <td>{p.experience}</td>
-                                                <td class="num">
-                                                    {#if sp.editingExp === p.player_id}
-                                                        <input
-                                                            class="field-input sp-exp-input"
-                                                            type="number"
-                                                            min="0"
-                                                            bind:value={sp.expValue}
-                                                        />
+                                                <td class="sp-titles">
+                                                    {#if sp.editingTitles === p.player_id}
+                                                        <textarea
+                                                            class="field-input sp-titles-input"
+                                                            rows="3"
+                                                            placeholder="One per line…"
+                                                            bind:value={sp.titlesValue}
+                                                        ></textarea>
+                                                    {:else if p.titles.length}
+                                                        {#each p.titles as t}<span class="sp-title">{t}</span>{/each}
                                                     {:else}
-                                                        {p.extra_games || 0}
+                                                        <span class="sp-unclaimed">—</span>
                                                     {/if}
                                                 </td>
                                                 <td class="sp-actions">
-                                                    {#if sp.editingExp === p.player_id}
+                                                    {#if sp.editingTitles === p.player_id}
                                                         <button class="secondary-button" type="button"
-                                                            onclick={() => saveSystemExperience(scope, p.player_id)}>Save</button>
+                                                            onclick={() => saveSystemTitles(scope, p.player_id)}>Save</button>
                                                         <button class="secondary-button" type="button"
-                                                            onclick={() => (sp.editingExp = null)}>Cancel</button>
+                                                            onclick={() => (sp.editingTitles = null)}>Cancel</button>
                                                     {:else}
                                                         <button class="secondary-button" type="button"
-                                                            onclick={() => { sp.editingExp = p.player_id; sp.expValue = String(p.extra_games || 0); }}
+                                                            onclick={() => { sp.editingTitles = p.player_id; sp.titlesValue = p.titles.join('\n'); }}
                                                         >Edit</button>
                                                     {/if}
                                                 </td>
@@ -6543,7 +6551,23 @@
     .sp-table .num { text-align: right; }
     .sp-table tr.is-archived td { opacity: 0.55; }
     .sp-actions { text-align: right; }
-    .sp-exp-input { width: 5rem; }
+    .sp-discord { color: var(--color-text-dim); }
+    .sp-unclaimed { color: var(--color-text-dim); opacity: 0.7; }
+    /* Titles are the one column that can be long, so it is the one allowed to
+       wrap rather than widen the table until it scrolls. */
+    .sp-table td.sp-titles { white-space: normal; max-width: 22rem; }
+    .sp-titles-input { width: 100%; min-width: 14rem; }
+    .sp-title {
+        display: inline-block;
+        margin: 0.1rem 0.25rem 0.1rem 0;
+        padding: 0.05rem 0.35rem;
+        /* Steel border, gold text. --color-accent-soft is a SOLID gold, not a
+           wash, and a row of chips outlined in it reads as a row of buttons. */
+        border: 1px solid var(--color-steel-border);
+        border-radius: 3px;
+        font-size: 0.76rem;
+        color: var(--color-accent);
+    }
     .sp-tag {
         margin-left: 0.4rem;
         padding: 0.05rem 0.35rem;
