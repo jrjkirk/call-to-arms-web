@@ -167,8 +167,13 @@
          *  every flat-list system, where the category weight can have no
          *  effect and the slider is therefore not shown. */
         has_faction_groups: boolean;
+        /** Whether this system offers intro games at all: the Intro vibe to
+         *  ask for one AND the checkbox to offer to teach one. Without both
+         *  there is no seeker or no teacher and the weight is inert. */
+        has_intro_games: boolean;
         default_recent_weeks: number;
         default_extended_weeks: number;
+        weight_intro: number;
         weight_mirror: number;
         weight_faction_group: number;
         weight_rematch: number;
@@ -1015,7 +1020,6 @@
         default_scenario: string | null;
         allows_demo: boolean | null;
         uses_standby: boolean | null;
-        has_intro_prepass: boolean | null;
         catalogue: {
             uses_points: boolean;
             default_points: number | null;
@@ -1025,7 +1029,6 @@
             default_scenario: string | null;
             allows_demo: boolean;
             uses_standby: boolean;
-            has_intro_prepass: boolean;
         };
     };
     type CatalogueSystem = { id: number; name: string; legacy_system_name: string };
@@ -1062,7 +1065,6 @@
     let csUseDefaultExtras = $state(true);
     let csAllowsDemo = $state(false);
     let csUsesStandby = $state(false);
-    let csHasIntroPrepass = $state(false);
     /** A vibe is a name plus how the matcher should treat it.
      *
      *  soft      a preference, costing the vibe weight when two players differ
@@ -2430,12 +2432,9 @@
         csScenarioOptions = [...(row.scenario_options ?? cat.scenario_options ?? [])];
         csDefaultScenario = row.default_scenario ?? cat.default_scenario ?? '';
 
-        csUseDefaultExtras =
-            row.allows_demo === null && row.uses_standby === null
-            && row.has_intro_prepass === null;
+        csUseDefaultExtras = row.allows_demo === null && row.uses_standby === null;
         csAllowsDemo = row.allows_demo ?? cat.allows_demo;
         csUsesStandby = row.uses_standby ?? cat.uses_standby;
-        csHasIntroPrepass = row.has_intro_prepass ?? cat.has_intro_prepass;
     }
 
     /* Null on a field is how the API is told to CLEAR that override and go
@@ -2459,11 +2458,10 @@
                     default_scenario: csDefaultScenario || null
                 }),
             ...(csUseDefaultExtras
-                ? { allows_demo: null, uses_standby: null, has_intro_prepass: null }
+                ? { allows_demo: null, uses_standby: null }
                 : {
                     allows_demo: csAllowsDemo,
-                    uses_standby: csUsesStandby,
-                    has_intro_prepass: csHasIntroPrepass
+                    uses_standby: csUsesStandby
                 })
         };
     }
@@ -2931,6 +2929,7 @@
         const fields: (keyof PairingWeightConfigData)[] = [
             'weight_mirror', 'weight_rematch', 'weight_vibe', 'weight_experience', 'weight_eta',
         ];
+        if (cfg.has_intro_games) fields.push('weight_intro');
         if (cfg.uses_scenarios) fields.push('weight_scenario');
         if (cfg.uses_points) fields.push('weight_points');
         if (cfg.has_faction_groups) fields.push('weight_faction_group');
@@ -2951,7 +2950,10 @@
     // LIGHTNESS rather than hue, which is the one axis every form of colour
     // blindness leaves intact. Re-validate the whole set if the palette
     // script is ever run again.
-    const PAIRING_WEIGHT_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#1d3f8c'];
+    // Slot 9 is a warm mid grey, chosen the same way as slot 8: with the hue
+    // circle spent, separation comes from lightness and saturation, which is
+    // the axis no form of colour blindness collapses.
+    const PAIRING_WEIGHT_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#1d3f8c', '#8a7f6d'];
 
     function pairingWeightSlices(cfg: PairingWeightConfigData): { label: string; value: number; color: string }[] {
         const rows: { label: string; value: number }[] = [
@@ -2964,6 +2966,7 @@
         if (cfg.uses_scenarios) rows.push({ label: 'Scenario match', value: cfg.weight_scenario });
         if (cfg.uses_points) rows.push({ label: 'Points closeness', value: cfg.weight_points });
         if (cfg.has_faction_groups) rows.push({ label: 'Avoid same faction category', value: cfg.weight_faction_group });
+        if (cfg.has_intro_games) rows.push({ label: 'Give newcomers a teacher', value: cfg.weight_intro });
         return rows.map((r, i) => ({ ...r, color: PAIRING_WEIGHT_COLORS[i] }));
     }
 
@@ -4397,6 +4400,13 @@
                                                         <input id="pw-pts-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_points} />
                                                     </div>
                                                 {/if}
+                                                {#if ws.config.has_intro_games}
+                                                    <div class="field">
+                                                        <label class="field-label" for="pw-intro-{scope}">Give newcomers a teacher: {ws.config.weight_intro} ({pwPercent(ws.config, 'weight_intro')}%)
+                                                            <HelpTip label="intro games" text={"A player who picks the Intro vibe is asking to be taught. A player who ticks \"I can lead an intro game\" is offering to teach one. This is how hard the matcher works to put the first kind opposite the second.\n\nIt is the highest weight by default, and it still loses to a block or to last week's opponent.\n\nSet it to 0 and Intro becomes an ordinary vibe, so two newcomers can end up opposite each other."} /></label>
+                                                        <input id="pw-intro-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_intro} />
+                                                    </div>
+                                                {/if}
                                                 {#if ws.config.has_faction_groups}
                                                     <div class="field">
                                                         <label class="field-label" for="pw-group-{scope}">Avoid same faction category: {ws.config.weight_faction_group} ({pwPercent(ws.config, 'weight_faction_group')}%)
@@ -5815,7 +5825,7 @@
                                             Signup options
                                             <HelpTip
                                                 label="signup options"
-                                                text={"The three checkboxes at the foot of the signup form, and one matcher behaviour.\n\n• Intro games first pairs each newcomer with someone offering to teach, before everyone else is matched\n• Standby lets a player volunteer to sit out if the numbers are odd"}
+                                                text={"The two checkboxes at the foot of the signup form.\n\n• Offering to lead an intro game is what makes someone a teacher, and the matcher puts newcomers opposite them. How hard it tries is the intro slider under Matchmaking weights\n• Standby lets a player volunteer to sit out if the numbers are odd"}
                                             />
                                         </span>
                                         <label class="check-row">
@@ -5830,10 +5840,6 @@
                                             <label class="check-row">
                                                 <input type="checkbox" bind:checked={csUsesStandby} />
                                                 <span>Players can volunteer for standby</span>
-                                            </label>
-                                            <label class="check-row">
-                                                <input type="checkbox" bind:checked={csHasIntroPrepass} />
-                                                <span>Pair intro games first</span>
                                             </label>
                                         {/if}
                                     </div>
