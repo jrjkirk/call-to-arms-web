@@ -1003,6 +1003,30 @@
         default_vibe: string | null;
         default_vibe_options: (string | VibeOption)[] | null;
         default_default_vibe: string | null;
+        /** Per-club overrides of the signup form. Null on any one means this
+         *  club has no opinion and follows `catalogue` for it, which is why
+         *  both halves come back: an empty box has to be distinguishable from
+         *  a box holding the inherited value. */
+        uses_points: boolean | null;
+        default_points: number | null;
+        max_points: number | null;
+        uses_scenarios: boolean | null;
+        scenario_options: string[] | null;
+        default_scenario: string | null;
+        allows_demo: boolean | null;
+        uses_standby: boolean | null;
+        has_intro_prepass: boolean | null;
+        catalogue: {
+            uses_points: boolean;
+            default_points: number | null;
+            max_points: number | null;
+            uses_scenarios: boolean;
+            scenario_options: string[] | null;
+            default_scenario: string | null;
+            allows_demo: boolean;
+            uses_standby: boolean;
+            has_intro_prepass: boolean;
+        };
     };
     type CatalogueSystem = { id: number; name: string; legacy_system_name: string };
     const CADENCES = ['weekly', 'fortnightly'];
@@ -1018,6 +1042,27 @@
     let csSessionStartTime = $state('');
     let csEnabled = $state(true);
     let csUseDefaultVibes = $state(true);
+
+    /* Signup-form overrides, in three independent groups rather than one
+       all-or-nothing switch. A club that wants its own points should not
+       thereby take ownership of scenarios and freeze them at whatever the
+       catalogue happened to say that day — the whole reason the columns are
+       nullable is to keep the platform default live for what a club has not
+       actually decided. */
+    let csUseDefaultPoints = $state(true);
+    let csUsesPoints = $state(false);
+    let csDefaultPoints = $state<number | null>(null);
+    let csMaxPoints = $state<number | null>(null);
+
+    let csUseDefaultScenarios = $state(true);
+    let csUsesScenarios = $state(false);
+    let csScenarioOptions = $state<string[]>([]);
+    let csDefaultScenario = $state('');
+
+    let csUseDefaultExtras = $state(true);
+    let csAllowsDemo = $state(false);
+    let csUsesStandby = $state(false);
+    let csHasIntroPrepass = $state(false);
     /** A vibe is a name plus how the matcher should treat it.
      *
      *  soft      a preference, costing the vibe weight when two players differ
@@ -2348,6 +2393,7 @@
                 csVibeOptions = toVibeOptions(existing.default_vibe_options);
                 csDefaultVibe = existing.default_default_vibe ?? csVibeOptions[0]?.name ?? '';
             }
+            loadOverrideFields(existing);
         } else {
             csSessionDay = 'Wednesday';
             csSessionCadence = 'weekly';
@@ -2357,7 +2403,69 @@
             csUseDefaultVibes = true;
             csVibeOptions = [];
             csDefaultVibe = '';
+            csUseDefaultPoints = csUseDefaultScenarios = csUseDefaultExtras = true;
         }
+    }
+
+    /* Fill the three override groups from the row.
+     *
+     * Each group is "inherited" unless the club has set at least one field in
+     * it, and the inputs are pre-filled from the catalogue either way — so
+     * unticking "use the platform defaults" starts from what is in force
+     * rather than from an empty box, and ticking it back does not need the
+     * values it is about to stop using. */
+    function loadOverrideFields(row: ClubSystemMineRow) {
+        const cat = row.catalogue;
+
+        csUseDefaultPoints =
+            row.uses_points === null && row.default_points === null && row.max_points === null;
+        csUsesPoints = row.uses_points ?? cat.uses_points;
+        csDefaultPoints = row.default_points ?? cat.default_points;
+        csMaxPoints = row.max_points ?? cat.max_points;
+
+        csUseDefaultScenarios =
+            row.uses_scenarios === null && row.scenario_options === null
+            && row.default_scenario === null;
+        csUsesScenarios = row.uses_scenarios ?? cat.uses_scenarios;
+        csScenarioOptions = [...(row.scenario_options ?? cat.scenario_options ?? [])];
+        csDefaultScenario = row.default_scenario ?? cat.default_scenario ?? '';
+
+        csUseDefaultExtras =
+            row.allows_demo === null && row.uses_standby === null
+            && row.has_intro_prepass === null;
+        csAllowsDemo = row.allows_demo ?? cat.allows_demo;
+        csUsesStandby = row.uses_standby ?? cat.uses_standby;
+        csHasIntroPrepass = row.has_intro_prepass ?? cat.has_intro_prepass;
+    }
+
+    /* Null on a field is how the API is told to CLEAR that override and go
+     * back to the catalogue, so an inherited group sends nulls rather than
+     * omitting its keys. Omitting them would mean "leave whatever is stored",
+     * which would make ticking the box back on do nothing. */
+    function overridePayload() {
+        return {
+            ...(csUseDefaultPoints
+                ? { uses_points: null, default_points: null, max_points: null }
+                : {
+                    uses_points: csUsesPoints,
+                    default_points: csDefaultPoints === null ? null : Number(csDefaultPoints),
+                    max_points: csMaxPoints === null ? null : Number(csMaxPoints)
+                }),
+            ...(csUseDefaultScenarios
+                ? { uses_scenarios: null, scenario_options: null, default_scenario: null }
+                : {
+                    uses_scenarios: csUsesScenarios,
+                    scenario_options: csScenarioOptions.map((x) => x.trim()).filter(Boolean),
+                    default_scenario: csDefaultScenario || null
+                }),
+            ...(csUseDefaultExtras
+                ? { allows_demo: null, uses_standby: null, has_intro_prepass: null }
+                : {
+                    allows_demo: csAllowsDemo,
+                    uses_standby: csUsesStandby,
+                    has_intro_prepass: csHasIntroPrepass
+                })
+        };
     }
 
     /**
@@ -2474,7 +2582,8 @@
                 // [] clears the override (use the platform default); a list sets
                 // this club's own vibes.
                 vibe_options: csUseDefaultVibes ? [] : csVibeOptions,
-                default_vibe: csUseDefaultVibes ? null : csDefaultVibe
+                default_vibe: csUseDefaultVibes ? null : csDefaultVibe,
+                overrides: overridePayload()
             })
         });
         if (r.ok) {
@@ -5620,6 +5729,115 @@
                                         {/if}
                                     </div>
 
+                                    <div class="field-row-break"></div>
+
+                                    <div class="field cs-vibes-field">
+                                        <span class="field-label">
+                                            Points
+                                            <HelpTip
+                                                label="points"
+                                                text={"What the signup form asks for, and what the matcher tries to match on.\n\n• Platform defaults follow the catalogue, so they change when it does\n• Your own numbers stay exactly as you leave them\n• Turning points off hides the field and stops the matcher scoring it"}
+                                            />
+                                        </span>
+                                        <label class="check-row">
+                                            <input type="checkbox" bind:checked={csUseDefaultPoints} />
+                                            <span>Use the platform defaults</span>
+                                        </label>
+                                        {#if !csUseDefaultPoints}
+                                            <label class="check-row">
+                                                <input type="checkbox" bind:checked={csUsesPoints} />
+                                                <span>Ask for army points</span>
+                                            </label>
+                                            {#if csUsesPoints}
+                                                <div class="cs-override-row">
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="sc-default-points">Default</label>
+                                                        <input id="sc-default-points" class="field-input" type="number" min="0" bind:value={csDefaultPoints} />
+                                                    </div>
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="sc-max-points">Maximum</label>
+                                                        <input id="sc-max-points" class="field-input" type="number" min="0" bind:value={csMaxPoints} />
+                                                    </div>
+                                                </div>
+                                            {/if}
+                                        {/if}
+                                    </div>
+
+                                    <div class="field cs-vibes-field">
+                                        <span class="field-label">
+                                            Scenarios
+                                            <HelpTip
+                                                label="scenarios"
+                                                text={"A scenario preference on the signup form, which the matcher then tries to agree on.\n\n• Turn it on and there has to be at least one scenario to pick\n• Clear the list to go back to the catalogue's"}
+                                            />
+                                        </span>
+                                        <label class="check-row">
+                                            <input type="checkbox" bind:checked={csUseDefaultScenarios} />
+                                            <span>Use the platform defaults</span>
+                                        </label>
+                                        {#if !csUseDefaultScenarios}
+                                            <label class="check-row">
+                                                <input type="checkbox" bind:checked={csUsesScenarios} />
+                                                <span>Ask for a scenario preference</span>
+                                            </label>
+                                            {#if csUsesScenarios}
+                                                <div class="vibe-rows">
+                                                    {#each csScenarioOptions as _, i}
+                                                        <div class="vibe-row">
+                                                            <input class="field-input vibe-name" type="text" aria-label="Scenario name" bind:value={csScenarioOptions[i]} />
+                                                            <button class="remove-btn" type="button" title="Remove this scenario"
+                                                                    onclick={() => (csScenarioOptions = csScenarioOptions.filter((_, j) => j !== i))}>×</button>
+                                                        </div>
+                                                    {/each}
+                                                </div>
+                                                <div class="vibe-add">
+                                                    <button class="secondary-button vibe-chip" type="button"
+                                                            onclick={() => (csScenarioOptions = [...csScenarioOptions, 'New scenario'])}>+ Add a scenario</button>
+                                                </div>
+                                                {#if csScenarioOptions.filter((x) => x.trim()).length > 0}
+                                                    <div class="field field-narrow">
+                                                        <label class="field-label" for="sc-default-scenario">Default scenario</label>
+                                                        <select id="sc-default-scenario" class="field-select" bind:value={csDefaultScenario}>
+                                                            {#each csScenarioOptions.filter((x) => x.trim()) as o (o)}
+                                                                <option value={o}>{o}</option>
+                                                            {/each}
+                                                        </select>
+                                                    </div>
+                                                {:else}
+                                                    <p class="field-error">Add at least one scenario, or use the platform default.</p>
+                                                {/if}
+                                            {/if}
+                                        {/if}
+                                    </div>
+
+                                    <div class="field cs-vibes-field">
+                                        <span class="field-label">
+                                            Signup options
+                                            <HelpTip
+                                                label="signup options"
+                                                text={"The three checkboxes at the foot of the signup form, and one matcher behaviour.\n\n• Intro games first pairs each newcomer with someone offering to teach, before everyone else is matched\n• Standby lets a player volunteer to sit out if the numbers are odd"}
+                                            />
+                                        </span>
+                                        <label class="check-row">
+                                            <input type="checkbox" bind:checked={csUseDefaultExtras} />
+                                            <span>Use the platform defaults</span>
+                                        </label>
+                                        {#if !csUseDefaultExtras}
+                                            <label class="check-row">
+                                                <input type="checkbox" bind:checked={csAllowsDemo} />
+                                                <span>Players can offer to lead an intro game</span>
+                                            </label>
+                                            <label class="check-row">
+                                                <input type="checkbox" bind:checked={csUsesStandby} />
+                                                <span>Players can volunteer for standby</span>
+                                            </label>
+                                            <label class="check-row">
+                                                <input type="checkbox" bind:checked={csHasIntroPrepass} />
+                                                <span>Pair intro games first</span>
+                                            </label>
+                                        {/if}
+                                    </div>
+
                                     {#if !activeClubSystemRow.enabled}
                                         <p class="field-label-hint">
                                             <strong>Disabled</strong>, so it takes no signups.
@@ -5630,7 +5848,7 @@
                                     {#if csMessage}<p class="pairing-message">{csMessage}</p>{/if}
                                     <div class="system-form-actions">
                                         <button type="submit" class="primary-button" disabled={csSaving || (!csUseDefaultVibes && csVibeOptions.length === 0)}>
-                                            {csSaving ? 'Saving…' : 'Save schedule & vibes'}
+                                            {csSaving ? 'Saving…' : 'Save this system'}
                                         </button>
                                     </div>
                                 </form>
@@ -6624,6 +6842,15 @@
     }
     .nav-item.active .nav-dot {
         background: var(--color-text-base);
+    }
+
+    /* Two narrow number fields side by side inside an override group, which
+       the surrounding form's own grid would otherwise stack. */
+    .cs-override-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 0.4rem;
     }
 
     .admin-sidebar {

@@ -51,6 +51,7 @@ export type SignupFormConfig = {
     scenarioOptions: string[];
     defaultScenario: string;
     showCanDemo: boolean;
+    showStandby: boolean;
 };
 
 /**
@@ -82,7 +83,8 @@ export function formConfig(system: string, systemsConfig: SystemConfig[] = FALLB
         showScenario: entry.uses_scenarios,
         scenarioOptions: entry.scenario_options,
         defaultScenario: entry.default_scenario,
-        showCanDemo: entry.allows_demo
+        showCanDemo: entry.allows_demo,
+        showStandby: entry.uses_standby
     };
 }
 

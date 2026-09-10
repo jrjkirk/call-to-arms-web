@@ -19,6 +19,9 @@ export type SystemConfig = {
     scenario_options: string[];
     default_scenario: string;
     allows_demo: boolean;
+    /** Whether this system offers the "I can be on standby" checkbox. Served
+     *  club-resolved, like the rest of the form config. */
+    uses_standby: boolean;
     // Whether this system runs a league (ELO ladder + results). Drives which
     // systems the league UI surfaces — replaces the hardcoded
     // 'The Old World' league checks.
@@ -56,6 +59,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: ['Open Battle', 'Weekly Scenario'],
         default_scenario: 'Open Battle',
         allows_demo: true,
+        uses_standby: true,
         has_league: true,
         faction_list: [
             'Empire of Man', 'Dwarfen Mountain Holds', 'Kingdom of Bretonnia',
@@ -79,6 +83,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: [],
         default_scenario: '',
         allows_demo: true,
+        uses_standby: false,
         has_league: false,
         faction_list: [
             'I - Dark Angels',
@@ -125,6 +130,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: [],
         default_scenario: '',
         allows_demo: false,
+        uses_standby: false,
         has_league: false,
         faction_list: [
             'Angels Of Death', 'Battleclade', 'Blades Of Khaine', 'Blooded',
@@ -154,6 +160,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: [],
         default_scenario: '',
         allows_demo: true,
+        uses_standby: false,
         has_league: false,
         faction_list: [
             'Cities of Sigmar', 'Daughters of Khaine', 'Fyreslayers',
@@ -182,6 +189,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: [],
         default_scenario: '',
         allows_demo: true,
+        uses_standby: false,
         has_league: false,
         faction_list: [
             'Adepta Sororitas', 'Adeptus Custodes', 'Adeptus Mechanicus',
@@ -214,6 +222,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         scenario_options: [],
         default_scenario: '',
         allows_demo: true,
+        uses_standby: false,
         has_league: false,
         faction_list: [],
         faction_groups: null,
@@ -239,6 +248,7 @@ function normalize(raw: any): SystemConfig {
         scenario_options: raw.scenario_options ?? [],
         default_scenario: raw.default_scenario ?? '',
         allows_demo: !!raw.allows_demo,
+        uses_standby: !!raw.uses_standby,
         has_league: !!raw.has_league,
         faction_list: raw.faction_list ?? [],
         faction_groups: raw.faction_groups ?? null,
@@ -340,6 +350,7 @@ function unknownSystem(legacySystemName: string): SystemConfig {
         scenario_options: [],
         default_scenario: '',
         allows_demo: false,
+        uses_standby: false,
         has_league: false,
         faction_list: [],
         faction_groups: null,

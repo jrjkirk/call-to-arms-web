@@ -905,10 +905,15 @@
             </div>
         </div>
 
-        <label class="check-row">
-            <input type="checkbox" bind:checked={standby} />
-            <span>I Can Be on Standby</span>
-        </label>
+        <!-- Gated at last. The API has always zeroed standby_ok unless the
+             system allowed it, so on the five systems that don't, this box
+             was there and did nothing. -->
+        {#if cfg.showStandby}
+            <label class="check-row">
+                <input type="checkbox" bind:checked={standby} />
+                <span>I Can Be on Standby</span>
+            </label>
+        {/if}
 
         {#if cfg.showCanDemo}
             <label class="check-row">
