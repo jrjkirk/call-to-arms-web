@@ -15,7 +15,7 @@
        So: null until it arrives, and the line simply does not render. Never a
        spinner, never "0 players" — an outage should cost a sentence, not put a
        wrong number on the front page. */
-    let stats = $state<{ players: number; clubs: number } | null>(null);
+    let stats = $state<{ players: number; clubs: number; games: number } | null>(null);
 
     onMount(async () => {
         try {
@@ -66,14 +66,26 @@
             <!-- The club count is only worth saying once there is more than one
                  to say it about: "142 players across 1 club" undersells the
                  thing it is trying to sell. -->
+            <!-- Each number guarded on its own. A brand-new deployment has
+                 players before it has games, and "0 games paired" beside a real
+                 player count reads as broken rather than as new. -->
             <p class="hero-stat" in:fade={{ duration: 400, delay: 320 }}>
-                <strong>{stats.players.toLocaleString()}</strong>
-                <!-- The space before `across` is written as an expression on
-                     purpose. Left as a newline-plus-indent inside the {#if},
-                     Svelte trims it away and the line renders
-                     "1,420 playersacross 7 clubs". -->
-                {stats.players === 1 ? 'player' : 'players'}{#if stats.clubs > 1}{' '}across
-                    <strong>{stats.clubs}</strong> clubs{/if}
+                <span class="hero-stat-item">
+                    <strong>{stats.players.toLocaleString()}</strong>
+                    <!-- The space before `across` is written as an expression on
+                         purpose. Left as a newline-plus-indent inside the {#if},
+                         Svelte trims it away and the line renders
+                         "1,420 playersacross 7 clubs". -->
+                    {stats.players === 1 ? 'player' : 'players'}{#if stats.clubs > 1}{' '}across
+                        <strong>{stats.clubs}</strong> clubs{/if}
+                </span>
+                {#if stats.games > 0}
+                    <span class="hero-stat-sep" aria-hidden="true">·</span>
+                    <span class="hero-stat-item">
+                        <strong>{stats.games.toLocaleString()}</strong>
+                        {stats.games === 1 ? 'game' : 'games'} paired
+                    </span>
+                {/if}
             </p>
         {/if}
 
@@ -256,6 +268,15 @@
     .hero-stat strong {
         color: var(--color-accent);
         font-weight: 700;
+    }
+    /* Wraps as two whole phrases on a narrow screen rather than breaking
+       "281 games" away from "paired". */
+    .hero-stat-item {
+        display: inline-block;
+    }
+    .hero-stat-sep {
+        margin: 0 0.45rem;
+        opacity: 0.5;
     }
 
     .hero-button {
