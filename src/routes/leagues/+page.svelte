@@ -7,7 +7,8 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
-    import { factionIconUrl, systemFolder } from '$lib/factions';
+    import { systemFolder } from '$lib/factions';
+    import FactionIcon from '$lib/FactionIcon.svelte';
     import { getSystemsConfig, configFor, leagueSystems, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { NONE_FACTION } from '$lib/signupOptions';
@@ -412,9 +413,8 @@
                         <td class="center faction-col">
                             {#if row.most_played_faction}
                                 <span class="faction-cell">
-                                    {#if factionIconUrl(row.most_played_faction, leagueFolder)}
-                                        <img src={factionIconUrl(row.most_played_faction, leagueFolder)} alt={row.most_played_faction} class="faction-icon" />
-                                    {/if}
+                                    <FactionIcon faction={row.most_played_faction} folder={leagueFolder}
+                                                 alt={row.most_played_faction} class="faction-icon" />
                                     <em class="faction-name">{row.most_played_faction}</em>
                                 </span>
                             {:else}

@@ -5,7 +5,8 @@
     import { page } from '$app/state';
     import { setPageTitle } from '$lib/pageTitle';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { factionIconUrl, systemFolder } from '$lib/factions';
+    import { systemFolder } from '$lib/factions';
+    import FactionIcon from '$lib/FactionIcon.svelte';
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import LevelBar, { type LevelProgress } from '$lib/LevelBar.svelte';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
@@ -195,8 +196,9 @@
                 <div class="faction-box-label">{sysName}</div>
                 {#each factionUsageRows(factionUsage[sysName]) as row}
                     <div class="faction-row">
-                        {#if factionIconUrl(row.name, systemFolder(sysName, systemsConfig))}
-                            <img src={factionIconUrl(row.name, systemFolder(sysName, systemsConfig))} alt="" />
+                        {#if row.name}
+                            <FactionIcon faction={row.name}
+                                         folder={systemFolder(sysName, systemsConfig)} />
                         {:else}
                             <div class="faction-icon-empty"></div>
                         {/if}

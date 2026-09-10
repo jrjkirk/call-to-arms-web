@@ -47,8 +47,20 @@
         has_league: boolean;
         recent_weeks: number;
         extended_weeks: number;
+        /* The AUTHORED ruleset — what this admin has written, which is null
+           on every system still served by a code module in the API's systems/
+           directory. The edit form binds to these. */
         faction_list: string[] | null;
+        faction_groups: { label: string; factions: string[] }[] | null;
         icon_folder: string | null;
+        /* What is actually in force right now, whichever source won. Shown as
+           context; never bound to, or editing a code-backed system would
+           silently migrate it. */
+        resolved_faction_list: string[] | null;
+        resolved_faction_groups: { label: string; factions: string[] }[] | null;
+        resolved_icon_folder: string | null;
+        ruleset_source: 'authored' | 'code' | 'none';
+        logo_url: string | null;
         active: boolean;
     };
     type SuperAdminEntry = { user_id: number; discord_name: string; player_name: string | null };
@@ -179,11 +191,53 @@
     let gsRecentWeeks = $state(3);
     let gsExtendedWeeks = $state(6);
     let gsActive = $state(true);
+
+    /* The ruleset. Authored here now instead of in a systems/<name>.py module
+       and a deploy. A system left with an empty faction list falls back to its
+       module if it has one, which is how all six originals still work. */
+    let gsFactionsText = $state('');
+    let gsIconFolder = $state('');
+    /* Categories, the Middle Earth Good/Evil shape. Off by default because
+       most systems have a flat list short enough for one dropdown. */
+    let gsUseCategories = $state(false);
+    let gsCategories = $state<{ label: string; factionsText: string }[]>([]);
+    let gsRulesetSource = $state<'authored' | 'code' | 'none'>('none');
+    let gsLogoUrl = $state<string | null>(null);
+    let gsLogoBusy = $state(false);
+    let gsChecklist = $state<any | null>(null);
+    let gsChecklistOpen = $state(false);
+
+    /* One faction per line. A comma-separated box was the alternative and it
+       loses to this the moment a faction is called "Orc & Goblin Tribes, but
+       only the goblins" — and more practically, a 95-line Middle Earth list is
+       readable one-per-line and unreadable as one long comma string. */
+    const gsFactionsArr = $derived(
+        gsFactionsText.split('\n').map((s) => s.trim()).filter(Boolean)
+    );
+    const gsCategoriesArr = $derived(
+        gsCategories
+            .map((c) => ({
+                label: c.label.trim(),
+                factions: c.factionsText.split('\n').map((s) => s.trim()).filter(Boolean)
+            }))
+            .filter((c) => c.label && c.factions.length)
+    );
+    /* The API refuses a partial grouping, because a faction in no category
+       would vanish from the dropdown. Surfaced here so it reads as a hint
+       while typing rather than as a rejected save. */
+    const gsUncategorised = $derived(
+        gsUseCategories
+            ? gsFactionsArr.filter((f) => !gsCategoriesArr.some((c) => c.factions.includes(f)))
+            : []
+    );
+
     let gsSaving = $state(false);
     let gsError = $state<string | null>(null);
     let gsMessage = $state<string | null>(null);
 
     const gsIsEditing = $derived(gsSelectId !== '');
+    /* Create mode: the form is open but nothing is selected yet. */
+    let gsCreating = $state(false);
     const gsScenarioOptionsArr = $derived(
         gsScenarioOptionsStr.split(',').map((s) => s.trim()).filter(Boolean)
     );
@@ -905,6 +959,16 @@
         systemSaving = false;
     }
 
+    /* A new system starts with the two vibes almost every system uses.
+       Starting empty meant the first save was always rejected with
+       "default_vibe must be one of vibe_options", which is a true sentence and
+       a useless one to be shown before you have done anything wrong. */
+    function startNewSystem() {
+        resetGameSystemForm();
+        gsCreating = true;
+        gsVibeOptions = ['Casual', 'Competitive'];
+    }
+
     function resetGameSystemForm() {
         gsSelectId = '';
         gsName = '';
@@ -923,6 +987,15 @@
         gsRecentWeeks = 3;
         gsExtendedWeeks = 6;
         gsActive = true;
+        gsFactionsText = '';
+        gsIconFolder = '';
+        gsUseCategories = false;
+        gsCategories = [];
+        gsRulesetSource = 'none';
+        gsLogoUrl = null;
+        gsChecklist = null;
+        gsChecklistOpen = false;
+        gsCreating = false;
         gsError = null;
         gsMessage = null;
     }
@@ -960,6 +1033,24 @@
         gsRecentWeeks = existing.recent_weeks;
         gsExtendedWeeks = existing.extended_weeks;
         gsActive = existing.active;
+
+        /* The AUTHORED columns, not the resolved ones. A system still served
+           by its code module shows an empty box, which is the truth: it has
+           nothing authored. Pre-filling it with the module's list would make
+           the next save silently migrate that system off code, which is the
+           one thing the staged migration is meant to be deliberate about. */
+        gsFactionsText = (existing.faction_list ?? []).join('\n');
+        gsIconFolder = existing.icon_folder ?? '';
+        const groups = existing.faction_groups ?? [];
+        gsUseCategories = groups.length > 0;
+        gsCategories = groups.map((g: any) => ({
+            label: g.label ?? '',
+            factionsText: (g.factions ?? []).join('\n')
+        }));
+        gsRulesetSource = existing.ruleset_source ?? 'none';
+        gsLogoUrl = existing.logo_url ?? null;
+        gsChecklist = null;
+        gsChecklistOpen = false;
     }
 
     async function saveGameSystem() {
@@ -984,30 +1075,149 @@
             has_league: gsHasLeague,
             recent_weeks: gsRecentWeeks,
             extended_weeks: gsExtendedWeeks,
-            // faction_list / icon_folder are NOT sent: a system's factions and
-            // icon directory are backend-owned rules (call-to-arms-api systems/
-            // modules), not editable catalogue data. The backend ignores them
-            // if sent.
+            // The ruleset. Empty means "no authored value", which is what
+            // hands a system back to its code module.
+            faction_list: gsFactionsArr,
+            faction_groups: gsUseCategories ? gsCategoriesArr : null,
+            icon_folder: gsIconFolder.trim() || null,
             active: gsActive
         };
 
-        // Edit-only: systems are created in code. The form only renders when
-        // a system is selected, so gsSelectId is always set here.
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}`, {
+        // Creating is a different URL, and slug only exists on create — it
+        // names the icon folder and logo file, so it is immutable afterwards.
+        const url = gsIsEditing
+            ? `${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}`
+            : `${PUBLIC_API_URL}/admin/platform/systems`;
+        if (!gsIsEditing) body.slug = gsSlug.trim().toLowerCase();
+
+        const r = await fetch(url, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
         if (r.ok) {
-            gsMessage = 'Updated.';
+            const saved = await r.json();
+            gsMessage = gsIsEditing ? 'Updated.' : `Created ${saved.name}.`;
             await loadGameSystems();
             await loadSystemsCatalogue();
+            // Drop straight into editing what was just created, so the logo
+            // and icon steps are right there rather than needing to be found.
+            if (!gsIsEditing && saved?.id) {
+                gsSelectId = String(saved.id);
+                onGameSystemPick();
+                gsMessage = `Created ${saved.name}. Add its logo and icons below.`;
+            }
         } else {
             const errBody = await r.json().catch(() => ({}));
             gsError = errBody.detail || 'Failed to save system.';
         }
         gsSaving = false;
+    }
+
+    /* Scale the logo in the browser before it is uploaded.
+       Server-side would mean Pillow, which is in neither requirements.txt nor
+       the running image, on a 512 MB VM that ran out of memory on 2026-09-09.
+       A canvas costs nothing and the result is the same file. */
+    const LOGO_MAX_W = 1200;
+    const LOGO_MAX_H = 300;
+
+    function scaleLogo(file: File): Promise<Blob> {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                // Never upscale. A small logo blown up to 1200px is a blurry
+                // 1200px logo, and the original is what the designer gave us.
+                const ratio = Math.min(LOGO_MAX_W / img.width, LOGO_MAX_H / img.height, 1);
+                const w = Math.round(img.width * ratio);
+                const h = Math.round(img.height * ratio);
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error('Canvas unavailable'));
+                // No fillRect first: these are transparent wordmarks and a
+                // white background would box them on the dark carousel.
+                ctx.drawImage(img, 0, 0, w, h);
+                canvas.toBlob(
+                    (b) => (b ? resolve(b) : reject(new Error('Could not encode the image'))),
+                    'image/png'
+                );
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error("That file could not be read as an image."));
+            };
+            img.src = url;
+        });
+    }
+
+    async function uploadSystemLogo(e: Event) {
+        const input = e.target as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file || !gsSelectId) return;
+        gsLogoBusy = true;
+        gsError = null;
+        gsMessage = null;
+        try {
+            const blob = await scaleLogo(file);
+            const fd = new FormData();
+            fd.append('image', blob, 'logo.png');
+            const r = await fetch(
+                `${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}/logo`,
+                { method: 'POST', credentials: 'include', body: fd }
+            );
+            if (r.ok) {
+                gsLogoUrl = (await r.json()).logo_url;
+                gsMessage = 'Logo updated.';
+                await loadGameSystems();
+                await loadSystemsCatalogue();
+            } else {
+                gsError = (await r.json().catch(() => ({}))).detail || 'Upload failed.';
+            }
+        } catch (err) {
+            gsError = err instanceof Error ? err.message : 'Upload failed.';
+        }
+        gsLogoBusy = false;
+        input.value = '';
+    }
+
+    async function removeSystemLogo() {
+        if (!gsSelectId) return;
+        gsLogoBusy = true;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}/logo`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        if (r.ok) {
+            gsLogoUrl = null;
+            gsMessage = 'Logo removed.';
+            await loadGameSystems();
+            await loadSystemsCatalogue();
+        }
+        gsLogoBusy = false;
+    }
+
+    async function loadIconChecklist() {
+        if (!gsSelectId) return;
+        const r = await fetch(
+            `${PUBLIC_API_URL}/admin/platform/systems/${gsSelectId}/icon-checklist`,
+            { credentials: 'include' }
+        );
+        if (r.ok) {
+            gsChecklist = await r.json();
+            gsChecklistOpen = true;
+        }
+    }
+
+    function checklistText(): string {
+        if (!gsChecklist) return '';
+        const names = gsChecklist.factions.map((f: any) => f.png).join('\n');
+        return `${gsChecklist.destinations.api_png}\n${names}\n\n` +
+            `${gsChecklist.destinations.web}\n` +
+            gsChecklist.factions.map((f: any) => `${f.svg}  (or ${f.png})`).join('\n');
     }
 
     async function appointSuperAdmin() {
@@ -1339,7 +1549,11 @@
             </div>
         {/if}
 
-        {#if gsIsEditing}
+        {#if !gsIsEditing && !gsCreating}
+            <button class="primary-button" type="button" onclick={startNewSystem}>Add a system</button>
+        {/if}
+
+        {#if gsIsEditing || gsCreating}
         <form class="appoint-form system-form" onsubmit={(e) => { e.preventDefault(); saveGameSystem(); }}>
             <div class="field">
                 <label class="field-label" for="gs-name">Name</label>
@@ -1353,8 +1567,10 @@
                     class="field-input"
                     type="text"
                     bind:value={gsSlug}
-                    disabled
-                    title="Slug is code-defined and immutable."
+                    disabled={gsIsEditing}
+                    required={!gsIsEditing}
+                    placeholder="ba"
+                    title={gsIsEditing ? 'Immutable: it names the logo and icon files.' : ''}
                 />
             </div>
             <div class="field">
@@ -1476,6 +1692,104 @@
                 <HelpTip label="active" text={"Unticking hides this system from the catalogue everywhere. Clubs can no longer enable it and it drops out of the pickers. Existing signups and pairings are untouched; this is the off switch, not a delete."} />
             </label>
 
+            <div class="field-row-break"></div>
+            <div class="sys-ruleset">
+                <div class="sys-ruleset-head">
+                    <span class="sys-ruleset-title">Factions</span>
+                    <HelpTip label="factions" text={"The army list a player picks at signup, and what the pairings image draws an icon for.\n\n\u2022 One per line\n\u2022 Blank lines and duplicates are dropped\n\u2022 Leave it empty and a system with a code module in the API keeps using that"} />
+                    {#if gsRulesetSource === 'code'}
+                        <span class="sp-tag">reading systems/*.py</span>
+                    {:else if gsRulesetSource === 'authored'}
+                        <span class="sp-tag">authored here</span>
+                    {/if}
+                </div>
+
+                <textarea
+                    class="field-input sys-factions"
+                    rows="8"
+                    placeholder={"Germany\nUnited States\nSoviet Union"}
+                    bind:value={gsFactionsText}
+                ></textarea>
+                <p class="field-label-hint">{gsFactionsArr.length} factions</p>
+
+                <label class="check-row">
+                    <input type="checkbox" bind:checked={gsUseCategories} />
+                    <span>Group them into categories</span>
+                    <HelpTip label="categories" text={"For a system with too many army lists for one dropdown, the way Middle Earth splits into Good and Evil.\n\nEvery faction must sit in exactly one category, or the ones left out would vanish from the dropdown."} />
+                </label>
+
+                {#if gsUseCategories}
+                    {#each gsCategories as cat, i}
+                        <div class="sys-cat">
+                            <div class="sys-cat-head">
+                                <input class="field-input sys-cat-label" type="text"
+                                       placeholder="Good" bind:value={cat.label} />
+                                <button class="remove-btn" type="button" title="Remove category"
+                                        onclick={() => (gsCategories = gsCategories.filter((_, j) => j !== i))}
+                                >×</button>
+                            </div>
+                            <textarea class="field-input" rows="4"
+                                      placeholder={"One faction per line"}
+                                      bind:value={cat.factionsText}></textarea>
+                        </div>
+                    {/each}
+                    <button class="secondary-button" type="button"
+                            onclick={() => (gsCategories = [...gsCategories, { label: '', factionsText: '' }])}
+                    >Add a category</button>
+                    {#if gsUncategorised.length}
+                        <p class="field-error">
+                            Not in any category: {gsUncategorised.slice(0, 6).join(', ')}{gsUncategorised.length > 6 ? '…' : ''}
+                        </p>
+                    {/if}
+                {/if}
+
+                <div class="field field-narrow">
+                    <label class="field-label" for="gs-icon-folder">Icon folder
+                        <HelpTip label="the icon folder" text={"The directory faction artwork lives in, under icons/. Conventionally the slug in capitals: TOW, KT, BA.\n\nFiles are added to the repos, not uploaded: the weekly pairings image is rendered by a GitHub runner that reads them from git."} /></label>
+                    <input id="gs-icon-folder" class="field-input" type="text"
+                           placeholder="BA" bind:value={gsIconFolder} />
+                </div>
+            </div>
+
+            {#if gsIsEditing}
+                <div class="field-row-break"></div>
+                <div class="sys-ruleset">
+                    <div class="sys-ruleset-head">
+                        <span class="sys-ruleset-title">Logo</span>
+                        <HelpTip label="the logo" text={"The wordmark on the system picker, the club-page carousel and the club finder.\n\n\u2022 Transparent PNG, landscape, roughly 3:1 to 4:1\n\u2022 Scaled to fit 1200\u00d7300 in your browser before upload, never scaled up\n\u2022 Without one, the app looks for a committed /logos/<slug>.png"} />
+                    </div>
+                    {#if gsLogoUrl}
+                        <div class="sys-logo-preview">
+                            <img src={gsLogoUrl} alt="" />
+                            <button class="secondary-button" type="button" disabled={gsLogoBusy}
+                                    onclick={removeSystemLogo}>Remove</button>
+                        </div>
+                    {/if}
+                    <input class="field-input" type="file" accept="image/png,image/webp"
+                           disabled={gsLogoBusy} onchange={uploadSystemLogo} />
+                    {#if gsLogoBusy}<p class="muted">Uploading…</p>{/if}
+                </div>
+
+                <div class="field-row-break"></div>
+                <div class="sys-ruleset">
+                    <div class="sys-ruleset-head">
+                        <span class="sys-ruleset-title">Faction icons</span>
+                        <HelpTip label="faction icons" text={"These are added to the repos rather than uploaded, because the weekly pairings image is rendered by a GitHub runner that reads them out of git.\n\n\u2022 The browser prefers the SVG and falls back to the PNG\n\u2022 The rendered image always needs the PNG\n\u2022 A faction with no icon still pairs, it just has no artwork"} />
+                    </div>
+                    <button class="secondary-button" type="button" onclick={loadIconChecklist}>
+                        {gsChecklistOpen ? 'Refresh the file list' : 'Show me the files to add'}
+                    </button>
+                    {#if gsChecklistOpen && gsChecklist}
+                        <p class="field-label-hint">
+                            {gsChecklist.factions.length} factions,
+                            {gsChecklist.missing_png_count} still missing a PNG in the API repo.
+                        </p>
+                        <textarea class="field-input sys-checklist" rows="10" readonly
+                                  value={checklistText()}></textarea>
+                    {/if}
+                </div>
+            {/if}
+
             {#if gsError}
                 <p class="field-error">{gsError}</p>
             {/if}
@@ -1486,9 +1800,12 @@
                 <button
                     type="submit"
                     class="primary-button"
-                    disabled={!gsName.trim() || !gsLegacyName.trim() || gsSaving}
+                    disabled={!gsName.trim() || !gsLegacyName.trim() || gsSaving
+                              || (!gsIsEditing && !gsSlug.trim())
+                              || gsVibeOptions.length === 0
+                              || gsUncategorised.length > 0}
                 >
-                    {gsSaving ? 'Saving…' : 'Update System'}
+                    {gsSaving ? 'Saving…' : gsIsEditing ? 'Update system' : 'Create system'}
                 </button>
                 <button type="button" class="secondary-button" onclick={resetGameSystemForm}>Cancel</button>
             </div>
@@ -2215,6 +2532,61 @@
         grid-template-columns: minmax(180px, 220px) 1fr;
         gap: 1.5rem;
         align-items: start;
+    }
+
+    /* The ruleset blocks: factions, logo, icons. Set apart from the flat
+       catalogue fields above them because each is a small job of its own
+       rather than another checkbox. */
+    .sys-ruleset {
+        width: 100%;
+        margin: 0.2rem 0 0;
+        padding: 0.75rem 0.85rem 0.9rem;
+        border: 1px solid var(--color-steel-border);
+        border-left: 2px solid var(--color-accent);
+        border-radius: var(--radius);
+        background: var(--color-bg-deep);
+    }
+    .sys-ruleset-head {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+    }
+    .sys-ruleset-title {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--color-accent);
+    }
+    .sys-factions,
+    .sys-checklist {
+        width: 100%;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82rem;
+    }
+    .sys-cat {
+        margin: 0.5rem 0;
+        padding-left: 0.6rem;
+        border-left: 1px solid var(--color-steel-border);
+    }
+    .sys-cat-head {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.3rem;
+    }
+    .sys-cat-label { max-width: 14rem; }
+    .sys-logo-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    /* Sized like the picker slot it will actually appear in, so what you see
+       here is what a player sees. */
+    .sys-logo-preview img {
+        max-width: 240px;
+        max-height: 60px;
+        object-fit: contain;
     }
 
     .admin-sidebar {

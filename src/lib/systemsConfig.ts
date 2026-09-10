@@ -32,6 +32,10 @@ export type SystemConfig = {
     // null for systems with a flat list — callers fall back to faction_list.
     faction_groups?: { label: string; factions: string[] }[] | null;
     icon_folder: string;
+    /** An uploaded logo, when a platform admin has set one. Null leaves the
+     *  system on its committed /logos/<slug>.png, which is where all six
+     *  original systems still live. */
+    logo_url?: string | null;
     /** When this club's session starts, or null if they haven't set one.
      *  Club-scoped: absent from the unscoped catalogue. Drives the signup
      *  form's default arrival time. */
@@ -239,6 +243,7 @@ function normalize(raw: any): SystemConfig {
         faction_list: raw.faction_list ?? [],
         faction_groups: raw.faction_groups ?? null,
         icon_folder: raw.icon_folder ?? '',
+        logo_url: raw.logo_url ?? null,
         session_start_time: raw.session_start_time ?? null
     };
 }
@@ -252,16 +257,22 @@ export function factionGroupsFor(
     return configFor(systemsConfig, legacySystemName).faction_groups ?? null;
 }
 
-/** Logo asset URL for a system, derived from its catalogue slug
- *  (/logos/<slug>.png) rather than a per-page hardcoded name→path map. Adding
- *  a system (with a matching /static/logos/<slug>.png) is picked up
- *  automatically. Defaults to the offline fallback config for pages that
- *  don't load the full catalogue. */
+/** A system's logo: the uploaded one if a platform admin has set it,
+ *  otherwise the committed /logos/<slug>.png.
+ *
+ *  That order matters. The six original systems have no upload and keep
+ *  serving their committed file exactly as before; a system added through the
+ *  admin UI has no committed file and would otherwise show a broken image.
+ *  Uploading also lets a logo be replaced without a deploy.
+ *
+ *  Defaults to the offline fallback config for pages that don't load the full
+ *  catalogue — those only ever ask about the six, which have committed files. */
 export function systemLogoUrl(
     legacySystemName: string,
     systemsConfig: SystemConfig[] = FALLBACK_SYSTEMS_CONFIG
 ): string {
-    return `/logos/${configFor(systemsConfig, legacySystemName).slug}.png`;
+    const cfg = configFor(systemsConfig, legacySystemName);
+    return cfg.logo_url || `/logos/${cfg.slug}.png`;
 }
 
 /** Systems that run a league, in catalogue order. `has_league` reflects the

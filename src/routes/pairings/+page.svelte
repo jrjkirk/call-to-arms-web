@@ -3,7 +3,8 @@
     import { goto } from '$app/navigation';
     import { fly, scale } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
-    import { factionIconUrl, systemFolder } from '$lib/factions';
+    import { systemFolder } from '$lib/factions';
+    import FactionIcon from '$lib/FactionIcon.svelte';
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -317,8 +318,10 @@
                 in:fly={{ y: 24, duration: 420, delay: cascadeDelay(i) }}
             >
                 <div class="player-row player-a">
-                    {#if factionIconUrl(m.player_a_faction, systemFolder(data.system, systemsConfig))}
-                        <img class="matchup-icon" src={factionIconUrl(m.player_a_faction, systemFolder(data.system, systemsConfig))} alt="" />
+                    {#if m.player_a_faction}
+                        <FactionIcon faction={m.player_a_faction}
+                                     folder={systemFolder(data.system, systemsConfig)}
+                                     class="matchup-icon" />
                     {:else}
                         <div class="matchup-icon-empty"></div>
                     {/if}
@@ -352,8 +355,10 @@
                 </div>
 
                 <div class="player-row player-b">
-                    {#if m.player_b_name && factionIconUrl(m.player_b_faction, systemFolder(data.system, systemsConfig))}
-                        <img class="matchup-icon" src={factionIconUrl(m.player_b_faction, systemFolder(data.system, systemsConfig))} alt="" />
+                    {#if m.player_b_name && m.player_b_faction}
+                        <FactionIcon faction={m.player_b_faction}
+                                     folder={systemFolder(data.system, systemsConfig)}
+                                     class="matchup-icon" />
                     {:else}
                         <div class="matchup-icon-empty"></div>
                     {/if}
