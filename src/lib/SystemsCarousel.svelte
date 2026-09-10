@@ -75,7 +75,9 @@
                 <a class="slide-photo" href={`/signup?system=${encodeURIComponent(sys.legacy_system_name)}`}>
                     {#if sys.photo_url}
                         <img src={sys.photo_url} alt="" loading="lazy" />
-                    {:else}
+                    {:else if systemLogoUrl(sys.legacy_system_name)}
+                        <!-- Decorative only, so a system with no logo yet just
+                             shows the scrim rather than a broken image. -->
                         <img class="slide-photo-fallback" src={systemLogoUrl(sys.legacy_system_name)} alt="" loading="lazy" />
                     {/if}
                     <div class="slide-photo-scrim"></div>

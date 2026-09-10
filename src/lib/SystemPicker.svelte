@@ -13,6 +13,17 @@
     import { fly } from 'svelte/transition';
     import { systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from './systemsConfig';
 
+    /* Systems whose logo has 404'd this page load, so the tile shows the
+       system's name instead of a broken-image glyph.
+
+       Needed because a logo is not guaranteed to exist. A system authored in
+       the platform admin UI has no committed /logos/<slug>.png, and until
+       someone uploads one there is simply no artwork. The name is the correct
+       thing to show then — it is what the tile is FOR, and it beats both a
+       broken image and the previous behaviour, which was to quietly borrow The
+       Old World's logo (see systemsConfig.unknownSystem). */
+    let brokenLogos = $state<Record<string, boolean>>({});
+
     let {
         systems,
         systemsConfig = FALLBACK_SYSTEMS_CONFIG,
@@ -29,6 +40,7 @@
 
 <div class="system-grid">
     {#each systems as s, i (s)}
+        {@const logo = systemLogoUrl(s, systemsConfig)}
         <button
             type="button"
             class="system-card"
@@ -36,7 +48,11 @@
             onclick={() => onSelect(s)}
             in:fly={{ y: 16, duration: 400, delay: Math.min(i, 6) * 70 }}
         >
-            <img src={systemLogoUrl(s, systemsConfig)} alt={s} />
+            {#if logo && !brokenLogos[s]}
+                <img src={logo} alt={s} onerror={() => (brokenLogos = { ...brokenLogos, [s]: true })} />
+            {:else}
+                <span class="system-name">{s}</span>
+            {/if}
         </button>
     {/each}
 </div>
@@ -81,5 +97,20 @@
         max-width: 100%;
         max-height: 60px;
         object-fit: contain;
+    }
+
+    /* Sized to sit in the same 60px band the logos occupy, so a mixed row of
+       logo tiles and name tiles keeps one baseline. */
+    .system-name {
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        color: var(--color-text-muted, #b9b6ae);
     }
 </style>

@@ -270,9 +270,13 @@ export function factionGroupsFor(
 export function systemLogoUrl(
     legacySystemName: string,
     systemsConfig: SystemConfig[] = FALLBACK_SYSTEMS_CONFIG
-): string {
+): string | null {
     const cfg = configFor(systemsConfig, legacySystemName);
-    return cfg.logo_url || `/logos/${cfg.slug}.png`;
+    // No slug means configFor did not recognise the system (see
+    // unknownSystem). Returning `/logos/.png` there would 404, and returning
+    // some other system's logo is the bug this replaced — so return nothing
+    // and let the caller render the system's name instead.
+    return cfg.logo_url || (cfg.slug ? `/logos/${cfg.slug}.png` : null);
 }
 
 /** Systems that run a league, in catalogue order. `has_league` reflects the
@@ -306,11 +310,49 @@ export function getSystemsConfig(club?: string): Promise<SystemConfig[]> {
     return cachedByClub[key];
 }
 
+/** A stand-in for a system this build has never heard of.
+ *
+ *  Every field is deliberately empty or neutral. The old last resort here was
+ *  `FALLBACK_SYSTEMS_CONFIG[0]` — The Old World — which meant an unknown
+ *  system did not fail, it silently impersonated another one: a brand-new
+ *  system authored in the platform admin UI showed the Old World logo on its
+ *  tab, offered Skaven and Empire of Man in its faction dropdown, defaulted to
+ *  2000 points and asked for a scenario preference. Nothing looked broken, so
+ *  nothing got reported as broken.
+ *
+ *  There is always a window in which this can be hit: the tab row comes from
+ *  GET /systems/mine (authenticated, uncached) while the config comes from GET
+ *  /systems (public, `max-age=60, stale-while-revalidate=300`), so for a few
+ *  minutes after a system is created a browser can legitimately hold a tab the
+ *  catalogue response does not mention. An empty form for a moment is honest;
+ *  another system's form is not. */
+function unknownSystem(legacySystemName: string): SystemConfig {
+    return {
+        slug: '',
+        name: legacySystemName,
+        legacy_system_name: legacySystemName,
+        uses_points: false,
+        default_points: 0,
+        max_points: 10000,
+        vibe_options: [],
+        default_vibe: '',
+        uses_scenarios: false,
+        scenario_options: [],
+        default_scenario: '',
+        allows_demo: false,
+        has_league: false,
+        faction_list: [],
+        faction_groups: null,
+        icon_folder: '',
+        logo_url: null
+    };
+}
+
 export function configFor(systemsConfig: SystemConfig[], legacySystemName: string): SystemConfig {
     return (
         systemsConfig.find((c) => c.legacy_system_name === legacySystemName) ??
         FALLBACK_SYSTEMS_CONFIG.find((c) => c.legacy_system_name === legacySystemName) ??
-        FALLBACK_SYSTEMS_CONFIG[0]
+        unknownSystem(legacySystemName)
     );
 }
 

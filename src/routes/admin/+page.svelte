@@ -163,9 +163,14 @@
     type PairingWeightConfigData = {
         uses_scenarios: boolean;
         uses_points: boolean;
+        /** Whether this system defines faction categories at all. False for
+         *  every flat-list system, where the category weight can have no
+         *  effect and the slider is therefore not shown. */
+        has_faction_groups: boolean;
         default_recent_weeks: number;
         default_extended_weeks: number;
         weight_mirror: number;
+        weight_faction_group: number;
         weight_rematch: number;
         weight_vibe: number;
         weight_experience: number;
@@ -2819,6 +2824,7 @@
         ];
         if (cfg.uses_scenarios) fields.push('weight_scenario');
         if (cfg.uses_points) fields.push('weight_points');
+        if (cfg.has_faction_groups) fields.push('weight_faction_group');
         const total = fields.reduce((sum, f) => sum + (Number(cfg[f]) || 0), 0);
         if (total <= 0) return 0;
         return Math.round((Number(cfg[field]) / total) * 1000) / 10;
@@ -2828,7 +2834,15 @@
     // order is the CVD-safety mechanism, not cosmetic; matches the sliders'
     // display order below (mirror, rematch, vibe, experience, eta, scenario,
     // points). Do not reorder without re-validating with the palette script.
-    const PAIRING_WEIGHT_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9'];
+    //
+    // Slot 8 (faction category) was appended rather than slotted in beside
+    // mirror where it belongs conceptually, precisely so the validated
+    // seven keep their exact colours and order. It is a dark navy: with
+    // seven saturated hues already spent, the eighth is separated by
+    // LIGHTNESS rather than hue, which is the one axis every form of colour
+    // blindness leaves intact. Re-validate the whole set if the palette
+    // script is ever run again.
+    const PAIRING_WEIGHT_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#1d3f8c'];
 
     function pairingWeightSlices(cfg: PairingWeightConfigData): { label: string; value: number; color: string }[] {
         const rows: { label: string; value: number }[] = [
@@ -2840,6 +2854,7 @@
         ];
         if (cfg.uses_scenarios) rows.push({ label: 'Scenario match', value: cfg.weight_scenario });
         if (cfg.uses_points) rows.push({ label: 'Points closeness', value: cfg.weight_points });
+        if (cfg.has_faction_groups) rows.push({ label: 'Avoid same faction category', value: cfg.weight_faction_group });
         return rows.map((r, i) => ({ ...r, color: PAIRING_WEIGHT_COLORS[i] }));
     }
 
@@ -3497,7 +3512,9 @@
                         title={`Show trends for ${s.name}`}
                     >
                         <div class="st-top">
-                            <img class="st-logo" src={systemLogoUrl(s.system, systemsConfig)} alt="" />
+                            {#if systemLogoUrl(s.system, systemsConfig)}
+                                <img class="st-logo" src={systemLogoUrl(s.system, systemsConfig)} alt="" />
+                            {/if}
                             <span class="st-name">{s.name}</span>
                         </div>
                         <div class="st-count">
@@ -4269,6 +4286,13 @@
                                                     <div class="field">
                                                         <label class="field-label" for="pw-pts-{scope}">Match by points closeness: {ws.config.weight_points} ({pwPercent(ws.config, 'weight_points')}%)</label>
                                                         <input id="pw-pts-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_points} />
+                                                    </div>
+                                                {/if}
+                                                {#if ws.config.has_faction_groups}
+                                                    <div class="field">
+                                                        <label class="field-label" for="pw-group-{scope}">Avoid same faction category: {ws.config.weight_faction_group} ({pwPercent(ws.config, 'weight_faction_group')}%)
+                                                            <HelpTip label="faction categories" text={"Pushes the matcher towards games across this system's categories: Good against Evil, Axis against Allies.\n\nOnly a nudge. A block, a recent rematch or a vibe mismatch all outrank it, and it never stops a game happening."} /></label>
+                                                        <input id="pw-group-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_faction_group} />
                                                     </div>
                                                 {/if}
 

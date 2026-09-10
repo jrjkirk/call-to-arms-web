@@ -2582,11 +2582,25 @@
         margin-bottom: 0.5rem;
     }
     /* Sized like the picker slot it will actually appear in, so what you see
-       here is what a player sees. */
+       here is what a player sees.
+
+       On a checkerboard rather than the panel's own dark surface. Logos are
+       transparent wordmarks, and against a dark background a dark image and a
+       fully transparent one look identical — which is how a black rectangle
+       got uploaded as Bolt Action's logo and read as "nothing happened". The
+       checker shows transparency as checks and dark pixels as dark. */
     .sys-logo-preview img {
         max-width: 240px;
         max-height: 60px;
         object-fit: contain;
+        padding: 0.35rem;
+        border-radius: 4px;
+        background-color: #6f6f6f;
+        background-image:
+            linear-gradient(45deg, #555 25%, transparent 25%, transparent 75%, #555 75%),
+            linear-gradient(45deg, #555 25%, transparent 25%, transparent 75%, #555 75%);
+        background-size: 12px 12px;
+        background-position: 0 0, 6px 6px;
     }
 
     .admin-sidebar {
