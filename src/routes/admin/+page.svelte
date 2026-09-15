@@ -117,7 +117,6 @@
         faction: string;
         points: number | null | undefined;
         eta: string;
-        experience: string;
         vibe: string;
         standbyOk: boolean;
         scenario: string;
@@ -1197,7 +1196,6 @@
             faction: NONE_FACTION,
             points: null,
             eta: '',
-            experience: 'New',
             vibe: '',
             standbyOk: false,
             scenario: '',
@@ -1349,7 +1347,6 @@
             player_id: Number(form.playerId),
             faction: form.faction === NONE_FACTION ? null : form.faction,
             eta: form.eta || null,
-            experience: form.experience,
             standby_ok: form.standbyOk,
             can_demo: form.canDemo,
         };
@@ -4694,14 +4691,6 @@
                                                 <option value="">—</option>
                                                 {#each ETA_OPTIONS as t}
                                                     <option>{t}</option>
-                                                {/each}
-                                            </select>
-                                        </div>
-                                        <div class="field">
-                                            <label class="field-label" for="add-exp-{scope}">Experience</label>
-                                            <select id="add-exp-{scope}" class="field-select" bind:value={ps.addSignup.experience}>
-                                                {#each EXPERIENCE_OPTIONS as e}
-                                                    <option>{e}</option>
                                                 {/each}
                                             </select>
                                         </div>
