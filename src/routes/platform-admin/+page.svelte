@@ -714,7 +714,7 @@
 
     // Find a User
     type UserSearchResult = {
-        user_id: number; name: string; discord_name: string | null; player_name: string | null;
+        user_id: number; name: string; display_name: string | null; discord_name: string | null; player_name: string | null;
         club_id: number; club_name: string; club_slug: string;
         is_super_admin: boolean; is_platform_admin: boolean;
     };
@@ -722,6 +722,19 @@
     let userSearchResults = $state<UserSearchResult[] | null>(null);
     let userSearchLoading = $state(false);
     let userSearchError = $state<string | null>(null);
+
+    /** Clear an account's chosen name; it goes back to its Discord name. */
+    async function resetUserName(u: UserSearchResult) {
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/users/${u.user_id}/reset-name`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        if (!r.ok || !userSearchResults) return;
+        const body = await r.json().catch(() => ({}));
+        userSearchResults = userSearchResults.map((x) =>
+            x.user_id === u.user_id ? { ...x, display_name: null, name: body.name ?? x.discord_name ?? x.name } : x
+        );
+    }
 
     async function searchUsers() {
         const q = userSearchQuery.trim();
@@ -2235,6 +2248,10 @@
                                     <span class="block-note">{u.club_name}</span>
                                     {#if u.is_super_admin}<span class="status-badge status-active">Super-admin</span>{/if}
                                     {#if u.is_platform_admin}<span class="status-badge status-active">Platform admin</span>{/if}
+                                    {#if u.display_name}
+                                        <button class="secondary-button" type="button" onclick={() => resetUserName(u)}
+                                                title="Put their Discord name back">Reset name</button>
+                                    {/if}
                                     <button
                                         class="secondary-button"
                                         type="button"

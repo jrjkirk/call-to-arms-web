@@ -877,7 +877,7 @@
 
 
     // Edit Player Profile state
-    type PlayerListItem = { id: number; name: string; titles: string[]; active: boolean; league_visible: boolean; claimed: boolean; admin_notes: string | null };
+    type PlayerListItem = { id: number; name: string; titles: string[]; active: boolean; league_visible: boolean; claimed: boolean; account_name?: string | null; admin_notes: string | null };
     let editPlayerList = $state<PlayerListItem[]>([]);
     let editPlayerIdStr = $state('');
     let editPlayerName = $state('');
@@ -2262,6 +2262,33 @@
             editPlayerError = body.detail || 'Save failed.';
         }
         editPlayerSaving = false;
+    }
+
+    const editPlayerAccountName = $derived(
+        editPlayerList.find((p) => String(p.id) === editPlayerIdStr)?.account_name ?? null
+    );
+    let accountNameResetting = $state(false);
+
+    /** Clear the name the player's account chose; it goes back to their Discord name. */
+    async function resetAccountName() {
+        if (!editPlayerIdStr || accountNameResetting) return;
+        accountNameResetting = true;
+        editPlayerMessage = null;
+        editPlayerError = null;
+        const r = await fetch(`${PUBLIC_API_URL}/admin/players/${editPlayerIdStr}/reset-account-name`, {
+            method: 'POST',
+            credentials: 'include',
+        });
+        if (r.ok) {
+            editPlayerList = editPlayerList.map((p) =>
+                String(p.id) === editPlayerIdStr ? { ...p, account_name: null } : p
+            );
+            editPlayerMessage = 'Account name reset.';
+        } else {
+            const body = await r.json().catch(() => ({}));
+            editPlayerError = body.detail || 'Reset failed.';
+        }
+        accountNameResetting = false;
     }
 
     async function deleteEditPlayer() {
@@ -6006,9 +6033,22 @@
 
                 {#if editPlayerIdStr}
                     <div class="field player-edit-wide">
-                        <label class="field-label" for="edit-player-name">Display Name</label>
+                        <label class="field-label" for="edit-player-name">Roster name</label>
                         <input id="edit-player-name" class="field-input" type="text" bind:value={editPlayerName} />
                     </div>
+                    {#if editPlayerAccountName}
+                        <div class="field player-edit-wide">
+                            <span class="field-label">
+                                Account name <HelpTip label="account name" text={"The name this player chose for their account. It greets them and shows in admin lists, not on the roster or in Discord posts.\n\nReset puts their Discord name back."} />
+                            </span>
+                            <div class="account-name-reset">
+                                <span>{editPlayerAccountName}</span>
+                                <button class="secondary-button" type="button" disabled={accountNameResetting} onclick={resetAccountName}>
+                                    {accountNameResetting ? 'Resetting…' : 'Reset'}
+                                </button>
+                            </div>
+                        </div>
+                    {/if}
                     <div class="field player-edit-wide">
                         <label class="field-label" for="edit-player-titles">Titles (one per line)</label>
                         <textarea
@@ -6795,6 +6835,13 @@
     .sp-table tr.is-archived td { opacity: 0.55; }
     .sp-actions { text-align: right; }
     .sp-discord { color: var(--color-text-dim); }
+    .account-name-reset {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        color: var(--color-text-base);
+    }
     .sp-unclaimed { color: var(--color-text-dim); opacity: 0.7; }
 
     /* The editor that opens under a player's row. It is a full-width cell in
