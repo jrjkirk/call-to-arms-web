@@ -57,6 +57,7 @@ const ROUTE_TITLES: Record<string, string> = {
 	'/admin': 'Admin · Call to Arms',
 	'/platform-admin': 'Platform Admin · Call to Arms',
 	'/claim': 'Claim your profile · Call to Arms',
+	'/account': 'Account · Call to Arms',
 	'/join': 'Join a club · Call to Arms',
 	'/request-club': 'Add your club · Call to Arms',
 	'/privacy': 'Privacy · Call to Arms'

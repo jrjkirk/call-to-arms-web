@@ -354,6 +354,7 @@
                         </div>
                     </div>
                 {/if}
+                <a class="sidebar-button" href="/account" onclick={closeDrawer}>Account</a>
                 <a class="sidebar-button" href="/find" onclick={closeDrawer}>Change club</a>
                 <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
             {:else if !showingHero}
