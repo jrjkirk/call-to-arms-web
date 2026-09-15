@@ -2,6 +2,7 @@
     import { page } from '$app/state';
     import { loginHref } from '$lib/loginUrl';
     import GoogleSignIn from '$lib/GoogleSignIn.svelte';
+    import { signInProviders } from '$lib/signInProviders';
     import { onMount } from 'svelte';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -821,6 +822,9 @@
         <div class="signin-row">
             <a class="primary-button" href={loginHref(page.url)}>Sign in with Discord</a>
             <GoogleSignIn url={page.url} class="secondary-button" />
+            {#if $signInProviders.includes('email')}
+                <a class="secondary-button" href={`/signin?next=${encodeURIComponent(page.url.pathname + page.url.search)}`}>Sign in with email</a>
+            {/if}
         </div>
     </div>
 {:else if !isClaimed}

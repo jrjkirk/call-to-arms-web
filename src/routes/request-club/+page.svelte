@@ -3,6 +3,7 @@
 	import { PUBLIC_API_URL } from '$env/static/public';
 	import { loginHrefTo } from '$lib/loginUrl';
 	import GoogleSignIn from '$lib/GoogleSignIn.svelte';
+	import { signInProviders } from '$lib/signInProviders';
 
 	// Signing in is required before this form will submit. It doesn't prove
 	// someone runs the club — that's what the evidence link and a human reading
@@ -222,6 +223,9 @@
 				<div class="request-signin">
 					<a class="request-button" href={loginHrefTo('/request-club')}>Sign in with Discord</a>
 					<GoogleSignIn to="/request-club" class="request-button request-button-alt" />
+					{#if $signInProviders.includes('email')}
+						<a class="request-button request-button-alt" href="/signin?next=%2Frequest-club">Sign in with email</a>
+					{/if}
 				</div>
 			</div>
 		{:else}

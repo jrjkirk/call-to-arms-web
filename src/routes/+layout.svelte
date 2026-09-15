@@ -220,7 +220,7 @@
         // though it cannot need an account.
         page.url.pathname === '/request-club' ||
         page.url.pathname === '/privacy' ||
-        page.url.pathname === '/signin' ||
+        page.url.pathname.startsWith('/signin') ||
         (!isBareHost && (page.url.pathname === '/' || page.url.pathname.startsWith('/book')))
     );
     // The three admin consoles. Not reading pages, so they get the wider

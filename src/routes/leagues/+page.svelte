@@ -499,8 +499,8 @@
             <p class="muted">Loading…</p>
         {:else if !auth.authenticated || !auth.player}
             <p class="sign-in-prompt">
-                {#if $signInProviders.includes('google')}
-                    Sign in with <a href={loginHref(page.url)}>Discord</a> or <a href={loginHref(page.url, 'google')}>Google</a> to submit a league result.
+                {#if $signInProviders.length > 1}
+                    <a href={`/signin?next=${encodeURIComponent(page.url.pathname + page.url.search)}`}>Sign in</a> to submit a league result.
                 {:else}
                     <a href={loginHref(page.url)}>Sign in with Discord</a> to submit a league result.
                 {/if}

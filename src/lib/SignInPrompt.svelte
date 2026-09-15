@@ -3,6 +3,7 @@
     import { cubicOut } from 'svelte/easing';
     import { page } from '$app/state';
     import GoogleSignIn from '$lib/GoogleSignIn.svelte';
+    import EmailSignIn from '$lib/EmailSignIn.svelte';
     import { signInProviders } from '$lib/signInProviders';
 
     /**
@@ -32,7 +33,7 @@
 <div class="prompt" in:fly={{ y: 20, duration: 500, easing: cubicOut }}>
     <h1 class="prompt-title">Sign in {destination}</h1>
     <p class="prompt-body">
-        {#if !$signInProviders.includes('google')}Club nights run on Discord, so that's what you sign in with.{/if}
+        {#if $signInProviders.length === 1}Club nights run on Discord, so that's what you sign in with.{/if}
         It takes a moment, and you'll come straight back here.
     </p>
     <div class="prompt-buttons">
@@ -43,6 +44,7 @@
             <GoogleSignIn url={page.url} class="prompt-button prompt-button-alt" />
         {/if}
     </div>
+    <EmailSignIn next={next ?? `${page.url.pathname}${page.url.search}`} />
     <p class="prompt-aside">
         Just after a table? <a href="/book">Book one</a> without an account.
     </p>

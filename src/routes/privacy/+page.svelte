@@ -28,6 +28,14 @@
             never shown to other members.
         </li>
         <li>
+            <strong>Email sign-in.</strong> If you sign in with an email link
+            or add an address to your account, we store the address, and for
+            each link we send: when it was sent and used, and a scrambled form
+            of your IP address that is only used to stop too many links being
+            requested. The link itself is kept only in a form that can't be
+            used to sign in, and it stops working after 15 minutes.
+        </li>
+        <li>
             <strong>Account name.</strong> A name you can choose for your
             account. Club admins can see it beside your Discord name.
         </li>

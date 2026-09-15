@@ -5,6 +5,7 @@
     import ClubsMap from './ClubsMap.svelte';
     import ClubRequestForm from './ClubRequestForm.svelte';
     import GoogleSignIn from './GoogleSignIn.svelte';
+    import { signInProviders } from './signInProviders';
 
     let { loginUrl }: { loginUrl: string } = $props();
 
@@ -59,6 +60,9 @@
                 <span>Sign in with Discord</span>
             </a>
             <GoogleSignIn class="hero-button hero-button-alt" />
+            {#if $signInProviders.includes('email')}
+                <a class="hero-button hero-button-alt" href="/signin">Sign in with email</a>
+            {/if}
             <a class="hero-button hero-button-alt" href="/find">
                 <span>Find a club near you</span>
             </a>

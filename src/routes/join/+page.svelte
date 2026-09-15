@@ -93,8 +93,8 @@
 {#if sessionExpired}
     <div class="empty-state">
         Your signup session has expired.
-        {#if $signInProviders.includes('google')}
-            Sign in again with <a href={loginUrl()}>Discord</a> or <a href={nextPath ? loginHrefTo(nextPath, 'google') : loginHref(null, 'google')}>Google</a> to restart.
+        {#if $signInProviders.length > 1}
+            <a href={`/signin?next=${encodeURIComponent(nextPath ?? '/')}`}>Sign in again</a> to restart.
         {:else}
             <a href={loginUrl()}>Sign in with Discord again</a> to restart.
         {/if}

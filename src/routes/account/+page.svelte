@@ -67,6 +67,39 @@
     let nameDraft = $state('');
     let savingName = $state(false);
     let nameError = $state<string | null>(null);
+    // Adding an email address: it can't be a redirect like Google, because the
+    // address has to be typed and then confirmed from its own inbox.
+    let addingEmail = $state(false);
+    let emailDraft = $state('');
+    let emailSending = $state(false);
+    let emailMessage = $state<string | null>(null);
+    let emailError = $state<string | null>(null);
+
+    async function sendEmailLink() {
+        if (emailSending) return;
+        emailSending = true;
+        emailError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/email/link`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: emailDraft })
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                emailError = typeof body.detail === 'string' ? body.detail : 'Could not send the link.';
+            } else {
+                emailMessage = body.detail;
+                addingEmail = false;
+            }
+        } catch (_) {
+            emailError = 'Network error. Please try again.';
+        } finally {
+            emailSending = false;
+        }
+    }
+
     let confirmingSignOut = $state(false);
     let signingOut = $state(false);
     let signOutError = $state<string | null>(null);
@@ -284,15 +317,36 @@
                 <div class="a-subtitle">Add another way to sign in</div>
                 <div class="account-nudge-row">
                     {#each account.can_add as provider}
-                        <a class="secondary-button" href={`${PUBLIC_API_URL}/auth/${provider}/link`}>
-                            Add {providerLabel(provider)}
-                        </a>
+                        {#if provider === 'email'}
+                            <button class="secondary-button" type="button"
+                                    onclick={() => { addingEmail = !addingEmail; emailMessage = null; }}>Add email</button>
+                        {:else}
+                            <a class="secondary-button" href={`${PUBLIC_API_URL}/auth/${provider}/link`}>
+                                Add {providerLabel(provider)}
+                            </a>
+                        {/if}
                     {/each}
                     <HelpTip
                         label="Why add another way to sign in"
                         text="If you lose access to one, the other still gets you into your games, level and league record."
                     />
                 </div>
+                {#if addingEmail}
+                    <form class="account-email-form" onsubmit={(e) => { e.preventDefault(); sendEmailLink(); }}>
+                        <label class="field-label" for="account-email">Email address</label>
+                        <div class="account-name-row">
+                            <input id="account-email" class="field-input" type="email" autocomplete="email"
+                                   required bind:value={emailDraft} />
+                            <button class="primary-button" type="submit" disabled={emailSending}>
+                                {emailSending ? 'Sending…' : 'Send confirmation link'}
+                            </button>
+                        </div>
+                        {#if emailError}<p class="field-error">{emailError}</p>{/if}
+                    </form>
+                {/if}
+                {#if emailMessage}
+                    <p class="pairing-message" role="status">{emailMessage}</p>
+                {/if}
             </div>
         {/if}
     </section>
@@ -403,7 +457,9 @@
         cursor: pointer;
     }
     .account-edit:hover { text-decoration: underline; }
-    .account-name-form .field-label { margin-bottom: 0.3rem; }
+    .account-name-form .field-label,
+    .account-email-form .field-label { margin-bottom: 0.3rem; }
+    .account-email-form { margin-top: 0.8rem; }
     .account-name-row {
         display: flex;
         align-items: center;
