@@ -578,7 +578,8 @@
         color: #d08a50;
     }
 
-    .matchup-icon {
+    /* :global because the <img> lives inside FactionIcon; scoped to the row. */
+    .player-row :global(.matchup-icon) {
         width: 48px;
         height: 48px;
         object-fit: contain;
@@ -705,7 +706,7 @@
             grid-row: 2;
         }
 
-        .matchup-icon, .matchup-icon-empty { width: 56px; height: 56px; }
+        .player-row :global(.matchup-icon), .matchup-icon-empty { width: 56px; height: 56px; }
         .player-name { font-size: 1.15rem; font-weight: 600; }
         .player-faction { font-size: 0.92rem; }
     }

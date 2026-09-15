@@ -459,7 +459,7 @@
         min-width: 0;
     }
 
-    .faction-row img { width: 22px; height: 22px; object-fit: contain; }
+    .faction-row :global(img) { width: 22px; height: 22px; object-fit: contain; }
     .faction-icon-empty { width: 22px; height: 22px; }
 
     .faction-name {

@@ -722,7 +722,9 @@
         gap: 0.5rem;
     }
 
-    .faction-icon {
+    /* :global because the <img> is rendered inside FactionIcon, where this
+       page's scoped class never reaches; .faction-cell keeps it local. */
+    .faction-cell :global(.faction-icon) {
         width: 26px;
         height: 26px;
         object-fit: contain;
@@ -782,7 +784,7 @@
             display: none;
         }
 
-        .faction-icon {
+        .faction-cell :global(.faction-icon) {
             width: 24px;
             height: 24px;
         }
