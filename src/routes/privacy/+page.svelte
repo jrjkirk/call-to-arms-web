@@ -1,6 +1,6 @@
 <a class="back-link" href="/">&larr; Back</a>
 <h2 class="page-heading">Privacy Policy</h2>
-<p class="updated">Last updated: 19 July 2026</p>
+<p class="updated">Last updated: 15 September 2026</p>
 
 <div class="policy">
     <p>
@@ -18,6 +18,18 @@
             we store your Discord user ID, your Discord display name, and
             your avatar image URL, so you can log back in and so other
             members can see who signed up.
+        </li>
+        <li>
+            <strong>Google identity.</strong> If you sign in with Google or add
+            it to your account, we store your Google account ID, your name,
+            your email address and whether Google has verified it, and your
+            profile picture URL. The email is used to help you get back into
+            your account and to spot when you may already have one. It is
+            never shown to other members.
+        </li>
+        <li>
+            <strong>Account name.</strong> A name you can choose for your
+            account. Club admins can see it beside your Discord name.
         </li>
         <li>
             <strong>Player profile.</strong> Your in-app name and default
@@ -68,9 +80,9 @@
     <p>
         We don't sell or share your information with third parties for
         marketing or advertising. The only external services involved are
-        Discord (for sign-in) and, if your club uses them, Discord webhooks
-        (to post activity to your club's own server). Both are things you
-        or your club have chosen to use.
+        Discord and Google (for sign-in, whichever you choose to use) and, if
+        your club uses them, Discord webhooks (to post activity to your club's
+        own server). These are things you or your club have chosen to use.
     </p>
 
     <h3>Your data</h3>

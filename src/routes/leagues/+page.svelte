@@ -1,6 +1,7 @@
 <script lang="ts">
     import { page } from '$app/state';
     import { loginHref } from '$lib/loginUrl';
+    import { signInProviders } from '$lib/signInProviders';
     import { onMount } from 'svelte';
     import { fly, fade } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -498,7 +499,11 @@
             <p class="muted">Loading…</p>
         {:else if !auth.authenticated || !auth.player}
             <p class="sign-in-prompt">
-                <a href={loginHref(page.url)}>Sign in with Discord</a> to submit a league result.
+                {#if $signInProviders.includes('google')}
+                    Sign in with <a href={loginHref(page.url)}>Discord</a> or <a href={loginHref(page.url, 'google')}>Google</a> to submit a league result.
+                {:else}
+                    <a href={loginHref(page.url)}>Sign in with Discord</a> to submit a league result.
+                {/if}
             </p>
         {:else}
             {#if submitSuccess}

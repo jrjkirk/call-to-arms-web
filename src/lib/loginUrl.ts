@@ -1,5 +1,6 @@
 /**
- * Where "Sign in with Discord" points, in one place.
+ * Where the sign-in buttons point, in one place (Discord, and Google once the
+ * API offers it; see $lib/signInProviders).
  *
  * Why this exists
  * ---------------
@@ -22,14 +23,15 @@
  * that returns the player to wherever they are now.
  */
 import { PUBLIC_API_URL } from '$env/static/public';
+import type { SignInProvider } from '$lib/signInProviders';
 
 /**
  * `next` must be a path on this origin — the backend re-checks and drops
  * anything else, but sending a full URL would just silently lose the
  * destination, so build it from pathname + search here.
  */
-export function loginHref(url?: URL | null): string {
-	const base = `${PUBLIC_API_URL}/auth/discord/login`;
+export function loginHref(url?: URL | null, provider: SignInProvider = 'discord'): string {
+	const base = `${PUBLIC_API_URL}/auth/${provider}/login`;
 	if (!url) return base;
 	const next = `${url.pathname}${url.search}`;
 	// The front door is where login lands anyway; a next of "/" is noise.
@@ -41,8 +43,8 @@ export function loginHref(url?: URL | null): string {
  * For the handful of places that want to send someone to a specific page after
  * signing in rather than back to the current one.
  */
-export function loginHrefTo(path: string): string {
-	const base = `${PUBLIC_API_URL}/auth/discord/login`;
+export function loginHrefTo(path: string, provider: SignInProvider = 'discord'): string {
+	const base = `${PUBLIC_API_URL}/auth/${provider}/login`;
 	if (!path || path === '/') return base;
 	return `${base}?next=${encodeURIComponent(path)}`;
 }

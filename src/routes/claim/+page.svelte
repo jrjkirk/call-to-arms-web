@@ -91,7 +91,7 @@
 
 {#if !auth.authenticated}
     <div class="empty-state">
-        You need to be signed in. <a href="/">Go back home</a> and click Sign in with Discord.
+        You need to be signed in. <a href="/">Go back home</a> and sign in.
     </div>
 {:else if alreadyLinked}
     <div class="empty-state">
@@ -120,9 +120,9 @@
         <div class="privacy-notice">
             <p>
                 Your name will be stored in our club database and shown to other
-                members on the signup sheets and league standings. Your Discord username is
-                linked to your profile so you can manage your own signups. We don't share
-                your information with third parties.
+                members on the signup sheets and league standings. Your account is linked to
+                your profile so you can manage your own signups. We don't share your
+                information with third parties.
             </p>
         </div>
 

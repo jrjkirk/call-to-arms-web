@@ -4,6 +4,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import ClubsMap from './ClubsMap.svelte';
     import ClubRequestForm from './ClubRequestForm.svelte';
+    import GoogleSignIn from './GoogleSignIn.svelte';
 
     let { loginUrl }: { loginUrl: string } = $props();
 
@@ -57,6 +58,7 @@
             <a class="hero-button" href={loginUrl}>
                 <span>Sign in with Discord</span>
             </a>
+            <GoogleSignIn class="hero-button hero-button-alt" />
             <a class="hero-button hero-button-alt" href="/find">
                 <span>Find a club near you</span>
             </a>
@@ -279,7 +281,9 @@
         opacity: 0.5;
     }
 
-    .hero-button {
+    /* :global under .hero-cta so the Google link, rendered inside
+       GoogleSignIn, gets the same button. */
+    .hero-cta :global(.hero-button) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -296,20 +300,20 @@
         transition: background 0.18s ease, transform 0.15s ease;
     }
 
-    .hero-button:hover {
+    .hero-cta :global(.hero-button:hover) {
         background: var(--color-accent-soft);
         transform: translateY(-1px);
     }
 
     /* The quieter of the two doors. Same size and weight so neither reads as
        the afterthought, but only one of them is filled gold. */
-    .hero-button-alt {
+    .hero-cta :global(.hero-button-alt) {
         background: transparent;
         border-color: var(--color-accent-border);
         color: var(--color-text-bright);
     }
 
-    .hero-button-alt:hover {
+    .hero-cta :global(.hero-button-alt:hover) {
         background: color-mix(in srgb, var(--color-accent) 14%, transparent);
         border-color: var(--color-accent);
     }

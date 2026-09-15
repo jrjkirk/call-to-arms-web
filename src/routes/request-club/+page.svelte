@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { PUBLIC_API_URL } from '$env/static/public';
 	import { loginHrefTo } from '$lib/loginUrl';
+	import GoogleSignIn from '$lib/GoogleSignIn.svelte';
 
 	// Signing in is required before this form will submit. It doesn't prove
 	// someone runs the club — that's what the evidence link and a human reading
@@ -215,10 +216,13 @@
 		{:else if !signedIn}
 			<div class="request-card request-success">
 				<p>
-					Sign in with Discord to request your club. It tells us who's asking, and it
+					Sign in to request your club. It tells us who's asking, and it
 					lets us make you the club's admin the moment we approve it.
 				</p>
-				<a class="request-button" href={loginHrefTo('/request-club')}>Sign in with Discord</a>
+				<div class="request-signin">
+					<a class="request-button" href={loginHrefTo('/request-club')}>Sign in with Discord</a>
+					<GoogleSignIn to="/request-club" class="request-button request-button-alt" />
+				</div>
 			</div>
 		{:else}
 			<form class="request-card" onsubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -553,6 +557,29 @@
 
 	/* Centred, because it is the one thing on the page you are meant to press
 	   and it was hanging off the left edge under a full-width form. */
+	.request-signin {
+		display: flex;
+		gap: 0.6rem;
+		justify-content: center;
+		flex-wrap: wrap;
+		margin-top: 1rem;
+	}
+	/* :global under .request-signin reaches the Google link inside GoogleSignIn. */
+	.request-signin :global(.request-button-alt) {
+		margin: 0;
+		display: flex;
+		align-items: center;
+		background: transparent;
+		border: 1px solid var(--color-accent-border);
+		color: var(--color-text-bright);
+		font-weight: 700;
+		font-size: 0.9rem;
+		padding: 0.65rem 1.6rem;
+		border-radius: var(--radius);
+		text-decoration: none;
+	}
+	.request-signin .request-button { margin: 0; }
+
 	.request-button {
 		margin: 1rem auto 0;
 		display: flex;

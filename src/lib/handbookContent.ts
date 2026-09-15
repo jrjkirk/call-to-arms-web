@@ -85,7 +85,7 @@ export const CLUB_HANDBOOK: Section[] = [
             { where: 'Club admin › Admins' },
             { fig: 'fig-admins', caption: 'Admin is granted per game system, so somebody can run one night without getting the keys to the club.' },
             { p: 'Whoever organises your Kill Team night can be given Kill Team and nothing else. They generate and publish its pairings, edit its schedule and write its call to arms. They cannot touch your other games or your club settings.' },
-            { note: 'The person has to have logged in at least once before you can appoint them. Accounts come from Discord, so there is nobody to grant it to until they have been through the door.' },
+            { note: 'The person has to have logged in at least once before you can appoint them. An account is only made the first time someone signs in, so there is nobody to grant it to until they have been through the door.' },
             { proof: 'They log in and see an Admin tab with their system in the picker, and only theirs.' }
         ]
     },

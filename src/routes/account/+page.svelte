@@ -84,7 +84,31 @@
         }
     }
 
-    onMount(load);
+    /** What came back from adding a sign-in method (/auth/<provider>/link
+     *  returns here with ?linked= or ?link_error=). Read once, then taken off
+     *  the address so a refresh doesn't say it again. */
+    const LINK_ERRORS: Record<string, string> = {
+        taken: 'That account is already on a different Call to Arms account, so it wasn\'t added.',
+        signed_out: 'You were signed out before that finished. Sign in and try again.',
+        cancelled: 'Nothing was added.',
+        unavailable: 'Adding that isn\'t available right now.'
+    };
+    let linkNotice = $state<{ ok: boolean; text: string } | null>(null);
+
+    onMount(() => {
+        const params = page.url.searchParams;
+        const linked = params.get('linked');
+        const linkError = params.get('link_error');
+        if (linked) {
+            linkNotice = { ok: true, text: `${providerLabel(linked)} added to your account.` };
+        } else if (linkError) {
+            linkNotice = { ok: false, text: LINK_ERRORS[linkError] ?? 'That didn\'t work. Please try again.' };
+        }
+        if (linked || linkError) {
+            history.replaceState(history.state, '', page.url.pathname);
+        }
+        load();
+    });
 
     const hereSlug = $derived(getClubSlugFromHostname(page.url.hostname));
 
@@ -178,6 +202,10 @@
 {:else}
 <div class="account" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
+    {#if linkNotice}
+        <p class="account-notice {linkNotice.ok ? 'pairing-message' : 'field-error'}" role="status">{linkNotice.text}</p>
+    {/if}
+
     <section class="a-card account-identity">
         {#if account.user.avatar_url}
             <img class="account-avatar" src={account.user.avatar_url} alt="" />
@@ -233,6 +261,9 @@
                     {/if}
                     <div class="account-row-main">
                         <div class="account-row-title">{providerLabel(i.provider)} · {i.name ?? i.email ?? 'Unnamed'}</div>
+                        {#if i.email && i.provider !== 'email'}
+                            <div class="account-muted">{i.email}</div>
+                        {/if}
                         {#if i.last_used_at}
                             <div class="account-muted">Last used {formatDate(i.last_used_at)}</div>
                         {/if}
@@ -324,6 +355,7 @@
 
 <style>
     .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
+    .account-notice { margin: 0 0 0.9rem; }
 
     .account { max-width: 640px; }
 

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { page } from '$app/state';
     import { loginHref } from '$lib/loginUrl';
+    import GoogleSignIn from '$lib/GoogleSignIn.svelte';
     import { onMount } from 'svelte';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -816,8 +817,11 @@
 
 {#if !auth.authenticated}
     <div class="signup-card card">
-        <p class="prompt-body">Sign in with Discord to sign up for this week's session.</p>
-        <a class="primary-button" href={loginHref(page.url)}>Sign in with Discord</a>
+        <p class="prompt-body">Sign in to sign up for this week's session.</p>
+        <div class="signin-row">
+            <a class="primary-button" href={loginHref(page.url)}>Sign in with Discord</a>
+            <GoogleSignIn url={page.url} class="secondary-button" />
+        </div>
     </div>
 {:else if !isClaimed}
     <div class="signup-card card">
@@ -1522,4 +1526,5 @@
     }
 
     .callout-own { font-size: 0.85rem; }
+    .signin-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 </style>

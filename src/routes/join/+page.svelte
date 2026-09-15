@@ -5,6 +5,7 @@
     import { goto } from '$app/navigation';
     import { page } from '$app/state';
     import { loginHref, loginHrefTo } from '$lib/loginUrl';
+    import { signInProviders } from '$lib/signInProviders';
     import { PUBLIC_API_URL } from '$env/static/public';
 
     type Club = { id: number; name: string; slug: string };
@@ -91,11 +92,27 @@
 
 {#if sessionExpired}
     <div class="empty-state">
-        Your signup session has expired. <a href={loginUrl()}>Sign in with Discord again</a> to restart.
+        Your signup session has expired.
+        {#if $signInProviders.includes('google')}
+            Sign in again with <a href={loginUrl()}>Discord</a> or <a href={nextPath ? loginHrefTo(nextPath, 'google') : loginHref(null, 'google')}>Google</a> to restart.
+        {:else}
+            <a href={loginUrl()}>Sign in with Discord again</a> to restart.
+        {/if}
     </div>
 {:else if loadError}
     <div class="empty-state">{loadError}</div>
 {:else}
+    {#if page.url.searchParams.get('existing_account')}
+        <!-- Decision C (API ACCOUNT_OVERHAUL.md §8): the email this sign-in
+             came with is already verified on an account. Nothing was joined;
+             this is the offer to use that account instead of a second one. -->
+        <div class="existing-account">
+            <strong>You may already have an account.</strong>
+            That email is on an existing Call to Arms account. If it's yours,
+            <a href="/signin?next=%2Faccount">sign in the way you usually do</a> and add this from your account page instead.
+            Otherwise, carry on below.
+        </div>
+    {/if}
     <p class="lead">
         You're almost signed up. Pick your club below to continue.
     </p>
@@ -200,4 +217,15 @@
         box-shadow: 0 4px 16px var(--color-accent-glow);
     }
     .confirm-button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .existing-account {
+        border: 1px solid var(--color-accent-border);
+        border-left: 3px solid var(--color-accent);
+        border-radius: var(--radius);
+        background: var(--color-surface-dark);
+        padding: 0.8rem 1rem;
+        margin: 0 0 1rem;
+        color: var(--color-text-base);
+        line-height: 1.5;
+    }
+    .existing-account a { color: var(--color-accent); }
 </style>

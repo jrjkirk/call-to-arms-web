@@ -1,6 +1,9 @@
 <script lang="ts">
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
+    import { page } from '$app/state';
+    import GoogleSignIn from '$lib/GoogleSignIn.svelte';
+    import { signInProviders } from '$lib/signInProviders';
 
     /**
      * What a signed-out visitor sees on a club subdomain when they've asked for
@@ -13,13 +16,15 @@
      * they were going. This says what they need to do and sends them onward
      * afterwards.
      */
-    let { loginUrl, pathname }: { loginUrl: string; pathname: string } = $props();
+    let { loginUrl, pathname, next = null }: { loginUrl: string; pathname: string; next?: string | null } = $props();
 
     const destination = $derived(
-        pathname.startsWith('/signup') ? 'to sign up for a game night'
+        pathname === '/' ? ''
+        : pathname.startsWith('/signup') ? 'to sign up for a game night'
         : pathname.startsWith('/players') ? 'to see this club’s players'
         : pathname.startsWith('/leagues') || pathname.startsWith('/league') ? 'to see the league tables'
         : pathname.startsWith('/claim') ? 'to set up your player profile'
+        : pathname.startsWith('/account') ? 'to your account'
         : 'to see this page'
     );
 </script>
@@ -27,10 +32,17 @@
 <div class="prompt" in:fly={{ y: 20, duration: 500, easing: cubicOut }}>
     <h1 class="prompt-title">Sign in {destination}</h1>
     <p class="prompt-body">
-        Club nights run on Discord, so that's what you sign in with. It takes a moment,
-        and you'll come straight back here.
+        {#if !$signInProviders.includes('google')}Club nights run on Discord, so that's what you sign in with.{/if}
+        It takes a moment, and you'll come straight back here.
     </p>
-    <a class="prompt-button" href={loginUrl}>Sign in with Discord</a>
+    <div class="prompt-buttons">
+        <a class="prompt-button" href={loginUrl}>Sign in with Discord</a>
+        {#if next}
+            <GoogleSignIn to={next} class="prompt-button prompt-button-alt" />
+        {:else}
+            <GoogleSignIn url={page.url} class="prompt-button prompt-button-alt" />
+        {/if}
+    </div>
     <p class="prompt-aside">
         Just after a table? <a href="/book">Book one</a> without an account.
     </p>
@@ -57,7 +69,9 @@
         line-height: 1.6;
     }
 
-    .prompt-button {
+    /* :global, scoped under .prompt-buttons: GoogleSignIn renders its link
+       inside its own component, where this page's scoped class wouldn't reach. */
+    .prompt-buttons :global(.prompt-button) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -72,9 +86,26 @@
         transition: background 0.15s ease, transform 0.12s ease;
     }
 
-    .prompt-button:hover {
+    .prompt-buttons :global(.prompt-button:hover) {
         background: var(--color-accent-soft);
         transform: translateY(-1px);
+    }
+
+    .prompt-buttons {
+        display: flex;
+        gap: 0.7rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .prompt-buttons :global(.prompt-button-alt) {
+        background: transparent;
+        border-color: var(--color-accent-border);
+        color: var(--color-text-bright);
+    }
+    .prompt-buttons :global(.prompt-button-alt:hover) {
+        background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+        border-color: var(--color-accent);
     }
 
     .prompt-aside {

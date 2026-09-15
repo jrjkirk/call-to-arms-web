@@ -14,6 +14,7 @@
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
     import { resolveTitle, titleOverride } from '$lib/pageTitle';
     import { loginHref, loginHrefTo } from '$lib/loginUrl';
+    import { signInProviders, type SignInProvider } from '$lib/signInProviders';
 
     let { children } = $props();
 
@@ -23,6 +24,7 @@
 
     type AuthState = {
         authenticated: boolean;
+        sign_in_providers?: SignInProvider[];
         user?: { id: number; name: string; discord_name: string | null; avatar_url: string | null; player_id: number | null; club_id: number };
         player?: { id: number; name: string } | null;
         has_club?: boolean;
@@ -65,6 +67,7 @@
                 fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' }),
             ]);
             auth = authResp.ok ? await authResp.json() : { authenticated: false };
+            signInProviders.set(auth.sign_in_providers ?? ['discord']);
             adminState = adminResp.ok ? await adminResp.json() : null;
             venueState = venueResp.ok ? await venueResp.json() : null;
             venueTakesBookings = infoResp.ok ? (await infoResp.json()).enabled === true : false;
@@ -217,6 +220,7 @@
         // though it cannot need an account.
         page.url.pathname === '/request-club' ||
         page.url.pathname === '/privacy' ||
+        page.url.pathname === '/signin' ||
         (!isBareHost && (page.url.pathname === '/' || page.url.pathname.startsWith('/book')))
     );
     // The three admin consoles. Not reading pages, so they get the wider
@@ -371,8 +375,12 @@
                     About Call to Arms
                 </a>
                 <a class="sidebar-button" href="/find" onclick={closeDrawer}>Find a club</a>
+                <!-- With a choice of sign-in methods this goes to /signin to
+                     offer both; with Discord alone, straight to Discord. -->
                 <a class="sidebar-button sidebar-button-primary"
-                   href={loginUrl(page.url.pathname + page.url.search)}>Sign in</a>
+                   href={$signInProviders.length > 1
+                       ? `/signin?next=${encodeURIComponent(page.url.pathname === '/signin' ? (page.url.searchParams.get('next') ?? '/') : page.url.pathname + page.url.search)}`
+                       : loginUrl(page.url.pathname + page.url.search)}>Sign in</a>
             {/if}
         </aside>
     </header>
