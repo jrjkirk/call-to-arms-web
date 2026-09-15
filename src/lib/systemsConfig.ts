@@ -64,7 +64,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
         faction_list: [
             'Empire of Man', 'Dwarfen Mountain Holds', 'Kingdom of Bretonnia',
             'Wood Elf Realms', 'High Elf Realms', 'Orc & Goblin Tribes',
-            'Warriors of Chaos', 'Beastmen Brayheards', 'Tomb Kings of Khemri',
+            'Warriors of Chaos', 'Beastmen Brayherds', 'Tomb Kings of Khemri',
             'Skaven', 'Ogre Kingdoms', 'Lizardmen', 'Chaos Dwarfs', 'Dark Elves',
             'Daemons of Chaos', 'Vampire Counts', 'Grand Cathay', 'Renegade Crowns'
         ],
