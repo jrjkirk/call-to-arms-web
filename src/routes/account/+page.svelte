@@ -137,11 +137,96 @@
         } else if (linkError) {
             linkNotice = { ok: false, text: LINK_ERRORS[linkError] ?? 'That didn\'t work. Please try again.' };
         }
-        if (linked || linkError) {
+        if (params.get('merge') === 'pending') loadMerge(params.get('provider'));
+        if (linked || linkError || params.get('merge')) {
             history.replaceState(history.state, '', page.url.pathname);
         }
         load();
     });
+
+    // ---- Merging an account that turned out to be yours (Slab 6) ----------
+    // Adding a sign-in method that already has its own account lands here with
+    // ?merge=pending. The API holds the offer in a short-lived cookie bound to
+    // this account and session; this shows what would move and lets them say.
+    type MergePreview = {
+        other: {
+            name: string;
+            created_at: string;
+            identities: { provider: string; name: string | null; email: string | null }[];
+            players: { name: string; club: string }[];
+        };
+        problems: string[];
+    };
+    let merge = $state<MergePreview | null>(null);
+    let mergeProvider = $state<string | null>(null);
+    let merging = $state(false);
+    let mergeError = $state<string | null>(null);
+
+    async function loadMerge(provider: string | null) {
+        mergeProvider = provider;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/merge`, { credentials: 'include' });
+            if (r.ok) merge = await r.json();
+            else linkNotice = { ok: false, text: 'That offer to merge has expired. Add it again to see it.' };
+        } catch (_) {
+            /* the page still loads without it */
+        }
+    }
+
+    async function confirmMerge() {
+        if (merging) return;
+        merging = true;
+        mergeError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/merge/confirm`, { method: 'POST', credentials: 'include' });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                mergeError = typeof body.detail === 'string' ? body.detail : 'Could not merge.';
+                return;
+            }
+            merge = null;
+            linkNotice = { ok: true, text: 'Accounts merged. Everything is on this account now.' };
+            await load();
+            const refresh = (window as any).__refreshAuth;
+            if (typeof refresh === 'function') refresh();
+        } catch (_) {
+            mergeError = 'Network error. Please try again.';
+        } finally {
+            merging = false;
+        }
+    }
+
+    async function cancelMerge() {
+        merge = null;
+        await fetch(`${PUBLIC_API_URL}/auth/merge/cancel`, { method: 'POST', credentials: 'include' }).catch(() => {});
+    }
+
+    // ---- Choosing and removing sign-in methods (Slab 6) ---------------------
+    let removingId = $state<number | null>(null);
+    let identityBusy = $state(false);
+    let identityError = $state<string | null>(null);
+
+    async function identityAction(url: string, method: 'POST' | 'DELETE') {
+        if (identityBusy) return;
+        identityBusy = true;
+        identityError = null;
+        try {
+            const r = await fetch(url, { method, credentials: 'include' });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                identityError = typeof body.detail === 'string' ? body.detail : 'That didn\'t work.';
+                return;
+            }
+            removingId = null;
+            await load();
+            const refresh = (window as any).__refreshAuth;
+            if (typeof refresh === 'function') refresh();
+        } catch (_) {
+            identityError = 'Network error. Please try again.';
+        } finally {
+            identityBusy = false;
+        }
+    }
 
     const hereSlug = $derived(getClubSlugFromHostname(page.url.hostname));
 
@@ -235,6 +320,38 @@
 {:else}
 <div class="account" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
+    {#if merge}
+        <section class="a-card account-merge">
+            <div class="a-head">
+                <h3 class="a-title">That {providerLabel(mergeProvider ?? '')} account has its own account here</h3>
+            </div>
+            <p class="a-note">Merge it into this one and everything below moves here. Both ways in keep working.</p>
+            <div class="account-merge-other">
+                <div class="account-row-title">{merge.other.name}</div>
+                <div class="account-muted">
+                    {merge.other.identities.map((x) => `${providerLabel(x.provider)} · ${x.name ?? x.email ?? ''}`).join(', ')}
+                </div>
+                {#if merge.other.players.length}
+                    <div class="account-muted">
+                        Players: {merge.other.players.map((p) => `${p.name} (${p.club})`).join(', ')}
+                    </div>
+                {/if}
+            </div>
+            {#if merge.problems.length}
+                <p class="field-error">These can't be merged yet: {merge.problems.join('; ')}. A club admin can help.</p>
+                <button class="secondary-button" type="button" onclick={cancelMerge}>Close</button>
+            {:else}
+                <div class="account-confirm">
+                    <button class="primary-button" type="button" disabled={merging} onclick={confirmMerge}>
+                        {merging ? 'Merging…' : 'Merge into this account'}
+                    </button>
+                    <button class="secondary-button" type="button" disabled={merging} onclick={cancelMerge}>Not now</button>
+                </div>
+            {/if}
+            {#if mergeError}<p class="field-error">{mergeError}</p>{/if}
+        </section>
+    {/if}
+
     {#if linkNotice}
         <p class="account-notice {linkNotice.ok ? 'pairing-message' : 'field-error'}" role="status">{linkNotice.text}</p>
     {/if}
@@ -308,9 +425,38 @@
                             text="Club posts tag this {providerLabel(i.provider)} account. Your other {providerLabel(i.provider)} accounts still sign you in."
                         />
                     {/if}
+                    <div class="account-row-actions">
+                        {#if removingId === i.id}
+                            <span class="account-muted">Remove this way in?</span>
+                            <button class="danger-button" type="button" disabled={identityBusy}
+                                    onclick={() => identityAction(`${PUBLIC_API_URL}/auth/identities/${i.id}`, 'DELETE')}>Remove</button>
+                            <button class="secondary-button" type="button" disabled={identityBusy}
+                                    onclick={() => (removingId = null)}>Cancel</button>
+                        {:else}
+                            {#if i.provider === 'discord' && sharesProvider(i) && !i.is_primary}
+                                <button class="account-edit" type="button" disabled={identityBusy}
+                                        onclick={() => identityAction(`${PUBLIC_API_URL}/auth/identities/${i.id}/primary`, 'POST')}>Use for posts</button>
+                            {/if}
+                            {#if account.identities.length > 1}
+                                <button class="account-edit" type="button" onclick={() => (removingId = i.id)}>Remove</button>
+                            {/if}
+                        {/if}
+                    </div>
                 </li>
             {/each}
         </ul>
+        {#if identityError}
+            <p class="field-error">{identityError}</p>
+        {/if}
+        {#if account.identities.some((i) => i.provider === 'discord')}
+            <p class="account-another">
+                <a href={`${PUBLIC_API_URL}/auth/discord/link`}>Add another Discord account</a>
+                <HelpTip
+                    label="Adding another Discord account"
+                    text="For when you're in your club's Discord under a different account. Log in to that account on discord.com in this browser first: Discord adds whichever account is logged in there. Then choose it to be tagged in posts."
+                />
+            </p>
+        {/if}
 
         {#if account.can_add.length > 0}
             <div class="account-nudge">
@@ -511,6 +657,24 @@
         text-decoration: none;
     }
     .account-link:hover { text-decoration: underline; }
+
+    .account-row-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-left: auto;
+    }
+    .account-another {
+        margin: 0.3rem 0 0;
+        font-size: 0.84rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .account-another a { color: var(--color-accent); }
+    .account-merge { --panel-accent: var(--color-accent-bright); }
+    .account-merge-other { margin: 0 0 0.9rem; }
 
     .account-nudge {
         border-top: 1px solid var(--color-steel-border-soft);
