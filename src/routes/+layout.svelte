@@ -23,7 +23,7 @@
 
     type AuthState = {
         authenticated: boolean;
-        user?: { id: number; discord_name: string; avatar_url: string | null; player_id: number | null; club_id: number };
+        user?: { id: number; name: string; discord_name: string | null; avatar_url: string | null; player_id: number | null; club_id: number };
         player?: { id: number; name: string } | null;
         has_club?: boolean;
         active_club?: { id: number; slug: string; name: string } | null;
@@ -339,7 +339,7 @@
                             <img class="user-avatar" src={auth.user.avatar_url} alt="" />
                         {/if}
                         <div class="user-meta">
-                            <div class="user-name">{auth.user.discord_name}</div>
+                            <div class="user-name">{auth.user.name}</div>
                             <div class="user-sub">{auth.player.name}</div>
                         </div>
                     </a>
@@ -349,7 +349,7 @@
                             <img class="user-avatar" src={auth.user.avatar_url} alt="" />
                         {/if}
                         <div class="user-meta">
-                            <div class="user-name">{auth.user.discord_name}</div>
+                            <div class="user-name">{auth.user.name}</div>
                             <div class="user-sub user-sub-warn">No profile linked</div>
                         </div>
                     </div>
@@ -394,7 +394,7 @@
             {:else}
                 {#if needsClaim && page.url.pathname !== '/claim' && auth.user}
                     <div class="claim-banner">
-                        <strong>Welcome, {auth.user.discord_name}.</strong>
+                        <strong>Welcome, {auth.user.name}.</strong>
                         {#if auth.active_club}
                             You don't have a profile at <strong>{auth.active_club.name}</strong> yet.
                             <a href="/claim">Create one here</a> to play.

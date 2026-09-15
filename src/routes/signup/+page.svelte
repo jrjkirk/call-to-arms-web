@@ -100,7 +100,7 @@
     /* ---------- auth ---------- */
     type AuthState = {
         authenticated: boolean;
-        user?: { discord_name: string; player_id: number | null };
+        user?: { name: string; discord_name: string | null; player_id: number | null };
         player?: { id: number; name: string } | null;
     };
     let auth = $state<AuthState>({ authenticated: false });
@@ -822,7 +822,7 @@
 {:else if !isClaimed}
     <div class="signup-card card">
         <p class="prompt-body">
-            Almost there, <strong>{auth.user?.discord_name}</strong>. Link your player profile
+            Almost there, <strong>{auth.user?.name}</strong>. Link your player profile
             first so your signups count toward your record.
         </p>
         <a class="primary-button" href="/claim">Link my player profile</a>

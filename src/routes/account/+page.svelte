@@ -5,8 +5,12 @@
      *
      * An account is not a player. It is the person signing in, and it owns one
      * player per club they play at. This page is where the account-level things
-     * live: the ways in, the player at each club, and ending sessions. Later
-     * slabs add editing the name, Google and email sign-in, and linking.
+     * live: the name the account goes by, the ways in, the player at each club,
+     * and ending sessions. Later slabs add Google and email sign-in, and linking.
+     *
+     * The name here is the ACCOUNT's (users.display_name). A club roster name
+     * is Player.name, set by that club's admins, and deliberately not editable
+     * here: the pairing engine keys players on it.
      *
      * The "add another way to sign in" nudge renders only when the API lists
      * something in `can_add`. That list is empty while Discord is the only
@@ -58,6 +62,11 @@
 
     let account = $state<Account | null>(null);
     let loadError = $state<string | null>(null);
+    const NAME_MAX = 32;
+    let editingName = $state(false);
+    let nameDraft = $state('');
+    let savingName = $state(false);
+    let nameError = $state<string | null>(null);
     let confirmingSignOut = $state(false);
     let signingOut = $state(false);
     let signOutError = $state<string | null>(null);
@@ -102,6 +111,42 @@
         return (account?.identities ?? []).filter((x) => x.provider === i.provider).length > 1;
     }
 
+    function startEditingName() {
+        if (!account) return;
+        nameDraft = account.user.display_name ?? '';
+        nameError = null;
+        editingName = true;
+    }
+
+    /** Save, or clear when blank: the account then goes by its Discord handle. */
+    async function saveName() {
+        if (savingName || !account) return;
+        savingName = true;
+        nameError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/account`, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ display_name: nameDraft })
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                nameError = typeof body.detail === 'string' ? body.detail : 'Could not save your name.';
+                return;
+            }
+            account.user = { ...account.user, ...body.user };
+            editingName = false;
+            // The header greets by this name too.
+            const refresh = (window as any).__refreshAuth;
+            if (typeof refresh === 'function') refresh();
+        } catch (_) {
+            nameError = 'Network error. Please try again.';
+        } finally {
+            savingName = false;
+        }
+    }
+
     async function signOutEverywhere() {
         if (signingOut) return;
         signingOut = true;
@@ -137,9 +182,40 @@
         {#if account.user.avatar_url}
             <img class="account-avatar" src={account.user.avatar_url} alt="" />
         {/if}
-        <div>
-            <div class="account-name">{account.user.name}</div>
-            <div class="account-muted">Since {formatDate(account.user.created_at)}</div>
+        <div class="account-identity-main">
+            {#if editingName}
+                <form class="account-name-form" onsubmit={(e) => { e.preventDefault(); saveName(); }}>
+                    <label class="field-label" for="account-name">Name</label>
+                    <div class="account-name-row">
+                        <input
+                            id="account-name"
+                            class="field-input"
+                            type="text"
+                            maxlength={NAME_MAX}
+                            placeholder={account.user.discord_name ?? ''}
+                            bind:value={nameDraft}
+                        />
+                        <button class="primary-button" type="submit" disabled={savingName}>
+                            {savingName ? 'Saving…' : 'Save'}
+                        </button>
+                        <button class="secondary-button" type="button" disabled={savingName}
+                                onclick={() => (editingName = false)}>Cancel</button>
+                    </div>
+                    {#if nameError}
+                        <p class="field-error">{nameError}</p>
+                    {/if}
+                </form>
+            {:else}
+                <div class="account-name-line">
+                    <span class="account-name">{account.user.name}</span>
+                    <button class="account-edit" type="button" onclick={startEditingName}>Edit</button>
+                    <HelpTip
+                        label="About your name"
+                        text="The name Call to Arms greets you by, and shows club admins beside your Discord handle. Your name on each club's roster is set by that club's admins. Leave it blank to use your Discord name."
+                    />
+                </div>
+                <div class="account-muted">Since {formatDate(account.user.created_at)}</div>
+            {/if}
         </div>
     </section>
 
@@ -269,10 +345,42 @@
         object-fit: cover;
         flex: 0 0 auto;
     }
+    .account-identity-main {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
     .account-name {
         font-size: 1.15rem;
         font-weight: 700;
         color: var(--color-text-bright);
+        overflow-wrap: anywhere;
+    }
+    .account-name-line {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .account-edit {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--color-accent);
+        font: inherit;
+        font-size: 0.84rem;
+        cursor: pointer;
+    }
+    .account-edit:hover { text-decoration: underline; }
+    .account-name-form .field-label { margin-bottom: 0.3rem; }
+    .account-name-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .account-name-row .field-input {
+        flex: 1 1 12rem;
+        min-width: 0;
     }
 
     .account-list {

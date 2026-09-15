@@ -12,6 +12,7 @@
     import { detailText, DISCORD_GATE_ENABLED } from '$lib/discordGate';
     import Toggle from '$lib/Toggle.svelte';
     import HelpTip from '$lib/HelpTip.svelte';
+    import { accountLabel } from '$lib/accountName';
     import CommandPalette, { type Command } from '$lib/CommandPalette.svelte';
     import Handbook from '$lib/Handbook.svelte';
     import { CLUB_HANDBOOK, SYSTEM_HANDBOOK } from '$lib/handbookContent';
@@ -56,10 +57,10 @@
     })();
 
     type AdminMe = { is_super_admin: boolean; scopes: string[]; community_discord_url?: string | null };
-    type RoleEntry = { user_id: number; discord_name: string; player_name: string | null; scope: string };
-    type SuperAdminEntry = { user_id: number; discord_name: string; player_name: string | null };
+    type RoleEntry = { user_id: number; name: string; discord_name: string | null; player_name: string | null; scope: string };
+    type SuperAdminEntry = { user_id: number; name: string; discord_name: string | null; player_name: string | null };
     type RolesData = { roles: RoleEntry[]; super_admins: SuperAdminEntry[] };
-    type GrantableUser = { id: number; discord_name: string; player_name: string };
+    type GrantableUser = { id: number; name: string; discord_name: string | null; player_name: string };
     type BlockEntry = {
         block_id: number;
         player_a_id: number;
@@ -652,6 +653,8 @@
         player_id: number;
         name: string;
         discord_name: string | null;
+        linked?: boolean;
+        account_name?: string | null;
         titles: string[];
         active: boolean;
         league_visible: boolean;
@@ -3406,10 +3409,10 @@
 
     const rolesByUser = $derived.by(() => {
         if (!rolesData) return [];
-        const map = new Map<number, { discord_name: string; player_name: string | null; scopes: string[] }>();
+        const map = new Map<number, { name: string; discord_name: string | null; player_name: string | null; scopes: string[] }>();
         for (const role of rolesData.roles) {
             if (!map.has(role.user_id)) {
-                map.set(role.user_id, { discord_name: role.discord_name, player_name: role.player_name, scopes: [] });
+                map.set(role.user_id, { name: role.name, discord_name: role.discord_name, player_name: role.player_name, scopes: [] });
             }
             map.get(role.user_id)!.scopes.push(role.scope);
         }
@@ -3486,8 +3489,8 @@
         if (r.ok) await loadBlocks();
     }
 
-    function displayName(entry: { discord_name: string; player_name: string | null }): string {
-        return entry.player_name ? `${entry.player_name} (${entry.discord_name})` : entry.discord_name;
+    function displayName(entry: { name?: string | null; discord_name: string | null; player_name: string | null }): string {
+        return accountLabel(entry);
     }
 
     function fmt(f: string | null | undefined): string {
@@ -5453,7 +5456,7 @@
                                                     {#if !p.league_visible}<span class="sp-tag">not in league</span>{/if}
                                                 </td>
                                                 <td class="sp-discord">
-                                                    {#if p.discord_name}@{p.discord_name}{:else}<span class="sp-unclaimed">not linked</span>{/if}
+                                                    {#if p.discord_name}@{p.discord_name}{:else if p.linked}{p.account_name}{:else}<span class="sp-unclaimed">not linked</span>{/if}
                                                 </td>
                                                 <td class="num">{p.games}</td>
                                                 <td class="num">{p.level}</td>
@@ -6483,7 +6486,7 @@
                                             <button
                                                 class="remove-btn"
                                                 type="button"
-                                                title="Remove {scope} from {person.discord_name}"
+                                                title="Remove {scope} from {displayName(person)}"
                                                 onclick={() => removeRole(person.user_id, scope)}
                                             >×</button>
                                         </span>
@@ -6503,7 +6506,7 @@
                         <select id="grant-user" class="field-select" bind:value={grantUserIdStr}>
                             <option value="">Select user</option>
                             {#each grantableUsers as u}
-                                <option value={String(u.id)}>{u.player_name} ({u.discord_name})</option>
+                                <option value={String(u.id)}>{accountLabel(u)}</option>
                             {/each}
                         </select>
                     </div>

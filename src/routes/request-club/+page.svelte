@@ -84,8 +84,8 @@
 			if (r.ok) {
 				const d = await r.json();
 				signedIn = d.signed_in;
-				discordName = d.discord_name;
-				if (d.discord_name && !requesterName) requesterName = d.discord_name;
+				discordName = d.name ?? d.discord_name;
+				if (discordName && !requesterName) requesterName = discordName;
 			}
 		} catch {
 			/* leave signed out; the sign-in button is the safe default */

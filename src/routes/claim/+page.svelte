@@ -20,7 +20,7 @@
 
     type AuthState = {
         authenticated: boolean;
-        user?: { id: number; discord_name: string; player_id: number | null };
+        user?: { id: number; name: string; discord_name: string | null; player_id: number | null };
         player?: { name: string } | null;
         active_club?: { id: number; slug: string; name: string } | null;
     };
@@ -100,7 +100,7 @@
     </div>
 {:else}
     <p class="lead">
-        Welcome, <strong>{auth.user?.discord_name}</strong>{#if auth.active_club} to
+        Welcome, <strong>{auth.user?.name}</strong>{#if auth.active_club} to
         <strong>{auth.active_club.name}</strong>{/if}.
         Create your player profile below to sign up for sessions and submit league results.
     </p>

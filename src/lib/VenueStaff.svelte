@@ -2,11 +2,12 @@
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from './HelpTip.svelte';
+    import { accountLabel } from '$lib/accountName';
 
-    type Staff = { id: number; user_id: number; discord_name: string | null; player_name: string | null };
+    type Staff = { id: number; user_id: number; name: string | null; discord_name: string | null; player_name: string | null };
 
     let staff = $state<Staff[]>([]);
-    let candidates = $state<{ id: number; discord_name: string; player_name: string }[]>([]);
+    let candidates = $state<{ id: number; name: string; discord_name: string | null; player_name: string }[]>([]);
     let chosen = $state('');
     let error = $state<string | null>(null);
     let message = $state<string | null>(null);
@@ -38,7 +39,7 @@
     }
 
     async function remove(row: Staff) {
-        const who = row.player_name || row.discord_name || 'this person';
+        const who = row.player_name || row.name || row.discord_name || 'this person';
         if (!confirm(`Remove venue access for ${who}?`)) return;
         error = null; message = null;
         const r = await fetch(`${PUBLIC_API_URL}/venue/admin/staff/${row.id}`, {
@@ -65,7 +66,7 @@
         <ul class="staff-list">
             {#each staff as row (row.id)}
                 <li>
-                    <span>{row.player_name || row.discord_name || `User ${row.user_id}`}</span>
+                    <span>{row.player_name || row.name || row.discord_name || `User ${row.user_id}`}</span>
                     <button class="danger-button" type="button" onclick={() => remove(row)}>Remove</button>
                 </li>
             {/each}
@@ -77,7 +78,7 @@
         <select class="field-select" bind:value={chosen}>
             <option value="">Choose a person</option>
             {#each candidates as c}
-                <option value={String(c.id)}>{c.player_name} ({c.discord_name})</option>
+                <option value={String(c.id)}>{accountLabel(c)}</option>
             {/each}
         </select>
         <button class="primary-button" type="button" disabled={!chosen} onclick={add}>Add</button>

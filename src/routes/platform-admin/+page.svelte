@@ -6,6 +6,7 @@
     import { CANONICAL_VIBES } from '$lib/systemsConfig';
     import { UK_REGIONS } from '$lib/regions';
     import HelpTip from '$lib/HelpTip.svelte';
+    import { accountLabel } from '$lib/accountName';
     import CommandPalette, { type Command } from '$lib/CommandPalette.svelte';
 
     type AdminMe = { is_super_admin: boolean; is_platform_admin: boolean; scopes: string[] };
@@ -63,8 +64,8 @@
         logo_url: string | null;
         active: boolean;
     };
-    type SuperAdminEntry = { user_id: number; discord_name: string; player_name: string | null };
-    type GrantableUser = { id: number; discord_name: string; player_name: string };
+    type SuperAdminEntry = { user_id: number; name: string; discord_name: string | null; player_name: string | null };
+    type GrantableUser = { id: number; name: string; discord_name: string | null; player_name: string };
 
     const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const CADENCES = ['weekly', 'fortnightly'];
@@ -561,7 +562,7 @@
                 id: body.club.id,
                 name: body.club.name,
                 slug: body.club.slug,
-                admin: body.appointed_super_admin?.discord_name ?? null,
+                admin: body.appointed_super_admin?.name ?? body.appointed_super_admin?.discord_name ?? null,
                 systems: body.enabled_systems ?? [],
                 skipped: body.skipped_systems_reason ?? null
             };
@@ -713,7 +714,7 @@
 
     // Find a User
     type UserSearchResult = {
-        user_id: number; discord_name: string; player_name: string | null;
+        user_id: number; name: string; discord_name: string | null; player_name: string | null;
         club_id: number; club_name: string; club_slug: string;
         is_super_admin: boolean; is_platform_admin: boolean;
     };
@@ -2227,7 +2228,8 @@
                             {#each userSearchResults as u (u.user_id)}
                                 <li class="block-row">
                                     <span class="block-names">
-                                        <strong>{u.discord_name}</strong>
+                                        <strong>{u.name ?? u.discord_name}</strong>
+                                        {#if u.discord_name && u.discord_name !== u.name}<span class="block-note">@{u.discord_name}</span>{/if}
                                         {#if u.player_name}<span class="block-note">({u.player_name})</span>{/if}
                                     </span>
                                     <span class="block-note">{u.club_name}</span>
@@ -2479,8 +2481,7 @@
                         {#each clubSuperAdmins as sa (sa.user_id)}
                             <li class="block-row">
                                 <span class="block-names">
-                                    <strong>{sa.player_name ?? sa.discord_name}</strong>
-                                    {#if sa.player_name}<span class="block-note">({sa.discord_name})</span>{/if}
+                                    <strong>{accountLabel(sa)}</strong>
                                 </span>
                                 <button class="remove-btn" type="button" title="Remove super-admin" onclick={() => removeSuperAdmin(sa.user_id)}>×</button>
                             </li>
@@ -2496,7 +2497,7 @@
                             <select id="appoint-user" class="field-select" bind:value={appointUserIdStr}>
                                 <option value="">Select user</option>
                                 {#each clubGrantableUsers as u}
-                                    <option value={String(u.id)}>{u.player_name} ({u.discord_name})</option>
+                                    <option value={String(u.id)}>{accountLabel(u)}</option>
                                 {/each}
                             </select>
                         </div>
