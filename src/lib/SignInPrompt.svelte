@@ -37,6 +37,11 @@
         {#if $signInProviders.length === 1}Club nights run on Discord, so that's what you sign in with.{/if}
         It takes a moment, and you'll come straight back here.
     </p>
+    {#if $signInProviders.length > 1}
+        <!-- Said before the other options, not after: a club member picking a
+             new method here is how duplicate accounts get made. -->
+        <p class="prompt-member">Already play at a club? Use Discord, the way you always have.</p>
+    {/if}
     <div class="prompt-buttons">
         <a class="prompt-button" href={loginUrl}>Sign in with Discord</a>
         {#if next}
@@ -93,6 +98,12 @@
     .prompt-buttons :global(.prompt-button:hover) {
         background: var(--color-accent-soft);
         transform: translateY(-1px);
+    }
+
+    .prompt-member {
+        margin: -0.6rem 0 1rem;
+        font-size: 0.85rem;
+        color: var(--color-text-dim);
     }
 
     .prompt-buttons {

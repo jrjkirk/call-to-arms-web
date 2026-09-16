@@ -4828,7 +4828,12 @@
                                                     <th>B Faction</th>
                                                     <th>B Type</th>
                                                     <th>Type</th>
-                                                    {#if usesPoints(systemsConfig, scope)}<th>ETA</th><th>Pts</th>{/if}
+                                                    {#if usesPoints(systemsConfig, scope)}
+                                                        <th>
+                                                            ETA <HelpTip label="game time" text={"The time for THIS GAME.\n\nLeave it blank and it follows the players' own times (the later of the two), which is what they signed up with. Setting it here never changes their signups: to do that, edit the signup in the list above."} />
+                                                        </th>
+                                                        <th>Pts</th>
+                                                    {/if}
                                                     <th></th>
                                                 </tr>
                                             </thead>

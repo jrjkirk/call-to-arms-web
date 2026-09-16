@@ -32,9 +32,33 @@
         loaded = true;
     }
 
+    /** How this half-finished sign-up arrived. Anyone here through Google, an
+     *  email link or a password is warned before an account exists: a club
+     *  regular should sign in with Discord and add the new method from their
+     *  account page, or they end up with a second, empty account and their
+     *  games, level and league record left on the first one. The email-match
+     *  offer can't catch them, because no Discord emails are held. */
+    let pendingProvider = $state<string | null>(null);
+    const PROVIDER_LABELS: Record<string, string> = { google: 'Google', email: 'email', password: 'a password' };
+    const arrivedLabel = $derived(pendingProvider ? (PROVIDER_LABELS[pendingProvider] ?? pendingProvider) : null);
+    let dismissedWarning = $state(false);
+
     onMount(() => {
         loadClubs();
+        loadPending();
     });
+
+    async function loadPending() {
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/pending`, { credentials: 'include' });
+            if (r.ok) {
+                const d = await r.json();
+                if (d.pending && d.provider && d.provider !== 'discord') pendingProvider = d.provider;
+            }
+        } catch (_) {
+            /* the picker still works without the warning */
+        }
+    }
 
     // The page the player was originally trying to reach, handed over by
     // /auth/discord/callback. Onboarding is three hops — join, claim, then
@@ -102,6 +126,20 @@
 {:else if loadError}
     <div class="empty-state">{loadError}</div>
 {:else}
+    {#if pendingProvider && !dismissedWarning && !page.url.searchParams.get('existing_account')}
+        <div class="existing-account">
+            <strong>Already play at a club that uses this?</strong>
+            Sign in the way you normally do, then add {arrivedLabel} from your account page.
+            Carrying on here makes a second account, and your games, level and league record
+            stay on the first one.
+            <div class="join-warning-actions">
+                <a class="primary-button" href="/signin?next=%2Faccount">Sign in the usual way</a>
+                <button class="secondary-button" type="button" onclick={() => (dismissedWarning = true)}>
+                    I'm new here
+                </button>
+            </div>
+        </div>
+    {/if}
     {#if page.url.searchParams.get('existing_account')}
         <!-- Decision C (API ACCOUNT_OVERHAUL.md §8): the email this sign-in
              came with is already verified on an account. Nothing was joined;
@@ -227,5 +265,13 @@
         color: var(--color-text-base);
         line-height: 1.5;
     }
-    .existing-account a { color: var(--color-accent); }
+    /* Not the action button: it is gold already, and colouring its label gold
+       too made it read as an empty gold rectangle. */
+    .existing-account a:not(.primary-button) { color: var(--color-accent); }
+    .join-warning-actions {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 0.8rem;
+    }
 </style>
