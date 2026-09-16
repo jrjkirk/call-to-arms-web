@@ -4,6 +4,7 @@
     import { page } from '$app/state';
     import GoogleSignIn from '$lib/GoogleSignIn.svelte';
     import EmailSignIn from '$lib/EmailSignIn.svelte';
+    import PasswordSignIn from '$lib/PasswordSignIn.svelte';
     import { signInProviders } from '$lib/signInProviders';
 
     /**
@@ -45,6 +46,7 @@
         {/if}
     </div>
     <EmailSignIn next={next ?? `${page.url.pathname}${page.url.search}`} />
+    <PasswordSignIn next={next ?? `${page.url.pathname}${page.url.search}`} />
     <p class="prompt-aside">
         Just after a table? <a href="/book">Book one</a> without an account.
     </p>

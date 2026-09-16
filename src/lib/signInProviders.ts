@@ -9,6 +9,6 @@
  */
 import { writable } from 'svelte/store';
 
-export type SignInProvider = 'discord' | 'google' | 'email';
+export type SignInProvider = 'discord' | 'google' | 'email' | 'password';
 
 export const signInProviders = writable<SignInProvider[]>(['discord']);

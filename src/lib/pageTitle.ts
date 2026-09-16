@@ -60,6 +60,9 @@ const ROUTE_TITLES: Record<string, string> = {
 	'/account': 'Account · Call to Arms',
 	'/signin': 'Sign in · Call to Arms',
 	'/signin/email': 'Sign in · Call to Arms',
+	'/signin/new': 'Create an account · Call to Arms',
+	'/signin/forgot': 'Forgotten password · Call to Arms',
+	'/signin/reset': 'New password · Call to Arms',
 	'/join': 'Join a club · Call to Arms',
 	'/request-club': 'Add your club · Call to Arms',
 	'/privacy': 'Privacy · Call to Arms'

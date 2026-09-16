@@ -52,12 +52,14 @@
         identities: Identity[];
         players: AccountPlayer[];
         can_add: string[];
+        has_password: boolean;
     };
 
     const PROVIDER_LABELS: Record<string, string> = {
         discord: 'Discord',
         google: 'Google',
-        email: 'Email'
+        email: 'Email',
+        password: 'Password'
     };
 
     let account = $state<Account | null>(null);
@@ -97,6 +99,51 @@
             emailError = 'Network error. Please try again.';
         } finally {
             emailSending = false;
+        }
+    }
+
+    // ---- A password of their own (Slab 8) --------------------------------
+    // Setting one needs a confirmed address to sign in with and to recover
+    // through; the API refuses with that explanation if there isn't one.
+    let editingPassword = $state(false);
+    let currentPassword = $state('');
+    let newPassword = $state('');
+    let confirmPassword = $state('');
+    let passwordSaving = $state(false);
+    let passwordMessage = $state<string | null>(null);
+    let passwordError = $state<string | null>(null);
+
+    async function savePassword() {
+        if (passwordSaving) return;
+        if (newPassword !== confirmPassword) {
+            passwordError = 'Those passwords don\'t match.';
+            return;
+        }
+        passwordSaving = true;
+        passwordError = null;
+        try {
+            const r = await fetch(`${PUBLIC_API_URL}/auth/password/set`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    password: newPassword,
+                    current_password: account?.has_password ? currentPassword : null
+                })
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                passwordError = typeof body.detail === 'string' ? body.detail : 'Could not save that password.';
+                return;
+            }
+            passwordMessage = account?.has_password ? 'Password changed. Your other devices are signed out.' : 'Password set.';
+            editingPassword = false;
+            currentPassword = newPassword = confirmPassword = '';
+            await load();
+        } catch (_) {
+            passwordError = 'Network error. Please try again.';
+        } finally {
+            passwordSaving = false;
         }
     }
 
@@ -427,7 +474,7 @@
                     {/if}
                     <div class="account-row-actions">
                         {#if removingId === i.id}
-                            <span class="account-muted">Remove this way in?</span>
+                            <span class="account-muted">Remove this way in? Your other devices will be signed out.</span>
                             <button class="danger-button" type="button" disabled={identityBusy}
                                     onclick={() => identityAction(`${PUBLIC_API_URL}/auth/identities/${i.id}`, 'DELETE')}>Remove</button>
                             <button class="secondary-button" type="button" disabled={identityBusy}
@@ -458,11 +505,50 @@
             </p>
         {/if}
 
+        <div class="account-password">
+            <button class="account-edit" type="button"
+                    onclick={() => { editingPassword = !editingPassword; passwordMessage = null; passwordError = null; }}>
+                {account.has_password ? 'Change password' : 'Set a password'}
+            </button>
+            <HelpTip
+                label="about passwords"
+                text={"We never store your password, only a scrambled form of it that can't be turned back. Nobody here can read it, and nobody is ever emailed it.\n\nAt least 10 characters, and anything found in a known data breach is refused.\n\nChanging it signs you out on your other devices."}
+            />
+        </div>
+        {#if editingPassword}
+            <form class="account-password-form" onsubmit={(e) => { e.preventDefault(); savePassword(); }}>
+                {#if account.has_password}
+                    <div class="field">
+                        <label class="field-label" for="pw-current">Current password</label>
+                        <input id="pw-current" class="field-input" type="password" autocomplete="current-password"
+                               required bind:value={currentPassword} />
+                    </div>
+                {/if}
+                <div class="field">
+                    <label class="field-label" for="pw-new">New password</label>
+                    <input id="pw-new" class="field-input" type="password" autocomplete="new-password"
+                           required bind:value={newPassword} />
+                </div>
+                <div class="field">
+                    <label class="field-label" for="pw-again">New password again</label>
+                    <input id="pw-again" class="field-input" type="password" autocomplete="new-password"
+                           required bind:value={confirmPassword} />
+                </div>
+                {#if passwordError}<p class="field-error">{passwordError}</p>{/if}
+                <button class="primary-button" type="submit" disabled={passwordSaving}>
+                    {passwordSaving ? 'Saving…' : 'Save password'}
+                </button>
+            </form>
+        {/if}
+        {#if passwordMessage}
+            <p class="pairing-message" role="status">{passwordMessage}</p>
+        {/if}
+
         {#if account.can_add.length > 0}
             <div class="account-nudge">
                 <div class="a-subtitle">Add another way to sign in</div>
                 <div class="account-nudge-row">
-                    {#each account.can_add as provider}
+                    {#each account.can_add.filter((p) => p !== 'password') as provider}
                         {#if provider === 'email'}
                             <button class="secondary-button" type="button"
                                     onclick={() => { addingEmail = !addingEmail; emailMessage = null; }}>Add email</button>
@@ -673,6 +759,14 @@
         gap: 0.4rem;
     }
     .account-another a { color: var(--color-accent); }
+    .account-password {
+        margin: 0.5rem 0 0;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .account-password-form { margin-top: 0.7rem; max-width: 22rem; }
+    .account-password-form .field-label { margin-bottom: 0.3rem; }
     .account-merge { --panel-accent: var(--color-accent-bright); }
     .account-merge-other { margin: 0 0 0.9rem; }
 
