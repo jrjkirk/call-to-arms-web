@@ -214,6 +214,7 @@
             loadRankings();
             loadFactions();
             loadSeasons();
+            loadFormConfig();
         }
     });
 
@@ -233,7 +234,26 @@
     let resultValue = $state('Player 1 Victory');
 
     let submitting = $state(false);
-    let submitSuccess = $state<{ duplicate: boolean; result?: any } | null>(null);
+    let submitSuccess = $state<{ duplicate: boolean; result?: any; existing?: { outcome: string; result_date: string } } | null>(null);
+
+    // What this league asks for. A league on a single K value has no game
+    // type to pick, and one with painting switched off has no painting to
+    // declare. Starts as "ask for everything", which is what every league did
+    // before these were options, so a failed load leaves the form as it was.
+    type LeagueFormConfig = { uses_game_type: boolean; painting_enabled: boolean };
+    const ASK_EVERYTHING: LeagueFormConfig = { uses_game_type: true, painting_enabled: true };
+    let formConfig = $state<LeagueFormConfig>(ASK_EVERYTHING);
+
+    async function loadFormConfig() {
+        if (!selectedSystem) return;
+        try {
+            const params = new URLSearchParams({ system: selectedSystem });
+            const r = await fetch(`${PUBLIC_API_URL}/league/config?${params}`, { credentials: 'include' });
+            formConfig = r.ok ? await r.json() : ASK_EVERYTHING;
+        } catch (_) {
+            formConfig = ASK_EVERYTHING;
+        }
+    }
     let submitError = $state<string | null>(null);
     // The Discord membership gate now covers result submission, and it's the
     // one API error carrying a structured body rather than a string — it needs
@@ -266,7 +286,7 @@
         return d >= 0 ? `+${d}` : String(d);
     }
 
-    async function submitLeagueResult() {
+    async function submitLeagueResult(confirmSecondGame = false) {
         if (!canSubmit || !selectedSystem) return;
         submitting = true;
         submitSuccess = null;
@@ -282,11 +302,12 @@
                     player_2_id: Number(p2IdStr),
                     player_1_faction: p1Faction === NONE_FACTION ? null : p1Faction,
                     player_2_faction: p2Faction === NONE_FACTION ? null : p2Faction,
-                    player_1_painting_bonus: p1Painting === NONE_FACTION ? null : p1Painting,
-                    player_2_painting_bonus: p2Painting === NONE_FACTION ? null : p2Painting,
-                    game_type: gameType,
+                    player_1_painting_bonus: !formConfig.painting_enabled || p1Painting === NONE_FACTION ? null : p1Painting,
+                    player_2_painting_bonus: !formConfig.painting_enabled || p2Painting === NONE_FACTION ? null : p2Painting,
+                    game_type: formConfig.uses_game_type ? gameType : 'Competitive',
                     result: resultValue,
                     system: selectedSystem,
+                    confirm_second_game: confirmSecondGame,
                 }),
             });
             const body = await r.json().catch(() => ({}));
@@ -509,7 +530,12 @@
             {#if submitSuccess}
                 {#if submitSuccess.duplicate}
                     <div class="result-msg result-msg--info">
-                        This exact league result has already been submitted, so a duplicate was not created.
+                        {#if submitSuccess.existing}
+                            This game looks like it has already been logged: {submitSuccess.existing.outcome} on {submitSuccess.existing.result_date}. Nothing new was added.
+                        {:else}
+                            This game has already been logged, so nothing new was added.
+                        {/if}
+                        <button type="button" class="link-button" disabled={submitting} onclick={() => submitLeagueResult(true)}>We played again, log this one too</button>
                     </div>
                 {:else}
                     <div class="result-msg result-msg--success">
@@ -588,6 +614,7 @@
                     </div>
                 </div>
 
+                {#if formConfig.painting_enabled}
                 <div class="form-row">
                     <div class="field">
                         <label class="field-label" for="lr-p1-paint">Player 1 Painting Bonus</label>
@@ -606,8 +633,10 @@
                         </select>
                     </div>
                 </div>
+                {/if}
 
                 <div class="form-row">
+                    {#if formConfig.uses_game_type}
                     <div class="field">
                         <label class="field-label" for="lr-game-type">Game Type
                             <HelpTip label="game type" text={"Casual and Competitive use different rating weights (K values), set in this system's league settings."} /></label>
@@ -616,6 +645,7 @@
                             <option>Casual</option>
                         </select>
                     </div>
+                    {/if}
                     <div class="field">
                         <label class="field-label" for="lr-result">Result</label>
                         <select id="lr-result" class="field-select" bind:value={resultValue}>

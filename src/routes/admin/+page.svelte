@@ -153,12 +153,14 @@
         starting_rating: number;
         k_casual: number;
         k_competitive: number;
+        single_k: boolean;
+        k_single: number;
+        painting_enabled: boolean;
         painting_fully_bonus: number;
         painting_partial_bonus: number;
         points_win: number;
         points_draw: number;
         points_loss: number;
-        winloss_use_painting: boolean;
     };
     type PairingWeightConfigData = {
         uses_scenarios: boolean;
@@ -3960,24 +3962,28 @@
                                                     </div>
 
                                                     {#if ls.config.scoring_method === 'elo'}
-                                                        <div class="field field-narrow">
-                                                            <label class="field-label" for="lc-kc-{scope}">K (casual)
-                                                                <HelpTip label="the K value" text={"How big the rating swings are. Higher K, faster movement.\n\n\u2022 Lower K for casual games\n\u2022 Higher K for competitive ones\n\nDefaults are 10 and 40."} /></label>
-                                                            <input id="lc-kc-{scope}" class="field-input" type="number" bind:value={ls.config.k_casual} />
-                                                        </div>
-                                                        <div class="field field-narrow">
-                                                            <label class="field-label" for="lc-kk-{scope}">K (competitive)</label>
-                                                            <input id="lc-kk-{scope}" class="field-input" type="number" bind:value={ls.config.k_competitive} />
-                                                        </div>
-                                                        <div class="field field-narrow">
-                                                            <label class="field-label" for="lc-pf-{scope}">Painting bonus (fully)
-                                                                <HelpTip label="painting bonuses" text={"A small flat boost for fielding a painted army, added on top of the result.\n\nDefaults are +3 fully painted, +1 partially."} /></label>
-                                                            <input id="lc-pf-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
-                                                        </div>
-                                                        <div class="field field-narrow">
-                                                            <label class="field-label" for="lc-pp-{scope}">Painting bonus (partial)</label>
-                                                            <input id="lc-pp-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
-                                                        </div>
+                                                        <label class="check-row ap-toggle">
+                                                            <input type="checkbox" bind:checked={ls.config.single_k} />
+                                                            <span>Use one K value for every game
+                                                                <HelpTip label="one K value" text={"K is how big the rating swings are. Higher K, faster movement.\n\nTicked, every game counts the same and the result form stops asking whether it was casual or competitive.\n\nUnticked, casual and competitive games each get their own K."} /></span>
+                                                        </label>
+                                                        {#if ls.config.single_k}
+                                                            <div class="field field-narrow">
+                                                                <label class="field-label" for="lc-ks-{scope}">K value
+                                                                    <HelpTip label="the K value" text={"32 is the usual starting point for a club league. Go lower for steadier ratings, higher if players only get a handful of games a season."} /></label>
+                                                                <input id="lc-ks-{scope}" class="field-input" type="number" min="1" bind:value={ls.config.k_single} />
+                                                            </div>
+                                                        {:else}
+                                                            <div class="field field-narrow">
+                                                                <label class="field-label" for="lc-kc-{scope}">K (casual)
+                                                                    <HelpTip label="the K value" text={"How big the rating swings are. Higher K, faster movement.\n\n\u2022 Lower K for casual games\n\u2022 Higher K for competitive ones\n\nDefaults are 10 and 40."} /></label>
+                                                                <input id="lc-kc-{scope}" class="field-input" type="number" bind:value={ls.config.k_casual} />
+                                                            </div>
+                                                            <div class="field field-narrow">
+                                                                <label class="field-label" for="lc-kk-{scope}">K (competitive)</label>
+                                                                <input id="lc-kk-{scope}" class="field-input" type="number" bind:value={ls.config.k_competitive} />
+                                                            </div>
+                                                        {/if}
                                                     {:else}
                                                         <div class="field field-narrow">
                                                             <label class="field-label" for="lc-pw-{scope}">Points (win)</label>
@@ -3991,20 +3997,22 @@
                                                             <label class="field-label" for="lc-pl-{scope}">Points (loss)</label>
                                                             <input id="lc-pl-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.points_loss} />
                                                         </div>
-                                                        <label class="check-row ap-toggle">
-                                                            <input type="checkbox" bind:checked={ls.config.winloss_use_painting} />
-                                                            <span>Also apply the painting bonuses above</span>
-                                                        </label>
-                                                        {#if ls.config.winloss_use_painting}
-                                                            <div class="field field-narrow">
-                                                                <label class="field-label" for="lc-pf2-{scope}">Painting bonus (fully)</label>
-                                                                <input id="lc-pf2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
-                                                            </div>
-                                                            <div class="field field-narrow">
-                                                                <label class="field-label" for="lc-pp2-{scope}">Painting bonus (partial)</label>
-                                                                <input id="lc-pp2-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
-                                                            </div>
-                                                        {/if}
+                                                    {/if}
+
+                                                    <label class="check-row ap-toggle">
+                                                        <input type="checkbox" bind:checked={ls.config.painting_enabled} />
+                                                        <span>Award painting bonuses
+                                                            <HelpTip label="painting bonuses" text={"A flat boost for fielding a painted army, added on top of the result. Set each one to whatever suits your league.\n\nUnticked, painting plays no part and the result form stops asking about it.\n\nDefaults are +3 fully painted, +1 partially."} /></span>
+                                                    </label>
+                                                    {#if ls.config.painting_enabled}
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-pf-{scope}">Painting bonus (fully)</label>
+                                                            <input id="lc-pf-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_fully_bonus} />
+                                                        </div>
+                                                        <div class="field field-narrow">
+                                                            <label class="field-label" for="lc-pp-{scope}">Painting bonus (partial)</label>
+                                                            <input id="lc-pp-{scope}" class="field-input" type="number" step="any" bind:value={ls.config.painting_partial_bonus} />
+                                                        </div>
                                                     {/if}
 
                                                     {#if ls.configMessage}<p class="pairing-message">{ls.configMessage}</p>{/if}
@@ -4098,9 +4106,11 @@
                                                             <tr>
                                                                 <th>Game</th>
                                                                 <th>Outcome</th>
-                                                                <th>Type</th>
-                                                                <th>P1 painting</th>
-                                                                <th>P2 painting</th>
+                                                                {#if ls.config.scoring_method === 'elo' && !ls.config.single_k}<th>Type</th>{/if}
+                                                                {#if ls.config.painting_enabled}
+                                                                    <th>P1 painting</th>
+                                                                    <th>P2 painting</th>
+                                                                {/if}
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -4115,12 +4125,15 @@
                                                                             <option value="Player 2 Victory">{row.b_name} won</option>
                                                                         </select>
                                                                     </td>
+                                                                    {#if ls.config.scoring_method === 'elo' && !ls.config.single_k}
                                                                     <td>
                                                                         <select class="field-select" bind:value={row.game_type}>
                                                                             <option value="Competitive">Competitive</option>
                                                                             <option value="Casual">Casual</option>
                                                                         </select>
                                                                     </td>
+                                                                    {/if}
+                                                                    {#if ls.config.painting_enabled}
                                                                     <td>
                                                                         <select class="field-select" bind:value={row.a_painting}>
                                                                             <option value="">—</option>
@@ -4135,6 +4148,7 @@
                                                                             <option value="Fully Painted">Full</option>
                                                                         </select>
                                                                     </td>
+                                                                    {/if}
                                                                 </tr>
                                                             {/each}
                                                         </tbody>
@@ -4166,14 +4180,14 @@
                                                                 <th>Date</th>
                                                                 <th>Player 1</th>
                                                                 <th>P1 Faction</th>
-                                                                <th>P1 Painting</th>
+                                                                {#if ls.config.painting_enabled}<th>P1 Painting</th>{/if}
                                                                 <th>P1 Before</th>
                                                                 <th>P1 After</th>
                                                                 <th>Result</th>
-                                                                <th>Type</th>
+                                                                {#if ls.config.scoring_method === 'elo' && !ls.config.single_k}<th>Type</th>{/if}
                                                                 <th>Player 2</th>
                                                                 <th>P2 Faction</th>
-                                                                <th>P2 Painting</th>
+                                                                {#if ls.config.painting_enabled}<th>P2 Painting</th>{/if}
                                                                 <th>P2 Before</th>
                                                                 <th>P2 After</th>
                                                                 <th></th>
@@ -4202,6 +4216,7 @@
                                                                             onchange={() => patchLeagueResult(scope, r.id, 'player_1_faction', r.player_1_faction)}
                                                                         />
                                                                     </td>
+                                                                    {#if ls.config.painting_enabled}
                                                                     <td>
                                                                         <select
                                                                             class="cell-select"
@@ -4214,6 +4229,7 @@
                                                                             {/each}
                                                                         </select>
                                                                     </td>
+                                                                    {/if}
                                                                     <td><span class="cell-readonly">{Math.round(r.player_1_rating_before)}</span></td>
                                                                     <td><span class="cell-readonly">{Math.round(r.player_1_rating_after)}</span></td>
                                                                     <td>
@@ -4227,6 +4243,7 @@
                                                                             <option value="Player 2 Victory">{r.player_2_name} Victory</option>
                                                                         </select>
                                                                     </td>
+                                                                    {#if ls.config.scoring_method === 'elo' && !ls.config.single_k}
                                                                     <td>
                                                                         <select
                                                                             class="cell-select"
@@ -4238,6 +4255,7 @@
                                                                             {/each}
                                                                         </select>
                                                                     </td>
+                                                                    {/if}
                                                                     <td>
                                                                         <select
                                                                             class="cell-select"
@@ -4257,6 +4275,7 @@
                                                                             onchange={() => patchLeagueResult(scope, r.id, 'player_2_faction', r.player_2_faction)}
                                                                         />
                                                                     </td>
+                                                                    {#if ls.config.painting_enabled}
                                                                     <td>
                                                                         <select
                                                                             class="cell-select"
@@ -4269,6 +4288,7 @@
                                                                             {/each}
                                                                         </select>
                                                                     </td>
+                                                                    {/if}
                                                                     <td><span class="cell-readonly">{Math.round(r.player_2_rating_before)}</span></td>
                                                                     <td><span class="cell-readonly">{Math.round(r.player_2_rating_after)}</span></td>
                                                                     <td class="cell-delete">
