@@ -208,7 +208,7 @@ export const FALLBACK_SYSTEMS_CONFIG: SystemConfig[] = [
     },
     {
         // Middle Earth has ~95 army lists (grouped Good/Evil) — the full set is
-        // served live from GET /systems (systems/middle_earth.py); this offline
+        // served live from GET /systems (the system's DB row); this offline
         // net only needs the system to exist with its points/vibe config.
         slug: 'mesbg',
         name: 'Middle Earth',

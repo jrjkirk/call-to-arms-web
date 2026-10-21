@@ -48,19 +48,17 @@
         has_league: boolean;
         recent_weeks: number;
         extended_weeks: number;
-        /* The AUTHORED ruleset — what this admin has written, which is null
-           on every system still served by a code module in the API's systems/
-           directory. The edit form binds to these. */
+        /* The AUTHORED ruleset — what this admin has written. Null means the
+           system has no factions yet. The edit form binds to these. */
         faction_list: string[] | null;
         faction_groups: { label: string; factions: string[] }[] | null;
         icon_folder: string | null;
-        /* What is actually in force right now, whichever source won. Shown as
-           context; never bound to, or editing a code-backed system would
-           silently migrate it. */
+        /* What is served to players. Since the code modules were deleted
+           (2026-10-21) it always matches the authored columns. */
         resolved_faction_list: string[] | null;
         resolved_faction_groups: { label: string; factions: string[] }[] | null;
         resolved_icon_folder: string | null;
-        ruleset_source: 'authored' | 'code' | 'none';
+        ruleset_source: 'authored' | 'none';
         logo_url: string | null;
         active: boolean;
     };
@@ -193,16 +191,16 @@
     let gsExtendedWeeks = $state(6);
     let gsActive = $state(true);
 
-    /* The ruleset. Authored here now instead of in a systems/<name>.py module
-       and a deploy. A system left with an empty faction list falls back to its
-       module if it has one, which is how all six originals still work. */
+    /* The ruleset, authored here for every system. The six originals used to
+       live in systems/<name>.py modules and need a deploy; since 2026-10-21
+       they are ordinary authored rows too. */
     let gsFactionsText = $state('');
     let gsIconFolder = $state('');
     /* Categories, the Middle Earth Good/Evil shape. Off by default because
        most systems have a flat list short enough for one dropdown. */
     let gsUseCategories = $state(false);
     let gsCategories = $state<{ label: string; factionsText: string }[]>([]);
-    let gsRulesetSource = $state<'authored' | 'code' | 'none'>('none');
+    let gsRulesetSource = $state<'authored' | 'none'>('none');
     let gsLogoUrl = $state<string | null>(null);
     let gsLogoBusy = $state(false);
     let gsChecklist = $state<any | null>(null);
@@ -1048,11 +1046,7 @@
         gsExtendedWeeks = existing.extended_weeks;
         gsActive = existing.active;
 
-        /* The AUTHORED columns, not the resolved ones. A system still served
-           by its code module shows an empty box, which is the truth: it has
-           nothing authored. Pre-filling it with the module's list would make
-           the next save silently migrate that system off code, which is the
-           one thing the staged migration is meant to be deliberate about. */
+        /* The AUTHORED columns: what a save writes back. */
         gsFactionsText = (existing.faction_list ?? []).join('\n');
         gsIconFolder = existing.icon_folder ?? '';
         const groups = existing.faction_groups ?? [];
@@ -1089,8 +1083,7 @@
             has_league: gsHasLeague,
             recent_weeks: gsRecentWeeks,
             extended_weeks: gsExtendedWeeks,
-            // The ruleset. Empty means "no authored value", which is what
-            // hands a system back to its code module.
+            // The ruleset. Empty means the system has no factions.
             faction_list: gsFactionsArr,
             faction_groups: gsUseCategories ? gsCategoriesArr : null,
             icon_folder: gsIconFolder.trim() || null,
@@ -1710,10 +1703,8 @@
             <div class="sys-ruleset">
                 <div class="sys-ruleset-head">
                     <span class="sys-ruleset-title">Factions</span>
-                    <HelpTip label="factions" text={"The army list a player picks at signup, and what the pairings image draws an icon for.\n\n\u2022 One per line\n\u2022 Blank lines and duplicates are dropped\n\u2022 Leave it empty and a system with a code module in the API keeps using that"} />
-                    {#if gsRulesetSource === 'code'}
-                        <span class="sp-tag">reading systems/*.py</span>
-                    {:else if gsRulesetSource === 'authored'}
+                    <HelpTip label="factions" text={"The army list a player picks at signup, and what the pairings image draws an icon for.\n\n\u2022 One per line\n\u2022 Blank lines and duplicates are dropped\n\u2022 Leave it empty and the system has no factions"} />
+                    {#if gsRulesetSource === 'authored'}
                         <span class="sp-tag">authored here</span>
                     {/if}
                 </div>
