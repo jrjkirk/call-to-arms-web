@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import FactionRequestQueue from '$lib/FactionRequestQueue.svelte';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -99,6 +100,7 @@
         { id: 'jobs', label: 'Scheduled Jobs' },
         { id: 'audit', label: 'Audit Log' },
         { id: 'requests', label: 'Club Requests' },
+        { id: 'factions', label: 'Faction Requests' },
         { id: 'emails', label: 'Onboarding Emails' },
         { id: 'finduser', label: 'Find a User' },
     ];
@@ -590,6 +592,14 @@
         await refreshPendingClubRequestCount();
     }
 
+    // Faction requests: the queue itself is FactionRequestQueue; the page only
+    // needs the count, for the sidebar badge, before that tab is ever opened.
+    let pendingFactionRequestCount = $state(0);
+    async function refreshPendingFactionRequestCount() {
+        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/faction-requests`, { credentials: 'include' });
+        if (r.ok) pendingFactionRequestCount = ((await r.json()).requests ?? []).length;
+    }
+
     async function refreshPendingClubRequestCount() {
         const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-requests?status=pending`, { credentials: 'include' });
         if (r.ok) pendingClubRequestCount = (await r.json()).length;
@@ -754,7 +764,7 @@
         if (adminMe?.is_platform_admin) {
             await Promise.all([
                 loadClubsHealth(), loadClubs(), loadSystemsCatalogue(), loadGameSystems(),
-                loadSiteBanner(), loadCommunityDiscord(), loadJobRuns(), loadAuditLog(), loadClubRequests(),
+                loadSiteBanner(), loadCommunityDiscord(), loadJobRuns(), loadAuditLog(), loadClubRequests(), refreshPendingFactionRequestCount(),
                 loadClubEmails(),
             ]);
         }
@@ -1341,6 +1351,9 @@
                     {item.label}
                     {#if item.id === 'requests' && pendingClubRequestCount > 0}
                         <span class="pending-count-badge">{pendingClubRequestCount}</span>
+                    {/if}
+                    {#if item.id === 'factions' && pendingFactionRequestCount > 0}
+                        <span class="pending-count-badge">{pendingFactionRequestCount}</span>
                     {/if}
                 </button>
             {/each}
@@ -1957,6 +1970,27 @@
                     </div>
                     <button class="secondary-button" type="button" onclick={loadAuditLog}>Refresh</button>
                 {/if}
+            </section>
+        </div>
+    </div>
+    {/if}
+
+    {#if activeNav === 'factions'}
+    <!-- ══ Faction Requests ══ -->
+    <div class="dash-group">
+        <div class="dash-group-header static">
+            <span class="dash-group-title">
+                Faction Requests
+                {#if pendingFactionRequestCount > 0}<span class="pending-count-badge">{pendingFactionRequestCount}</span>{/if}
+            </span>
+            <HelpTip
+                label="faction requests"
+                text={"System admins asking for factions to be added to a system's shared list.\n\n\u2022 Add puts the name in the list straight away; fix the spelling in the box first if it needs it\n\u2022 Decline tells them why\n\u2022 Later leaves it waiting\n\nApproving posts to the updates channel and sends the requester a notice. The icon still has to be committed by hand."}
+            />
+        </div>
+        <div class="dash-group-body">
+            <section class="admin-section">
+                <FactionRequestQueue onchange={(n) => (pendingFactionRequestCount = n)} />
             </section>
         </div>
     </div>

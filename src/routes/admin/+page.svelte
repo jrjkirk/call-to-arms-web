@@ -26,6 +26,7 @@
         getSystemsConfig, configFor, vibeOptionsFor, usesPoints, FALLBACK_SYSTEMS_CONFIG, CANONICAL_VIBES, systemLogoUrl, type SystemConfig
     } from '$lib/systemsConfig';
     import FactionOptions from '$lib/FactionOptions.svelte';
+    import FactionRequestPanel from '$lib/FactionRequestPanel.svelte';
     import LineChart from '$lib/charts/LineChart.svelte';
     import BarChart from '$lib/charts/BarChart.svelte';
     import HBarChart from '$lib/charts/HBarChart.svelte';
@@ -6013,6 +6014,17 @@
                                 {/if}
                             </div>
                         {/if}
+                        <!-- Factions are shared by every club, so a system
+                             admin asks and the platform admin approves. -->
+                        <div class="sub-section pairings-section">
+                            <h4 class="a-title">Request a faction
+                                <HelpTip label="faction requests" text={"Ask for a faction to be added to this system's list.\n\n\u2022 Every club uses the same list, so each request is checked first\n\u2022 You'll get a notice when it's added\n\u2022 To rename or remove a faction, ask the platform admin"} /></h4>
+                            <FactionRequestPanel
+                                system={scope}
+                                factions={configFor(systemsConfig, scope)?.faction_list ?? []}
+                                groups={(configFor(systemsConfig, scope)?.faction_groups ?? []).map((g) => g.label)}
+                            />
+                        </div>
         </section>
             </div>
         </div>

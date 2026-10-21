@@ -75,6 +75,7 @@
 	function title(kind: string): string {
 		if (kind === 'opponent_dropped') return 'Your game has changed';
 		if (kind === 'game_found') return 'You have a game';
+		if (kind === 'faction_request') return 'Faction request';
 		return 'Pairings are up';
 	}
 
@@ -104,9 +105,13 @@
 				<div class="notice-text">
 					<p class="notice-title">{title(n.kind)}</p>
 					<p class="notice-body">{n.body}</p>
-					<a class="notice-link" href={pairingsHref(n)} onclick={() => dismiss(n)}>
-						View pairings
-					</a>
+					<!-- A faction request's outcome isn't about a week, so there
+					     are no pairings to point at. -->
+					{#if n.kind !== 'faction_request'}
+						<a class="notice-link" href={pairingsHref(n)} onclick={() => dismiss(n)}>
+							View pairings
+						</a>
+					{/if}
 				</div>
 				<button
 					type="button"
