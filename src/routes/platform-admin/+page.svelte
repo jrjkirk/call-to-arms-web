@@ -54,6 +54,7 @@
         faction_list: string[] | null;
         faction_groups: { label: string; factions: string[] }[] | null;
         icon_folder: string | null;
+        faction_order: 'alphabetical' | 'custom';
         /* What is served to players. Since the code modules were deleted
            (2026-10-21) it always matches the authored columns. */
         resolved_faction_list: string[] | null;
@@ -198,6 +199,9 @@
        they are ordinary authored rows too. */
     let gsFactionsText = $state('');
     let gsIconFolder = $state('');
+    // Alphabetical sorts the list on every save (catch-alls such as "Unlisted
+    // Kill Team" last); custom keeps it as typed, new factions at the end.
+    let gsFactionOrder = $state<'alphabetical' | 'custom'>('alphabetical');
     /* Categories, the Middle Earth Good/Evil shape. Off by default because
        most systems have a flat list short enough for one dropdown. */
     let gsUseCategories = $state(false);
@@ -1011,6 +1015,7 @@
         gsActive = true;
         gsFactionsText = '';
         gsIconFolder = '';
+        gsFactionOrder = 'alphabetical';
         gsUseCategories = false;
         gsCategories = [];
         gsRulesetSource = 'none';
@@ -1059,6 +1064,7 @@
         /* The AUTHORED columns: what a save writes back. */
         gsFactionsText = (existing.faction_list ?? []).join('\n');
         gsIconFolder = existing.icon_folder ?? '';
+        gsFactionOrder = existing.faction_order ?? 'custom';
         const groups = existing.faction_groups ?? [];
         gsUseCategories = groups.length > 0;
         gsCategories = groups.map((g: any) => ({
@@ -1097,6 +1103,7 @@
             faction_list: gsFactionsArr,
             faction_groups: gsUseCategories ? gsCategoriesArr : null,
             icon_folder: gsIconFolder.trim() || null,
+            faction_order: gsFactionOrder,
             active: gsActive
         };
 
@@ -1124,6 +1131,12 @@
                 gsSelectId = String(saved.id);
                 onGameSystemPick();
                 gsMessage = `Created ${saved.name}. Add its logo and icons below.`;
+            }
+            // Re-read what was saved: an alphabetical system comes back sorted,
+            // and the box should show the order players will see.
+            else if (gsIsEditing) {
+                onGameSystemPick();
+                gsMessage = 'Updated.';
             }
         } else {
             const errBody = await r.json().catch(() => ({}));
@@ -1729,6 +1742,15 @@
                     bind:value={gsFactionsText}
                 ></textarea>
                 <p class="field-label-hint">{gsFactionsArr.length} factions</p>
+
+                <div class="field field-narrow">
+                    <label class="field-label" for="gs-faction-order">Order
+                        <HelpTip label="faction order" text={"How the signup dropdown is ordered.\n\n\u2022 Alphabetical: sorted every time the list is saved or a request is approved. \"Unlisted\" and \"Other\" stay at the bottom\n\u2022 Custom: exactly as typed above, with approved factions added at the end. For lists with an order of their own, like Horus Heresy's Legion numbers"} /></label>
+                    <select id="gs-faction-order" class="field-select" bind:value={gsFactionOrder}>
+                        <option value="alphabetical">Alphabetical</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
 
                 <label class="check-row">
                     <input type="checkbox" bind:checked={gsUseCategories} />
