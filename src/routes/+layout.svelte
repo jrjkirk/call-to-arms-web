@@ -10,6 +10,7 @@
     import LandingHero from '$lib/LandingHero.svelte';
     import SignInPrompt from '$lib/SignInPrompt.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
+    import NoticeBanner from '$lib/NoticeBanner.svelte';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
     import { resolveTitle, titleOverride } from '$lib/pageTitle';
@@ -271,6 +272,11 @@
 {/if}
 
 <SiteBanner />
+
+<!-- Pairings published, opponent dropped, late signup: the Discord channel's
+     news, for the players who aren't in the channel. Fixed-position, so it
+     lives outside the page wrap. -->
+<NoticeBanner authed={authLoaded && isAuthed} />
 
 <!-- Mobile-only dimmed overlay, shown when the drawer is open -->
 {#if drawerOpen}

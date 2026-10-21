@@ -15,6 +15,10 @@ Browser → Vercel (SvelteKit, this repo) → Fly.io (FastAPI, ~/projects/call-t
   - Admin pairings endpoints: `/admin/pairings/preview` `/admin/pairings/generate` `/admin/pairings` `/admin/pairings/publish` `/admin/pairings/save` `/admin/pairings/post-discord` `/admin/pairings/signup-list`
   - Interactive docs: https://call-to-arms-api.fly.dev/docs
 - **Auth:** Discord OAuth on the backend, `cta_session` cookie. Claim-profile flow links a Discord user to a `players` row.
+  - **Planned overhaul:** Google / email sign-in and an account page. The audit lives in the API
+    repo at `~/projects/call-to-arms-api/ACCOUNT_OVERHAUL.md` (read-only from here). It lists every
+    hardcoded "Sign in with Discord" string and `discord_name` display site in this repo. All login
+    links must keep going through `src/lib/loginUrl.ts`; never hand-write the login URL.
 
 ## UI copy: no unnecessary descriptors
 
