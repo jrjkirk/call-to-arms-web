@@ -6675,16 +6675,6 @@
     }
     .sp-titles-input { width: 100%; }
     .sp-edit-actions { display: flex; gap: 0.5rem; }
-    .sp-tag {
-        margin-left: 0.4rem;
-        padding: 0.05rem 0.35rem;
-        border: 1px solid var(--color-steel-border);
-        border-radius: 3px;
-        font-size: 0.68rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--color-text-dim);
-    }
 
     .nav-dot {
         display: inline-block;
@@ -6810,13 +6800,6 @@
         .nav-item.active {
             border-bottom-color: var(--color-accent);
         }
-    }
-
-    /* Static (non-interactive) module header — used where a panel used to be
-       a collapsible <details> but is now shown standalone via the sidebar. */
-    .dash-group-header.static {
-        cursor: default;
-        border-left-color: var(--color-accent-border);
     }
 
     /* ── Command Table (dashboard overview) ─────────────────────────────── */
@@ -7096,113 +7079,10 @@
         padding: 0.95rem 1.05rem 1.05rem;
     }
 
-    .admin-section {
-        margin-bottom: 2rem;
-    }
-
-    /* ── Dashboard groups (collapsible) ──────────────────────────────────── */
-
-    /* Clean squared panel — matches .card in app.css for cross-page consistency. */
-    /* The group's edge picks up the active system's colour as well, so the tab
-       reads as one tinted panel rather than a gold frame around coloured cards. */
-    .dash-group {
-        border-left: 3px solid var(--panel-accent);
-        margin-bottom: 1.25rem;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
-        overflow: hidden;
-    }
-
-    .dash-group-header {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 14px 18px;
-        cursor: pointer;
-        font-size: 0.95rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: var(--panel-accent);
-        background: rgba(0, 0, 0, 0.25);
-        border-bottom: 1px solid transparent;
-        /* Gilt left rule — the shared dashboard-module signature, echoing the
-           Command Table's status tiles so every panel reads as one system. */
-        border-left: 3px solid var(--color-accent-border);
-        user-select: none;
-        list-style: none;
-        transition: border-left-color 0.15s ease, color 0.15s ease;
-    }
-
-    .dash-group-header:hover {
-        border-left-color: var(--color-accent);
-        color: var(--color-accent-bright);
-    }
-
-    .dash-group-title {
-        flex: 1;
-    }
-
-    .dash-group-body {
-        padding: 1.25rem 1.5rem;
-    }
-
-    /* Member sections sit inside the group card — the card is the frame, so
-       drop their own bottom-margin scaffolding and don't let the last one
-       add trailing space. */
-    .dash-group-body .admin-section {
-        margin-bottom: 1.75rem;
-    }
-
-    .dash-group-body .admin-section:last-child {
-        margin-bottom: 0;
-    }
-
-    /* Matched to .a-title in app.css. It was 1.1rem gold with an underline rule
-       while .a-title was 0.82rem — two different "section" looks on the same
-       page, so a Discord tab and a Club page tab didn't feel like one product.
-       The card border now does the separating the rule used to. */
-    .section-heading {
-        font-family: var(--font-display);
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: var(--panel-accent);
-        text-transform: uppercase;
-        letter-spacing: 0.09em;
-        margin: 0 0 0.15rem;
-    }
-
     .section-intro {
         font-size: 0.85rem;
         color: var(--color-text-muted);
         margin: 0 0 1rem;
-    }
-
-    /* Every section is a card. This was margin-only, which is why 20 sections
-       across the panel ran together as one undifferentiated column — the single
-       biggest reason the page read as flat. The left edge carries the active
-       system's colour, matching .a-card in app.css so hand-built cards and
-       these are indistinguishable. */
-    .sub-section {
-        border: 1px solid var(--color-steel-border);
-        border-left: 3px solid var(--panel-accent);
-        border-radius: var(--radius);
-        background: var(--color-surface-dark);
-        padding: 0.95rem 1.1rem;
-        margin-bottom: 1rem;
-    }
-
-    /* The no-nested-cards rule lives in app.css — it has to cross component
-       boundaries, and a scoped :has() can't. */
-
-    /* .pairings-section adds a top rule to separate stacked blocks. Inside a
-       card that rule is redundant — the border already separates them. */
-    .sub-section.pairings-section {
-        border-top: 1px solid var(--color-steel-border);
-        padding-top: 0.95rem;
-        margin-top: 0;
     }
 
     /* Was 0.8rem in --color-text-muted: smaller AND dimmer than the body copy
@@ -7301,69 +7181,6 @@
         font-weight: 600;
         padding: 2px 8px 2px 10px;
         border-radius: 999px;
-    }
-
-    .remove-btn {
-        background: none;
-        border: none;
-        color: var(--color-text-muted);
-        cursor: pointer;
-        font-size: 1rem;
-        line-height: 1;
-        padding: 0;
-        transition: color 0.15s;
-    }
-
-    .remove-btn:hover {
-        color: var(--color-loss);
-    }
-
-    /* ── Blocks ────────────────────────────────────────────────────────── */
-
-    .block-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-    }
-
-    .block-row {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 7px 0;
-        background: none;
-        border: none;
-        border-bottom: 1px solid var(--color-steel-border);
-        border-radius: 0;
-        font-size: 0.88rem;
-        flex-wrap: wrap;
-    }
-
-    .block-names {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        flex: 1;
-        min-width: 0;
-    }
-
-    .block-x {
-        color: var(--color-text-muted);
-        font-size: 0.78rem;
-    }
-
-    .block-note {
-        font-size: 0.78rem;
-        color: var(--color-text-dim);
-        font-style: italic;
-    }
-
-    .block-remove {
-        margin-left: auto;
-        flex: 0 0 auto;
     }
 
     /* ── Discord Webhooks ─────────────────────────────────────────────────
@@ -7484,24 +7301,6 @@
         margin-left: 0;
     }
 
-    /* ── Forms ─────────────────────────────────────────────────────────── */
-
-    .appoint-form {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 0.75rem;
-    }
-
-    .field-row-break {
-        flex-basis: 100%;
-        height: 0;
-    }
-
-    .system-form {
-        margin-top: 0.5rem;
-    }
-
     /* .appoint-form is align-items: flex-end, which is right for a row of bare
        inputs with a trailing button — but wrong here. One field carries a
        caption under it, so bottom-alignment shoved Day and Cadence to the
@@ -7509,41 +7308,6 @@
        labels line up as a row. */
     .system-form.cs-edit-form {
         align-items: flex-start;
-    }
-
-    .status-badge {
-        display: inline-block;
-        font-size: 0.72rem;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 999px;
-    }
-
-    .status-active {
-        background: rgba(110, 180, 110, 0.15);
-        color: var(--color-win);
-        border: 1px solid rgba(110, 180, 110, 0.4);
-    }
-
-    .status-inactive {
-        background: rgba(148, 163, 184, 0.1);
-        color: var(--color-text-faint);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-    }
-
-    .field-select {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        color: var(--color-text-base);
-        padding: 7px 10px;
-        font-size: 0.9rem;
-        cursor: pointer;
-    }
-
-    .field-select:focus {
-        outline: none;
-        border-color: var(--color-accent);
     }
 
     .publish-btn {
@@ -7573,61 +7337,11 @@
         opacity: 0.85;
     }
 
-    /* ── History list ───────────────────────────────────────────────────── */
-
-    .history-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        max-height: 320px;
-        overflow-y: auto;
-    }
-
-    .history-row {
-        display: flex;
-        align-items: baseline;
-        gap: 0.6rem;
-        padding: 4px 6px;
-        font-size: 0.82rem;
-        color: var(--color-text-base);
-        flex-wrap: wrap;
-        border-radius: 4px;
-    }
-
-    .history-row:nth-child(odd) {
-        background: rgba(0, 0, 0, 0.12);
-    }
-
-    .history-date {
-        font-size: 0.74rem;
-        color: var(--color-text-muted);
-        white-space: nowrap;
-        flex: 0 0 auto;
-        min-width: 5.5rem;
-        font-variant-numeric: tabular-nums;
-    }
-
-    .history-matchup {
-        flex: 1;
-        min-width: 0;
-    }
-
     .history-result {
         font-size: 0.76rem;
         color: var(--color-text-dim);
         white-space: nowrap;
         flex: 0 0 auto;
-    }
-
-    /* ── Pairings section ───────────────────────────────────────────────── */
-
-    .pairings-section {
-        border-top: 1px solid var(--color-accent-border-soft);
-        padding-top: 1rem;
-        margin-top: 1rem;
     }
 
     .pub-badge {
@@ -7707,65 +7421,12 @@
         color: var(--color-tnt);
     }
 
-    /* ── Pairing grid ───────────────────────────────────────────────────── */
-
-    .grid-wrap {
-        overflow-x: auto;
-        margin-bottom: 0.75rem;
-    }
-
-    .pairing-grid {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.78rem;
-        min-width: 700px;
-    }
-
-    .pairing-grid th {
-        text-align: left;
-        padding: 5px 6px;
-        font-size: 0.68rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--color-text-muted);
-        border-bottom: 1px solid var(--color-accent-border-soft);
-        white-space: nowrap;
-    }
-
-    .pairing-grid td {
-        padding: 4px 4px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        vertical-align: middle;
-    }
-
-    .pairing-grid tr:hover td {
-        background: rgba(255, 255, 255, 0.02);
-    }
-
     .prearranged-row td {
         background: rgba(201, 161, 74, 0.06);
     }
 
     .preview-row td {
         opacity: 0.75;
-    }
-
-    .cell-select {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: 4px;
-        color: var(--color-text-base);
-        padding: 3px 6px;
-        font-size: 0.75rem;
-        width: 100%;
-        max-width: 160px;
-        cursor: pointer;
-    }
-
-    .cell-select:focus {
-        outline: none;
-        border-color: var(--color-accent);
     }
 
     .cell-input-num {
@@ -7782,11 +7443,6 @@
     .cell-input-num:focus {
         outline: none;
         border-color: var(--color-accent);
-    }
-
-    .cell-text {
-        font-size: 0.78rem;
-        color: var(--color-text-base);
     }
 
     .cell-readonly {
@@ -7811,31 +7467,9 @@
         background: var(--color-sidebar-bg);
     }
 
-    .cell-delete {
-        width: 28px;
-        text-align: center;
-    }
-
     .cell-check {
         width: 50px;
         text-align: center;
-    }
-
-    .cell-input {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: 4px;
-        color: var(--color-text-base);
-        padding: 3px 6px;
-        font-size: 0.75rem;
-        width: 100%;
-        max-width: 140px;
-        font-family: inherit;
-    }
-
-    .cell-input:focus {
-        outline: none;
-        border-color: var(--color-accent);
     }
 
     .add-signup-details {
@@ -7852,25 +7486,6 @@
 
     .add-signup-details summary::-webkit-details-marker { display: none; }
 
-    .add-signup-form {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        margin: 0.75rem 0;
-    }
-
-    .add-signup-form .field {
-        min-width: 140px;
-    }
-
-    .check-row {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.85rem;
-        color: var(--color-text-base);
-    }
-
     .save-row {
         display: flex;
         align-items: center;
@@ -7882,29 +7497,6 @@
         font-size: 0.78rem;
         color: var(--color-accent-bright);
         font-style: italic;
-    }
-
-    /* ── Auto-Pairings settings ─────────────────────────────────────────── */
-
-    .auto-pairings-form {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .ap-row-break {
-        flex-basis: 100%;
-        height: 0;
-    }
-
-    .ap-toggle {
-        padding-bottom: 6px;
-    }
-
-    .ap-last-ran {
-        padding-bottom: 6px;
     }
 
     .cta-template-field {
@@ -7966,12 +7558,6 @@
         margin: 0.35rem 0;
     }
 
-    .system-form-actions {
-        display: flex;
-        gap: 0.6rem;
-        align-items: center;
-    }
-
     .tb-preview-box {
         margin-top: 0.75rem;
         padding: 0.75rem 1rem;
@@ -8000,14 +7586,6 @@
         margin: 0.35rem 0;
     }
 
-    .radio-row {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.88rem;
-        cursor: pointer;
-    }
-
     .cta-image-url {
         margin-top: 0.35rem;
     }
@@ -8021,11 +7599,6 @@
         max-width: 480px;
     }
 
-    .player-edit-wide {
-        min-width: 0;
-        width: 100%;
-    }
-
     .player-edit-actions {
         display: flex;
         align-items: center;
@@ -8036,20 +7609,6 @@
        mis-aimed click apart. */
     .player-edit-actions .danger-button {
         margin-left: auto;
-    }
-
-    .field-textarea {
-        resize: vertical;
-        min-height: 4rem;
-        line-height: 1.5;
-    }
-
-    .field-label-hint {
-        font-size: 0.65rem;
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: 0;
-        color: var(--color-text-faint);
     }
 
     .field-label-hint .hint-link {
@@ -8076,10 +7635,7 @@
         background: var(--color-surface-dark);
         margin-bottom: 1rem;
     }
-    .mission-file {
-        padding: 0.4rem;
-        font-size: 0.8rem;
-    }
+
     .mission-table-wrap {
         overflow-x: auto;
     }
@@ -8230,20 +7786,6 @@
         object-fit: cover;
         border-radius: var(--radius);
         border: 1px solid var(--color-steel-border);
-    }
-
-    .event-add-form {
-        margin-top: 0.7rem;
-    }
-
-    /* Was used in markup (Website/Discord, Latitude/Longitude, event fields)
-       without ever being defined — every ".form-grid" div silently rendered
-       as a single stacked column instead of a real grid. */
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 0.85rem;
     }
 
     .club-hours-grid {
