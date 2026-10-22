@@ -89,20 +89,25 @@
         padding: 0.4rem;
     }
 
+    /* Command Table: the club's name set like the logo, condensed and in
+       capitals, large enough to be the first thing read on the page. */
     .club-name {
         font-family: var(--font-heading);
-        font-size: clamp(1.6rem, 4vw, 2.3rem);
+        font-size: clamp(2rem, 5.2vw, 3.4rem);
         font-weight: 700;
+        line-height: 0.98;
         color: var(--color-text-bright);
-        letter-spacing: -0.01em;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
         margin: 0;
     }
 
     .club-blurb {
         margin: 0;
+        max-width: 68ch;
         color: var(--color-text-muted);
-        font-size: 1rem;
-        line-height: 1.5;
+        font-size: 1.05rem;
+        line-height: 1.6;
     }
 
     .club-actions {
@@ -119,13 +124,15 @@
         display: inline-flex;
         align-items: center;
         gap: 0.55rem;
-        padding: 0.65rem 1.3rem;
+        min-height: 46px;
+        box-sizing: border-box;
+        padding: 0 1.4rem;
         font-size: 1rem;
-        font-weight: 700;
+        font-weight: 600;
         border: 1px solid transparent;
         border-radius: var(--radius);
         text-decoration: none;
-        transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        transition: background 0.15s ease, border-color 0.15s ease;
     }
 
     /* Discord in Blurple, so it reads as Discord at a glance rather than as a
@@ -139,7 +146,6 @@
 
     .discord-btn:hover {
         background: #4752c4;
-        transform: translateY(-1px);
     }
 
     /* SystemsCarousel keeps its own .slide-discord for the PER-SYSTEM invites,
@@ -157,7 +163,6 @@
 
     .signin-btn:hover {
         background: var(--color-accent-soft);
-        transform: translateY(-1px);
     }
 
     /* Cream, a shade down from --color-text-bright so it sits on the dark page
@@ -170,7 +175,6 @@
 
     .book-btn:hover {
         background: #ece3cb;
-        transform: translateY(-1px);
     }
 
     /* Website is the same box, but neutral — not highlighted or coloured. */
@@ -186,16 +190,12 @@
         border-color: var(--color-steel);
     }
 
-    .club-link:hover {
-        background: var(--color-surface-hover);
-        border-color: var(--color-accent);
-    }
 
     @media (min-width: 561px) {
         .club-logo {
-            width: 88px;
-            height: 88px;
-            padding: 0.5rem;
+            width: 104px;
+            height: 104px;
+            padding: 0.55rem;
         }
     }
 </style>
