@@ -1,6 +1,9 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import FactionRequestQueue from '$lib/FactionRequestQueue.svelte';
+    import SiteBannerPanel from '$lib/admin/SiteBannerPanel.svelte';
+    import OnboardingEmailsPanel from '$lib/admin/OnboardingEmailsPanel.svelte';
+    import ClubHealthPanel from '$lib/admin/ClubHealthPanel.svelte';
     import '$lib/admin/platform-admin.css';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -117,50 +120,6 @@
             run: () => (activeNav = item.id),
         }))
     );
-
-    type ClubHealthRow = {
-        id: number; name: string; slug: string; active: boolean; region: string | null;
-        systems_enabled: number; super_admins: number; has_scope_admin: boolean;
-        webhook: boolean; players: number; last_signup_at: string | null;
-        pairings_published: boolean;
-    };
-    let clubsHealth = $state<ClubHealthRow[]>([]);
-    let clubsHealthLoading = $state(false);
-
-    async function loadClubsHealth() {
-        clubsHealthLoading = true;
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/admin/platform/clubs-health`, { credentials: 'include' });
-            clubsHealth = r.ok ? await r.json() : [];
-        } catch (_) {
-            clubsHealth = [];
-        }
-        clubsHealthLoading = false;
-    }
-
-    function daysSince(iso: string | null): number | null {
-        if (!iso) return null;
-        return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-    }
-    function lastSignupLabel(iso: string | null): string {
-        const d = daysSince(iso);
-        if (d == null) return 'never';
-        if (d === 0) return 'today';
-        if (d === 1) return 'yesterday';
-        return `${d}d ago`;
-    }
-    // A club that isn't really set up or has gone quiet — worth a look.
-    function healthFlags(c: ClubHealthRow): string[] {
-        const f: string[] = [];
-        if (!c.active) f.push('inactive');
-        if (c.systems_enabled === 0) f.push('no systems');
-        if (c.super_admins === 0) f.push('no admin');
-        if (!c.webhook) f.push('no Discord');
-        const d = daysSince(c.last_signup_at);
-        if (d == null) f.push('no signups');
-        else if (d > 21) f.push('quiet 3wk+');
-        return f;
-    }
 
     let clubs = $state<PlatformClub[]>([]);
     let clubsLoading = $state(false);
@@ -377,80 +336,6 @@
         return `${days}d ago`;
     }
 
-    // Site Banner
-    let siteBannerMessage = $state('');
-    let siteBannerSeverity = $state('info');
-    let siteBannerActive = $state(false);
-    let siteBannerLoading = $state(false);
-    let siteBannerSaving = $state(false);
-    let siteBannerError = $state<string | null>(null);
-    let siteBannerMessageOk = $state<string | null>(null);
-
-    async function loadSiteBanner() {
-        siteBannerLoading = true;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/banner`, { credentials: 'include' });
-        if (r.ok) {
-            const data = await r.json();
-            siteBannerMessage = data.message ?? '';
-            siteBannerSeverity = data.severity ?? 'info';
-            siteBannerActive = data.active ?? false;
-        }
-        siteBannerLoading = false;
-    }
-
-    async function saveSiteBanner() {
-        siteBannerSaving = true;
-        siteBannerError = null;
-        siteBannerMessageOk = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/banner`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: siteBannerMessage,
-                severity: siteBannerSeverity,
-                active: siteBannerActive,
-            }),
-        });
-        if (r.ok) {
-            siteBannerMessageOk = 'Saved.';
-        } else {
-            const body = await r.json().catch(() => ({}));
-            siteBannerError = body.detail || 'Save failed.';
-        }
-        siteBannerSaving = false;
-    }
-
-    // Community / support Discord link (global; shown on every admin page)
-    let communityDiscordUrl = $state('');
-    let communityDiscordSaving = $state(false);
-    let communityDiscordError = $state<string | null>(null);
-    let communityDiscordOk = $state<string | null>(null);
-
-    async function loadCommunityDiscord() {
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/community-discord`, { credentials: 'include' });
-        if (r.ok) communityDiscordUrl = (await r.json()).url ?? '';
-    }
-
-    async function saveCommunityDiscord() {
-        communityDiscordSaving = true;
-        communityDiscordError = null;
-        communityDiscordOk = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/community-discord`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: communityDiscordUrl.trim() || null }),
-        });
-        if (r.ok) {
-            communityDiscordOk = 'Saved.';
-        } else {
-            const body = await r.json().catch(() => ({}));
-            communityDiscordError = body.detail || 'Save failed.';
-        }
-        communityDiscordSaving = false;
-    }
-
     // Scheduled Jobs
     type JobRun = { job_name: string; ran_at: string; status: string; detail: string | null };
     type JobEntry = { job_name: string; latest: JobRun | null };
@@ -646,85 +531,6 @@
         }
     }
 
-    // Onboarding Emails — the three messages a club organiser gets. Editable
-    // here because onboarding copy is the sort of thing you tune after the
-    // third club, not the third release.
-    type ClubEmail = {
-        kind: string; label: string; when: string; tokens: string[];
-        subject: string; body: string;
-        default_subject: string; default_body: string; customised: boolean;
-    };
-    let clubEmails = $state<ClubEmail[]>([]);
-    let clubEmailsLoading = $state(false);
-    let clubEmailError = $state<string | null>(null);
-    let clubEmailMessage = $state<string | null>(null);
-    let clubEmailPreview = $state<{ kind: string; subject: string; html: string; text: string; unknown_tokens: string[] } | null>(null);
-    let clubEmailTestTo = $state('');
-
-    async function loadClubEmails() {
-        clubEmailsLoading = true;
-        clubEmailError = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-emails`, { credentials: 'include' });
-        if (r.ok) clubEmails = await r.json();
-        else clubEmailError = 'Could not load the email templates.';
-        clubEmailsLoading = false;
-    }
-
-    async function saveClubEmail(e: ClubEmail) {
-        clubEmailError = null;
-        clubEmailMessage = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-emails`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ kind: e.kind, subject: e.subject, body: e.body })
-        });
-        if (r.ok) {
-            clubEmailMessage = `Saved: ${e.label}.`;
-            await loadClubEmails();
-        } else {
-            const b = await r.json().catch(() => ({}));
-            clubEmailError = b.detail || 'Could not save.';
-        }
-    }
-
-    /** Put the built-in wording back in the boxes. Saving is still explicit, so
-     *  a mis-click is one Cancel away rather than a lost rewrite. */
-    function resetClubEmail(e: ClubEmail) {
-        e.subject = e.default_subject;
-        e.body = e.default_body;
-    }
-
-    async function previewClubEmail(e: ClubEmail) {
-        clubEmailError = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-emails/preview`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ kind: e.kind, subject: e.subject, body: e.body })
-        });
-        if (r.ok) clubEmailPreview = { kind: e.kind, ...(await r.json()) };
-        else clubEmailError = 'Could not render a preview.';
-    }
-
-    async function testSendClubEmail(e: ClubEmail) {
-        clubEmailError = null;
-        clubEmailMessage = null;
-        if (!clubEmailTestTo.trim()) {
-            clubEmailError = 'Put an address in first.';
-            return;
-        }
-        const r = await fetch(`${PUBLIC_API_URL}/admin/platform/club-emails/test`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ kind: e.kind, to: clubEmailTestTo.trim(), subject: e.subject, body: e.body })
-        });
-        const b = await r.json().catch(() => ({}));
-        if (r.ok && b.outcome === 'sent') clubEmailMessage = `Test sent to ${clubEmailTestTo.trim()}.`;
-        else clubEmailError = b.detail || `Test send failed (${b.outcome ?? r.status}).`;
-    }
-
     // Find a User
     type UserSearchResult = {
         user_id: number; name: string; display_name: string | null; discord_name: string | null; player_name: string | null;
@@ -768,9 +574,8 @@
         await loadAdminMe();
         if (adminMe?.is_platform_admin) {
             await Promise.all([
-                loadClubsHealth(), loadClubs(), loadSystemsCatalogue(), loadGameSystems(),
-                loadSiteBanner(), loadCommunityDiscord(), loadJobRuns(), loadAuditLog(), loadClubRequests(), refreshPendingFactionRequestCount(),
-                loadClubEmails(),
+                loadClubs(), loadSystemsCatalogue(), loadGameSystems(),
+                loadJobRuns(), loadAuditLog(), loadClubRequests(), refreshPendingFactionRequestCount(),
             ]);
         }
         pageLoading = false;
@@ -1381,62 +1186,7 @@
         <div class="admin-section-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
     {#if activeNav === 'health'}
-    <div class="dash-group">
-        <div class="dash-group-header static">
-            <span class="dash-group-title">Club Health</span>
-                <HelpTip label="club health" text={"Every club on the platform and whether it's actually being used: signups this week, last activity, whether anyone has set it up. The place to spot a club that signed up and then stalled."} />
-        </div>
-        <div class="dash-group-body">
-            <section class="admin-section">
-                {#if clubsHealthLoading}
-                    <p class="muted">Loading…</p>
-                {:else if clubsHealth.length === 0}
-                    <p class="muted">No clubs yet.</p>
-                {:else}
-                    <div class="health-table-wrap">
-                        <table class="health-table">
-                            <thead>
-                                <tr>
-                                    <th>Club</th>
-                                    <th>Systems</th>
-                                    <th>Admins</th>
-                                    <th>Members</th>
-                                    <th>Discord</th>
-                                    <th>Last signup</th>
-                                    <th>Pairings</th>
-                                    <th>Flags</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each clubsHealth as c (c.id)}
-                                    {@const flags = healthFlags(c)}
-                                    <tr class:row-flagged={flags.length > 0} class:row-inactive={!c.active}>
-                                        <td>
-                                            <a href={`https://${c.slug}.calltoarms.app`} class="health-club">{c.name}</a>
-                                            <span class="health-region">{c.region ?? '—'}</span>
-                                        </td>
-                                        <td class="cell-center" class:bad={c.systems_enabled === 0}>{c.systems_enabled}</td>
-                                        <td class="cell-center" class:bad={c.super_admins === 0}>
-                                            {c.super_admins}{#if c.has_scope_admin}<span class="dot-ok" title="Has a game-system admin"> +</span>{/if}
-                                        </td>
-                                        <td class="cell-center">{c.players}</td>
-                                        <td class="cell-center" class:bad={!c.webhook}>{c.webhook ? '✓' : '✗'}</td>
-                                        <td class:bad={daysSince(c.last_signup_at) == null || (daysSince(c.last_signup_at) ?? 0) > 21}>
-                                            {lastSignupLabel(c.last_signup_at)}
-                                        </td>
-                                        <td class="cell-center">{c.pairings_published ? '✓' : '—'}</td>
-                                        <td>
-                                            {#each flags as f}<span class="flag">{f}</span>{/each}
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    </div>
-                {/if}
-            </section>
-        </div>
-    </div>
+    <ClubHealthPanel />
     {/if}
 
     {#if activeNav === 'clubs'}
@@ -1861,65 +1611,7 @@
     {/if}
 
     {#if activeNav === 'banner'}
-    <!-- ══ Site Banner ══ -->
-    <div class="dash-group">
-        <div class="dash-group-header static">
-            <span class="dash-group-title">Site Banner</span>
-                <HelpTip label="site banner" text={"A message across the top of every page, for every club. Platform-wide, so use it for outages and releases, not for one club's news."} />
-        </div>
-        <div class="dash-group-body">
-            <section class="admin-section">
-                <h3 class="section-heading">Announcement Banner</h3>
-                {#if siteBannerLoading}
-                    <p class="muted">Loading…</p>
-                {:else}
-                    <div class="field">
-                        <label class="field-label" for="banner-message">Message</label>
-                        <textarea id="banner-message" class="field-input" rows="2" bind:value={siteBannerMessage}></textarea>
-                    </div>
-                    <div class="form-grid">
-                        <div class="field">
-                            <label class="field-label" for="banner-severity">Severity</label>
-                            <select id="banner-severity" class="field-select" bind:value={siteBannerSeverity}>
-                                <option value="info">Info</option>
-                                <option value="warning">Warning</option>
-                                <option value="critical">Critical</option>
-                            </select>
-                        </div>
-                        <label class="check-row ap-toggle">
-                            <input type="checkbox" bind:checked={siteBannerActive} />
-                            <span>Active (visible to everyone)</span>
-                        </label>
-                    </div>
-                    {#if siteBannerError}<p class="field-error">{siteBannerError}</p>{/if}
-                    {#if siteBannerMessageOk}<p class="pairing-message">{siteBannerMessageOk}</p>{/if}
-                    <button class="primary-button" type="button" disabled={siteBannerSaving} onclick={saveSiteBanner}>
-                        {siteBannerSaving ? 'Saving…' : 'Save'}
-                    </button>
-                {/if}
-            </section>
-        </div>
-    </div>
-
-    <div class="dash-group">
-        <div class="dash-group-header static">
-            <span class="dash-group-title">Community Discord link</span>
-                <HelpTip label="community discord link" text={"The platform's own Discord:\n\n\u2022 Offered to players who haven't joined a club yet\n\u2022 Shown as a button on every club admin page\n\u2022 Leave blank to hide it\n\nNothing to do with any club's own server."} />
-        </div>
-        <div class="dash-group-body">
-            <section class="admin-section">
-                <div class="field">
-                    <label class="field-label" for="community-discord">Invite URL</label>
-                    <input id="community-discord" class="field-input" type="text" placeholder="https://discord.gg/…" bind:value={communityDiscordUrl} />
-                </div>
-                {#if communityDiscordError}<p class="field-error">{communityDiscordError}</p>{/if}
-                {#if communityDiscordOk}<p class="pairing-message">{communityDiscordOk}</p>{/if}
-                <button class="primary-button" type="button" disabled={communityDiscordSaving} onclick={saveCommunityDiscord}>
-                    {communityDiscordSaving ? 'Saving…' : 'Save'}
-                </button>
-            </section>
-        </div>
-    </div>
+    <SiteBannerPanel />
     {/if}
 
     {#if activeNav === 'jobs'}
@@ -2184,84 +1876,7 @@
     {/if}
 
     {#if activeNav === 'emails'}
-    <!-- ══ Onboarding Emails ══ -->
-    <div class="dash-group">
-        <div class="dash-group-header static">
-            <span class="dash-group-title">Onboarding Emails</span>
-                <HelpTip label="onboarding emails" text={"The three messages a club organiser gets: acknowledgement, welcome, decline.\n\n\u2022 Write plain text, not HTML\n\u2022 A blank line starts a new paragraph\n\u2022 Links are made automatically\n\u2022 {tokens} in curly braces are filled in on send\n\nClear a field to go back to the built-in wording."} />
-        </div>
-        <div class="dash-group-body">
-            <section class="admin-section">
-                {#if clubEmailsLoading}
-                    <p class="muted">Loading…</p>
-                {:else}
-                    {#each clubEmails as e (e.kind)}
-                        <div class="sub-section">
-                            <div class="a-head">
-                                <h4 class="a-title">{e.label}</h4>
-                                <span class="a-head-end">
-                                    <span class="status-badge" class:status-active={e.customised} class:status-inactive={!e.customised}>
-                                        {e.customised ? 'edited' : 'default'}
-                                    </span>
-                                </span>
-                            </div>
-                            <p class="muted small">{e.when}</p>
-                            <p class="muted small">
-                                Tokens: {#each e.tokens as t (t)}<code class="token-chip">{'{' + t + '}'}</code>{/each}
-                            </p>
-                            <div class="field">
-                                <label class="field-label" for={`ce-subject-${e.kind}`}>Subject</label>
-                                <input id={`ce-subject-${e.kind}`} class="field-input" type="text" bind:value={e.subject} />
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for={`ce-body-${e.kind}`}>Message</label>
-                                <textarea id={`ce-body-${e.kind}`} class="field-input" rows="10" bind:value={e.body}></textarea>
-                            </div>
-                            <div class="provision-actions">
-                                <button class="primary-button" type="button" onclick={() => saveClubEmail(e)}>Save</button>
-                                <button class="secondary-button" type="button" onclick={() => previewClubEmail(e)}>Preview</button>
-                                <button class="secondary-button" type="button" onclick={() => resetClubEmail(e)}>Reset to default</button>
-                            </div>
-                            <div class="field test-send">
-                                <label class="field-label" for={`ce-test-${e.kind}`}>Send a test to</label>
-                                <div class="slug-input-wrap">
-                                    <input id={`ce-test-${e.kind}`} class="field-input" type="email" placeholder="you@example.com" bind:value={clubEmailTestTo} />
-                                    <button class="secondary-button" type="button" onclick={() => testSendClubEmail(e)}>Send test</button>
-                                </div>
-                            </div>
-
-                            {#if clubEmailPreview && clubEmailPreview.kind === e.kind}
-                                <div class="email-preview">
-                                    {#if clubEmailPreview.unknown_tokens.length}
-                                        <p class="field-error">
-                                            Unknown token{clubEmailPreview.unknown_tokens.length > 1 ? 's' : ''}:
-                                            {clubEmailPreview.unknown_tokens.join(', ')}. These will appear in the
-                                            email exactly as written.
-                                        </p>
-                                    {/if}
-                                    <p class="muted small">Subject: <strong>{clubEmailPreview.subject}</strong></p>
-                                    <!--
-                                        Safe by construction, not by trust: club_emails.render_body
-                                        escapes the ENTIRE filled template before adding any markup,
-                                        so neither the editor's own text nor a club name off a public
-                                        form can introduce a tag. The only markup that reaches here is
-                                        the paragraphs and links we generate ourselves, and the
-                                        linkifier runs on already-escaped text so it cannot break out.
-                                        Asserted by the "an editor cannot inject markup" case in
-                                        tests/test_club_onboarding.py.
-                                    -->
-                                    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                    <div class="email-preview-body">{@html clubEmailPreview.html}</div>
-                                </div>
-                            {/if}
-                        </div>
-                    {/each}
-                {/if}
-                {#if clubEmailError}<p class="field-error">{clubEmailError}</p>{/if}
-                {#if clubEmailMessage}<p class="pairing-message">{clubEmailMessage}</p>{/if}
-            </section>
-        </div>
-    </div>
+    <OnboardingEmailsPanel />
     {/if}
 
     {#if activeNav === 'finduser'}
@@ -2910,82 +2525,4 @@
         white-space: nowrap;
     }
 
-    .health-table-wrap { overflow-x: auto; }
-    .health-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
-    }
-    .health-table th {
-        text-align: left;
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--color-text-faint);
-        font-weight: 700;
-        padding: 0.4rem 0.6rem;
-        border-bottom: 1px solid var(--color-steel-border);
-        white-space: nowrap;
-    }
-    .health-table td {
-        padding: 0.55rem 0.6rem;
-        border-bottom: 1px solid var(--color-accent-border-soft);
-        color: var(--color-text-base);
-        vertical-align: top;
-    }
-    .health-table .cell-center { text-align: center; }
-    .health-table td.bad { color: var(--color-accent); font-weight: 700; }
-
-    .row-flagged td { background: rgba(201, 161, 74, 0.05); }
-    .row-inactive { opacity: 0.55; }
-
-    .health-club {
-        color: var(--color-text-bright);
-        font-weight: 600;
-        text-decoration: none;
-    }
-    .health-club:hover { color: var(--color-accent); }
-    .health-region { display: block; font-size: 0.75rem; color: var(--color-text-faint); }
-    .dot-ok { color: var(--color-accent); }
-
-    .flag {
-        display: inline-block;
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: var(--color-accent);
-        background: rgba(201, 161, 74, 0.12);
-        border: 1px solid var(--color-accent-border);
-        border-radius: 999px;
-        padding: 0.05rem 0.5rem;
-        margin: 0 0.25rem 0.25rem 0;
-        white-space: nowrap;
-    }
-
-    .token-chip {
-        display: inline-block;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        padding: 0.05rem 0.35rem;
-        margin-right: 0.3rem;
-        font-size: 0.78rem;
-    }
-
-    .test-send {
-        margin-top: 0.9rem;
-    }
-
-    .email-preview {
-        margin-top: 1rem;
-        border-top: 1px solid var(--color-steel-border);
-        padding-top: 0.9rem;
-    }
-
-    /* The preview now contains a whole email, which brings its own background,
-       logo and button. So this only has to hold it — anything styled here would
-       be styling that no recipient sees, which is the opposite of the point. */
-    .email-preview-body {
-        border-radius: var(--radius);
-        overflow: hidden;
-    }
 </style>
