@@ -34,6 +34,12 @@
     let slotsLoading = $state(false);
     let submitting = $state(false);
 
+    // Anyone can book. Signing in is only a convenience: a member's account
+    // already carries their name and gives them the bookings list, so they are
+    // asked for less. null = not checked yet, so the form doesn't flash from
+    // one shape to the other on first paint.
+    let signedIn = $state<boolean | null>(null);
+
     // Which of the two booking paths this visitor is on. signedIn === null means
     // we haven't heard back from /auth/me yet, so treat them as a member for now
     // and don't flash the guest fields in front of someone who is signed in.
@@ -60,11 +66,6 @@
     let error = $state<string | null>(null);
     let confirmed = $state<any>(null);
 
-    // Anyone can book. Signing in is only a convenience: a member's account
-    // already carries their name and gives them the bookings list, so they are
-    // asked for less. null = not checked yet, so the form doesn't flash from
-    // one shape to the other on first paint.
-    let signedIn = $state<boolean | null>(null);
     onMount(async () => {
         try {
             const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });

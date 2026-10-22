@@ -205,7 +205,7 @@
 
 
         {#if focusTable !== null}
-            {@const t = day.tables.find((x) => x.id === focusTable)}
+            {@const t = day.tables.find((x: { id: number }) => x.id === focusTable)}
             <div class="focus">
                 <div class="focus-head">
                     <strong>{t ? t.name : 'One table'}</strong>

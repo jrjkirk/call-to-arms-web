@@ -5,6 +5,9 @@
 
     type Table = { id: number; name: string; size_label: string | null; seats: number; active: boolean };
     type Review = {
+        // False for a night that doesn't run through Call to Arms: there are
+        // no pairings to measure its plan against.
+        measurable: boolean;
         expected_tables: number | null;
         samples: { date: string; tables_used: number }[];
         average_tables: number | null;

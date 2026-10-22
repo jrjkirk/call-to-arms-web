@@ -138,6 +138,31 @@
         }
     });
 
+    const isAuthed = $derived(auth.authenticated === true);
+    // Multi-club network model: "needs to claim" is about the ACTIVE club, so
+    // it keys off auth.player (the active-club player /auth/me returns), NOT
+    // auth.user.player_id (the legacy home-club link). A user with a player at
+    // their home club but none at the club whose subdomain they're visiting
+    // correctly sees the claim/create prompt for THIS club.
+    const needsClaim = $derived(isAuthed && auth.player == null);
+    const hasAdminAccess = $derived(
+        authLoaded && adminState !== null && (adminState.is_super_admin || adminState.scopes.length > 0)
+    );
+    const hasPlatformAdminAccess = $derived(
+        authLoaded && adminState !== null && adminState.is_platform_admin === true
+    );
+    const hasVenueAdminAccess = $derived(
+        authLoaded && venueState !== null && venueState.can_admin_venue === true
+    );
+    // The bare/www host is the marketing site; a club subdomain is that club's
+    // own public page. Same '/' path, different job, so the gate has to know
+    // which host it's on. localhost counts as a club host so the club page and
+    // booking form are reachable in local dev.
+    const isBareHost = $derived(
+        page.url.hostname === 'calltoarms.app' ||
+        page.url.hostname === 'www.calltoarms.app'
+    );
+
     const navItems = $derived([
         { href: '/', label: 'Club' },
         { href: '/signup', label: 'Signup' },
@@ -175,31 +200,6 @@
         if (href === '/') return page.url.pathname === '/';
         return page.url.pathname.startsWith(href);
     }
-
-    const isAuthed = $derived(auth.authenticated === true);
-    // Multi-club network model: "needs to claim" is about the ACTIVE club, so
-    // it keys off auth.player (the active-club player /auth/me returns), NOT
-    // auth.user.player_id (the legacy home-club link). A user with a player at
-    // their home club but none at the club whose subdomain they're visiting
-    // correctly sees the claim/create prompt for THIS club.
-    const needsClaim = $derived(isAuthed && auth.player == null);
-    const hasAdminAccess = $derived(
-        authLoaded && adminState !== null && (adminState.is_super_admin || adminState.scopes.length > 0)
-    );
-    const hasPlatformAdminAccess = $derived(
-        authLoaded && adminState !== null && adminState.is_platform_admin === true
-    );
-    const hasVenueAdminAccess = $derived(
-        authLoaded && venueState !== null && venueState.can_admin_venue === true
-    );
-    // The bare/www host is the marketing site; a club subdomain is that club's
-    // own public page. Same '/' path, different job, so the gate has to know
-    // which host it's on. localhost counts as a club host so the club page and
-    // booking form are reachable in local dev.
-    const isBareHost = $derived(
-        page.url.hostname === 'calltoarms.app' ||
-        page.url.hostname === 'www.calltoarms.app'
-    );
 
     // The hero page carries its own large logo, so the header shouldn't
     // duplicate it there — only show the header logo everywhere else.

@@ -60,7 +60,8 @@
     let reportFor = $state<number | null>(null);
     let myScore = $state<number | ''>('');
     let theirScore = $state<number | ''>('');
-    let myResult = $state<'win' | 'loss' | 'draw' | ''>('');
+    const RESULTS = ['win', 'draw', 'loss'] as const;
+    let myResult = $state<(typeof RESULTS)[number] | ''>('');
     let listText = $state('');
     let payments = $state<any>(null);
     let selected = $state<Set<number>>(new Set());
@@ -324,7 +325,7 @@
                         {#if reportFor === g.game_id}
                             <div class="report">
                                 <div class="report-row">
-                                    {#each ['win', 'draw', 'loss'] as r}
+                                    {#each RESULTS as r}
                                         <button class="res" class:on={myResult === r}
                                                 onclick={() => (myResult = r)}>{r}</button>
                                     {/each}
@@ -524,7 +525,7 @@
                 {#if payments.lapsing_soon.length}
                     <p class="field-error">
                         {payments.lapsing_soon.length} unpaid place{payments.lapsing_soon.length === 1 ? '' : 's'}
-                        lapse within a day: {payments.lapsing_soon.map((l) => l.name).join(', ')}
+                        lapse within a day: {payments.lapsing_soon.map((l: { name: string }) => l.name).join(', ')}
                     </p>
                 {/if}
 
@@ -537,7 +538,7 @@
                 </div>
 
                 <div class="entries">
-                    {#each t.entries.filter((e) => e.status !== 'dropped') as e (e.id)}
+                    {#each t.entries.filter((e: { status: string }) => e.status !== 'dropped') as e (e.id)}
                         <label class="entry pay-row">
                             <input type="checkbox" checked={selected.has(e.id)}
                                    onchange={() => toggleSel(e.id)} />
@@ -595,7 +596,7 @@
 
             {#each t.day_dates as d, i}
                 {@const dayNo = i + 1}
-                {@const items = t.schedule.filter((r) => r.day === dayNo)}
+                {@const items = t.schedule.filter((r: { day: number }) => r.day === dayNo)}
                 <div class="sched-day">
                     <h3 class="round-title">
                         {t.day_dates.length > 1 ? `Day ${dayNo} · ` : ''}{longDay(d)}

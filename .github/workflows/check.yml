@@ -1,0 +1,31 @@
+name: Check
+
+# Every push to main and every pull request: type-check, then build. Vercel
+# builds too, but it doesn't run svelte-check, so a type error could ship
+# without anyone being told. This is where it gets caught.
+#
+# Fails on errors only. Warnings (mostly accessibility hints) are listed in the
+# run's output to work through, but don't block a change.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Read at build time by $env/static/public. The value only has to exist;
+      # this build is checked, never deployed.
+      PUBLIC_API_URL: https://api.calltoarms.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --threshold error
+      - run: npm run build

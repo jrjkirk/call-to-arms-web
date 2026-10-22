@@ -311,6 +311,7 @@
         image_url: string;
         supports_mission_image: boolean;
         saving: boolean;
+        posting: boolean;
         error: string | null;
         message: string | null;
     };

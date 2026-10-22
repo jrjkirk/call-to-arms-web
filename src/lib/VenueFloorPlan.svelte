@@ -747,11 +747,6 @@
         ? { x: -pad, y: -pad, w: room.width_ft + pad * 2, h: room.depth_ft + pad * 2 }
         : { x: 0, y: 0, w: 10, h: 10 });
 
-    /** Feet per screen pixel — handles and dimension text are sized from this
-     *  so they stay a constant size however far the plan is zoomed. Derived,
-     *  never assigned: writing it from an effect is what created the loop. */
-    const ftPerPx = $derived(fit.k > 0 ? 1 / fit.k : 0.05);
-
     // Fit the room to the box in BOTH axes, then apply zoom. Deriving height
     // from width letterboxed a wide room and overflowed a tall one.
     let boxW = $state(800);
@@ -760,6 +755,11 @@
         const k = Math.min(boxW / view.w, boxH / view.h) * zoom;
         return { w: Math.max(1, view.w * k), h: Math.max(1, view.h * k), k };
     });
+
+    /** Feet per screen pixel — handles and dimension text are sized from this
+     *  so they stay a constant size however far the plan is zoomed. Derived,
+     *  never assigned: writing it from an effect is what created the loop. */
+    const ftPerPx = $derived(fit.k > 0 ? 1 / fit.k : 0.05);
 
     /**
      * Wheel to zoom, keeping whatever is under the cursor under the cursor.

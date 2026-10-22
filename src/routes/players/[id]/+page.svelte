@@ -167,7 +167,7 @@
         {/each}
     </div>
     {#if expandedAchievement}
-        {@const found = achievements.find((a) => a.name === expandedAchievement)}
+        {@const found = achievements.find((a: { name: string }) => a.name === expandedAchievement)}
         {#if found}
             <div class="achievement-detail">
                 <strong>{found.name}</strong>

@@ -17,26 +17,6 @@
      */
     const STROKE = 0.12;
 
-    /**
-     * Only TABLES are outlined.
-     *
-     * Everything else is drawn as bare fill, for two reasons that turn out to
-     * be the same reason. Adjacent fixtures then MERGE — two terrain shelves
-     * meeting at a corner read as one L-shaped run rather than two rectangles
-     * with a seam — which is how a plan should show a continuous thing.
-     *
-     * And it fixes a sizing bug: shapes were inset by half of STROKE, but
-     * fixtures only stroked at 0.08 (walls at none at all), so a wall declared
-     * 0.5 thick was drawn 0.38 and refused to line up with a room's 0.5 wall.
-     * With no stroke there's nothing to inset for, and the drawn size IS the
-     * stated size.
-     *
-     * Tables keep their outline deliberately: they're the things that must
-     * stay distinct from each other.
-     */
-    const outlined = $derived(kind === 'table');
-    const inset = $derived(outlined ? STROKE / 2 : 0);
-
     let {
         o, kind, state = 'free', selected = false, clash = false,
         editing = true, bookings = [], paint: paintOverride = undefined,
@@ -58,6 +38,27 @@
         note?: string;
         onpick?: (e: PointerEvent) => void;
     } = $props();
+
+    /**
+     * Only TABLES are outlined.
+     *
+     * Everything else is drawn as bare fill, for two reasons that turn out to
+     * be the same reason. Adjacent fixtures then MERGE — two terrain shelves
+     * meeting at a corner read as one L-shaped run rather than two rectangles
+     * with a seam — which is how a plan should show a continuous thing.
+     *
+     * And it fixes a sizing bug: shapes were inset by half of STROKE, but
+     * fixtures only stroked at 0.08 (walls at none at all), so a wall declared
+     * 0.5 thick was drawn 0.38 and refused to line up with a room's 0.5 wall.
+     * With no stroke there's nothing to inset for, and the drawn size IS the
+     * stated size.
+     *
+     * Tables keep their outline deliberately: they're the things that must
+     * stay distinct from each other.
+     */
+    const outlined = $derived(kind === 'table');
+    const inset = $derived(outlined ? STROKE / 2 : 0);
+
 
     /** The venue's colour-coding palette. Fill and stroke together, so every
      *  option is legible on the dark plan rather than left to chance. */
