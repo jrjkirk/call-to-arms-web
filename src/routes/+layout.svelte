@@ -12,7 +12,7 @@
     import { onMount } from 'svelte';
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
-    import { goto } from '$app/navigation';
+    import { afterNavigate, goto } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -264,6 +264,33 @@
         drawerOpen = false;
     }
 
+    /* The account menu (avatar button, desktop). Holds what used to crowd the
+       header row: Account, Change club, Sign out, and the two admin areas only
+       venue staff and the platform admin ever see. In the mobile drawer the
+       same items show as a plain list, so this state only matters on desktop. */
+    let userMenuOpen = $state(false);
+    let userMenuEl = $state<HTMLElement | null>(null);
+
+    $effect(() => {
+        if (!userMenuOpen) return;
+        const onPointer = (e: PointerEvent) => {
+            if (userMenuEl && !userMenuEl.contains(e.target as Node)) userMenuOpen = false;
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') userMenuOpen = false;
+        };
+        document.addEventListener('pointerdown', onPointer);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('pointerdown', onPointer);
+            document.removeEventListener('keydown', onKey);
+        };
+    });
+
+    afterNavigate(() => {
+        userMenuOpen = false;
+    });
+
     function toggleDrawer() {
         drawerOpen = !drawerOpen;
     }
@@ -337,12 +364,6 @@
                     {#if hasAdminAccess}
                         <a href="/admin" class="nav-tab" class:active={isActive('/admin')} data-sveltekit-preload-data="hover">Admin</a>
                     {/if}
-                    {#if hasVenueAdminAccess}
-                        <a href="/venue-admin" class="nav-tab" class:active={isActive('/venue-admin')} data-sveltekit-preload-data="hover">Venue Admin</a>
-                    {/if}
-                    {#if hasPlatformAdminAccess}
-                        <a href="/platform-admin" class="nav-tab" class:active={isActive('/platform-admin')} data-sveltekit-preload-data="hover">Platform Admin</a>
-                    {/if}
                 </div>
                 <div class="nav-tabs-fade"></div>
             </nav>
@@ -352,30 +373,42 @@
             {#if !authLoaded}
                 <p class="auth-panel-note">…</p>
             {:else if isAuthed && auth.user}
-                {#if auth.player}
-                    <a class="user-pill user-pill-link" href={`/players/${auth.player.id}`} onclick={closeDrawer}>
+                <div class="user-menu-wrap" bind:this={userMenuEl}>
+                    <button
+                        class="user-pill user-menu-toggle"
+                        type="button"
+                        aria-expanded={userMenuOpen}
+                        aria-controls="user-menu"
+                        onclick={() => (userMenuOpen = !userMenuOpen)}
+                    >
                         {#if auth.user.avatar_url}
                             <img class="user-avatar" src={auth.user.avatar_url} alt="" />
                         {/if}
-                        <div class="user-meta">
-                            <div class="user-name">{auth.user.name}</div>
-                            <div class="user-sub">{auth.player.name}</div>
-                        </div>
-                    </a>
-                {:else}
-                    <div class="user-pill">
-                        {#if auth.user.avatar_url}
-                            <img class="user-avatar" src={auth.user.avatar_url} alt="" />
+                        <span class="user-meta">
+                            <span class="user-name">{auth.user.name}</span>
+                            {#if auth.player}
+                                <span class="user-sub">{auth.player.name}</span>
+                            {:else}
+                                <span class="user-sub user-sub-warn">No profile linked</span>
+                            {/if}
+                        </span>
+                        <svg class="user-menu-chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    </button>
+                    <div id="user-menu" class="user-menu" class:open={userMenuOpen}>
+                        {#if auth.player}
+                            <a class="user-menu-item" href={`/players/${auth.player.id}`} onclick={closeDrawer}>Your player profile</a>
                         {/if}
-                        <div class="user-meta">
-                            <div class="user-name">{auth.user.name}</div>
-                            <div class="user-sub user-sub-warn">No profile linked</div>
-                        </div>
+                        <a class="user-menu-item" href="/account" onclick={closeDrawer}>Account</a>
+                        {#if hasVenueAdminAccess}
+                            <a class="user-menu-item" href="/venue-admin" onclick={closeDrawer}>Venue admin</a>
+                        {/if}
+                        {#if hasPlatformAdminAccess}
+                            <a class="user-menu-item" href="/platform-admin" onclick={closeDrawer}>Platform admin</a>
+                        {/if}
+                        <a class="user-menu-item" href="/find" onclick={closeDrawer}>Change club</a>
+                        <button class="user-menu-item" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
                     </div>
-                {/if}
-                <a class="sidebar-button" href="/account" onclick={closeDrawer}>Account</a>
-                <a class="sidebar-button" href="/find" onclick={closeDrawer}>Change club</a>
-                <button class="sidebar-button" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
+                </div>
             {:else if !showingHero}
                 <!-- Signed out on a public page (a club's own page, its booking
                      form, shared pairings, the finder). The hero has its own
@@ -565,7 +598,7 @@
         border: 1px solid var(--color-accent-border-soft);
         color: var(--color-text-base);
         padding: 0.5rem 0.9rem;
-        border-radius: 8px;
+        border-radius: var(--radius);
         font-size: 0.82rem;
         font-family: inherit;
         text-align: center;
@@ -610,19 +643,86 @@
         flex: 0 0 auto;
     }
 
-    .user-pill-link {
-        text-decoration: none;
+
+    .user-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; }
+
+    /* ── Account menu ────────────────────────────────────────────────────
+       Desktop: the avatar button opens a dropdown. Mobile: the drawer shows
+       the same items as a plain list (see the max-width rules below). */
+    .user-menu-wrap {
+        position: relative;
+    }
+
+    .user-menu-toggle {
+        background: none;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        padding: 4px 8px 4px 4px;
+        min-height: 44px;
         color: inherit;
+        font: inherit;
         cursor: pointer;
-        border-radius: 8px;
-        transition: background 0.1s ease;
+        transition: background 0.1s ease, border-color 0.1s ease;
     }
 
-    .user-pill-link:hover {
+    .user-menu-toggle:hover,
+    .user-menu-toggle[aria-expanded='true'] {
         background: rgba(201, 161, 74, 0.08);
+        border-color: var(--color-accent-border-soft);
     }
 
-    .user-meta { flex: 1; min-width: 0; }
+    .user-menu-chevron {
+        flex: 0 0 auto;
+        color: var(--color-text-dim);
+        transition: transform 0.15s ease;
+    }
+
+    .user-menu-toggle[aria-expanded='true'] .user-menu-chevron {
+        transform: rotate(180deg);
+    }
+
+    .user-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 1000;
+        min-width: 220px;
+        flex-direction: column;
+        padding: 6px;
+        background: var(--color-sidebar-bg);
+        border: 1px solid var(--color-steel-border);
+        border-radius: var(--radius);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    }
+
+    .user-menu.open {
+        display: flex;
+    }
+
+    .user-menu-item {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.6rem 0.75rem;
+        min-height: 40px;
+        background: none;
+        border: none;
+        border-radius: calc(var(--radius) - 1px);
+        color: var(--color-text-base);
+        font: inherit;
+        font-size: 0.92rem;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .user-menu-item:hover,
+    .user-menu-item:focus-visible {
+        background: rgba(201, 161, 74, 0.10);
+        color: var(--color-text-bright);
+        outline: none;
+    }
 
     .user-name {
         font-size: 0.88rem;
@@ -685,9 +785,13 @@
     .nav-tabs::-webkit-scrollbar { display: none; }
 
     .nav-tab {
-        color: var(--color-text-base);
+        color: var(--color-text-muted);
         text-decoration: none;
-        font-size: 0.95rem;
+        font-family: var(--font-heading);
+        font-weight: 600;
+        font-size: 1.05rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         padding-bottom: 0.4rem;
         border-bottom: 3px solid transparent;
         transition: color 0.2s ease, border-bottom-color 0.25s ease;
@@ -698,7 +802,7 @@
     .nav-tab:hover { color: var(--color-text-bright); }
 
     .nav-tab.active {
-        color: var(--color-accent);
+        color: var(--color-text-bright);
         border-bottom-color: var(--color-accent-soft);
     }
 
@@ -843,6 +947,34 @@
         }
 
         .drawer-only { display: block; }
+
+        .user-menu-toggle {
+            pointer-events: none;
+            padding: 0;
+        }
+
+        .user-menu-chevron { display: none; }
+
+        .user-menu,
+        .user-menu.open {
+            display: flex;
+            position: static;
+            min-width: 0;
+            margin-top: 0.75rem;
+            padding: 0;
+            gap: 0.5rem;
+            background: none;
+            border: none;
+            box-shadow: none;
+        }
+
+        .user-menu-item {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--color-accent-border-soft);
+            border-radius: var(--radius);
+            text-align: center;
+            font-size: 0.85rem;
+        }
 
         .container { padding: 1rem; }
 
