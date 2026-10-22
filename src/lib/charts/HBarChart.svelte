@@ -94,7 +94,7 @@
     .cat {
         fill: var(--color-text-muted);
         font-size: 13px;
-        font-family: var(--font-display);
+        font-family: var(--font-body);
     }
     .bar {
         fill: var(--color-accent);
@@ -108,7 +108,7 @@
         font-size: 12px;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
-        font-family: var(--font-display);
+        font-family: var(--font-body);
     }
     .chart-empty {
         display: flex;

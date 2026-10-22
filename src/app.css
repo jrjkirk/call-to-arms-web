@@ -35,7 +35,11 @@
 
     --color-tnt: #d97a2a;
 
-    --font-display: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', sans-serif;
+    /* Barlow for text, Barlow Condensed for headings: the "Command Table"
+       direction (2026-10-23). Self-hosted from @fontsource, imported in
+       routes/+layout.svelte, so no request goes to Google. */
+    --font-body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-heading: 'Barlow Condensed', 'Barlow', system-ui, sans-serif;
 
     /* One radius, used everywhere — clean squared corners. */
     --radius: 5px;
@@ -51,11 +55,13 @@ html {
 body {
     background: var(--color-bg-deep);
     color: var(--color-text-base);
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
 }
+
+h1, h2, h3 { font-family: var(--font-heading); }
 
 a { color: inherit; }
 
@@ -319,7 +325,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .a-title {
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.09em;

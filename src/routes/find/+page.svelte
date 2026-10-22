@@ -243,7 +243,7 @@
 
     .finder-head { margin-bottom: 1.25rem; }
     .finder-title {
-        font-family: var(--font-display);
+        font-family: var(--font-heading);
         font-size: clamp(1.7rem, 4vw, 2.4rem);
         font-weight: 700;
         color: var(--color-text-bright);

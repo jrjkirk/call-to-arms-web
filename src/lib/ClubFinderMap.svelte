@@ -132,7 +132,7 @@
         background: var(--color-surface);
         color: var(--color-text-base);
     }
-    .finder-map :global(.leaflet-popup-content) { font-family: var(--font-display); }
+    .finder-map :global(.leaflet-popup-content) { font-family: var(--font-body); }
     .finder-map :global(.leaflet-popup-content strong) { color: var(--color-text-bright); }
     .finder-map :global(.mp-addr) { color: var(--color-text-dim); font-weight: 400; font-size: 0.85em; }
     .finder-map :global(.leaflet-popup-content a) { color: var(--color-accent); font-weight: 700; }

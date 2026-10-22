@@ -148,7 +148,7 @@
         fill: var(--color-bg-deep);
         font-size: 11px;
         font-weight: 700;
-        font-family: var(--font-display);
+        font-family: var(--font-body);
         pointer-events: none;
     }
     .donut-center {

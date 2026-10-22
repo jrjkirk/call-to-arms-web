@@ -534,7 +534,7 @@
        right-hand chip to inherit the player name's 1.15rem — which is why one
        side rendered noticeably larger than the other. */
     .lvl-chip {
-        font-family: var(--font-display);
+        font-family: var(--font-body);
         font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.02em;

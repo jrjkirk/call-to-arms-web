@@ -132,7 +132,7 @@
 
     .clubs-map :global(.leaflet-popup-content a) {
         color: var(--color-accent);
-        font-family: var(--font-display);
+        font-family: var(--font-body);
         font-weight: 700;
         text-decoration: none;
     }

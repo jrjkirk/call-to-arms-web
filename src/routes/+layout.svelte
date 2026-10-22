@@ -1,4 +1,13 @@
 <script lang="ts">
+    // Barlow (text) and Barlow Condensed (headings), self-hosted: only the
+    // weights the site uses, so nothing extra downloads. See --font-body and
+    // --font-heading in app.css.
+    import '@fontsource/barlow/400.css';
+    import '@fontsource/barlow/500.css';
+    import '@fontsource/barlow/600.css';
+    import '@fontsource/barlow/700.css';
+    import '@fontsource/barlow-condensed/600.css';
+    import '@fontsource/barlow-condensed/700.css';
     import '../app.css';
     import { onMount } from 'svelte';
     import { page } from '$app/state';

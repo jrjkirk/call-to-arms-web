@@ -161,7 +161,7 @@
 
 	.notice-title {
 		margin: 0 0 0.2rem;
-		font-family: var(--font-display, inherit);
+		font-family: var(--font-heading);
 		font-size: 0.8rem;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;

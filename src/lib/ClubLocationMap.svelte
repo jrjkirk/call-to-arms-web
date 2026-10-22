@@ -77,7 +77,7 @@
     }
 
     .location-map :global(.leaflet-popup-content) {
-        font-family: var(--font-display);
+        font-family: var(--font-body);
         font-weight: 700;
     }
 

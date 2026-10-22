@@ -158,7 +158,7 @@
     }
 
     .calendar-title {
-        font-family: var(--font-display);
+        font-family: var(--font-heading);
         font-size: 1.05rem;
         font-weight: 700;
         color: var(--color-text-bright);

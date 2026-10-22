@@ -139,7 +139,7 @@
     .axis-x {
         fill: var(--color-text-dim);
         font-size: 12px;
-        font-family: var(--font-display);
+        font-family: var(--font-body);
     }
     .area {
         fill: var(--color-accent);

@@ -118,7 +118,7 @@
 	   player is proud of, so it carries the rarity rather than the whole card
 	   glowing. */
 	.lvl-num {
-		font-family: var(--font-display);
+		font-family: var(--font-body);
 		font-size: 1.05rem;
 		font-weight: 700;
 		letter-spacing: 0.02em;

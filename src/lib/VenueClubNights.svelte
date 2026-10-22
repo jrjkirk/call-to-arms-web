@@ -520,7 +520,7 @@
         border-radius: var(--radius);
         padding: 0.1rem 0.3rem;
         margin: -0.1rem -0.3rem;
-        font-family: var(--font-display);
+        font-family: var(--font-body);
         font-size: 0.82rem;
         font-weight: 700;
         letter-spacing: 0.09em;

@@ -206,7 +206,7 @@ while .a-title was 0.82rem — two different "section" looks on the same
 page, so a Discord tab and a Club page tab didn't feel like one product.
 The card border now does the separating the rule used to. */
 .club-admin .section-heading {
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     font-size: 0.82rem;
     font-weight: 700;
     color: var(--panel-accent);

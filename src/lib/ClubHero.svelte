@@ -90,7 +90,7 @@
     }
 
     .club-name {
-        font-family: var(--font-display);
+        font-family: var(--font-heading);
         font-size: clamp(1.6rem, 4vw, 2.3rem);
         font-weight: 700;
         color: var(--color-text-bright);
