@@ -1,0 +1,121 @@
+/* Styles shared by the club admin page (src/routes/admin) and the components
+   its tabs are split into (src/lib/admin). They used to sit in the page's own
+   <style>, which Svelte scopes to that file, so a tab moved into a component
+   lost them. Scoped under .club-admin (the page's outer element) instead, so
+   they reach the page's components and nothing outside the club admin page;
+   the platform admin page shares .admin-shell, so that class can't be used. */
+
+.club-admin .chart-card-title {
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: var(--color-accent);
+    margin-bottom: 0.85rem;
+}
+
+.club-admin .muted {
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.club-admin .small {
+    font-size: 0.82rem;
+}
+
+.club-admin .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 160px;
+}
+
+.club-admin .field-narrow {
+    min-width: 130px;
+    max-width: 160px;
+}
+
+/* Was --color-accent, the same gold as .section-heading, so every label
+competed with the section title above it. Muted keeps the labels legible
+while letting the section headings actually lead. */
+/* Labels can carry a HelpTip, so they lay out as a row rather than a bare
+text node. */
+.club-admin .field-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--color-text-muted);
+}
+
+.club-admin .field-input {
+    background: var(--color-surface-dark);
+    border: 1px solid var(--color-accent-border);
+    border-radius: var(--radius);
+    color: var(--color-text-base);
+    padding: 7px 10px;
+    font-size: 0.9rem;
+    font-family: inherit;
+}
+
+.club-admin .field-input::placeholder {
+    color: var(--color-text-faint);
+}
+
+.club-admin .field-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+.club-admin .field-error {
+    font-size: 0.8rem;
+    color: var(--color-loss);
+    margin: 0.25rem 0 0;
+    width: 100%;
+}
+
+.club-admin .pairing-message {
+    font-size: 0.8rem;
+    color: var(--color-win);
+    margin: 0 0 0.5rem;
+}
+
+.club-admin .league-config-form,
+.club-admin .league-seasons,
+.club-admin .league-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+}
+
+.club-admin .league-settings-details {
+    margin-top: 0.5rem;
+    border: 1px solid var(--color-steel-border);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    background: var(--color-surface-dark);
+}
+
+.club-admin .league-settings-details summary,
+.club-admin .league-settings-heading {
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+}
+
+.club-admin .league-settings-details summary {
+    cursor: pointer;
+}
+
+.club-admin .league-settings-body {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}

@@ -30,7 +30,8 @@
     import LineChart from '$lib/charts/LineChart.svelte';
     import BarChart from '$lib/charts/BarChart.svelte';
     import HBarChart from '$lib/charts/HBarChart.svelte';
-    import PieChart from '$lib/charts/PieChart.svelte';
+    import PairingWeightPanel from '$lib/admin/PairingWeightPanel.svelte';
+    import '$lib/admin/club-admin.css';
 
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
@@ -162,33 +163,6 @@
         points_win: number;
         points_draw: number;
         points_loss: number;
-    };
-    type PairingWeightConfigData = {
-        uses_scenarios: boolean;
-        uses_points: boolean;
-        /** Whether this system defines faction categories at all. False for
-         *  every flat-list system, where the category weight can have no
-         *  effect and the slider is therefore not shown. */
-        has_faction_groups: boolean;
-        default_recent_weeks: number;
-        default_extended_weeks: number;
-        weight_mirror: number;
-        weight_faction_group: number;
-        weight_rematch: number;
-        weight_vibe: number;
-        weight_experience: number;
-        weight_eta: number;
-        weight_scenario: number;
-        weight_points: number;
-        recent_weeks: number | null;
-        extended_weeks: number | null;
-    };
-    type PairingWeightState = {
-        config: PairingWeightConfigData | null;
-        loading: boolean;
-        saving: boolean;
-        error: string | null;
-        message: string | null;
     };
     type LeagueChampion = { player_id: number; name: string; rating: number };
     type LeagueSeasonRow = {
@@ -699,7 +673,6 @@
     let blockPlayers = $state<BlockPlayer[]>([]);
     let historyByScope = $state<Record<string, any[]>>({});
     let leagueState = $state<Record<string, LeagueState>>({});
-    let pairingWeightState = $state<Record<string, PairingWeightState>>({});
 
     type SignupCapState = {
         enabled: boolean;
@@ -2946,101 +2919,6 @@
         ls.configSaving = false;
     }
 
-    // Live "share of total" readout next to each slider — the sliders don't
-    // rebalance each other (independent magnitude units, matching the
-    // underlying linear-score formula in pairings_engine.py), but seeing
-    // each one's share of the current total makes their relative influence
-    // visible without that added complexity.
-    function pwPercent(cfg: PairingWeightConfigData, field: keyof PairingWeightConfigData): number {
-        const fields: (keyof PairingWeightConfigData)[] = [
-            'weight_mirror', 'weight_rematch', 'weight_vibe', 'weight_experience', 'weight_eta',
-        ];
-        if (cfg.uses_scenarios) fields.push('weight_scenario');
-        if (cfg.uses_points) fields.push('weight_points');
-        if (cfg.has_faction_groups) fields.push('weight_faction_group');
-        const total = fields.reduce((sum, f) => sum + (Number(cfg[f]) || 0), 0);
-        if (total <= 0) return 0;
-        return Math.round((Number(cfg[field]) / total) * 1000) / 10;
-    }
-
-    // Validated 7-slot categorical order (dataviz skill) for the live donut —
-    // order is the CVD-safety mechanism, not cosmetic; matches the sliders'
-    // display order below (mirror, rematch, vibe, experience, eta, scenario,
-    // points). Do not reorder without re-validating with the palette script.
-    //
-    // Slot 8 (faction category) was appended rather than slotted in beside
-    // mirror where it belongs conceptually, precisely so the validated
-    // seven keep their exact colours and order. It is a dark navy: with
-    // seven saturated hues already spent, the eighth is separated by
-    // LIGHTNESS rather than hue, which is the one axis every form of colour
-    // blindness leaves intact. Re-validate the whole set if the palette
-    // script is ever run again.
-    const PAIRING_WEIGHT_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#1d3f8c'];
-
-    function pairingWeightSlices(cfg: PairingWeightConfigData): { label: string; value: number; color: string }[] {
-        const rows: { label: string; value: number }[] = [
-            { label: 'Avoid same-faction rematch', value: cfg.weight_mirror },
-            { label: 'Avoid recent repeat opponent', value: cfg.weight_rematch },
-            { label: 'Vibe match', value: cfg.weight_vibe },
-            { label: 'Experience match', value: cfg.weight_experience },
-            { label: 'Arrival time (ETA) match', value: cfg.weight_eta },
-        ];
-        if (cfg.uses_scenarios) rows.push({ label: 'Scenario match', value: cfg.weight_scenario });
-        if (cfg.uses_points) rows.push({ label: 'Points closeness', value: cfg.weight_points });
-        if (cfg.has_faction_groups) rows.push({ label: 'Avoid same faction category', value: cfg.weight_faction_group });
-        return rows.map((r, i) => ({ ...r, color: PAIRING_WEIGHT_COLORS[i] }));
-    }
-
-    function initPairingWeightState(): PairingWeightState {
-        return { config: null, loading: false, saving: false, error: null, message: null };
-    }
-
-    async function loadPairingWeightConfig(scope: string) {
-        const ws = pairingWeightState[scope];
-        ws.loading = true;
-        ws.error = null;
-        const r = await fetch(`${PUBLIC_API_URL}/admin/pairing-config?system=${encodeURIComponent(scope)}`, { credentials: 'include' });
-        if (r.ok) {
-            ws.config = await r.json();
-        } else {
-            ws.error = 'Failed to load pairing weighting config.';
-        }
-        ws.loading = false;
-    }
-
-    async function savePairingWeightConfig(scope: string) {
-        const ws = pairingWeightState[scope];
-        if (!ws.config) return;
-        ws.saving = true;
-        ws.error = null;
-        ws.message = null;
-        // Empty window inputs → null so the platform default is used.
-        const cleanWeeks = (v: number | null) => (v === null || Number.isNaN(v) || v < 1 ? null : Math.round(v));
-        const r = await fetch(`${PUBLIC_API_URL}/admin/pairing-config`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...ws.config,
-                system: scope,
-                recent_weeks: cleanWeeks(ws.config.recent_weeks),
-                extended_weeks: cleanWeeks(ws.config.extended_weeks),
-            }),
-        });
-        if (r.ok) {
-            ws.message = 'Saved. Takes effect on the next pairings preview/generate.';
-        } else {
-            const body = await r.json().catch(() => ({}));
-            ws.error = body.detail || 'Failed to save.';
-        }
-        ws.saving = false;
-    }
-
-    async function initPairingWeightForScope(scope: string) {
-        pairingWeightState[scope] = initPairingWeightState();
-        await loadPairingWeightConfig(scope);
-    }
-
     async function loadTableBooking(scope: string) {
         tbSelectScope = scope;
         tbLoading = true;
@@ -3347,7 +3225,7 @@
         await Promise.all([
             loadPairings(scope), loadAutoPairingsSettings(scope), loadCallToArmsSettings(scope),
             loadLeagueRankingsSettings(scope),
-            loadMissions(scope), initLeagueForScope(scope), initPairingWeightForScope(scope),
+            loadMissions(scope), initLeagueForScope(scope),
             loadCarousel(scope), loadSystemEvents(scope), loadSignupCap(scope),
             loadPostSwitches(scope),
             loadSystemGate(scope),
@@ -3532,7 +3410,7 @@
     <p class="muted">You don't have admin access.</p>
 {:else}
 
-    <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+    <div class="admin-shell club-admin" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
         <aside class="admin-sidebar">
             <CommandPalette commands={paletteCommands} label="Jump to" />
             <button
@@ -4388,98 +4266,9 @@
             <div class="dash-group-body">
         <section class="admin-section">
                         <!-- Pairing weighting (system scopes only) -->
-                        {#if isSystemScope(scope) && pairingWeightState[scope]}
-                            {@const ws = pairingWeightState[scope]}
+                        {#if isSystemScope(scope)}
                             <div class="sub-section pairings-section">
-
-                                {#if ws.loading}
-                                    <p class="muted small">Loading…</p>
-                                {:else if ws.config}
-                                    <div class="league-settings-details">
-                                        <div class="a-head">
-                                            <div class="a-title">Matchmaking weights</div>
-                                            <HelpTip
-                                                label="matchmaking weights"
-                                                text="How hard the matcher works to satisfy each factor when pairing this system. Higher means it matters more; set one to 0 to ignore it entirely. Admin blocks and “don't repeat last week's opponent” are always enforced first, whatever these say."
-                                            />
-                                        </div>
-                                        <div class="league-settings-body">
-
-                                            <div class="pairing-weight-layout">
-                                            <div class="league-config-form pairing-weight-form">
-                                                <div class="field">
-                                                    <label class="field-label" for="pw-mirror-{scope}">Avoid same-faction rematch: {ws.config.weight_mirror} ({pwPercent(ws.config, 'weight_mirror')}%)</label>
-                                                    <input id="pw-mirror-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_mirror} />
-                                                </div>
-                                                <div class="field">
-                                                    <label class="field-label" for="pw-rematch-{scope}">Avoid recent repeat opponent: {ws.config.weight_rematch} ({pwPercent(ws.config, 'weight_rematch')}%)</label>
-                                                    <input id="pw-rematch-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_rematch} />
-                                                </div>
-                                                <div class="field">
-                                                    <label class="field-label" for="pw-vibe-{scope}">Match by vibe (casual/competitive): {ws.config.weight_vibe} ({pwPercent(ws.config, 'weight_vibe')}%)</label>
-                                                    <input id="pw-vibe-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_vibe} />
-                                                </div>
-                                                <div class="field">
-                                                    <label class="field-label" for="pw-exp-{scope}">Match by experience: {ws.config.weight_experience} ({pwPercent(ws.config, 'weight_experience')}%)</label>
-                                                    <input id="pw-exp-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_experience} />
-                                                </div>
-                                                <div class="field">
-                                                    <label class="field-label" for="pw-eta-{scope}">Match by arrival time (ETA): {ws.config.weight_eta} ({pwPercent(ws.config, 'weight_eta')}%)</label>
-                                                    <input id="pw-eta-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_eta} />
-                                                </div>
-                                                {#if ws.config.uses_scenarios}
-                                                    <div class="field">
-                                                        <label class="field-label" for="pw-scen-{scope}">Match by scenario pick: {ws.config.weight_scenario} ({pwPercent(ws.config, 'weight_scenario')}%)</label>
-                                                        <input id="pw-scen-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_scenario} />
-                                                    </div>
-                                                {/if}
-                                                {#if ws.config.uses_points}
-                                                    <div class="field">
-                                                        <label class="field-label" for="pw-pts-{scope}">Match by points closeness: {ws.config.weight_points} ({pwPercent(ws.config, 'weight_points')}%)</label>
-                                                        <input id="pw-pts-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_points} />
-                                                    </div>
-                                                {/if}
-                                                {#if ws.config.has_faction_groups}
-                                                    <div class="field">
-                                                        <label class="field-label" for="pw-group-{scope}">Avoid same faction category: {ws.config.weight_faction_group} ({pwPercent(ws.config, 'weight_faction_group')}%)
-                                                            <HelpTip label="faction categories" text={"Pushes the matcher towards games across this system's categories: Good against Evil, Axis against Allies.\n\nOnly a nudge. A block, a recent rematch or a vibe mismatch all outrank it, and it never stops a game happening."} /></label>
-                                                        <input id="pw-group-{scope}" type="range" min="0" max="10" step="0.5" bind:value={ws.config.weight_faction_group} />
-                                                    </div>
-                                                {/if}
-
-                                                <div class="pw-window-block">
-                                                    <div class="pw-window-title">Rematch windows
-                                                        <HelpTip label="rematch windows" text={"How far back a repeat opponent counts as a rematch.\n\n\u2022 Inside the first window, a pair is skipped on the first pass\n\u2022 Inside the wider one, it is discouraged but allowed\n\u2022 Leave blank to use the system default"} /></div>
-                                                    <div class="pw-window-row">
-                                                        <div class="field field-narrow">
-                                                            <label class="field-label" for="pw-recent-{scope}">Don't rematch within (weeks)</label>
-                                                            <input id="pw-recent-{scope}" class="field-input" type="number" min="1" placeholder={String(ws.config.default_recent_weeks)} bind:value={ws.config.recent_weeks} />
-                                                        </div>
-                                                        <div class="field field-narrow">
-                                                            <label class="field-label" for="pw-extended-{scope}">Soft-avoid within (weeks)</label>
-                                                            <input id="pw-extended-{scope}" class="field-input" type="number" min="1" placeholder={String(ws.config.default_extended_weeks)} bind:value={ws.config.extended_weeks} />
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {#if ws.message}<p class="pairing-message">{ws.message}</p>{/if}
-                                                {#if ws.error}<p class="field-error">{ws.error}</p>{/if}
-                                                <button
-                                                    class="primary-button"
-                                                    type="button"
-                                                    disabled={ws.saving}
-                                                    onclick={() => savePairingWeightConfig(scope)}
-                                                >{ws.saving ? 'Saving…' : 'Save weighting'}</button>
-                                            </div>
-
-                                            <div class="pairing-weight-chart">
-                                                <div class="chart-card-title">Share of total weighting</div>
-                                                <PieChart data={pairingWeightSlices(ws.config)} />
-                                            </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/if}
+                                <PairingWeightPanel {scope} />
                             </div>
                         {/if}
         </section>
@@ -6815,7 +6604,6 @@
 
     .cta-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 
-
     .page-heading {
         font-size: 1.5rem;
         margin: 0 0 1.5rem;
@@ -7307,23 +7095,6 @@
         border-radius: var(--radius);
         padding: 0.95rem 1.05rem 1.05rem;
     }
-    .chart-card-title {
-        text-transform: uppercase;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 1.4px;
-        color: var(--color-accent);
-        margin-bottom: 0.85rem;
-    }
-
-    .muted {
-        color: var(--color-text-muted);
-        font-style: italic;
-    }
-
-    .small {
-        font-size: 0.82rem;
-    }
 
     .admin-section {
         margin-bottom: 2rem;
@@ -7722,18 +7493,6 @@
         gap: 0.75rem;
     }
 
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        min-width: 160px;
-    }
-
-    .field-narrow {
-        min-width: 130px;
-        max-width: 160px;
-    }
-
     .field-row-break {
         flex-basis: 100%;
         height: 0;
@@ -7772,22 +7531,6 @@
         border: 1px solid rgba(148, 163, 184, 0.25);
     }
 
-    /* Was --color-accent, the same gold as .section-heading, so every label
-       competed with the section title above it. Muted keeps the labels legible
-       while letting the section headings actually lead. */
-    /* Labels can carry a HelpTip, so they lay out as a row rather than a bare
-       text node. */
-    .field-label {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        color: var(--color-text-muted);
-    }
-
     .field-select {
         background: var(--color-surface-dark);
         border: 1px solid var(--color-accent-border);
@@ -7802,38 +7545,6 @@
         outline: none;
         border-color: var(--color-accent);
     }
-
-    .field-input {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        color: var(--color-text-base);
-        padding: 7px 10px;
-        font-size: 0.9rem;
-        font-family: inherit;
-    }
-
-    .field-input::placeholder {
-        color: var(--color-text-faint);
-    }
-
-    .field-input:focus {
-        outline: none;
-        border-color: var(--color-accent);
-    }
-
-    .field-error {
-        font-size: 0.8rem;
-        color: var(--color-loss);
-        margin: 0.25rem 0 0;
-        width: 100%;
-    }
-
-
-
-
-
-
 
     .publish-btn {
         border: none;
@@ -7967,12 +7678,6 @@
 
     .preview-row td {
         opacity: 0.75;
-    }
-
-    .pairing-message {
-        font-size: 0.8rem;
-        color: var(--color-win);
-        margin: 0 0 0.5rem;
     }
 
     /* ── Pairing quality summary strip ──────────────────────────────────── */
@@ -8424,14 +8129,6 @@
         color: var(--color-text-muted);
         margin: 1rem 0 0.5rem;
     }
-    .league-config-form,
-    .league-seasons,
-    .league-results {
-        display: flex;
-        flex-direction: column;
-        gap: 0.6rem;
-        margin-top: 0.5rem;
-    }
 
     .league-log-results {
         display: flex;
@@ -8448,52 +8145,7 @@
         flex-wrap: wrap;
     }
 
-    /* ── Pairing weighting: sliders + live donut side by side ────────────── */
-    .pairing-weight-layout {
-        display: grid;
-        grid-template-columns: minmax(280px, 420px) minmax(260px, 1fr);
-        gap: 1.75rem;
-        align-items: start;
-    }
-    .pw-window-block {
-        margin-top: 0.6rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid var(--color-steel-border-soft);
-    }
-    .pw-window-title {
-        text-transform: uppercase;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 1.4px;
-        color: var(--color-accent);
-        margin-bottom: 0.35rem;
-    }
-    .pw-window-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-top: 0.4rem;
-    }
-    .pairing-weight-form {
-        min-width: 0;
-    }
-    .pairing-weight-chart {
-        min-width: 0;
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border-soft);
-        border-radius: var(--radius);
-        padding: 0.95rem 1.05rem 1.05rem;
-        position: sticky;
-        top: 1rem;
-    }
-    @media (max-width: 760px) {
-        .pairing-weight-layout {
-            grid-template-columns: 1fr;
-        }
-        .pairing-weight-chart {
-            position: static;
-        }
-    }
+    
     .season-list {
         list-style: none;
         margin: 0;
@@ -8541,30 +8193,6 @@
     .season-champion {
         font-size: 0.75rem;
         color: var(--color-accent);
-    }
-    .league-settings-details {
-        margin-top: 0.5rem;
-        border: 1px solid var(--color-steel-border);
-        border-radius: 6px;
-        padding: 0.6rem 0.75rem;
-        background: var(--color-surface-dark);
-    }
-    .league-settings-details summary,
-    .league-settings-heading {
-        font-weight: 700;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--color-text-muted);
-    }
-    .league-settings-details summary {
-        cursor: pointer;
-    }
-    .league-settings-body {
-        margin-top: 0.75rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
     }
 
     /* Club landing page: carousel accent picker, photo preview, event form */
