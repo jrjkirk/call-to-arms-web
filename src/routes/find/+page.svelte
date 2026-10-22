@@ -5,6 +5,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import ClubFinderMap from '$lib/ClubFinderMap.svelte';
     import ClubRequestForm from '$lib/ClubRequestForm.svelte';
+    import { FALLBACK_SYSTEMS_CONFIG, getSystemsConfig, systemLogoUrl, type SystemConfig } from '$lib/systemsConfig';
 
     type FinderSystem = { slug: string; name: string; legacy_system_name: string };
     type FinderClub = {
@@ -19,6 +20,10 @@
     };
 
     let clubs = $state<FinderClub[]>([]);
+    // For the chips' logos: an uploaded logo (StarCraft, Bolt Action) only
+    // comes with the catalogue, and /logos/<slug>.png exists for the six
+    // original systems alone.
+    let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
     let loaded = $state(false);
     let search = $state('');
     // Selected systems (by legacy_system_name). Empty = no system filter.
@@ -64,6 +69,7 @@
     }
 
     onMount(async () => {
+        getSystemsConfig().then((c) => (systemsConfig = c));
         try {
             const r = await fetch(`${PUBLIC_API_URL}/clubs`);
             if (r.ok) clubs = await r.json();
@@ -161,7 +167,9 @@
                             title={s.name}
                             onclick={() => toggleSystem(s.legacy_system_name)}
                         >
-                            <img class="chip-icon" src={`/logos/${s.slug}.png`} alt="" loading="lazy" />
+                            {#if systemLogoUrl(s.legacy_system_name, systemsConfig)}
+                                <img class="chip-icon" src={systemLogoUrl(s.legacy_system_name, systemsConfig)} alt="" loading="lazy" />
+                            {/if}
                             <span>{s.name}</span>
                         </button>
                     {/each}
