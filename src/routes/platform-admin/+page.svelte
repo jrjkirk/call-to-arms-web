@@ -3056,45 +3056,9 @@
         width: 100%;
     }
 
-    .primary-button {
-        background: var(--color-accent);
-        color: #111;
-        border: none;
-        border-radius: var(--radius);
-        padding: 0 14px;
-        height: 2.2rem;
-        box-sizing: border-box;
-        font-size: 0.85rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: opacity 0.15s;
-        white-space: nowrap;
-    }
 
-    .primary-button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-    }
 
-    .secondary-button {
-        background: transparent;
-        color: var(--color-accent);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        padding: 0 14px;
-        height: 2.2rem;
-        box-sizing: border-box;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.15s;
-        white-space: nowrap;
-    }
 
-    .secondary-button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-    }
 
     .form-grid {
         display: grid;

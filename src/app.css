@@ -461,6 +461,8 @@ h1, h2, h3, h4, h5, h6 {
     cursor: pointer;
     white-space: nowrap;
     font-family: inherit;
+    /* The same look on an <a> as on a <button>. */
+    text-decoration: none;
 }
 .primary-button {
     background: var(--color-accent);

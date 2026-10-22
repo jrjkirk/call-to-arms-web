@@ -1056,27 +1056,11 @@
         margin: 0;
     }
 
+    /* Larger than the shared .primary-button (app.css): a page-level action. */
     .primary-button {
         align-self: flex-start;
-        background: var(--color-accent);
-        color: #111;
-        border: none;
-        border-radius: var(--radius);
         padding: 9px 20px;
         font-size: 0.9rem;
-        font-weight: 700;
-        cursor: pointer;
-        text-decoration: none;
-        transition: opacity 0.15s;
-    }
-
-    .primary-button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-    }
-
-    .primary-button:not(:disabled):hover {
-        opacity: 0.85;
     }
 
     .result-msg {

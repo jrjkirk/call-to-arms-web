@@ -164,7 +164,7 @@
 		id="fr-names"
 		class="field-input fr-names"
 		rows="4"
-		placeholder={'Wolf Scouts\nRatlings'}
+		placeholder={'One faction per line'}
 		bind:value={namesText}
 	></textarea>
 
@@ -208,7 +208,7 @@
 	</div>
 
 	<div class="fr-actions">
-		<button class="fr-button" type="button" disabled={busy || !names.length} onclick={submit}>
+		<button class="primary-button" type="button" disabled={busy || !names.length} onclick={submit}>
 			{busy ? 'Sending…' : 'Request'}
 		</button>
 		{#if error}<p class="field-error">{error}</p>{/if}
@@ -280,28 +280,6 @@
 		flex-wrap: wrap;
 	}
 
-	/* Matches the admin page's .primary-button, which is scoped to that page. */
-	.fr-button {
-		background: var(--color-accent);
-		color: #111;
-		border: none;
-		border-radius: var(--radius);
-		padding: 0 14px;
-		height: 2.2rem;
-		font-size: 0.85rem;
-		font-weight: 700;
-		cursor: pointer;
-		transition: opacity 0.15s;
-	}
-
-	.fr-button:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-
-	.fr-button:not(:disabled):hover {
-		opacity: 0.85;
-	}
 
 	.fr-ok {
 		margin: 0;

@@ -246,7 +246,7 @@
 					<button type="button" class="frq-link" onclick={() => setAll(b, 'approve')}>Add all</button>
 					<button
 						type="button"
-						class="frq-apply"
+						class="primary-button"
 						disabled={!decided(b) || saving === b.id}
 						onclick={() => apply(b)}
 					>
@@ -402,23 +402,6 @@
 		padding: 0.4rem 0;
 	}
 
-	/* Matches the platform page's primary buttons, which are scoped to it. */
-	.frq-apply {
-		background: var(--color-accent);
-		color: #111;
-		border: none;
-		border-radius: var(--radius);
-		padding: 0 14px;
-		height: 2.2rem;
-		font-size: 0.85rem;
-		font-weight: 700;
-		cursor: pointer;
-	}
-
-	.frq-apply:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
 
 	.frq-icons {
 		border: 1px solid var(--color-accent-border);

@@ -1369,18 +1369,13 @@
 
     .actions { margin-top: 1rem; }
 
-   .primary-button {
-        display: inline-block;
-        background: var(--color-accent);
+    /* The shared .primary-button (app.css), larger, with a glow on hover: the
+       one action this page exists for. */
+    .primary-button {
         border: 1px solid var(--color-accent);
         color: #1b1206;
         padding: 0.7rem 1.4rem;
-        border-radius: var(--radius);
         font-size: 0.95rem;
-        font-weight: 700;
-        font-family: inherit;
-        text-decoration: none;
-        cursor: pointer;
         transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease, opacity 0.15s ease;
     }
 
@@ -1392,8 +1387,6 @@
     .primary-button:active:not(:disabled) {
         transform: scale(0.98);
     }
-
-    .primary-button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .drop-button {
         background: rgba(210, 80, 80, 0.12);
