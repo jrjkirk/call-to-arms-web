@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import FactionRequestQueue from '$lib/FactionRequestQueue.svelte';
+    import '$lib/admin/platform-admin.css';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -1340,6 +1341,9 @@
     }
 </script>
 
+<!-- Scope for $lib/admin/platform-admin.css: the whole page, not just the admin frame,
+     so the loading and no-access messages are styled too. -->
+<div class="platform-admin">
 {#if pageLoading}
     <p class="muted">Loading…</p>
 {:else if !adminMe?.is_platform_admin}
@@ -2584,6 +2588,7 @@
         </div>
     </div>
 {/if}
+</div>
 
 <style>
     .page-heading {
@@ -2731,13 +2736,6 @@
         }
     }
 
-    /* Static (non-interactive) module header — used where a panel used to be
-       a collapsible <details> but is now shown standalone via the sidebar. */
-    .dash-group-header.static {
-        cursor: default;
-        border-left-color: var(--color-accent-border);
-    }
-
     .managing-panel {
         margin-top: 1.25rem;
         border-top: 2px solid var(--color-accent-border);
@@ -2765,11 +2763,6 @@
         color: var(--color-accent-bright);
     }
 
-    .muted {
-        color: var(--color-text-muted);
-        font-style: italic;
-    }
-
     .platform-banner {
         padding: 10px 14px;
         background: rgba(180, 90, 60, 0.08);
@@ -2781,75 +2774,8 @@
         color: var(--color-accent);
     }
 
-    .admin-section {
-        margin-bottom: 2rem;
-    }
-
-    /* ── Dashboard groups ─────────────────────────────────────────────────── */
-
-    .dash-group {
-        margin-bottom: 1.25rem;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-        overflow: hidden;
-    }
-
-    .dash-group-header {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 14px 18px;
-        font-size: 0.95rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: var(--color-accent);
-        background: rgba(0, 0, 0, 0.25);
-        border-left: 3px solid var(--color-accent-border);
-        user-select: none;
-    }
-
-    .dash-group-title {
-        flex: 1;
-    }
-
-    .dash-group-body {
-        padding: 1.25rem 1.5rem;
-    }
-
-    .dash-group-body .admin-section {
-        margin-bottom: 1.75rem;
-    }
-
-    .dash-group-body .admin-section:last-child {
-        margin-bottom: 0;
-    }
-
-    .section-heading {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--color-accent);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin: 0 0 0.75rem;
-        padding-bottom: 0.4rem;
-        border-bottom: 1px solid var(--color-accent-border);
-    }
-
-    .section-intro {
-        font-size: 0.85rem;
-        color: var(--color-text-muted);
-        margin: 0 0 1rem;
-    }
-
     .slug-warning {
         color: var(--color-accent);
-    }
-
-    .sub-section {
-        margin-bottom: 1.5rem;
     }
 
     .sub-heading {
@@ -2859,174 +2785,6 @@
         letter-spacing: 0.6px;
         color: var(--color-text-muted);
         margin: 0 0 0.6rem;
-    }
-
-    .table-wrap {
-        overflow-x: auto;
-    }
-
-    .clubs-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-        color: var(--color-text-base);
-    }
-
-    .clubs-table thead th {
-        background: rgba(0, 0, 0, 0.25);
-        color: var(--color-accent);
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        font-weight: 700;
-        padding: 8px 10px;
-        text-align: left;
-    }
-
-    .clubs-table td {
-        padding: 8px 10px;
-        font-size: 0.9rem;
-        border-top: 1px solid var(--color-accent-border-soft);
-    }
-
-    .selected-row {
-        background: var(--color-surface-hover);
-    }
-
-    .status-badge {
-        display: inline-block;
-        font-size: 0.72rem;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 999px;
-    }
-
-    .status-active {
-        background: rgba(110, 180, 110, 0.15);
-        color: var(--color-win);
-        border: 1px solid rgba(110, 180, 110, 0.4);
-    }
-
-    .status-inactive {
-        background: rgba(148, 163, 184, 0.1);
-        color: var(--color-text-faint);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-    }
-
-    .block-list {
-        list-style: none;
-        padding: 0;
-        margin: 0 0 0.75rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-    }
-
-    .block-row {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 5px 10px;
-        background: rgba(0, 0, 0, 0.15);
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: var(--radius);
-        font-size: 0.88rem;
-        flex-wrap: wrap;
-    }
-
-    .block-names {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        flex: 1;
-        min-width: 0;
-    }
-
-    .block-note {
-        font-size: 0.78rem;
-        color: var(--color-text-dim);
-        font-style: italic;
-    }
-
-    .remove-btn {
-        background: none;
-        border: none;
-        color: var(--color-text-muted);
-        cursor: pointer;
-        font-size: 1rem;
-        line-height: 1;
-        padding: 0;
-        transition: color 0.15s;
-    }
-
-    .remove-btn:hover {
-        color: #f87171;
-    }
-
-    .appoint-form {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 0.75rem;
-    }
-
-    .system-form {
-        margin-top: 0.5rem;
-    }
-
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        min-width: 160px;
-    }
-
-    .field-narrow {
-        min-width: 130px;
-        max-width: 160px;
-    }
-
-    .field-row-break {
-        flex-basis: 100%;
-        height: 0;
-    }
-
-    .field-select {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        color: var(--color-text-base);
-        padding: 7px 10px;
-        font-size: 0.9rem;
-        cursor: pointer;
-    }
-
-    .field-select:focus {
-        outline: none;
-        border-color: var(--color-accent);
-    }
-
-    .field-input {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        color: var(--color-text-base);
-        padding: 7px 10px;
-        font-size: 0.9rem;
-        font-family: inherit;
-    }
-
-    .field-input:focus {
-        outline: none;
-        border-color: var(--color-accent);
-    }
-
-    .check-row {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.85rem;
-        color: var(--color-text-base);
     }
 
     .vibe-checkboxes {
@@ -3042,46 +2800,9 @@
         align-items: center;
     }
 
-    .field-error {
-        font-size: 0.8rem;
-        color: #f87171;
-        margin: 0.25rem 0 0;
-        width: 100%;
-    }
-
-    .pairing-message {
-        font-size: 0.8rem;
-        color: var(--color-win);
-        margin: 0.25rem 0 0;
-        width: 100%;
-    }
-
-
-
-
-
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 0.85rem;
-    }
-
-    .ap-toggle {
-        padding-bottom: 6px;
-    }
-
     .mission-file {
         padding: 0.4rem;
         font-size: 0.8rem;
-    }
-
-    .field-label-hint {
-        font-size: 0.65rem;
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: 0;
-        color: var(--color-text-faint);
     }
 
     .field-label-hint .hint-link {
@@ -3151,21 +2872,6 @@
         padding: 0.4rem;
     }
 
-    .pending-count-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 18px;
-        height: 18px;
-        padding: 0 5px;
-        margin-left: 0.4rem;
-        background: var(--color-accent);
-        color: #1b1206;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 700;
-    }
-
     .club-request-row {
         align-items: flex-start;
     }
@@ -3198,21 +2904,10 @@
 
     .provision-form .field { margin: 0; min-width: 180px; }
 
-    .slug-input-wrap {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-    }
-
     .slug-suffix {
         font-size: 0.82rem;
         color: var(--color-text-faint);
         white-space: nowrap;
-    }
-
-    .provision-actions {
-        display: flex;
-        gap: 0.5rem;
     }
 
     .health-table-wrap { overflow-x: auto; }

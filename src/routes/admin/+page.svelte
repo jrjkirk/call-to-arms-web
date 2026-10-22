@@ -2956,13 +2956,16 @@
     }
 </script>
 
+<!-- Scope for $lib/admin/club-admin.css: the whole page, not just the admin frame,
+     so the loading and no-access messages are styled too. -->
+<div class="club-admin">
 {#if pageLoading}
     <p class="muted">Loading…</p>
 {:else if !adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)}
     <p class="muted">You don't have admin access.</p>
 {:else}
 
-    <div class="admin-shell club-admin" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+    <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
         <aside class="admin-sidebar">
             <CommandPalette commands={paletteCommands} label="Jump to" />
             <button
@@ -5655,6 +5658,7 @@
     </div>
 
 {/if}
+</div>
 
 <style>
     /* The switch sits with the row's state, before its input, so "does this
