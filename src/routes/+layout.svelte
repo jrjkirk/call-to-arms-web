@@ -944,7 +944,10 @@
         .tab[aria-current='page'],
         .tab[aria-expanded='true'] { color: var(--color-accent); }
 
-        .has-tabbar { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+        /* Clear the fixed tab bar. Two classes, because the phone rule
+           `.container { padding: 1rem }` further down resets all four sides
+           and, being later, won a tie with a single class. */
+        .container.has-tabbar { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
 
         /* Members navigate by the bottom bar; the top ribbon would repeat it. */
         .topbar-member .nav-tabs-wrap { display: none; }
