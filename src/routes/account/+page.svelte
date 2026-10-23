@@ -22,6 +22,7 @@
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from '$lib/HelpTip.svelte';
+    import PushSettings from '$lib/PushSettings.svelte';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
 
     type Identity = {
@@ -609,6 +610,8 @@
             </ul>
         {/if}
     </section>
+
+    <PushSettings />
 
     <section class="a-card">
         <div class="a-head">

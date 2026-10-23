@@ -133,6 +133,11 @@
             return;
         }
         refreshAuth().then(redirectBareToHomeClub);
+        // Push notifications only (static/sw.js): it caches nothing, so every
+        // page still comes from the network exactly as it would without it.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
         const club = getClubSlugFromHostname(window.location.hostname);
         getSystemsConfig(club).then((cfg) => {
             hasAnyLeague = leagueSystems(cfg).length > 0;
