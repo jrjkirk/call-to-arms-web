@@ -5997,13 +5997,11 @@
 
     .ob-progress {
         flex: 0 0 auto;
-        font-size: 0.85rem;
+        font-family: var(--font-heading);
+        font-size: 1.6rem;
         font-weight: 700;
+        line-height: 1;
         color: var(--color-accent);
-        background: rgba(201, 161, 74, 0.12);
-        border: 1px solid var(--color-accent-border);
-        border-radius: 999px;
-        padding: 0.2rem 0.7rem;
     }
 
     .ob-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
@@ -6439,26 +6437,20 @@
         flex: 0 0 auto;
     }
 
+    /* Published / unpublished as a coloured word, not a bubble. */
     .pub-badge {
-        font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: none;
-        letter-spacing: 0;
-        padding: 2px 8px;
-        border-radius: 999px;
+        font-family: var(--font-heading);
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 0;
+        background: none !important;
+        border: none !important;
     }
 
-    .pub-live {
-        background: rgba(22, 101, 52, 0.4);
-        color: #86efac;
-        border: 1px solid #166534;
-    }
-
-    .pub-draft {
-        background: rgba(127, 29, 29, 0.3);
-        color: #fca5a5;
-        border: 1px solid #7f1d1d;
-    }
+    .pub-live { color: var(--color-win); }
+    .pub-draft { color: #d4786c; }
 
     .pairing-controls {
         display: flex;

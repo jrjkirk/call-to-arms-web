@@ -5,8 +5,12 @@
     --color-bg-base: #101219;
     --color-bg-deep: #0a0b0e;
     --color-sidebar-bg: #171a22;
-    --color-surface: rgba(26, 29, 39, 0.92);
-    --color-surface-dark: rgba(18, 20, 28, 0.95);
+    /* Solid panel colours, matching the Command Table panels (#13161e with a
+       #232733 rule) used across the player pages since 2026-10-23. They were
+       slightly translucent greys, which read as a different, lighter card
+       wherever an older page still used them. */
+    --color-surface: #13161e;
+    --color-surface-dark: #0f1218;
     --color-surface-hover: rgba(201, 161, 74, 0.06);
 
     /* Text — warm parchment, reads against the cool ground */
@@ -18,8 +22,8 @@
 
     /* Structure — cool steel hairlines & secondary UI */
     --color-steel: #7c869a;
-    --color-steel-border: rgba(124, 134, 154, 0.20);
-    --color-steel-border-soft: rgba(124, 134, 154, 0.11);
+    --color-steel-border: #232733;
+    --color-steel-border-soft: #1c2029;
 
     /* Accent — antique gilt */
     --color-accent: #c9a14a;
@@ -80,8 +84,7 @@ h1, h2, h3, h4, h5, h6 {
 .card {
     background: var(--color-surface);
     border: 1px solid var(--color-steel-border);
-    border-radius: var(--radius);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
+    border-radius: 6px;
 }
 
 .section-title {
@@ -360,19 +363,16 @@ h1, h2, h3, h4, h5, h6 {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-steel-border);
-    background: rgba(0, 0, 0, 0.25);
-    font-size: 0.7rem;
+    font-family: var(--font-heading);
+    font-size: 0.82rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    color: var(--color-text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-faint);
     white-space: nowrap;
 }
 .a-state.is-on {
-    border-color: var(--color-accent-border);
-    color: var(--color-text-bright);
+    color: var(--color-win);
 }
 .a-state::before {
     content: "";

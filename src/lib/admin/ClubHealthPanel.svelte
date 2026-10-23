@@ -163,14 +163,10 @@
 
     .flag {
         display: inline-block;
-        font-size: 0.7rem;
-        font-weight: 600;
+        font-size: 0.78rem;
+        font-weight: 700;
         color: var(--color-accent);
-        background: rgba(201, 161, 74, 0.12);
-        border: 1px solid var(--color-accent-border);
-        border-radius: 999px;
-        padding: 0.05rem 0.5rem;
-        margin: 0 0.25rem 0.25rem 0;
+        margin: 0 0.6rem 0.25rem 0;
         white-space: nowrap;
     }
 </style>

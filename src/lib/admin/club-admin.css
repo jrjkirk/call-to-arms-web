@@ -318,12 +318,18 @@ card that rule is redundant — the border already separates them. */
     margin-top: 0.5rem;
 }
 
+/* A status is a coloured word, not a bubble (2026-10-23): the colour each
+   status variant below sets is kept, its tinted box is not. */
 .club-admin .status-badge {
     display: inline-block;
-    font-size: 0.72rem;
+    font-family: var(--font-heading);
+    font-size: 0.82rem;
     font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 999px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0;
+    background: none !important;
+    border: none !important;
 }
 
 .club-admin .status-active {
