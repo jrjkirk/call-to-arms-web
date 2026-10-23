@@ -1007,9 +1007,11 @@
            Pages with a title (Home, Sign up, Pairings, Leagues) pull their
            title up beside it, so the logo and the title share one band
            instead of the logo sitting in a strip of its own. */
+        /* No z-index here: that would make the header its own stacking
+           layer, and the menu drawer inside it would be trapped beneath the
+           drawer's dimmed overlay (greyed out, nothing tappable). Only the
+           logo is lifted above the page that slides up under it. */
         .topbar-member {
-            position: relative;
-            z-index: 2;
             justify-content: flex-end;
             margin-bottom: 1rem;
             /* Taps on the empty part of the row reach the page under it. */
@@ -1018,6 +1020,11 @@
 
         .topbar-member .topbar-logo-link,
         .topbar-member .auth-panel { pointer-events: auto; }
+
+        .topbar-member .topbar-logo-link {
+            position: relative;
+            z-index: 2;
+        }
 
         /* Right edge on the page's edge (the content sits 16px further in
            than the header), and moved until "Rally. Pair. Play." ends on the
