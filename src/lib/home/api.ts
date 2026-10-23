@@ -80,25 +80,43 @@ export const EMPTY_PAIRINGS: PairingsData = {
     published: false, matchups: [], total_players: 0, total_matchups: 0, byes: 0
 };
 
+/* The last answer to each, kept for this page load. Switching tabs back to a
+   page shows what it had at once and refreshes underneath, rather than a
+   blank screen for every round trip: that wait was most of why the bottom
+   tabs felt slow. Never shown as current for long: every visit re-fetches. */
+let homeCache: HomeData | null = null;
+const pairingsCache = new Map<string, PairingsData>();
+
+/** What GET /home said last time, if anything, for an instant first paint. */
+export function peekHome(): HomeData | null {
+    return homeCache;
+}
+
 /** Null when signed out (401) or the API is unreachable, so callers can fall
  *  back to the plain system list. */
 export async function fetchHome(): Promise<HomeData | null> {
     try {
         const r = await fetch(`${PUBLIC_API_URL}/home`, { credentials: 'include' });
-        return r.ok ? await r.json() : null;
+        homeCache = r.ok ? await r.json() : null;
     } catch (_) {
-        return null;
+        homeCache = null;
     }
+    return homeCache;
+}
+
+export function peekPairings(system: string, week: string): PairingsData | null {
+    return pairingsCache.get(`${system}|${week}`) ?? null;
 }
 
 export async function fetchPairings(system: string, week: string): Promise<PairingsData> {
+    let out = EMPTY_PAIRINGS;
     try {
         const params = new URLSearchParams({ system, week });
         const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
-        return r.ok ? await r.json() : EMPTY_PAIRINGS;
-    } catch (_) {
-        return EMPTY_PAIRINGS;
-    }
+        if (r.ok) out = await r.json();
+    } catch (_) {}
+    pairingsCache.set(`${system}|${week}`, out);
+    return out;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

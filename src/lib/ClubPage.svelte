@@ -129,7 +129,7 @@
 {:else if error || !data}
     <div class="empty-state">Couldn't load the club page right now. Try refreshing.</div>
 {:else}
-    <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+    <div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
         <ClubHero club={data.club} {venueEnabled} {signedIn} />
 
         <div class="section-title">Systems</div>

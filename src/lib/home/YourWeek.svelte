@@ -17,14 +17,16 @@
     import { getSystemsConfig, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '../systemsConfig';
     import { getClubSlugFromHostname } from '../clubSlug';
     import {
-        fetchHome, fetchPairings, gameLabel, longDay, myMatchup, shortDay, sides, weekday,
+        fetchHome, fetchPairings, peekHome, peekPairings, gameLabel, longDay, myMatchup, shortDay, sides, weekday,
         type HomeData, type HomeNight, type PairingsData
     } from './api';
 
     let { clubName = null }: { clubName?: string | null } = $props();
 
-    let home = $state<HomeData | null>(null);
-    let loaded = $state(false);
+    // Seeded from the last visit, so coming back to Home paints at once.
+    const seen = peekHome();
+    let home = $state<HomeData | null>(seen);
+    let loaded = $state(seen !== null);
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
     /** The night whose game leads the page: the first one the caller is in.
@@ -36,20 +38,33 @@
 
     onMount(async () => {
         getSystemsConfig(getClubSlugFromHostname(window.location.hostname)).then((c) => (systemsConfig = c));
-        home = await fetchHome();
+        if (home) await show(home, true);
+        const fresh = await fetchHome();
+        home = fresh;
         loaded = true;
-        if (!home) return;
-        gameNight = home.nights.find((n) => n.mine) ?? null;
+        if (fresh) await show(fresh, false);
+    });
+
+    /** Work out the lead night and its pairings. `fromCache` uses pairings
+     *  already fetched this page load, for the instant first paint. */
+    async function show(h: HomeData, fromCache: boolean) {
+        gameNight = h.nights.find((n) => n.mine) ?? null;
         // No game of their own: show whichever night has pairings out, so the
         // panel still answers "who's playing whom".
         const shown = gameNight
             ? (gameNight.published ? gameNight : null)
-            : home.nights.find((n) => n.published) ?? null;
-        if (shown) {
-            pairings = await fetchPairings(shown.system, shown.week);
+            : h.nights.find((n) => n.published) ?? null;
+        if (!shown) {
+            pairings = null;
+            pairingsNight = null;
+            return;
+        }
+        const p = fromCache ? peekPairings(shown.system, shown.week) : await fetchPairings(shown.system, shown.week);
+        if (p) {
+            pairings = p;
             pairingsNight = shown;
         }
-    });
+    }
 
     const myGame = $derived(
         gameNight?.published && pairings ? myMatchup(pairings.matchups, home?.player_id) : null
@@ -79,8 +94,18 @@
     }
 </script>
 
-{#if loaded}
-<div class="week" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+{#if !loaded}
+    <!-- The page's shape while the first answer is on its way, so a tap on
+         Home shows Home immediately rather than an empty screen. -->
+    <div class="week" aria-busy="true">
+        <div class="week-head"><h1>Your week</h1></div>
+        <div class="grid">
+            <div class="panel next skeleton"></div>
+            <div class="panel nights skeleton"></div>
+        </div>
+    </div>
+{:else}
+<div class="week" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
     <div class="week-head">
         <h1>Your week</h1>
         {#if clubName}<span class="club-name">{clubName}</span>{/if}
@@ -297,6 +322,16 @@
     .next, .games { grid-column: span 8; }
     .nights, .season { grid-column: span 4; }
     .wide { grid-column: span 12; }
+
+    .skeleton {
+        min-height: 360px;
+        background: linear-gradient(100deg, #13161e 30%, #191d27 50%, #13161e 70%) 0 0 / 300% 100%;
+        animation: shimmer 1.4s ease-in-out infinite;
+    }
+
+    @keyframes shimmer { to { background-position: -150% 0; } }
+
+    @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 
     .panel-head {
         display: flex;

@@ -365,7 +365,7 @@
 {:else if !account}
     <p class="account-muted">Loading…</p>
 {:else}
-<div class="account" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+<div class="account" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
     {#if merge}
         <section class="a-card account-merge">

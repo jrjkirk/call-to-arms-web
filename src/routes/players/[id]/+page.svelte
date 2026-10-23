@@ -127,7 +127,7 @@
 {:else if loadError}
     <p style="color: #fca5a5;">{loadError}</p>
 {:else}
-<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
 <div class="profile-card">
     {#if discord}

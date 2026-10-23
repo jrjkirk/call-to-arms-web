@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { page } from '$app/state';
     import { loginHref } from '$lib/loginUrl';
     import GoogleSignIn from '$lib/GoogleSignIn.svelte';
@@ -812,7 +813,7 @@
 
 
 {#if pageReady}
-<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
 <h1 class="page-title">Sign up</h1>
 
@@ -1290,6 +1291,8 @@
 {/if}
 
 </div>
+{:else}
+    <PageSkeleton title="Sign up" />
 {/if}
 
 <style>

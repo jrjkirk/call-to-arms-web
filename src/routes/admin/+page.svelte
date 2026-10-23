@@ -2965,7 +2965,7 @@
     <p class="muted">You don't have admin access.</p>
 {:else}
 
-    <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+    <div class="admin-shell" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
         <aside class="admin-sidebar">
             <CommandPalette commands={paletteCommands} label="Jump to" />
             <button
@@ -3032,7 +3032,7 @@
 
         <div class="admin-main">
         {#key activeNav}
-        <div class="admin-section-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+        <div class="admin-section-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
     {#if activeNav === 'overview'}
     {#if onboarding && !onboarding.complete}

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { onMount } from 'svelte';
     import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
@@ -73,7 +74,7 @@
 </script>
 
 {#if systemsResolved}
-<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
 <SystemPicker
     systems={SYSTEMS}
@@ -121,6 +122,8 @@
 {/if}
 
 </div>
+{:else}
+    <PageSkeleton title="Players" />
 {/if}
 
 <style>

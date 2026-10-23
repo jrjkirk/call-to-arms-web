@@ -133,7 +133,7 @@
 {#if !loaded}
     <div class="loading-state"></div>
 {:else}
-    <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+    <div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
         <a class="back-home" href="/">← Home</a>
         <header class="finder-head">
             <h1 class="finder-title">Find a club</h1>

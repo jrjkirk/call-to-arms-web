@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { fly } from 'svelte/transition';
@@ -223,7 +224,7 @@
 </script>
 
 {#if systemsResolved}
-<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
 <div class="title-row">
     <h1 class="page-title">Pairings</h1>
@@ -314,6 +315,8 @@
 {/if}
 
 </div>
+{:else}
+    <PageSkeleton title="Pairings" />
 {/if}
 
 <style>

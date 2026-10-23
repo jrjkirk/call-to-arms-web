@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { page } from '$app/state';
     import { loginHref } from '$lib/loginUrl';
     import { signInProviders } from '$lib/signInProviders';
@@ -337,7 +338,7 @@
 </script>
 
 {#if pageReady}
-<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
 {#if leagueSystemsList.length > 0}
     <SystemPicker
@@ -670,6 +671,8 @@
 {/if}
 
 </div>
+{:else}
+    <PageSkeleton title="Leagues" />
 {/if}
 
 <style>

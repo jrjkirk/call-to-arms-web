@@ -219,10 +219,16 @@
         !isBareHost && authLoaded && !isAuthed ? 'https://www.calltoarms.app' : '/'
     );
 
-    function isActive(href: string): boolean {
-        if (href === '/') return page.url.pathname === '/';
-        return page.url.pathname.startsWith(href);
+    function isActive(href: string, pathname: string = page.url.pathname): boolean {
+        if (href === '/') return pathname === '/';
+        return pathname.startsWith(href);
     }
+
+    /* The tab bar answers the tap, not the page load: while a navigation is
+       in flight it already shows where you're going. Waiting for the new page
+       before moving the highlight is what made the bar feel unresponsive. */
+    const tabPath = $derived($navigating?.to?.url.pathname ?? page.url.pathname);
+    const activeTab = $derived(tabItems.findIndex((t) => isActive(t.href, tabPath)));
 
     // The hero page carries its own large logo, so the header shouldn't
     // duplicate it there — only show the header logo everywhere else.
@@ -494,7 +500,7 @@
                          as a worse jump than an instant cut. -->
                     <div
                         class="page-transition"
-                        in:fly={{ y: 24, duration: 550, easing: cubicOut }}
+                        in:fly={{ y: 8, duration: 200, easing: cubicOut }}
                     >
                         {@render children()}
                     </div>
@@ -505,9 +511,12 @@
 </div>
 
 {#if authLoaded && isAuthed}
-    <nav class="tabbar" aria-label="Main">
-        {#each tabItems as t}
-            <a href={t.href} class="tab" aria-current={isActive(t.href) ? 'page' : undefined} data-sveltekit-preload-data="hover">
+    <nav class="tabbar" aria-label="Main" data-sveltekit-preload-code="eager">
+        <!-- One gold marker that slides to the tab you picked. -->
+        <span class="tab-marker" class:hidden={activeTab < 0 || drawerOpen}
+              style={`transform: translateX(${Math.max(activeTab, 0) * 100}%)`} aria-hidden="true"></span>
+        {#each tabItems as t, i}
+            <a href={t.href} class="tab" class:on={i === activeTab && !drawerOpen} aria-current={isActive(t.href) ? 'page' : undefined} data-sveltekit-preload-data="tap">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     {#if t.icon === 'home'}
                         <path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z" />
@@ -941,8 +950,49 @@
             cursor: pointer;
         }
 
-        .tab[aria-current='page'],
+        .tab {
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+            transition: color 0.15s ease;
+        }
+
+        .tab svg { transition: transform 0.15s ease; }
+
+        .tab.on,
         .tab[aria-expanded='true'] { color: var(--color-accent); }
+
+        .tab.on svg { transform: translateY(-1px) scale(1.08); }
+
+        /* Answers the finger before anything else does. */
+        .tab:active svg { transform: scale(0.86); }
+
+        .tab-marker {
+            position: absolute;
+            top: -1px;
+            left: 0;
+            width: 20%;
+            height: 2px;
+            pointer-events: none;
+            transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
+        }
+
+        .tab-marker::before {
+            content: '';
+            position: absolute;
+            left: 28%;
+            right: 28%;
+            top: 0;
+            bottom: 0;
+            border-radius: 0 0 2px 2px;
+            background: var(--color-accent);
+            box-shadow: 0 0 10px var(--color-accent-glow);
+        }
+
+        .tab-marker.hidden { opacity: 0; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .tab-marker, .tab svg { transition: none; }
+        }
 
         /* Clear the fixed tab bar. Two classes, because the phone rule
            `.container { padding: 1rem }` further down resets all four sides

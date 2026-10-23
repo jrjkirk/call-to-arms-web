@@ -85,7 +85,7 @@
 <h2 class="page-heading">Create your profile</h2>
 <p class="lead-sub">Loading…</p>
 {:else}
-<div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
 <h2 class="page-heading">Create your profile</h2>
 

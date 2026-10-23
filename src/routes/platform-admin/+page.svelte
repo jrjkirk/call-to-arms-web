@@ -1154,13 +1154,13 @@
 {:else if !adminMe?.is_platform_admin}
     <p class="muted">You don't have platform admin access.</p>
 {:else}
-    <p class="section-intro platform-banner" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+    <p class="section-intro platform-banner" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
         Cross-club management.
         <HelpTip label="this console" text={"Creating clubs, configuring their systems, appointing their delegates, and toggling which clubs are live.\n\nSeparate from, and more powerful than, a club's own Admin tools."} />
         <a href="/admin">Club admin</a>
     </p>
 
-    <div class="admin-shell" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+    <div class="admin-shell" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
         <aside class="admin-sidebar">
             <CommandPalette commands={paletteCommands} label="Jump to" />
             {#each PLATFORM_NAV as item}
@@ -1183,7 +1183,7 @@
 
         <div class="admin-main">
         {#key activeNav}
-        <div class="admin-section-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
+        <div class="admin-section-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
     {#if activeNav === 'health'}
     <ClubHealthPanel />

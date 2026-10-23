@@ -1,3 +1,11 @@
+<script lang="ts" module>
+    // Which page this visitor got last time, for the rest of this page load:
+    // a tap back to Home shows it at once instead of waiting on /auth/me again.
+    let lastMode: 'week' | 'club' | null = null;
+    let lastSignedIn = false;
+    let lastClubName: string | null = null;
+</script>
+
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -8,9 +16,9 @@
     // else (a visitor, or a member who hasn't made a profile here yet) gets
     // the club's public page, which is what a shared link to the club is for.
     // The club page stays one tap away for members, at /club.
-    let mode = $state<'loading' | 'week' | 'club'>('loading');
-    let signedIn = $state(false);
-    let clubName = $state<string | null>(null);
+    let mode = $state<'loading' | 'week' | 'club'>(lastMode ?? 'loading');
+    let signedIn = $state(lastSignedIn);
+    let clubName = $state<string | null>(lastClubName);
 
     onMount(async () => {
         try {
@@ -22,6 +30,9 @@
         } catch (_) {
             mode = 'club';
         }
+        lastMode = mode;
+        lastSignedIn = signedIn;
+        lastClubName = clubName;
     });
 </script>
 
