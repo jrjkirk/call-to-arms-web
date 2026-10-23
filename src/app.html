@@ -37,6 +37,22 @@
 					}
 					location.reload();
 				}, true);
+
+				// A stylesheet that "loaded" but never applied: a damaged copy held
+				// in the browser's cache. App files are cached as never-changing,
+				// so even pull-to-refresh reuses it, and the page stays unstyled
+				// for good (2026-10-23, on Joel's phone). If the app's font isn't
+				// on the body once the page has loaded, fetch each app stylesheet
+				// again under a one-off address, which skips any cached copy.
+				window.addEventListener('load', function () {
+					if (getComputedStyle(document.body).fontFamily.indexOf('Barlow') !== -1) return;
+					var links = document.querySelectorAll('link[rel="stylesheet"][href*="/_app/"]');
+					for (var i = 0; i < links.length; i++) {
+						var fresh = links[i].cloneNode();
+						fresh.href = links[i].href.split('?')[0] + '?fresh=' + Date.now();
+						links[i].parentNode.insertBefore(fresh, links[i].nextSibling);
+					}
+				});
 			})();
 		</script>
 		%sveltekit.head%
