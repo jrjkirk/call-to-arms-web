@@ -7,7 +7,7 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { systemFolder } from '$lib/factions';
     import FactionIcon from '$lib/FactionIcon.svelte';
-    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
+    import { getSystemsConfig, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import LevelBar, { type LevelProgress } from '$lib/LevelBar.svelte';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
 
@@ -72,8 +72,6 @@
     // League").
     const leagues = $derived<any[]>(apiData?.leagues ?? []);
 
-    let expandedAchievement = $state<string | null>(null);
-
     // System display order comes from the catalogue (systemsConfig starts as
     // the offline fallback and updates once GET /systems loads), not a
     // hardcoded list.
@@ -81,10 +79,6 @@
 
     const visibleSystems = $derived(
         systemsInOrder.filter((s) => (signupCounts[s] ?? 0) > 0)
-    );
-
-    const factionSystems = $derived(
-        systemsInOrder.filter((s) => s in factionUsage)
     );
 
     const discord = $derived(apiData?.discord ?? null);
@@ -96,13 +90,6 @@
         setPageTitle(page.route.id, player?.name ? `${player.name} · Call to Arms` : null);
     });
 
-    function outcomeClass(result: string | null): string {
-        if (result === 'Win') return 'outcome-win';
-        if (result === 'Loss') return 'outcome-loss';
-        if (result === 'Draw') return 'outcome-draw';
-        return '';
-    }
-
     function factionUsageRows(facs: Record<string, number>) {
         const entries = Object.entries(facs).sort((a, b) => b[1] - a[1]);
         const max = entries.length ? Math.max(...entries.map(([, c]) => c)) : 1;
@@ -113,418 +100,382 @@
         }));
     }
 
-    function toggleAchievement(name: string) {
-        expandedAchievement = expandedAchievement === name ? null : name;
+    /* The profile is one panel per system the player has played: league,
+       level, factions and recent games together, rather than four sections
+       that each repeat every system. */
+    const panelSystems = $derived(
+        systemsInOrder.filter((s) =>
+            (signupCounts[s] ?? 0) > 0 || s in factionUsage || (recentGamesBySystem[s] ?? []).length > 0
+            || leagues.some((l) => l.system === s))
+    );
+
+    function ordinal(n: number): string {
+        const sfx = ['th', 'st', 'nd', 'rd'];
+        const v = n % 100;
+        return n + (sfx[(v - 20) % 10] || sfx[v] || sfx[0]);
     }
+
+    /** The faction they've played most, across every system, for the header. */
+    const usual = $derived.by(() => {
+        let best: { system: string; faction: string; n: number } | null = null;
+        for (const [system, facs] of Object.entries(factionUsage as Record<string, Record<string, number>>)) {
+            for (const [faction, n] of Object.entries(facs)) {
+                if (faction && (!best || n > best.n)) best = { system, faction, n };
+            }
+        }
+        return best;
+    });
+
+    let brokenLogos = $state<Record<string, boolean>>({});
 </script>
 
-<p class="back-link"><a href="/players">← All players</a></p>
-
 {#if pageLoading}
-    <p style="color: var(--color-text-dim); font-style: italic;">Loading…</p>
+    <h1 class="page-title">Player</h1>
+    <div class="skeleton"></div>
 {:else if notFound}
-    <p style="color: var(--color-text-dim); font-style: italic;">Player not found.</p>
+    <h1 class="page-title">Player</h1>
+    <p class="empty">Player not found. <a href="/players">All players</a></p>
 {:else if loadError}
-    <p style="color: #fca5a5;">{loadError}</p>
+    <h1 class="page-title">Player</h1>
+    <p class="empty">{loadError}</p>
 {:else}
 <div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
-<div class="profile-card">
-    {#if discord}
-        <div class="profile-discord">
-            {#if discord.avatar_url}
-                <img class="profile-discord-avatar" src={discord.avatar_url} alt="" />
-            {/if}
-            <span class="profile-discord-name">{discord.discord_name}</span>
-        </div>
-    {/if}
-    <div class="profile-name">{player.name}</div>
-    {#if club || titles.length > 0}
-        <div class="profile-titles">
-            {#if club}
-                <span class="profile-club-chip">{club.name}</span>
-            {/if}
-            {#each titles as t}
-                <span class="profile-title-chip">{t}</span>
-            {/each}
-        </div>
-    {/if}
-</div>
+<h1 class="page-title">{player.name}</h1>
 
-{#if achievements.length > 0}
-    <div class="section-title">Achievements</div>
-    <div class="achievement-grid">
-        {#each achievements as ach, i}
-            <button
-                class="achievement-chip"
-                class:expanded={expandedAchievement === ach.name}
-                onclick={() => toggleAchievement(ach.name)}
-                type="button"
-                in:fly={{ y: 12, duration: 350, delay: Math.min(i, 8) * 50 }}
-            >
-                🏅 {ach.name}
-            </button>
+<section class="panel header">
+    {#if usual}
+        <FactionIcon faction={usual.faction} folder={systemFolder(usual.system, systemsConfig)} class="header-icon" />
+    {:else if discord?.avatar_url}
+        <img class="header-avatar" src={discord.avatar_url} alt="" />
+    {/if}
+    <div class="header-text">
+        {#each titles as t}
+            <div class="header-title">{t}</div>
         {/each}
+        {#if usual}<div class="header-usual">{usual.faction}, usually</div>{/if}
+        <div class="header-sub">
+            {#if club}{club.name}{/if}{#if discord} · {discord.discord_name} on Discord{/if}
+        </div>
+        <a class="header-back" href="/players">All players ›</a>
     </div>
-    {#if expandedAchievement}
-        {@const found = achievements.find((a: { name: string }) => a.name === expandedAchievement)}
-        {#if found}
-            <div class="achievement-detail">
-                <strong>{found.name}</strong>
-                <p>{found.description}</p>
+</section>
+
+{#each panelSystems as sysName (sysName)}
+    {@const lg = leagues.find((l) => l.system === sysName)}
+    {@const lv = levelsList.find((l) => l.system === sysName)}
+    {@const games = recentGamesBySystem[sysName] ?? []}
+    {@const logo = systemLogoUrl(sysName, systemsConfig)}
+    <section class="panel system">
+        <header class="system-head">
+            {#if logo && !brokenLogos[sysName]}
+                <img src={logo} alt={sysName} onerror={() => (brokenLogos = { ...brokenLogos, [sysName]: true })} />
+            {:else}
+                <h2>{sysName}</h2>
+            {/if}
+            {#if lg?.rank}
+                <span class="system-rank">{ordinal(lg.rank)} <small>in the league</small></span>
+            {/if}
+        </header>
+
+        {#if lg}
+            <div class="block">
+                <div class="record">
+                    <div class="rec rec-w"><b>{lg.wins}</b><span>W</span></div>
+                    <div class="rec rec-d"><b>{lg.draws}</b><span>D</span></div>
+                    <div class="rec rec-l"><b>{lg.losses}</b><span>L</span></div>
+                    <div class="rec rec-rating"><b>{lg.rating != null ? Math.round(lg.rating).toLocaleString('en-GB') : '—'}</b><span>Rating</span></div>
+                </div>
+                {#if lg.elo_history && lg.elo_history.length > 1}
+                    {@const elos = lg.elo_history.map((h: any) => h.elo)}
+                    {@const yMin = Math.min(...elos) - 20}
+                    {@const yMax = Math.max(yMin + 40, Math.max(...elos) + 20)}
+                    {@const range = yMax - yMin}
+                    {@const n = lg.elo_history.length}
+                    <div class="elo-chart">
+                        <svg viewBox="0 0 600 200" preserveAspectRatio="none" class="elo-svg" role="img" aria-label="Rating over the season">
+                            {#each [0, 1, 2, 3, 4] as i}
+                                <line x1="40" x2="580" y1={16 + (i / 4) * 168} y2={16 + (i / 4) * 168} stroke="#1c2029" stroke-width="1" />
+                                <text x="34" y={16 + (i / 4) * 168 + 4} fill="#767c8a" font-size="10" text-anchor="end">{Math.round(yMax - (i / 4) * range)}</text>
+                            {/each}
+                            <polyline fill="none" stroke="#c9a14a" stroke-width="2.5"
+                                points={lg.elo_history.map((h: any, i: number) => `${40 + (i / Math.max(1, n - 1)) * 540},${16 + ((yMax - h.elo) / range) * 168}`).join(' ')} />
+                            {#each lg.elo_history as h, i}
+                                <circle cx={40 + (i / Math.max(1, n - 1)) * 540} cy={16 + ((yMax - h.elo) / range) * 168} r="4.5" fill="#f4e9c8" stroke="#c9a14a" stroke-width="2">
+                                    <title>{h.label}{h.date ? ` (${h.date})` : ''}: {h.elo}</title>
+                                </circle>
+                            {/each}
+                        </svg>
+                    </div>
+                {/if}
             </div>
         {/if}
-    {/if}
-{/if}
 
-{#if levelsList.length > 0}
-    <div class="section-title">Levels</div>
-    <div class="level-row">
-        {#each levelsList as lv, i (lv.system)}
-            <div in:fly={{ y: 16, duration: 400, delay: Math.min(i, 6) * 70 }}>
+        {#if lv}
+            <div class="block block-level">
                 <LevelBar {lv} />
             </div>
-        {/each}
-    </div>
-{/if}
+        {/if}
 
-{#if factionSystems.length > 0}
-    <div class="section-title">Faction Breakdown</div>
-    <div class="faction-systems">
-        {#each factionSystems as sysName}
-            <div class="faction-box">
-                <div class="faction-box-label">{sysName}</div>
+        {#if factionUsage[sysName]}
+            <div class="block">
+                <h3 class="block-label">Factions</h3>
                 {#each factionUsageRows(factionUsage[sysName]) as row}
                     <div class="faction-row">
-                        {#if row.name}
-                            <FactionIcon faction={row.name}
-                                         folder={systemFolder(sysName, systemsConfig)} />
-                        {:else}
-                            <div class="faction-icon-empty"></div>
-                        {/if}
-                        <span class="faction-name">{row.name}</span>
-                        <div class="faction-bar">
-                            <span class="faction-bar-fill" style="width: {row.pct}%"></span>
+                        <span class="faction-icon">
+                            {#if row.name}<FactionIcon faction={row.name} folder={systemFolder(sysName, systemsConfig)} class="fi" />{/if}
+                        </span>
+                        <div class="faction-main">
+                            <span class="faction-name">{row.name || 'No faction'}</span>
+                            <span class="faction-track"><span class="faction-fill" style={`width: ${row.pct}%`}></span></span>
                         </div>
-                        <span class="faction-count">{row.count}</span>
+                        <b class="faction-count">{row.count}</b>
                     </div>
                 {/each}
             </div>
-        {/each}
-    </div>
-{/if}
+        {/if}
 
-{#each leagues as lg (lg.system)}
-    <div class="section-title">{lg.system_name} League</div>
-
-    <div class="stat-row">
-        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 0 }}>
-            <div class="stat-label">ELO</div>
-            <div class="stat-value">{lg.rating?.toFixed(0) ?? '—'}</div>
-        </div>
-        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 70 }}>
-            <div class="stat-label">Rank</div>
-            <div class="stat-value">#{lg.rank ?? '—'}</div>
-        </div>
-        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 140 }}>
-            <div class="stat-label">W / D / L</div>
-            <div class="stat-value">{lg.wins}/{lg.draws}/{lg.losses}</div>
-        </div>
-        <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 210 }}>
-            <div class="stat-label">League Games</div>
-            <div class="stat-value">{lg.total_games}</div>
-        </div>
-    </div>
-
-    {#if lg.elo_history && lg.elo_history.length > 1}
-        {@const elos = lg.elo_history.map((h: any) => h.elo)}
-        {@const yMin = Math.min(...elos) - 20}
-        {@const yMax = Math.max(yMin + 40, Math.max(...elos) + 20)}
-        {@const range = yMax - yMin}
-        {@const n = lg.elo_history.length}
-        <div class="elo-chart">
-            <svg viewBox="0 0 600 240" preserveAspectRatio="none" class="elo-svg">
-                <!-- gridlines (4 horizontal divisions) -->
-                {#each [0, 1, 2, 3, 4] as i}
-                    <line
-                        x1="40" x2="580"
-                        y1={20 + (i / 4) * 200}
-                        y2={20 + (i / 4) * 200}
-                        stroke="rgba(180,150,90,0.18)"
-                        stroke-width="1"
-                    />
-                    <text
-                        x="36"
-                        y={20 + (i / 4) * 200 + 4}
-                        fill="#e8e4d8"
-                        font-size="10"
-                        text-anchor="end"
-                    >
-                        {Math.round(yMax - (i / 4) * range)}
-                    </text>
+        {#if games.length}
+            <div class="block block-games">
+                <h3 class="block-label">Recent games</h3>
+            </div>
+            <ul class="games">
+                {#each games as g}
+                    {@const r = g.result === 'Win' ? 'W' : g.result === 'Loss' ? 'L' : g.result === 'Draw' ? 'D' : ''}
+                    <li class={`game game-${r || 'none'}`}>
+                        <span class="game-result">{r || '·'}</span>
+                        <span class="game-icon">
+                            {#if g.opponent_faction}<FactionIcon faction={g.opponent_faction} folder={systemFolder(sysName, systemsConfig)} class="fi" />{/if}
+                        </span>
+                        <span class="game-who">
+                            {#if g.opponent_name}
+                                <b>v {g.opponent_name}</b>
+                                <span>{g.opponent_faction ?? 'Unknown faction'}{#if g.your_faction} · with {g.your_faction}{/if}</span>
+                            {:else}
+                                <b>Sat out</b>
+                                <span>{g.your_faction ?? ''}</span>
+                            {/if}
+                        </span>
+                        <span class="game-date">{g.week}</span>
+                    </li>
                 {/each}
-
-                <!-- line -->
-                <polyline
-                    fill="none"
-                    stroke="#c9a14a"
-                    stroke-width="2.5"
-                    points={lg.elo_history
-                        .map((h: any, i: number) => {
-                            const x = 40 + (i / Math.max(1, n - 1)) * 540;
-                            const y = 20 + ((yMax - h.elo) / range) * 200;
-                            return `${x},${y}`;
-                        })
-                        .join(' ')}
-                />
-
-                <!-- points -->
-                {#each lg.elo_history as h, i}
-                    {@const x = 40 + (i / Math.max(1, n - 1)) * 540}
-                    {@const y = 20 + ((yMax - h.elo) / range) * 200}
-                    <circle cx={x} cy={y} r="5" fill="#f4e9c8" stroke="#c9a14a" stroke-width="2">
-                        <title>{h.label}{h.date ? ` (${h.date})` : ''}: {h.elo}</title>
-                    </circle>
-                {/each}
-            </svg>
-        </div>
-    {/if}
+            </ul>
+        {/if}
+    </section>
 {/each}
 
-{#each systemsInOrder as sysName}
-    {@const games = recentGamesBySystem[sysName] ?? []}
-    {#if games.length > 0}
-        <div class="section-title">Recent {sysName} Games</div>
-        <div class="results">
-            {#each games as g, i}
-                <div class="result-row" in:fly={{ y: 10, duration: 300, delay: Math.min(i, 8) * 40 }}>
-                    <span class="result-date">{g.week}</span>
-                    {#if g.result}
-                        <span class={outcomeClass(g.result) + ' result-outcome'}>{g.result.toUpperCase()}</span>
-                    {/if}
-                    <span class="result-detail">
-                        <em>{g.your_faction ?? '?'}</em>
-                        {#if g.opponent_name}
-                            <span class="result-vs">vs</span>
-                            <strong>{g.opponent_name}</strong>
-                            (<em>{g.opponent_faction ?? '?'}</em>)
-                        {:else}
-                            <span class="result-vs result-bye">BYE</span>
-                        {/if}
-                    </span>
+{#if achievements.length > 0}
+    <section class="panel achievements">
+        <h2 class="section-title">Achievements</h2>
+        <div class="achievement-grid">
+            {#each achievements as ach}
+                <div class="achievement">
+                    <b>{ach.name}</b>
+                    {#if ach.description}<span>{ach.description}</span>{/if}
                 </div>
             {/each}
         </div>
-    {/if}
-{/each}
+    </section>
+{/if}
 </div>
 {/if}
 
 <style>
-    .back-link { margin: 0 0 1rem; color: var(--color-text-dim); }
-    .back-link a { text-decoration: none; }
-    .back-link a:hover { color: var(--color-text-bright); }
-
-    .profile-card {
-        background: var(--color-sidebar-bg);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        padding: 18px 22px;
-        margin-bottom: 14px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
     }
 
-    .profile-discord {
+    .skeleton {
+        height: 240px;
+        border-radius: 6px;
+        border: 1px solid #232733;
+        background: #13161e;
+    }
+
+    .empty { color: var(--color-text-dim); }
+    .empty a { color: var(--color-accent); }
+
+    .panel {
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+        margin-bottom: 14px;
+        overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 8px;
+        gap: 16px;
+        padding: 18px;
     }
 
-    .profile-discord-avatar {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 1px solid var(--color-accent-border-soft);
-    }
+    .header :global(.header-icon) { width: 68px; height: 68px; flex: none; }
+    .header-avatar { width: 60px; height: 60px; border-radius: 50%; flex: none; }
 
-    .profile-discord-name {
-        font-size: 0.85rem;
-        color: var(--color-text-dim);
-        font-style: italic;
-    }
+    .header-text { flex: 1; min-width: 0; }
 
-    .profile-name {
-        font-size: 1.6rem;
+    .header-title {
+        font-family: var(--font-heading);
         font-weight: 700;
-        color: var(--color-text-bright);
-    }
-
-    .profile-titles {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 8px;
-    }
-
-    .profile-title-chip {
-        background: rgba(201, 161, 74, 0.18);
-        border: 1px solid rgba(201, 161, 74, 0.45);
-        color: var(--color-text-bright);
-        padding: 3px 10px;
-        border-radius: var(--radius);
-        font-size: 0.82rem;
-    }
-
-    .profile-club-chip {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border);
-        color: var(--color-text-dim);
-        padding: 3px 10px;
-        border-radius: var(--radius);
-        font-size: 0.82rem;
-    }
-
-    .achievement-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .achievement-chip {
-        background: rgba(0, 0, 0, 0.25);
-        border: 1px solid var(--color-accent-border-soft);
-        color: var(--color-text-bright);
-        padding: 8px 10px;
-        border-radius: var(--radius);
-        font-size: 0.85rem;
-        font-family: inherit;
-        cursor: pointer;
-        text-align: left;
-        transition: background 0.1s ease, border-color 0.1s ease;
-    }
-
-    .achievement-chip:hover {
-        background: rgba(201, 161, 74, 0.10);
-        border-color: rgba(201, 161, 74, 0.55);
-    }
-
-    .achievement-chip.expanded {
-        background: rgba(201, 161, 74, 0.18);
-        border-color: var(--color-accent);
-    }
-
-    .achievement-detail {
-        margin: 0.25rem 0 0.75rem;
-        padding: 0.75rem 1rem;
-        background: rgba(0, 0, 0, 0.25);
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: var(--radius);
-        font-size: 0.9rem;
-    }
-
-    .achievement-detail p { margin: 0.25rem 0 0; color: var(--color-text-muted); }
-
-    .faction-systems {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 0.75rem;
-    }
-
-    .faction-box {
-        background: rgba(0, 0, 0, 0.25);
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: var(--radius);
-        padding: 14px 12px;
-    }
-
-    .faction-box-label {
-        font-size: 0.85rem;
-        color: var(--color-accent);
-        font-weight: 600;
+        font-size: 1rem;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 6px;
+        color: var(--color-accent);
     }
+
+    .header-usual { color: var(--color-text-muted); }
+    .header-sub { margin-top: 2px; font-size: 0.85rem; color: var(--color-text-faint); }
+
+    .header-back {
+        display: inline-block;
+        margin-top: 6px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--color-accent);
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    /* ── One system ── */
+    .system-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #232733;
+    }
+
+    .system-head img { height: 28px; width: auto; max-width: 200px; object-fit: contain; object-position: left center; }
+    .system-head h2 { font-size: 1.2rem; text-transform: uppercase; }
+
+    .system-rank {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 1.9rem;
+        line-height: 1;
+        color: var(--color-text-bright);
+    }
+
+    .system-rank small { font-size: 0.95rem; color: var(--color-text-dim); }
+
+    .block { padding: 14px 18px 4px; }
+    .block-level { padding-bottom: 8px; }
+    .block-games { padding-bottom: 8px; }
+
+    .block-label {
+        margin: 0 0 4px;
+        font-family: var(--font-heading);
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+    }
+
+    .record {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) 1.3fr;
+        gap: 8px;
+    }
+
+    .rec {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 0;
+        background: #0f1218;
+        border: 1px solid #1c2029;
+        border-radius: 5px;
+    }
+
+    .rec b { font-family: var(--font-heading); font-size: 1.8rem; line-height: 1; font-variant-numeric: tabular-nums; }
+    .rec span { margin-top: 4px; font-family: var(--font-heading); font-weight: 700; font-size: 0.82rem; letter-spacing: 0.15em; text-transform: uppercase; }
+    .rec-w { color: var(--color-win); }
+    .rec-d { color: var(--color-text-muted); }
+    .rec-l { color: #d4786c; }
+    .rec-rating b { color: var(--color-text-bright); }
+    .rec-rating span { color: var(--color-text-dim); }
+
+    .elo-chart { margin-top: 12px; }
+    .elo-svg { width: 100%; height: 150px; display: block; }
 
     .faction-row {
         display: grid;
-        grid-template-columns: 22px minmax(60px, 1fr) minmax(40px, 90px) 36px;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 0;
-        font-size: 0.88rem;
-        min-width: 0;
-    }
-
-    .faction-row :global(img) { width: 22px; height: 22px; object-fit: contain; }
-    .faction-icon-empty { width: 22px; height: 22px; }
-
-    .faction-name {
-        color: var(--color-text-bright);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .faction-bar {
-        height: 8px;
-        background: rgba(0, 0, 0, 0.4);
-        border-radius: 4px;
-        overflow: hidden;
-        border: 1px solid var(--color-accent-border-soft);
-    }
-
-    .faction-bar-fill {
-        display: block;
-        height: 100%;
-        background: linear-gradient(90deg, #c9a14a, #d97a2a);
-    }
-
-    .faction-count {
-        color: var(--color-text-muted);
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-        font-size: 0.85rem;
-    }
-
-    .elo-chart {
-        background: rgba(0, 0, 0, 0.25);
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: var(--radius);
-        padding: 0.5rem;
-        margin: 0.5rem 0 1rem;
-    }
-
-    .elo-svg { width: 100%; height: auto; }
-
-    .results { background: rgba(0, 0, 0, 0.15); border-radius: var(--radius); padding: 0.25rem 0.75rem; }
-
-    .result-row {
-        display: flex;
+        grid-template-columns: 28px minmax(0, 1fr) 32px;
         align-items: center;
         gap: 10px;
-        padding: 8px 4px;
-        border-bottom: 1px dashed var(--color-accent-border-soft);
-        font-size: 0.92rem;
-        flex-wrap: wrap;
+        margin: 8px 0;
     }
 
-    .result-row:last-child { border-bottom: none; }
+    .faction-icon :global(.fi) { width: 28px; height: 28px; display: block; }
+    .faction-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .faction-name { font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .faction-track { height: 6px; border-radius: 3px; background: #1c2029; }
+    .faction-fill { display: block; height: 6px; border-radius: 3px; background: var(--color-accent); }
+    .faction-count { font-family: var(--font-heading); font-size: 1.15rem; color: var(--color-text-bright); text-align: right; }
 
-    .result-date {
-        color: var(--color-text-dim);
-        min-width: 90px;
-        font-variant-numeric: tabular-nums;
+    .games { list-style: none; margin: 0; padding: 0; }
+
+    .game {
+        display: grid;
+        grid-template-columns: 28px 30px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 18px;
+        border-top: 1px solid #1c2029;
     }
 
-    .result-outcome { min-width: 46px; }
+    .game-W { box-shadow: inset 3px 0 0 var(--color-win); }
+    .game-L { box-shadow: inset 3px 0 0 #d4786c; }
+    .game-D { box-shadow: inset 3px 0 0 var(--color-text-muted); }
 
-    .result-detail { color: var(--color-text-muted); }
-    .result-detail em { color: var(--color-text-bright); font-style: italic; }
-    .result-detail strong { color: var(--color-text-bright); font-weight: 600; }
-    .result-vs { color: var(--color-accent); font-weight: 700; padding: 0 2px; }
-    .result-bye { color: var(--color-text-dim); font-style: italic; font-weight: 400; }
+    .game-result { font-family: var(--font-heading); font-weight: 700; font-size: 1.3rem; text-align: center; color: var(--color-text-faint); }
+    .game-W .game-result { color: var(--color-win); }
+    .game-L .game-result { color: #d4786c; }
+    .game-D .game-result { color: var(--color-text-muted); }
+
+    .game-icon :global(.fi) { width: 30px; height: 30px; display: block; }
+    .game-who { display: flex; flex-direction: column; min-width: 0; }
+    .game-who b { color: var(--color-text-bright); font-weight: 600; }
+    .game-who span { font-size: 0.82rem; color: var(--color-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .game-date { font-size: 0.8rem; color: var(--color-text-faint); font-variant-numeric: tabular-nums; }
+
+    /* ── Achievements ── */
+    .achievements { padding: 16px 18px; }
+    .achievements .section-title { margin: 0 0 10px; }
+
+    .achievement-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 8px;
+    }
+
+    .achievement {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 12px;
+        background: #0f1218;
+        border: 1px solid #1c2029;
+        border-radius: 5px;
+    }
+
+    .achievement b { color: var(--color-accent-bright); font-size: 0.92rem; }
+    .achievement span { font-size: 0.8rem; color: var(--color-text-dim); }
+
+    @media (max-width: 560px) {
+        .page-title { font-size: 2.1rem; }
+        .header { padding: 14px; gap: 12px; }
+        .header :global(.header-icon) { width: 54px; height: 54px; }
+        .system-head, .block { padding-left: 14px; padding-right: 14px; }
+        .game { padding: 10px 14px; grid-template-columns: 22px 28px minmax(0, 1fr) auto; gap: 8px; }
+        .achievement-grid { grid-template-columns: 1fr 1fr; }
+    }
 </style>

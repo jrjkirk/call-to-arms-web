@@ -11,7 +11,9 @@
     import { cubicOut } from 'svelte/easing';
     import { PUBLIC_API_URL } from '$env/static/public';
     import ClubHero from './ClubHero.svelte';
-    import SystemsCarousel from './SystemsCarousel.svelte';
+    import ClubNights from './ClubNights.svelte';
+    import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from './systemsConfig';
+    import { getClubSlugFromHostname } from './clubSlug';
     import OpeningHours from './OpeningHours.svelte';
     import ClubCalendar from './ClubCalendar.svelte';
     import ClubLocationMap from './ClubLocationMap.svelte';
@@ -110,7 +112,14 @@
         }
     }
 
-    onMount(() => load(month));
+    // For the night cards' logos, which follow an uploaded logo when a
+    // platform admin has set one.
+    let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
+
+    onMount(() => {
+        load(month);
+        getSystemsConfig(getClubSlugFromHostname(window.location.hostname)).then((c) => (systemsConfig = c));
+    });
 
     function changeMonth(next: string) {
         month = next;
@@ -130,40 +139,47 @@
     <div class="empty-state">Couldn't load the club page right now. Try refreshing.</div>
 {:else}
     <div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
-        <ClubHero club={data.club} {venueEnabled} {signedIn} />
+        <div class="club-grid">
+            <div class="hero"><ClubHero club={data.club} {venueEnabled} {signedIn} openingHours={data.club.opening_hours} /></div>
 
-        <div class="section-title">Systems</div>
-        <SystemsCarousel systems={data.systems} />
+            <section class="panel hours">
+                <h2 class="section-title">Opening hours</h2>
+                <OpeningHours openingHours={data.club.opening_hours} />
+            </section>
 
-        <div class="section-title">Opening Hours</div>
-        <OpeningHours openingHours={data.club.opening_hours} />
+            {#if data.systems.length}
+                <section class="nights">
+                    <h2 class="section-title">Club nights</h2>
+                    <ClubNights systems={data.systems} {systemsConfig} />
+                </section>
+            {/if}
 
-        <div class="section-title">Calendar</div>
-        <div class="card calendar-card">
-            <ClubCalendar month={data.calendar.month} entries={data.calendar.entries} onMonthChange={changeMonth} />
+            <section class="panel calendar">
+                <ClubCalendar month={data.calendar.month} entries={data.calendar.entries} onMonthChange={changeMonth} />
+            </section>
+
+            {#if data.club.address || (data.club.latitude != null && data.club.longitude != null)}
+                <section class="panel location">
+                    <h2 class="section-title">Find us</h2>
+                    {#if data.club.address}
+                        <p class="location-address">{data.club.address}</p>
+                    {/if}
+                    {#if data.club.latitude != null && data.club.longitude != null}
+                        <ClubLocationMap latitude={data.club.latitude} longitude={data.club.longitude} label={data.club.name} />
+                    {/if}
+                    <a
+                        class="directions-link"
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                            data.club.latitude != null && data.club.longitude != null
+                                ? `${data.club.latitude},${data.club.longitude}`
+                                : data.club.address ?? ''
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >Get directions ↗</a>
+                </section>
+            {/if}
         </div>
-
-        {#if data.club.address || (data.club.latitude != null && data.club.longitude != null)}
-            <div class="section-title">Location</div>
-            <div class="card location-card">
-                {#if data.club.address}
-                    <p class="location-address">{data.club.address}</p>
-                {/if}
-                {#if data.club.latitude != null && data.club.longitude != null}
-                    <ClubLocationMap latitude={data.club.latitude} longitude={data.club.longitude} label={data.club.name} />
-                {/if}
-                <a
-                    class="directions-link"
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                        data.club.latitude != null && data.club.longitude != null
-                            ? `${data.club.latitude},${data.club.longitude}`
-                            : data.club.address ?? ''
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >Get directions ↗</a>
-            </div>
-        {/if}
     </div>
 {/if}
 
@@ -172,15 +188,46 @@
         min-height: 40vh;
     }
 
-    .calendar-card {
-        padding: 1.1rem 1rem 1.3rem;
+    /* Desktop: the club and its hours side by side, every night in one row,
+       the calendar beside the map. One column on a phone. */
+    .club-grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 20px;
+        align-items: start;
     }
 
-    .location-card {
-        padding: 1rem;
+    .hero { grid-column: span 8; }
+    .hours { grid-column: span 4; }
+    .nights { grid-column: span 12; }
+    .calendar { grid-column: span 8; }
+    .location { grid-column: span 4; }
+
+    .hero :global(.club-hero) { height: 100%; box-sizing: border-box; }
+    .hero, .hours { align-self: stretch; }
+
+    .panel {
+        padding: 18px 20px;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+    }
+
+    .panel .section-title, .nights .section-title { margin: 0 0 0.6rem; }
+
+    .location {
         display: flex;
         flex-direction: column;
         gap: 0.7rem;
+    }
+
+    @media (max-width: 900px) {
+        .club-grid { gap: 16px; }
+        .hero, .hours, .nights, .calendar, .location { grid-column: span 12; }
+    }
+
+    @media (max-width: 560px) {
+        .panel { padding: 14px 16px; }
     }
 
     .location-address {

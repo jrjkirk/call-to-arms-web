@@ -13,11 +13,10 @@
         end_time: string | null;
     };
 
-    const MAX_LABELS_PER_CELL = 2;
-
-    function cellLabel(e: CalendarEntry): string {
-        return (e.system_slug ?? 'club').toUpperCase();
-    }
+    // Coloured dots rather than "TOW"/"AOS" badges: on a phone the badges were
+    // a few pixels tall and unreadable. The key under the grid names each
+    // colour, and tapping a day still lists exactly what's on.
+    const MAX_DOTS_PER_CELL = 4;
 
     let {
         month,
@@ -73,6 +72,16 @@
     const todayIso = new Date().toISOString().slice(0, 10);
 
     let expandedDay = $state<string | null>(null);
+
+    /** One key entry per colour on show this month. */
+    const legend = $derived.by(() => {
+        const seen = new Map<string, string>();
+        for (const e of entries) {
+            const name = e.system_name ?? 'Club event';
+            if (!seen.has(name)) seen.set(name, e.accent_color);
+        }
+        return [...seen].map(([name, colour]) => ({ name, colour }));
+    });
 </script>
 
 <div class="calendar">
@@ -105,15 +114,12 @@
                 >
                     <span class="day-num">{day.date.getDate()}</span>
                     {#if dayEntries.length > 0}
-                        <span class="day-labels">
-                            {#each dayEntries.slice(0, MAX_LABELS_PER_CELL) as e}
-                                <span
-                                    class="day-label-pill"
-                                    style={`--pill-accent: ${e.accent_color}`}
-                                >{cellLabel(e)}</span>
+                        <span class="day-dots" aria-label={dayEntries.map((e) => e.system_name ?? e.title).join(', ')}>
+                            {#each dayEntries.slice(0, MAX_DOTS_PER_CELL) as e}
+                                <span class="day-dot" style={`background: ${e.accent_color}`}></span>
                             {/each}
-                            {#if dayEntries.length > MAX_LABELS_PER_CELL}
-                                <span class="day-label-more">+{dayEntries.length - MAX_LABELS_PER_CELL}</span>
+                            {#if dayEntries.length > MAX_DOTS_PER_CELL}
+                                <span class="day-label-more">+{dayEntries.length - MAX_DOTS_PER_CELL}</span>
                             {/if}
                         </span>
                     {/if}
@@ -121,6 +127,14 @@
             {/each}
         </div>
     {/each}
+
+    {#if legend.length}
+        <div class="legend">
+            {#each legend as l}
+                <span class="legend-item"><span class="day-dot" style={`background: ${l.colour}`}></span>{l.name}</span>
+            {/each}
+        </div>
+    {/if}
 
     {#if expandedDay && (entriesByDate.get(expandedDay)?.length ?? 0) > 0}
         <div class="day-detail fade-in">
@@ -207,9 +221,9 @@
         justify-content: flex-start;
         gap: 0.22rem;
         padding: 0.3rem 0.15rem 0.35rem;
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border-soft);
-        border-radius: var(--radius);
+        background: #0f1218;
+        border: 1px solid #1c2029;
+        border-radius: 4px;
         color: var(--color-text-base);
         cursor: pointer;
         font-family: inherit;
@@ -246,24 +260,36 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .day-labels {
+    .day-dots {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 0.16rem;
-        line-height: 1;
+        gap: 3px;
     }
 
-    .day-label-pill {
-        background: color-mix(in srgb, var(--pill-accent) 22%, transparent);
-        color: var(--pill-accent);
-        font-size: 0.58rem;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        padding: 0.14rem 0.32rem;
-        border-radius: 3px;
-        white-space: nowrap;
+    .day-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: none;
     }
+
+    .legend {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+    }
+
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        color: var(--color-text-dim);
+    }
+
+    .legend-item .day-dot { width: 9px; height: 9px; }
 
     .day-label-more {
         color: var(--color-text-faint);
@@ -328,6 +354,5 @@
         .day-cell { min-height: 52px; padding: 0.24rem 0.1rem 0.28rem; }
         .day-num { font-size: 0.72rem; }
         .day-label { font-size: 0.6rem; }
-        .day-label-pill { font-size: 0.52rem; padding: 0.1rem 0.24rem; }
     }
 </style>

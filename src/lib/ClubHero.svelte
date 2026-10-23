@@ -24,12 +24,23 @@
         discord_url?: string | null;
     };
 
-    let { club, venueEnabled = false, signedIn = true }: {
+    type HoursRow = { day: string; open: string | null; close: string | null };
+
+    let { club, venueEnabled = false, signedIn = true, openingHours = [] }: {
         club: ClubProfile;
         venueEnabled?: boolean;
         /** Defaults to true so nothing flashes before /auth/me answers. */
         signedIn?: boolean;
+        /** For the "open today" line under the name. */
+        openingHours?: HoursRow[];
     } = $props();
+
+    const todayName = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+    const todayHours = $derived(openingHours.find((h) => h.day === todayName) ?? null);
+    const hoursLine = $derived(
+        openingHours.length === 0 ? null
+            : todayHours?.open ? `Open today ${todayHours.open}–${todayHours.close}` : 'Closed today'
+    );
 </script>
 
 <div class="club-hero">
@@ -37,7 +48,10 @@
         {#if club.logo_url}
             <img class="club-logo" src={club.logo_url} alt={`${club.name} logo`} />
         {/if}
-        <h1 class="club-name">{club.name}</h1>
+        <div>
+            <h1 class="club-name">{club.name}</h1>
+            {#if hoursLine}<div class="club-today">{hoursLine}</div>{/if}
+        </div>
     </div>
     {#if club.blurb}
         <p class="club-blurb">{club.blurb}</p>
@@ -65,8 +79,13 @@
 
 <style>
     .club-hero {
-        margin-bottom: 1.6rem;
+        padding: 22px;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
     }
+
+    .club-today { margin-top: 6px; color: var(--color-text-dim); }
 
     /* Logo + name stay inline together at every width — only the blurb and
        links reflow to full-width below, rather than the whole block
@@ -93,7 +112,7 @@
        capitals, large enough to be the first thing read on the page. */
     .club-name {
         font-family: var(--font-heading);
-        font-size: clamp(2rem, 5.2vw, 3.4rem);
+        font-size: clamp(1.8rem, 5.2vw, 3rem);
         font-weight: 700;
         line-height: 0.98;
         color: var(--color-text-bright);
@@ -191,10 +210,18 @@
     }
 
 
+    @media (max-width: 560px) {
+        .club-hero { padding: 16px; }
+        /* Two to a row on a phone, rather than a ragged wrap. */
+        .club-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .club-btn { justify-content: center; padding: 0 0.6rem; font-size: 0.95rem; }
+        .club-actions > :first-child:nth-last-child(odd) { grid-column: 1 / -1; }
+    }
+
     @media (min-width: 561px) {
         .club-logo {
-            width: 104px;
-            height: 104px;
+            width: 88px;
+            height: 88px;
             padding: 0.55rem;
         }
     }

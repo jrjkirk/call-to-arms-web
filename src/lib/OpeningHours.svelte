@@ -14,78 +14,43 @@
 </script>
 
 {#if openingHours.length > 0}
-    <div class="hours-grid">
+    <!-- A list, today in gold: the seven-tile grid squeezed "11:00–23:00"
+         onto two lines on a phone. -->
+    <ul class="hours">
         {#each DAY_ORDER as day}
             {@const row = byDay.get(day)}
-            <div class="hours-cell" class:is-today={day === today} class:is-open={!!row}>
-                <div class="hours-day">{DAY_SHORT[day]}</div>
+            <li class:is-today={day === today}>
+                <span class="day">{day}{#if day === today}<small> · today</small>{/if}</span>
                 {#if row}
-                    <div class="hours-time">{row.open}&ndash;{row.close}</div>
-                    {#if row.note}<div class="hours-note">{row.note}</div>{/if}
+                    <span class="time">{row.open}–{row.close}{#if row.note}<small> · {row.note}</small>{/if}</span>
                 {:else}
-                    <div class="hours-time hours-closed">Closed</div>
+                    <span class="time closed">Closed</span>
                 {/if}
-            </div>
+            </li>
         {/each}
-    </div>
+    </ul>
 {:else}
     <div class="empty-state">Opening hours haven't been set yet.</div>
 {/if}
 
 <style>
-    .hours-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 0.5rem;
+    .hours { list-style: none; margin: 0; padding: 0; }
+
+    li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid #1c2029;
+        color: var(--color-text-muted);
     }
 
-    .hours-cell {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        padding: 0.6rem 0.4rem;
-        text-align: center;
-    }
+    li:last-child { border-bottom: none; }
 
-    .hours-cell.is-open {
-        border-color: var(--color-accent-border);
-    }
+    .time { font-variant-numeric: tabular-nums; text-align: right; }
+    .closed { color: var(--color-text-faint); }
+    small { font-size: 0.8em; color: var(--color-text-dim); font-weight: 400; }
 
-    .hours-cell.is-today {
-        background: var(--color-surface-hover);
-        border-color: var(--color-accent);
-    }
-
-    .hours-day {
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 700;
-        color: var(--color-text-dim);
-        margin-bottom: 0.3rem;
-    }
-
-    .is-today .hours-day { color: var(--color-accent); }
-
-    .hours-time {
-        font-size: 0.82rem;
-        color: var(--color-text-base);
-        font-variant-numeric: tabular-nums;
-    }
-
-    .hours-closed {
-        color: var(--color-text-faint);
-    }
-
-    .hours-note {
-        font-size: 0.68rem;
-        color: var(--color-text-faint);
-        margin-top: 0.15rem;
-    }
-
-    @media (max-width: 640px) {
-        .hours-grid {
-            grid-template-columns: repeat(4, 1fr);
-        }
-    }
+    li.is-today { color: var(--color-accent-bright); font-weight: 700; }
+    li.is-today small { color: var(--color-accent); }
 </style>
