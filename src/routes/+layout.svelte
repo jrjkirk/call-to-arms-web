@@ -1019,7 +1019,16 @@
         .topbar-member .topbar-logo-link,
         .topbar-member .auth-panel { pointer-events: auto; }
 
-        .topbar.topbar-member .topbar-logo-link { display: flex; }
+        /* Right edge on the page's edge (the content sits 16px further in
+           than the header), and moved until "Rally. Pair. Play." ends on the
+           same line as the page title's lettering. Measured off a screenshot,
+           not eyeballed: see the "Phone logo" board on the design canvas,
+           version A2. Tied to the -60px pull-up below: change one, re-measure. */
+        .topbar.topbar-member .topbar-logo-link {
+            display: flex;
+            margin-right: 16px;
+            transform: translateY(6.3px);
+        }
 
         .topbar-member .topbar-logo {
             height: auto;

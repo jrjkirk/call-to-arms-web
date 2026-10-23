@@ -245,6 +245,7 @@
                     matchups={pairings.matchups}
                     playerId={home.player_id}
                     folder={systemFolder(pairingsNight.system, systemsConfig)}
+                    detail
                 />
             </section>
         {/if}
