@@ -84,15 +84,10 @@
             </div>
             {#if detail && hasMeta(m)}
                 <div class="meta">
-                    {#if m.game_type}<span class="pill pill-vibe">{m.game_type}</span>{/if}
-                    {#if m.eta}
-                        <span class="pill">
-                            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5" /><path d="M8 4.6V8l2.4 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-                            {m.eta}
-                        </span>
-                    {/if}
-                    {#if m.points}<span class="pill">{Number(m.points).toLocaleString('en-GB')} pts</span>{/if}
-                    {#if m.prearranged}<span class="pill pill-quiet">Arranged</span>{/if}
+                    {#if m.game_type}<b class="m-vibe">{m.game_type}</b>{/if}
+                    {#if m.eta}<b class="m-time">{m.eta}</b>{/if}
+                    {#if m.points}<b class="m-points">{Number(m.points).toLocaleString('en-GB')} pts</b>{/if}
+                    {#if m.prearranged}<b class="m-quiet">Arranged</b>{/if}
                 </div>
             {/if}
         </li>
@@ -190,7 +185,7 @@
         letter-spacing: 0.04em;
     }
 
-    /* The kind of game as a coloured edge on the row, and as the first pill. */
+    /* The kind of game as a coloured edge on the row, and in its colour below. */
     .game.detail { box-shadow: inset 3px 0 0 var(--vibe); }
 
     .meta {
@@ -198,33 +193,29 @@
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 6px;
+        gap: 4px 8px;
         margin-top: 2px;
     }
 
-    .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 3px 10px;
-        border-radius: 999px;
-        background: #1c2029;
-        border: 1px solid #2a2f3c;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--color-text-base);
+    /* Bold, coloured words rather than bubbles: the kind of game in its own
+       colour, then the time and the points, dot-separated. */
+    .meta b {
+        font-weight: 700;
+        font-size: 0.9rem;
         font-variant-numeric: tabular-nums;
     }
 
-    .pill svg { color: var(--color-text-dim); }
-
-    .pill-vibe {
-        color: var(--vibe);
-        border-color: color-mix(in srgb, var(--vibe) 45%, transparent);
-        background: color-mix(in srgb, var(--vibe) 14%, transparent);
+    .meta b + b::before {
+        content: '·';
+        margin-right: 8px;
+        color: var(--color-text-faint);
+        font-weight: 400;
     }
 
-    .pill-quiet { color: var(--color-text-dim); font-weight: 500; }
+    .m-vibe { color: var(--vibe); }
+    .m-time { color: var(--color-text-bright); }
+    .m-points { color: var(--color-accent); }
+    .m-quiet { color: var(--color-text-dim); }
 
     /* A level sits beside the name where there's room, and beside the faction
        on a phone, where it would otherwise squeeze the name off the row. */
@@ -257,6 +248,6 @@
         .meta { grid-column: 1 / -1; }
         .lvl-top { display: none; }
         .lvl-sub { display: inline; font-size: 0.66rem; margin: 0 4px; }
-        .pill { font-size: 0.8rem; padding: 2px 9px; }
+        .meta b { font-size: 0.85rem; }
     }
 </style>
