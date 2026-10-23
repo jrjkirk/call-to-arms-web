@@ -221,19 +221,17 @@
     <div class="a-card"><p class="a-note">{error}</p>
         <a class="secondary-button" href="/tournaments">All events</a></div>
 {:else if t}
-    <div class="a-card">
-        <div class="a-head">
-            <h1 class="a-title">{t.name}</h1>
-            <span class="a-head-end pill" class:live={t.status === 'running'}>
-                {STATUS_LABEL[t.status] ?? t.status}
-            </span>
-        </div>
-        <p class="a-note">
-            {dateRange}{t.system ? ` · ${t.system}` : ''}
-            {t.points_limit ? ` · ${t.points_limit} pts` : ''}
-            · {t.rounds_total} round{t.rounds_total === 1 ? '' : 's'}{t.days > 1 ? ` over ${t.days} days` : ''}
-        </p>
-        {#if t.blurb}<p class="a-note">{t.blurb}</p>{/if}
+    <div class="event-page">
+        <h1 class="page-title">{t.name}</h1>
+        <section class="ev-head">
+            <span class={`ev-status ev-status-${t.status}`}>{STATUS_LABEL[t.status] ?? t.status}</span>
+            <p class="ev-line">
+                <b>{dateRange}</b>{t.system ? ` · ${t.system}` : ''}{#if t.points_limit} · <b class="pts">{t.points_limit.toLocaleString('en-GB')} pts</b>{/if}
+                · {t.rounds_total} round{t.rounds_total === 1 ? '' : 's'}{t.days > 1 ? ` over ${t.days} days` : ''}
+            </p>
+            {#if t.blurb}<p class="ev-blurb">{t.blurb}</p>{/if}
+            <a class="ev-back" href="/tournaments">All events ›</a>
+        </section>
 
         {#if isAdmin}
             <div class="view-switch">
@@ -784,20 +782,73 @@
             </div>
         {/if}
     </div>
-
-    <a class="back" href="/tournaments">← All events</a>
 {/if}
 </div>
 
 <style>
+    /* ── Command Table pass (2026-10-23): the page title is the event, the
+       sections are panels, statuses are coloured words rather than pills. ── */
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
+    }
+
+    .ev-head {
+        padding: 16px 20px;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .ev-status {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--color-text-dim);
+    }
+
+    .ev-status-open { color: var(--color-win); }
+    .ev-status-running { color: var(--color-accent); }
+    .ev-status-closed { color: var(--color-text-muted); }
+    .ev-status-draft { color: var(--color-text-faint); font-style: italic; }
+
+    .ev-line { margin: 0; color: var(--color-text-dim); }
+    .ev-line b { color: var(--color-text-bright); font-weight: 600; }
+    .ev-line .pts { color: var(--color-accent); }
+    .ev-blurb { margin: 4px 0 0; color: var(--color-text-muted); }
+    .ev-back { margin-top: 4px; font-size: 0.88rem; font-weight: 600; color: var(--color-accent); text-decoration: none; }
+
+    .me-panel,
+    .next-step {
+        background: #13161e !important;
+        border: 1px solid var(--color-accent-border) !important;
+        border-radius: 6px !important;
+    }
+
+    @media (max-width: 560px) {
+        .page-title { font-size: 2.1rem; }
+        .ev-head { padding: 14px 16px; }
+    }
+
     .pill {
-        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
-        font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px;
-        border: 1px solid var(--color-steel-border); color: var(--color-text-dim);
+        font-family: var(--font-heading);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 700;
+        color: var(--color-text-dim);
         white-space: nowrap;
     }
-    .pill.live { color: var(--color-accent); border-color: var(--color-accent-border); }
-    .pill.draft { opacity: 0.75; font-style: italic; }
+    .pill.live { color: var(--color-win); }
+    .pill.draft { color: var(--color-text-faint); font-style: italic; }
 
     .my-game {
         display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap;
@@ -822,35 +873,44 @@
 
     .tabs { display: flex; gap: 1.2rem; border-bottom: 1px solid var(--color-steel-border); margin: 1.2rem 0 1rem; }
     .tab {
-        background: none; border: none; color: var(--color-text-base);
-        font-family: inherit; font-size: 0.92rem; padding: 0 0 0.5rem;
+        background: none; border: none; color: var(--color-text-muted);
+        font-family: var(--font-heading); font-weight: 600; font-size: 1rem;
+        letter-spacing: 0.08em; text-transform: uppercase; padding: 0 0 0.5rem;
         border-bottom: 3px solid transparent; cursor: pointer;
     }
     .tab.on { color: var(--color-accent); border-bottom-color: var(--color-accent-soft); }
 
     .round { margin-bottom: 1.4rem; }
     .round-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-    .round-title { margin: 0; font-size: 1rem; color: var(--color-text-bright); }
+    .round-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+    }
 
     .games { display: flex; flex-direction: column; gap: 0.35rem; }
     .game {
         display: grid;
         grid-template-columns: 2.6rem 1fr auto;
         align-items: center; gap: 0.8rem;
-        padding: 0.5rem 0.7rem;
-        border: 1px solid var(--color-steel-border);
+        padding: 0.6rem 0.8rem;
+        border: 1px solid #232733;
         border-radius: 6px;
-        background: rgba(0, 0, 0, 0.18);
-        font-size: 0.92rem;
+        background: #13161e;
+        font-size: 0.95rem;
     }
     .game.done { opacity: 0.85; }
     .game-table {
+        font-family: var(--font-heading); font-size: 1.15rem;
         font-weight: 700; color: var(--color-accent);
         font-variant-numeric: tabular-nums; text-align: center;
     }
     .game-players { display: flex; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
-    .vs { color: var(--color-text-dim); }
-    .won { color: var(--color-accent); font-weight: 700; }
+    .vs { font-family: var(--font-heading); font-weight: 700; color: var(--color-accent); }
+    .won { color: var(--color-win); font-weight: 700; }
     .game-result { font-size: 0.78rem; color: var(--color-text-dim); }
     .game-actions { display: flex; gap: 0.25rem; }
 

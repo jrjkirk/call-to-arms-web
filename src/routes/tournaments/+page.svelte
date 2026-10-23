@@ -100,241 +100,288 @@
     }
 </script>
 
-<div class="container">
-    <div class="a-card">
-        <div class="a-head">
-            <h1 class="a-title">Events</h1>
-            {#if isAdmin}
-                <button class="secondary-button a-head-end" type="button"
-                        onclick={() => (creating = !creating)}>
-                    {creating ? 'Cancel' : 'New event'}
-                </button>
-            {/if}
+<h1 class="page-title">Events</h1>
+
+{#if creating}
+    <section class="panel new-event">
+        <h2 class="section-title">New event</h2>
+        <div class="form-grid">
+            <label class="field">
+                <span class="field-label">Name <span class="req">*</span></span>
+                <input class="field-input" type="text" bind:value={nName} placeholder="Autumn Open" />
+            </label>
+            <label class="field">
+                <span class="field-label">Game system <span class="req">*</span></span>
+                <select class="field-select" bind:value={nSystem} disabled={!systems.length}>
+                    <option value="">{systems.length ? 'Choose' : 'No game systems enabled'}</option>
+                    {#each systems as s}<option value={s.id}>{s.name}</option>{/each}
+                </select>
+                {#if !systems.length}
+                    <span class="field-hint">No systems enabled yet. Add one under Admin → Systems.</span>
+                {/if}
+            </label>
+            <label class="field">
+                <span class="field-label">Date <span class="req">*</span></span>
+                <input class="field-input" type="date" bind:value={nDate} />
+            </label>
+            <label class="field">
+                <span class="field-label">Rounds</span>
+                <input class="field-input" type="number" min="1" max="12" bind:value={nRounds} />
+            </label>
+            <label class="field">
+                <span class="field-label">Points limit</span>
+                <input class="field-input" type="number" bind:value={nPoints} placeholder="2000" />
+            </label>
+            <label class="field">
+                <span class="field-label">Capacity</span>
+                <input class="field-input" type="number" bind:value={nCapacity} placeholder="No limit" />
+            </label>
         </div>
+        <p class="req-legend"><span class="req">*</span> Required</p>
+        <div class="new-actions">
+            <button class="primary-button" type="button" disabled={!canCreate} onclick={create}>Create event</button>
+            <button class="secondary-button" type="button" onclick={() => (creating = false)}>Cancel</button>
+        </div>
+    </section>
+{/if}
 
-        {#if creating}
-            <div class="new-event">
-                <div class="form-grid">
-                    <label class="field">
-                        <span class="field-label">Name <span class="req">*</span></span>
-                        <input class="field-input" type="text" bind:value={nName}
-                               placeholder="Autumn Open" />
-                    </label>
-                    <label class="field">
-                        <span class="field-label">Game system <span class="req">*</span></span>
-                        <select class="field-select" bind:value={nSystem} disabled={!systems.length}>
-                            <option value="">{systems.length ? 'Choose' : 'No game systems enabled'}</option>
-                            {#each systems as s}<option value={s.id}>{s.name}</option>{/each}
-                        </select>
-                        {#if !systems.length}
-                            <span class="field-hint">No systems enabled yet. Add one under Admin → Systems.</span>
-                        {/if}
-                    </label>
-                    <label class="field">
-                        <span class="field-label">Date <span class="req">*</span></span>
-                        <input class="field-input" type="date" bind:value={nDate} />
-                    </label>
-                    <label class="field">
-                        <span class="field-label">Rounds</span>
-                        <input class="field-input" type="number" min="1" max="12" bind:value={nRounds} />
-                    </label>
-                    <label class="field">
-                        <span class="field-label">Points limit</span>
-                        <input class="field-input" type="number" bind:value={nPoints} placeholder="2000" />
-                    </label>
-                    <label class="field">
-                        <span class="field-label">Capacity</span>
-                        <input class="field-input" type="number" bind:value={nCapacity} placeholder="No limit" />
-                    </label>
-                </div>
-                <p class="req-legend"><span class="req">*</span> Required</p>
-                <button class="primary-button" type="button" disabled={!canCreate} onclick={create}>
-                    Create event
-                </button>
-            </div>
-        {/if}
+{#if error}<p class="field-error">{error}</p>{/if}
 
-        {#if error}<p class="field-error">{error}</p>{/if}
-
-        {#if loading}
-            <p class="a-note">Loading…</p>
-        {:else if list.length === 0}
-            <p class="a-note">
-                No events yet.{#if isAdmin} Create one above.{/if}
-            </p>
-        {:else}
-            {#if upcoming.length}
-                <div class="diary">
-                    {#each upcoming as t (t.id)}
-                        <a class="ev" href={`/tournaments/${t.id}`}>
-                            <div class="ev-img">
-                                <!-- A club's own poster if they've set one, else the game
-                                     system's logo — so every event has a picture without a
-                                     TO having to find one. -->
-                                <img src={t.image_url ?? `/logos/${t.system_slug ?? 'kt'}.png`}
-                                     alt="" loading="lazy" />
-                                <span class="ev-when">
-                                    <span class="ev-day">{dayNum(t.date)}</span>
-                                    <span class="ev-mon">{monthShort(t.date)}</span>
-                                </span>
-                            </div>
-                            <div class="ev-body">
-                                <span class="pill" class:live={t.status === 'running'}
-                                      class:draft={t.status === 'draft'}>
-                                    {STATUS_LABEL[t.status] ?? t.status}
-                                </span>
-                                <h3 class="ev-name">{t.name}</h3>
-                                <p class="ev-meta">{dateRangeOf(t)}</p>
-                                <p class="ev-meta">
-                                    {t.system ?? ''}{t.points_limit ? ` · ${t.points_limit} pts` : ''}
-                                    · {t.rounds} round{t.rounds === 1 ? '' : 's'}
-                                </p>
-                                {#if t.blurb}<p class="ev-blurb">{t.blurb}</p>{/if}
-                                <p class="ev-foot">
-                                    {t.entries}{t.capacity ? ` / ${t.capacity}` : ''} entered
-                                    {#if t.waitlisted}<span class="wait">· {t.waitlisted} waiting</span>{/if}
-                                    {#if t.ticket_price_pence}
-                                        <span class="price">£{(t.ticket_price_pence / 100).toFixed(2)}</span>
-                                    {/if}
-                                </p>
-                            </div>
-                        </a>
-                    {/each}
-                </div>
-            {/if}
-
-            {#if past.length}
-                <h2 class="a-subtitle">Finished</h2>
-                <div class="diary past-diary">
-                    {#each past as t (t.id)}
-                        <a class="ev past" href={`/tournaments/${t.id}`}>
-                            <div class="ev-img">
-                                <img src={t.image_url ?? `/logos/${t.system_slug ?? 'kt'}.png`}
-                                     alt="" loading="lazy" />
-                            </div>
-                            <div class="ev-body">
-                                <h3 class="ev-name">{t.name}</h3>
-                                <p class="ev-meta">{dateRangeOf(t)} · {t.entries} played</p>
-                            </div>
-                        </a>
-                    {/each}
-                </div>
-            {/if}
-        {/if}
-    </div>
+<div class="list-head">
+    <h2 class="section-title">Coming up</h2>
+    {#if isAdmin && !creating}
+        <button class="new-btn" type="button" onclick={() => (creating = true)}>+ New event</button>
+    {/if}
 </div>
 
+{#if loading}
+    <div class="skeleton"></div>
+{:else if upcoming.length === 0}
+    <p class="empty">Nothing coming up yet.{#if isAdmin} Use New event to add one.{/if}</p>
+{:else}
+    <div class="diary">
+        {#each upcoming as t (t.id)}
+            <a class="ev" href={`/tournaments/${t.id}`}>
+                <div class="ev-img">
+                    <!-- A club's own poster if they've set one, else the game
+                         system's logo, so every event has a picture without a
+                         TO having to find one. -->
+                    <img src={t.image_url ?? `/logos/${t.system_slug ?? 'kt'}.png`} alt="" loading="lazy" />
+                    <span class="ev-when">
+                        <span class="ev-day">{dayNum(t.date)}</span>
+                        <span class="ev-mon">{monthShort(t.date)}</span>
+                    </span>
+                </div>
+                <div class="ev-body">
+                    <span class={`status status-${t.status}`}>{STATUS_LABEL[t.status] ?? t.status}</span>
+                    <h3 class="ev-name">{t.name}</h3>
+                    <p class="ev-meta">
+                        <b>{dateRangeOf(t)}</b>{#if t.start_time} · {t.start_time}{/if}
+                    </p>
+                    <p class="ev-meta">
+                        {t.system ?? ''}{#if t.points_limit} · <b class="pts">{t.points_limit.toLocaleString('en-GB')} pts</b>{/if}
+                        · {t.rounds} round{t.rounds === 1 ? '' : 's'}
+                    </p>
+                    {#if t.blurb}<p class="ev-blurb">{t.blurb}</p>{/if}
+                    <div class="ev-foot">
+                        <div class="entries">
+                            <span><b>{t.entries}</b>{t.capacity ? ` of ${t.capacity}` : ''} entered{#if t.waitlisted} · <span class="wait">{t.waitlisted} waiting</span>{/if}</span>
+                            {#if t.capacity}
+                                <span class="track"><span class="fill" style={`width: ${Math.min(100, Math.round((t.entries / t.capacity) * 100))}%`}></span></span>
+                            {/if}
+                        </div>
+                        {#if t.ticket_price_pence}
+                            <span class="price">£{(t.ticket_price_pence / 100).toFixed(2)}</span>
+                        {/if}
+                    </div>
+                </div>
+            </a>
+        {/each}
+    </div>
+{/if}
+
+{#if past.length}
+    <h2 class="section-title past-title">Finished</h2>
+    <div class="diary past-diary">
+        {#each past as t (t.id)}
+            <a class="ev past" href={`/tournaments/${t.id}`}>
+                <div class="ev-img">
+                    <img src={t.image_url ?? `/logos/${t.system_slug ?? 'kt'}.png`} alt="" loading="lazy" />
+                </div>
+                <div class="ev-body">
+                    <h3 class="ev-name">{t.name}</h3>
+                    <p class="ev-meta">{dateRangeOf(t)} · {t.entries} played</p>
+                </div>
+            </a>
+        {/each}
+    </div>
+{/if}
+
 <style>
-    .new-event {
-        border: 1px solid var(--color-accent-border-soft);
-        border-radius: var(--radius);
-        padding: 1rem;
-        margin-bottom: 1.2rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
     }
+
+    .panel {
+        padding: 18px 20px;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+    }
+
+    .new-event { margin-bottom: 1.2rem; }
+    .new-event .section-title { margin: 0 0 0.8rem; }
+    .new-actions { display: flex; gap: 8px; }
 
     .req { color: var(--color-accent); font-weight: 700; }
     .field-hint { font-size: 0.76rem; color: var(--color-text-dim); margin-top: 0.25rem; }
     .req-legend { margin: 0 0 0.8rem; font-size: 0.72rem; color: var(--color-text-dim); }
 
+    .list-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 0.7rem;
+    }
+
+    .list-head .section-title { margin: 0; }
+
+    .new-btn {
+        min-height: 40px;
+        padding: 0 14px;
+        background: none;
+        border: 1px solid var(--color-accent-border);
+        border-radius: 5px;
+        color: var(--color-accent);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .new-btn:hover { background: rgba(201, 161, 74, 0.08); }
+
+    .skeleton { height: 260px; border-radius: 6px; border: 1px solid #232733; background: #13161e; }
+    .empty { color: var(--color-text-dim); }
+
     .diary {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-        gap: 1rem;
+        gap: 14px;
     }
+
     .past-diary { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); }
+    .past-title { margin-top: 1.6rem; }
 
     .ev {
-        display: flex; flex-direction: column;
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
+        display: flex;
+        flex-direction: column;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
         overflow: hidden;
-        background: rgba(0, 0, 0, 0.2);
-        text-decoration: none; color: inherit;
-        transition: border-color 0.12s ease, transform 0.12s ease;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.12s ease;
     }
-    .ev:hover { border-color: var(--color-accent-border); transform: translateY(-2px); }
+
+    .ev:hover { border-color: var(--color-accent-border); }
     .ev.past { opacity: 0.72; }
 
     .ev-img {
         position: relative;
         aspect-ratio: 16 / 9;
-        background: rgba(0, 0, 0, 0.35);
-        display: grid; place-items: center;
-        border-bottom: 1px solid var(--color-steel-border);
+        background: #0f1218;
+        display: grid;
+        place-items: center;
+        border-bottom: 1px solid #232733;
     }
+
     .ev-img img { max-width: 72%; max-height: 72%; object-fit: contain; }
     .ev.past .ev-img { aspect-ratio: 21 / 9; }
 
-    /* The date block reads as a diary entry rather than another line of text. */
+    /* The date as a diary entry rather than another line of text. */
     .ev-when {
-        position: absolute; top: 0.5rem; left: 0.5rem;
-        display: flex; flex-direction: column; align-items: center;
-        padding: 0.25rem 0.5rem; border-radius: 6px;
-        background: rgba(0, 0, 0, 0.72);
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 5px;
+        background: rgba(10, 11, 14, 0.85);
         border: 1px solid var(--color-accent-border);
-        line-height: 1.05;
+        line-height: 1;
     }
-    .ev-day { font-size: 1.15rem; font-weight: 700; color: var(--color-accent); }
-    .ev-mon {
-        font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+
+    .ev-day { font-family: var(--font-heading); font-size: 1.5rem; font-weight: 700; color: var(--color-accent); }
+    .ev-mon { margin-top: 2px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-text-dim); }
+
+    .ev-body { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+
+    /* Bold coloured words, not a pill: green when you can enter, gold while
+       it's being played, dim while it's a draft only admins can see. */
+    .status {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 0.85rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
         color: var(--color-text-dim);
     }
 
-    .ev-body { padding: 0.8rem 0.9rem; display: flex; flex-direction: column; gap: 0.3rem; }
-    .ev-name { margin: 0; font-size: 1rem; color: var(--color-text-bright); }
-    .ev-meta { margin: 0; font-size: 0.78rem; color: var(--color-text-dim); }
+    .status-open { color: var(--color-win); }
+    .status-running { color: var(--color-accent); }
+    .status-closed { color: var(--color-text-muted); }
+    .status-draft { color: var(--color-text-faint); font-style: italic; }
+
+    .ev-name {
+        font-family: var(--font-heading);
+        font-size: 1.45rem;
+        font-weight: 700;
+        line-height: 1.05;
+        text-transform: uppercase;
+        color: var(--color-text-bright);
+    }
+
+    .ev-meta { margin: 0; font-size: 0.88rem; color: var(--color-text-dim); }
+    .ev-meta b { color: var(--color-text-bright); font-weight: 600; }
+    .ev-meta .pts { color: var(--color-accent); }
+
     .ev-blurb {
-        margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--color-text-dim);
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        margin: 4px 0 0;
+        font-size: 0.85rem;
+        color: var(--color-text-muted);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
         overflow: hidden;
     }
+
     .ev-foot {
-        margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--color-text-dim);
-        display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: baseline;
-    }
-    .price { margin-left: auto; color: var(--color-accent); font-weight: 700; }
-
-    .event-list { display: flex; flex-direction: column; gap: 0.5rem; }
-
-    .event {
+        margin-top: auto;
+        padding-top: 10px;
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        flex-wrap: wrap;
-        padding: 0.8rem 1rem;
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        background: rgba(0, 0, 0, 0.18);
-        text-decoration: none;
-        color: inherit;
-        transition: border-color 0.12s ease, background 0.12s ease;
+        align-items: flex-end;
+        gap: 12px;
     }
-    .event:hover { border-color: var(--color-accent-border); background: rgba(201, 161, 74, 0.06); }
-    .event.past { opacity: 0.72; }
 
-    .event-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-    .event-name { font-weight: 700; color: var(--color-text-bright); }
-    .event-meta { font-size: 0.8rem; color: var(--color-text-dim); }
+    .entries { flex: 1; display: flex; flex-direction: column; gap: 5px; font-size: 0.85rem; color: var(--color-text-dim); }
+    .entries b { color: var(--color-text-bright); font-family: var(--font-heading); font-size: 1.1rem; }
+    .track { height: 6px; border-radius: 3px; background: #1c2029; }
+    .fill { display: block; height: 6px; border-radius: 3px; background: var(--color-accent); }
+    .wait { color: var(--color-accent); }
 
-    .event-side { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
-    .event-count { font-size: 0.8rem; color: var(--color-text-dim); white-space: nowrap; }
-    .wait { color: var(--color-accent); margin-left: 0.35rem; }
+    .price { font-family: var(--font-heading); font-size: 1.3rem; font-weight: 700; color: var(--color-accent); }
 
-    .pill {
-        font-size: 0.68rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        font-weight: 700;
-        padding: 0.15rem 0.5rem;
-        border-radius: 999px;
-        border: 1px solid var(--color-steel-border);
-        color: var(--color-text-dim);
-        white-space: nowrap;
+    @media (max-width: 560px) {
+        .page-title { font-size: 2.1rem; }
+        .panel { padding: 14px 16px; }
     }
-    .pill.live { color: var(--color-accent); border-color: var(--color-accent-border); }
-    .pill.draft { opacity: 0.7; font-style: italic; }
 </style>
