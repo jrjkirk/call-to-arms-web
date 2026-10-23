@@ -98,14 +98,6 @@ h1, h2, h3, h4, h5, h6 {
     gap: 0.55rem;
 }
 
-.section-title::before {
-    content: '';
-    width: 16px;
-    height: 2px;
-    background: var(--color-accent);
-    flex: 0 0 auto;
-}
-
 .section-title:first-child { margin-top: 0; }
 
 .stat-row {

@@ -298,10 +298,7 @@
         </section>
     {/if}
 
-    <div class="games-head">
-        <h2 class="section-title">Every game</h2>
-        <span class="games-count">{pdata.total_players} players · {pdata.total_matchups} games{#if pdata.byes} · {pdata.byes} sitting out{/if}</span>
-    </div>
+    <h2 class="section-title">Every game</h2>
     <div class="games-card">
         <GameList matchups={pdata.matchups} playerId={myPlayerId} folder={systemFolder(data.system, systemsConfig)} detail />
     </div>
@@ -388,16 +385,6 @@
 
     .your-links a { color: var(--color-accent); }
 
-    .games-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .games-head .section-title { margin: 0.4rem 0 0.7rem; }
-    .games-count { font-size: 0.85rem; color: var(--color-text-dim); }
 
     .games-card {
         background: #13161e;
@@ -419,10 +406,7 @@
        pages' (SystemPicker.svelte's defaults) — preserved via custom
        property overrides rather than duplicating the component. */
     .system-picker-theme {
-        --system-card-bg: var(--color-sidebar-bg);
-        --system-card-border: transparent;
-        --system-card-radius: 10px;
-        --system-card-hover-border: var(--color-accent-border-soft);
+        display: contents;
     }
 
     .next-session-row {

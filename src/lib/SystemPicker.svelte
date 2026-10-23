@@ -58,27 +58,32 @@
 </div>
 
 <style>
+    /* Same tile as NightPicker, so a system looks the same wherever it is
+       picked: dark panel, gold edge and tint when chosen. */
     .system-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
         margin-bottom: 1rem;
     }
 
+    @media (max-width: 560px) {
+        .system-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    }
+
     .system-card {
-        /* Custom properties so a caller can override the look (e.g.
-           pairings/+page.svelte's slightly different card style) by setting
-           these on a wrapping element, without duplicating the whole
-           component. Defaults match the majority (home/players/leagues). */
+        /* Custom properties so a caller can still override the look by
+           setting these on a wrapping element. */
         background: var(--system-card-bg, var(--color-surface-dark));
-        border: 2px solid var(--system-card-border, var(--color-steel-border-soft));
+        border: 1px solid var(--system-card-border, var(--color-steel-border));
         border-radius: var(--system-card-radius, var(--radius));
-        padding: 0.75rem 0.5rem;
+        min-height: 72px;
+        padding: 10px 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: border-color 0.15s ease, transform 0.08s ease;
+        transition: border-color 0.15s ease, background 0.15s ease;
     }
 
     .system-card:hover {
@@ -91,18 +96,27 @@
 
     .system-card.active {
         border-color: var(--color-accent);
+        background: rgba(201, 161, 74, 0.12);
+    }
+
+    .system-card:focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
     }
 
     .system-card img {
-        max-width: 100%;
-        max-height: 60px;
+        display: block;
+        width: 100%;
+        height: 34px;
         object-fit: contain;
     }
 
-    /* Sized to sit in the same 60px band the logos occupy, so a mixed row of
-       logo tiles and name tiles keeps one baseline. */
+    @media (max-width: 560px) {
+        .system-card { min-height: 60px; }
+        .system-card img { height: 24px; }
+    }
+
     .system-name {
-        min-height: 60px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -111,6 +125,7 @@
         letter-spacing: 0.04em;
         text-transform: uppercase;
         font-size: 0.85rem;
+        line-height: 1.15;
         color: var(--color-text-muted, #b9b6ae);
     }
 </style>

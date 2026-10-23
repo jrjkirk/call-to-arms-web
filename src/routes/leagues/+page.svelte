@@ -152,10 +152,6 @@
         }
     }
 
-    function wdl(row: { wins: number; draws: number; losses: number }): string {
-        return `${row.wins}/${row.draws}/${row.losses}`;
-    }
-
     function medal(rank: number): string {
         if (rank === 1) return '🥇';
         if (rank === 2) return '🥈';
@@ -179,6 +175,16 @@
     let adminScopes = $state<string[]>([]);
     let systemsConfigLoaded = $state(false);
     const pageReady = $derived(authLoaded && systemsConfigLoaded);
+
+    /** The caller's own row in the standings on screen, for the card at the
+     *  top and the gold highlight in the table. */
+    const myRow = $derived(auth.player ? rankings.find((r) => r.player_id === auth.player!.id) ?? null : null);
+
+    function ordinal(n: number): string {
+        const sfx = ['th', 'st', 'nd', 'rd'];
+        const v = n % 100;
+        return n + (sfx[(v - 20) % 10] || sfx[v] || sfx[0]);
+    }
 
     let mobileFactionLabel = $state('Most Played Faction');
 
@@ -340,6 +346,8 @@
 {#if pageReady}
 <div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
 
+<h1 class="page-title">Leagues</h1>
+
 {#if leagueSystemsList.length > 0}
     <SystemPicker
         systems={leagueSystemsList.map((s) => s.legacy_system_name)}
@@ -352,6 +360,27 @@
 {/if}
 
 {#if selectedSystem}
+{#if myRow && !selectedFaction}
+    <!-- Where you stand, before the whole table: the same tiles as Home. -->
+    <section class="standing">
+        <div class="standing-rank">
+            <span class="standing-label">Your standing</span>
+            <span class="standing-pos">{ordinal(myRow.rank)} <small>of {rankings.length}</small></span>
+            {#if myRow.previous_rank != null && myRow.previous_rank !== myRow.rank}
+                {@const delta = myRow.previous_rank - myRow.rank}
+                <span class="rank-change {delta > 0 ? 'rank-up' : 'rank-down'}">{delta > 0 ? '▲' : '▼'}{Math.abs(delta)} this week</span>
+            {/if}
+        </div>
+        <div class="record">
+            <div class="rec rec-w"><b>{myRow.wins}</b><span>W</span></div>
+            <div class="rec rec-d"><b>{myRow.draws}</b><span>D</span></div>
+            <div class="rec rec-l"><b>{myRow.losses}</b><span>L</span></div>
+            <div class="rec rec-rating"><b>{Math.round(myRow.rating).toLocaleString('en-GB')}</b><span>Rating</span></div>
+        </div>
+    </section>
+{/if}
+
+<div class="filters">
 {#if seasons.length > 1}
     <div class="faction-filter-row season-select-row">
         <label class="faction-filter-label" for="season-select">Season</label>
@@ -388,13 +417,14 @@
 {/if}
 
 <div class="faction-filter-row">
-    <label class="faction-filter-label" for="faction-filter">Filter by faction</label>
+    <label class="faction-filter-label" for="faction-filter">Faction</label>
     <select id="faction-filter" class="field-select faction-filter-select" onchange={onFactionChange}>
         <option value="">All factions</option>
         {#each factions as f}
             <option value={f}>{f}</option>
         {/each}
     </select>
+</div>
 </div>
 
 {#if !selectedFaction}
@@ -407,13 +437,13 @@
                     <th class="center elo-col">ELO</th>
                     <th>Name</th>
                     <th class="center faction-col">{mobileFactionLabel}</th>
-                    <th class="center wdl-col">W/D/L</th>
+                    <th class="center wdl-col">W D L</th>
                     <th class="center games-col">Games</th>
                 </tr>
             </thead>
             <tbody>
                 {#each pagedRankings as row, i (row.player_id)}
-                    <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`} in:fade={{ duration: 300, delay: Math.min(i, 10) * 40 }}>
+                    <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`} class:me={row.player_id === auth.player?.id} in:fade={{ duration: 200, delay: Math.min(i, 10) * 25 }}>
                         <td class="center rank-col">
                             {#if medal(row.rank)}
                                 <span class="medal">{medal(row.rank)}</span>
@@ -444,7 +474,7 @@
                                 <span class="faction-empty">—</span>
                             {/if}
                         </td>
-                        <td class="center wdl-col">{wdl(row)}</td>
+                        <td class="center wdl-col"><span class="wdl"><b class="w">{row.wins}</b><b class="d">{row.draws}</b><b class="l">{row.losses}</b></span></td>
                         <td class="center games-col">{row.total_games}</td>
                     </tr>
                 {/each}
@@ -468,7 +498,7 @@
                 <tr>
                     <th class="center rank-col">Rank</th>
                     <th>Name</th>
-                    <th class="center wdl-col">W/D/L</th>
+                    <th class="center wdl-col">W D L</th>
                     <th class="center winrate-col">
                         BAYESIAN WIN RATE
                         <span
@@ -487,7 +517,7 @@
                 {:else if factionStats !== null}
                     {#each factionStats as row, i}
                         {@const rank = i + 1}
-                        <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`} in:fade={{ duration: 300, delay: Math.min(i, 10) * 40 }}>
+                        <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`} class:me={row.player_id === auth.player?.id} in:fade={{ duration: 200, delay: Math.min(i, 10) * 25 }}>
                             <td class="center rank-col">
                                 {#if medal(rank)}
                                     <span class="medal">{medal(rank)}</span>
@@ -498,7 +528,7 @@
                             <td>
                                 <a href="/players/{row.player_id}" class="name-link">{row.player_name}</a>
                             </td>
-                            <td class="center wdl-col">{wdl(row)}</td>
+                            <td class="center wdl-col"><span class="wdl"><b class="w">{row.wins}</b><b class="d">{row.draws}</b><b class="l">{row.losses}</b></span></td>
                             <td class="center winrate-col">{Math.round(row.adjusted_win_rate * 100)}%</td>
                             <td class="center games-col">{row.total_games}</td>
                         </tr>
@@ -686,12 +716,108 @@
         font-style: italic;
     }
 
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
+    }
+
+    /* ── Your standing ── */
+    .standing {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 1rem;
+        padding: 18px 22px;
+        background: rgba(201, 161, 74, 0.08);
+        border: 1px solid var(--color-accent);
+        border-radius: 6px;
+    }
+
+    .standing-rank { display: flex; flex-direction: column; gap: 4px; }
+
+    .standing-label {
+        font-family: var(--font-heading);
+        font-weight: 600;
+        font-size: 0.95rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+    }
+
+    .standing-pos {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 2.6rem;
+        line-height: 1;
+        color: var(--color-text-bright);
+    }
+
+    .standing-pos small { font-size: 1.1rem; color: var(--color-text-dim); }
+
+    .record {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) 1.3fr;
+        gap: 8px;
+    }
+
+    .rec {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 0;
+        background: #0f1218;
+        border: 1px solid #1c2029;
+        border-radius: 5px;
+    }
+
+    .rec b {
+        font-family: var(--font-heading);
+        font-size: 1.9rem;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .rec span {
+        margin-top: 4px;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 0.85rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+    }
+
+    .rec-w { color: var(--color-win); }
+    .rec-d { color: var(--color-text-muted); }
+    .rec-l { color: #d4786c; }
+    .rec-rating b { color: var(--color-text-bright); }
+    .rec-rating span { color: var(--color-text-dim); }
+
+    @media (max-width: 560px) {
+        .page-title { font-size: 2.1rem; }
+        .standing { grid-template-columns: 1fr; gap: 12px; padding: 14px; }
+        .standing-pos { font-size: 2.2rem; }
+    }
+
+    /* ── Filters ── */
+    .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        margin-bottom: 1rem;
+    }
+
+    .filters .faction-filter-row { margin: 0; }
+
+    /* ── Table ── */
     .table-wrap {
         overflow-x: auto;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
     }
 
     .league-table {
@@ -702,15 +828,15 @@
     }
 
     .league-table thead th {
-        background: rgba(0, 0, 0, 0.22);
-        color: var(--color-accent);
-        font-size: 0.72rem;
+        font-family: var(--font-heading);
+        color: var(--color-text-dim);
+        font-size: 0.85rem;
         text-transform: uppercase;
-        letter-spacing: 1.1px;
-        font-weight: 700;
-        padding: 12px 14px;
+        letter-spacing: 0.15em;
+        font-weight: 600;
+        padding: 14px;
         text-align: left;
-        border-bottom: 1px solid var(--color-steel-border);
+        border-bottom: 1px solid #232733;
     }
 
     .league-table thead th.center {
@@ -719,7 +845,7 @@
 
     .league-table tbody td {
         padding: 13px 14px;
-        border-bottom: 1px solid var(--color-steel-border-soft);
+        border-bottom: 1px solid #1c2029;
         font-size: 0.95rem;
         vertical-align: middle;
     }
@@ -733,10 +859,20 @@
     }
 
     .center { text-align: center; }
-    .rank-col { width: 64px; font-weight: 700; color: var(--color-text-bright); font-size: 1.02rem; }
+    .rank-col { width: 64px; font-family: var(--font-heading); font-weight: 700; color: var(--color-text-bright); font-size: 1.2rem; }
     /* ELO is the headline metric of the standings — give it weight. */
-    .elo-col  { width: 84px; font-weight: 700; color: var(--color-accent-bright); font-size: 1.05rem; }
-    .wdl-col  { width: 96px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+    .elo-col  { width: 84px; font-family: var(--font-heading); font-weight: 700; color: var(--color-text-bright); font-size: 1.25rem; }
+    .wdl-col  { width: 110px; font-variant-numeric: tabular-nums; }
+
+    .wdl { display: inline-flex; gap: 10px; font-family: var(--font-heading); font-size: 1.1rem; }
+    .wdl .w { color: var(--color-win); }
+    .wdl .d { color: var(--color-text-muted); }
+    .wdl .l { color: #d4786c; }
+
+    /* Your own row, wherever it sits in the table. */
+    .league-table tbody tr.me td { background: rgba(201, 161, 74, 0.1); }
+    .league-table tbody tr.me td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
+    .league-table tbody tr.me .name-link { color: var(--color-accent-bright); }
     .games-col { width: 80px; color: var(--color-text-dim); }
 
     .medal {
@@ -812,6 +948,12 @@
 
         .games-col { display: none; }
 
+        .wdl-col { width: auto; white-space: nowrap; }
+        .name-link { white-space: nowrap; }
+        .wdl { gap: 6px; font-size: 1rem; }
+        .elo-col { font-size: 1.05rem; }
+        .rank-col { width: 40px; font-size: 1.05rem; }
+
         .faction-col { width: 44px; }
 
         .faction-cell {
@@ -840,10 +982,11 @@
     }
 
     .faction-filter-label {
-        font-size: 0.75rem;
-        font-weight: 700;
+        font-family: var(--font-heading);
+        font-size: 0.9rem;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.6px;
+        letter-spacing: 0.15em;
         color: var(--color-accent);
         white-space: nowrap;
     }
@@ -884,9 +1027,9 @@
 
     .champions-section {
         margin-bottom: 1rem;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
         overflow: hidden;
     }
 
@@ -941,30 +1084,30 @@
     /* ---------- submission section ---------- */
 
     .submit-section {
-        margin-top: 2rem;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
+        margin-top: 1.5rem;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
         overflow: hidden;
     }
 
     .submit-toggle {
-        padding: 14px 16px;
+        padding: 16px 20px;
         cursor: pointer;
-        font-size: 0.85rem;
-        font-weight: 700;
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
+        letter-spacing: 0.18em;
         color: var(--color-accent);
-        background: rgba(0, 0, 0, 0.25);
         border-bottom: 1px solid transparent;
         user-select: none;
         list-style: none;
     }
 
-    .submit-section[open] .submit-toggle {
-        border-bottom-color: var(--color-steel-border);
+    .submit-section[open] .submit-toggle,
+    .champions-section[open] .submit-toggle {
+        border-bottom-color: #232733;
     }
 
     .submit-toggle::-webkit-details-marker { display: none; }
@@ -975,12 +1118,13 @@
         transition: transform 0.15s;
         display: inline-block;
     }
-    .submit-section[open] .submit-toggle::before {
+    .submit-section[open] .submit-toggle::before,
+    .champions-section[open] .submit-toggle::before {
         transform: rotate(90deg);
     }
 
     .submit-body {
-        padding: 1.25rem 1rem;
+        padding: 1.25rem 1.25rem;
     }
 
     .sign-in-prompt {
