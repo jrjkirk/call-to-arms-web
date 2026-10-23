@@ -2959,6 +2959,7 @@
 <!-- Scope for $lib/admin/club-admin.css: the whole page, not just the admin frame,
      so the loading and no-access messages are styled too. -->
 <div class="club-admin">
+<h1 class="page-title admin-title">Admin</h1>
 {#if pageLoading}
     <p class="muted">Loading…</p>
 {:else if !adminMe || (!adminMe.is_super_admin && adminMe.scopes.length === 0)}
@@ -3006,7 +3007,7 @@
             {/if}
 
             {#if adminMe.is_super_admin || adminMe.scopes.length > 0}
-                <div class="nav-group-label">Club admin</div>
+                <div class="nav-group-label nav-club-label">Club admin</div>
                 {#each CLUB_NAV as item}
                     {#if !item.super || adminMe.is_super_admin}
                         <button
@@ -3019,6 +3020,28 @@
                     {/if}
                 {/each}
             {/if}
+
+            <!-- Phones: one dropdown in place of fifteen buttons, which filled
+                 the whole first screen before any of the tab itself showed.
+                 Same sections and the same permission checks as the list. -->
+            <label class="nav-mobile">
+                <span class="nav-group-label">Section</span>
+                <select class="field-select nav-mobile-select" bind:value={activeNav}>
+                    <option value="overview">Overview</option>
+                    {#if adminMe.scopes.length > 0}
+                        <optgroup label={activeSystem ? `This system · ${activeSystem}` : 'This system'}>
+                            {#each SYSTEM_NAV as item}
+                                <option value={item.id}>{item.label}{navNeedsAttention.has(item.id) ? ' • set-up needed' : ''}</option>
+                            {/each}
+                        </optgroup>
+                    {/if}
+                    <optgroup label="Club admin">
+                        {#each CLUB_NAV.filter((i) => !i.super || adminMe!.is_super_admin) as item}
+                            <option value={item.id}>{item.label}{navNeedsAttention.has(item.id) ? ' • set-up needed' : ''}</option>
+                        {/each}
+                    </optgroup>
+                </select>
+            </label>
 
             {#if adminMe.community_discord_url}
                 <a class="admin-discord-link" href={adminMe.community_discord_url} target="_blank" rel="noopener noreferrer">
@@ -5694,6 +5717,18 @@
         margin: 0 0 1.5rem;
     }
 
+    .admin-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
+    }
+
+    @media (max-width: 560px) {
+        .admin-title { font-size: 2.1rem; }
+    }
+
     /* ── Console shell (sidebar + main panel) ────────────────────────────── */
     .admin-shell {
         display: grid;
@@ -5799,6 +5834,9 @@
         margin: 1rem 0 0.45rem 0.5rem;
     }
 
+    .nav-mobile { display: none; }
+    .nav-mobile-select { width: 100%; min-height: 46px; font-size: 1rem; font-weight: 600; }
+
     .nav-systems {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5903,32 +5941,25 @@
         .admin-shell {
             grid-template-columns: 1fr;
         }
-        /* A two-column grid of tabs on a phone, rather than a row that wraps
-           wherever the words happen to break. */
+        /* Phones: the system logos, then one Section dropdown. The buttons
+           and the Club admin heading go; the dropdown holds both lists. */
         .admin-sidebar {
             position: static;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 4px;
+            padding: 0.6rem 0.7rem 0.8rem;
         }
-        .admin-sidebar > :global(*:not(.nav-item)) {
-            grid-column: 1 / -1;
+        .admin-sidebar .nav-item,
+        .admin-sidebar .nav-club-label {
+            display: none;
         }
+        .admin-sidebar .admin-discord-link { margin: 0.6rem 0 0; justify-content: center; }
         .nav-group-label {
-            margin: 0.6rem 0 0.2rem 0.2rem;
+            margin: 0.4rem 0 0.35rem 0.2rem;
         }
         .nav-systems {
             grid-template-columns: repeat(3, minmax(0, 1fr));
         }
-        .nav-item {
-            border-left: none;
-            border: 1px solid #232733;
-            border-radius: 5px;
-            text-align: center;
-        }
-        .nav-item.active {
-            border-color: var(--color-accent);
-        }
+        .nav-mobile { display: block; }
     }
 
     /* ── Command Table (dashboard overview) ─────────────────────────────── */
