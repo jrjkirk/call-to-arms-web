@@ -12,9 +12,10 @@
 -->
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { PUBLIC_API_URL } from '$env/static/public';
-
-    type Kind = { kind: string; label: string };
+    import {
+        deviceStatus, friendlyPushError, isInstalled, isIos, pushApi as api, pushInfo,
+        pushRegistration as registration, pushSupported, subscribeDevice, type PushKind as Kind
+    } from './push';
 
     let view = $state<'loading' | 'unsupported' | 'ios-install' | 'off-server' | 'blocked' | 'off' | 'on'>('loading');
     let kinds = $state<Kind[]>([]);
@@ -23,56 +24,19 @@
     let busy = $state(false);
     let message = $state<string | null>(null);
 
-    function isIos(): boolean {
-        return /iPad|iPhone|iPod/.test(navigator.userAgent)
-            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    }
-
-    function isInstalled(): boolean {
-        return window.matchMedia('(display-mode: standalone)').matches
-            || (navigator as unknown as { standalone?: boolean }).standalone === true;
-    }
-
-    /** The VAPID public key, as the bytes pushManager.subscribe wants. */
-    function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {
-        const pad = '='.repeat((4 - (base64url.length % 4)) % 4);
-        const raw = atob((base64url + pad).replace(/-/g, '+').replace(/_/g, '/'));
-        const out = new Uint8Array(new ArrayBuffer(raw.length));
-        for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-        return out;
-    }
-
-    async function api(path: string, body?: unknown) {
-        const r = await fetch(`${PUBLIC_API_URL}${path}`, {
-            method: body === undefined ? 'GET' : 'POST',
-            credentials: 'include',
-            headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-            body: body === undefined ? undefined : JSON.stringify(body)
-        });
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data?.detail || 'Something went wrong. Try again.');
-        return data;
-    }
-
-    async function registration(): Promise<ServiceWorkerRegistration> {
-        return (await navigator.serviceWorker.getRegistration('/')) ?? navigator.serviceWorker.register('/sw.js');
-    }
-
     onMount(async () => {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        if (!pushSupported()) {
             view = isIos() && !isInstalled() ? 'ios-install' : 'unsupported';
             return;
         }
         try {
-            const info = await api('/push/key');
+            const info = await pushInfo();
             kinds = info.kinds ?? [];
             publicKey = info.public_key;
             if (!info.enabled) { view = 'off-server'; return; }
             if (Notification.permission === 'denied') { view = 'blocked'; return; }
-            const sub = await (await registration()).pushManager.getSubscription();
-            if (!sub) { view = 'off'; return; }
             // Subscribed in this browser, but maybe for someone else's account.
-            const status = await api('/push/status', { endpoint: sub.endpoint });
+            const status = await deviceStatus();
             muted = status.muted ?? [];
             view = status.subscribed ? 'on' : 'off';
         } catch (_) {
@@ -90,20 +54,12 @@
                 view = permission === 'denied' ? 'blocked' : 'off';
                 return;
             }
-            const reg = await registration();
-            const sub = (await reg.pushManager.getSubscription())
-                ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) }));
-            const saved = await api('/push/subscribe', sub.toJSON());
+            const saved = await subscribeDevice(publicKey);
             muted = saved.muted ?? [];
             view = 'on';
             message = 'Notifications are on for this device.';
         } catch (e) {
-            // The browser's own errors here ("Registration failed - push
-            // service error") mean nothing to a player; ours from the API do.
-            const text = e instanceof Error ? e.message : '';
-            message = /registration|push service|AbortError|NotAllowed/i.test(text) || !text
-                ? "This browser couldn't set up notifications. Check they're allowed for this site, then try again."
-                : text;
+            message = friendlyPushError(e);
         } finally {
             busy = false;
         }
