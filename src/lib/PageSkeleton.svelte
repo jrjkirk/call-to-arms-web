@@ -8,7 +8,7 @@
 </script>
 
 <div class="skel" aria-busy="true">
-    <h1>{title}</h1>
+    <h1 class="page-title">{title}</h1>
     {#each Array(blocks) as _, i}
         <div class="block" class:short={i === 0}></div>
     {/each}

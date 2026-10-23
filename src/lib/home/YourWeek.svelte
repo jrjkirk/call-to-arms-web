@@ -98,7 +98,7 @@
     <!-- The page's shape while the first answer is on its way, so a tap on
          Home shows Home immediately rather than an empty screen. -->
     <div class="week" aria-busy="true">
-        <div class="week-head"><h1>Your week</h1></div>
+        <div class="week-head"><h1 class="page-title">Your week</h1></div>
         <div class="grid">
             <div class="panel next skeleton"></div>
             <div class="panel nights skeleton"></div>
@@ -107,7 +107,7 @@
 {:else}
 <div class="week" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
     <div class="week-head">
-        <h1>Your week</h1>
+        <h1 class="page-title">Your week</h1>
         {#if clubName}<span class="club-name">{clubName}</span>{/if}
     </div>
 

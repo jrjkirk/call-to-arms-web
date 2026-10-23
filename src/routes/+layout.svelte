@@ -346,7 +346,7 @@
              it sits cleanly beside the nav-tab ribbon instead of
              overlapping it. Hidden on the hero page itself, same as the
              desktop logo below — the hero already carries its own big logo. -->
-        {#if !showingHero}
+        {#if !showingHero && !(authLoaded && isAuthed)}
             <button class="hamburger" onclick={toggleDrawer} type="button" aria-label={drawerOpen ? 'Close menu' : 'Open menu'}>
                 {#if drawerOpen}
                     <span class="hamburger-icon">✕</span>
@@ -1001,6 +1001,37 @@
 
         /* Members navigate by the bottom bar; the top ribbon would repeat it. */
         .topbar-member .nav-tabs-wrap { display: none; }
+
+        /* The phone header for a member is the logo, large, top right. Menu
+           and navigation live in the bottom bar, so the row is free for it.
+           Pages with a title (Home, Sign up, Pairings, Leagues) pull their
+           title up beside it, so the logo and the title share one band
+           instead of the logo sitting in a strip of its own. */
+        .topbar-member {
+            position: relative;
+            z-index: 2;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+            /* Taps on the empty part of the row reach the page under it. */
+            pointer-events: none;
+        }
+
+        .topbar-member .topbar-logo-link,
+        .topbar-member .auth-panel { pointer-events: auto; }
+
+        .topbar.topbar-member .topbar-logo-link { display: flex; }
+
+        .topbar-member .topbar-logo {
+            height: auto;
+            width: min(190px, 50vw);
+        }
+
+        .page-wrap:has(:global(.page-title)) .topbar-member { margin-bottom: -60px; }
+
+        .page-wrap:has(.topbar-member) :global(.page-title) {
+            max-width: calc(100% - min(190px, 50vw) - 12px);
+            white-space: nowrap;
+        }
         .user-menu-item.drawer-only { display: block; }
 
         /* Show the logo/menu button, inline in the topbar row rather than
