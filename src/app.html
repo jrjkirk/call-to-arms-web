@@ -11,6 +11,34 @@
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="Call to Arms" />
+		<!-- The page's own ground, so that even with no stylesheet it is dark,
+		     not a white page with a giant logo on it. -->
+		<style>html, body { background: #0a0b0e; color: #e9e0cd; }</style>
+		<!-- Recovery for a page saved from an older deploy (a restored tab, a
+		     home-screen app brought back from memory). Its stylesheet and code
+		     files no longer exist, so nothing loads and nothing works, and the
+		     reload in hooks.client.ts can't help because it lives in the code
+		     that failed to load. This runs before any of it: if a file under
+		     /_app/ fails, reload once to get the current page. Same flag as
+		     hooks.client.ts, which the layout clears once the app mounts, so a
+		     file that is genuinely missing reloads at most once. -->
+		<script>
+			(function () {
+				var FLAG = 'cta_reloaded_for_stale_chunk';
+				window.addEventListener('error', function (e) {
+					var t = e.target;
+					if (!t || (t.tagName !== 'LINK' && t.tagName !== 'SCRIPT')) return;
+					if ((t.href || t.src || '').indexOf('/_app/') === -1) return;
+					try {
+						if (sessionStorage.getItem(FLAG)) return;
+						sessionStorage.setItem(FLAG, '1');
+					} catch (_) {
+						return;
+					}
+					location.reload();
+				}, true);
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" data-sveltekit-preload-code="eager">
