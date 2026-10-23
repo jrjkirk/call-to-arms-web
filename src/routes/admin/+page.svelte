@@ -2977,15 +2977,23 @@
 
             {#if adminMe.scopes.length > 0}
                 <div class="nav-group-label">This system</div>
-                <select
-                    class="field-select nav-system-select"
-                    bind:value={activeSystem}
-                    aria-label="Select system"
-                >
+                <!-- Logos, not a dropdown: an admin of two or three systems
+                     switches between them constantly, and the logo is how
+                     every other page in the app names a system now. -->
+                <div class="nav-systems" role="group" aria-label="Select system">
                     {#each adminMe.scopes.filter(isSystemScope) as s}
-                        <option value={s}>{s}</option>
+                        {@const logo = systemLogoUrl(s, systemsConfig)}
+                        <button
+                            type="button"
+                            class="nav-system"
+                            aria-pressed={activeSystem === s}
+                            title={s}
+                            onclick={() => (activeSystem = s)}
+                        >
+                            {#if logo}<img src={logo} alt={s} />{:else}<span>{s}</span>{/if}
+                        </button>
                     {/each}
-                </select>
+                </div>
                 {#each SYSTEM_NAV as item}
                     <button
                         type="button"
@@ -5774,29 +5782,65 @@
         top: 1rem;
         display: flex;
         flex-direction: column;
-        gap: 0.15rem;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        padding: 0.6rem;
+        gap: 2px;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+        padding: 0.7rem;
     }
 
     .nav-group-label {
+        font-family: var(--font-heading);
         text-transform: uppercase;
-        font-size: 0.66rem;
-        font-weight: 700;
-        letter-spacing: 1.4px;
-        color: var(--color-steel);
-        margin: 0.8rem 0 0.35rem 0.5rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        color: var(--color-accent);
+        margin: 1rem 0 0.45rem 0.5rem;
+    }
+
+    .nav-systems {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin: 0 0 0.5rem;
+    }
+
+    .nav-system {
+        min-height: 48px;
+        padding: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0f1218;
+        border: 1px solid #232733;
+        border-radius: 5px;
+        color: var(--color-text-muted);
+        font: inherit;
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.15;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .nav-system:hover { border-color: var(--color-accent-border); }
+
+    .nav-system[aria-pressed='true'] {
+        border-color: var(--color-accent);
+        background: rgba(201, 161, 74, 0.12);
+    }
+
+    .nav-system img {
+        display: block;
+        width: 100%;
+        height: 26px;
+        object-fit: contain;
     }
 
     .nav-group-label:first-child {
         margin-top: 0.2rem;
-    }
-
-    .nav-system-select {
-        margin: 0 0.15rem 0.35rem;
-        width: auto;
     }
 
     .nav-item {
@@ -5804,11 +5848,13 @@
         background: transparent;
         border: none;
         border-left: 3px solid transparent;
-        border-radius: 0;
+        border-radius: 0 4px 4px 0;
         color: var(--color-text-muted);
-        font-size: 0.85rem;
+        font: inherit;
+        font-size: 0.92rem;
         font-weight: 600;
-        padding: 0.5rem 0.6rem;
+        min-height: 38px;
+        padding: 0.45rem 0.65rem;
         cursor: pointer;
         transition: background 0.12s ease, color 0.12s ease, border-left-color 0.12s ease;
     }
@@ -5838,9 +5884,15 @@
     }
 
     .nav-item.active {
-        background: var(--color-surface-hover);
+        background: rgba(201, 161, 74, 0.1);
         border-left-color: var(--color-accent);
-        color: var(--color-accent-bright);
+        color: var(--color-text-bright);
+    }
+
+    .nav-item:focus-visible,
+    .nav-system:focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 1px;
     }
 
     .admin-main {
@@ -5851,25 +5903,31 @@
         .admin-shell {
             grid-template-columns: 1fr;
         }
+        /* A two-column grid of tabs on a phone, rather than a row that wraps
+           wherever the words happen to break. */
         .admin-sidebar {
             position: static;
-            flex-direction: row;
-            flex-wrap: wrap;
-            gap: 0.35rem;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 4px;
+        }
+        .admin-sidebar > :global(*:not(.nav-item)) {
+            grid-column: 1 / -1;
         }
         .nav-group-label {
-            width: 100%;
-            margin: 0.4rem 0 0.1rem 0.2rem;
+            margin: 0.6rem 0 0.2rem 0.2rem;
         }
-        .nav-system-select {
-            width: 100%;
+        .nav-systems {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
         .nav-item {
             border-left: none;
-            border-bottom: 2px solid transparent;
+            border: 1px solid #232733;
+            border-radius: 5px;
+            text-align: center;
         }
         .nav-item.active {
-            border-bottom-color: var(--color-accent);
+            border-color: var(--color-accent);
         }
     }
 

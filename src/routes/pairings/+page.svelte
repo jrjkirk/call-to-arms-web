@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
-    import { fly, scale } from 'svelte/transition';
+    import { fly } from 'svelte/transition';
     import { cubicOut } from 'svelte/easing';
     import { systemFolder } from '$lib/factions';
     import FactionIcon from '$lib/FactionIcon.svelte';
@@ -10,54 +10,15 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
     import SystemPicker from '$lib/SystemPicker.svelte';
+    import NightPicker from '$lib/NightPicker.svelte';
+    import GameList from '$lib/home/GameList.svelte';
+    import { fetchHome, gameLabel, myMatchup, sides, weekday, type HomeNight } from '$lib/home/api';
 
     // Icon folder per system comes from the backend-owned SystemConfig
     // (GET /systems); FALLBACK carries the same values until it loads.
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
 
     let { data } = $props();
-
-    function matchKey(m: { player_a_name: string; player_b_name?: string | null }): string {
-        return `${m.player_a_name}|${m.player_b_name ?? 'BYE'}`;
-    }
-
-    /**
-     * The CSS modifier for an experience tag, or null to render nothing.
-     *
-     * Unknown values render nothing rather than showing the raw string: this
-     * comes off a signup row, so a system that grows a fourth level should stay
-     * silent until this list is updated, not display an unstyled mystery tag.
-     */
-    // 'some' is the retired name for the middle tier and still sits on
-    // historical signups, so it renders identically to 'experienced'.
-    const EXPERIENCE_LEVELS = ['new', 'some', 'experienced', 'veteran'];
-
-    // Same ladder as the profile bar and the posted image, so a player's colour
-    // is the same wherever they see it. Applied inline rather than by class —
-    // a class name built from data gets pruned from the bundle.
-    const LEVEL_BANDS: [number, string][] = [
-        [60, '#ff8000'], [50, '#a335ee'], [40, '#e05fa8'], [30, '#8b7cf6'],
-        [20, '#4a9eda'], [10, '#17c3b2'], [1, '#3fb950']
-    ];
-    function levelColour(level: number | null): string {
-        for (const [floor, colour] of LEVEL_BANDS) if ((level ?? 0) >= floor) return colour;
-        return LEVEL_BANDS[LEVEL_BANDS.length - 1][1];
-    }
-    /** Display name for a stored tier. "Some" is the retired name for the
-     *  middle tier and still sits on historical signups; it reads oddly alone,
-     *  so it renders as "Experienced" wherever it appears. */
-    function expLabel(value: string | null): string {
-        return (value ?? '').trim().toLowerCase() === 'some' ? 'Experienced' : (value ?? '');
-    }
-
-    function experienceClass(value: string | null): string | null {
-        const key = (value ?? '').trim().toLowerCase();
-        return EXPERIENCE_LEVELS.includes(key) ? `exp-${key}` : null;
-    }
-
-    function cascadeDelay(i: number): number {
-        return Math.min(i, 10) * 90;
-    }
 
     let system = $state(data.system);
     let week = $state(data.week);
@@ -89,7 +50,10 @@
         is_bye: boolean;
         game_type: string | null;
         eta: string | null;
-        points: number | null;
+        points: string | number | null;
+        id?: number;
+        prearranged?: boolean;
+        table?: string | null;
     };
     type PairingsData = {
         published: boolean;
@@ -198,6 +162,17 @@
     let showWeekField = $state(false);
 
 
+    /* ---------- the caller's nights and own game ---------- */
+    // Signed-in only (GET /home needs an account). A visitor following a
+    // shared link keeps the plain system tiles and no "Your game" card.
+    let nights = $state<HomeNight[] | null>(null);
+    let myPlayerId = $state<number | null>(null);
+    const night = $derived(nights?.find((n) => n.system === data.system) ?? null);
+    const myGame = $derived(pdata.published ? myMatchup(pdata.matchups, myPlayerId) : null);
+    const seat = $derived(myGame ? sides(myGame, myPlayerId) : null);
+    const myGameIndex = $derived(myGame ? pdata.matchups.filter((m) => !m.is_bye).indexOf(myGame) : -1);
+    const nightName = $derived(night && night.week === data.week ? weekday(night.date) : data.week);
+
     /* ---------- auth + unpaired ---------- */
     type UnpairedPlayer = { player_id: number; player_name: string; signup_id: number };
     let loggedIn = $state(false);
@@ -227,7 +202,10 @@
             }
         } catch (_) {}
         if (loggedIn) {
-            mySystems = await fetchMySystems();
+            const [systemsList, home] = await Promise.all([fetchMySystems(), fetchHome()]);
+            mySystems = systemsList;
+            nights = home?.nights ?? null;
+            myPlayerId = home?.player_id ?? null;
         }
         systemsResolved = true;
     });
@@ -242,28 +220,27 @@
         }
     });
 
-    function accentClass(gt: string | null | undefined): string {
-        if (!gt) return '';
-        const k = gt.toLowerCase();
-        if (k === 'intro') return 'accent-intro';
-        if (k === 'casual') return 'accent-casual';
-        if (k === 'competitive') return 'accent-competitive';
-        if (k === 'standard') return 'accent-standard';
-        return '';
-    }
 </script>
 
 {#if systemsResolved}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
-<div class="system-picker-theme">
-    <SystemPicker
-        systems={tabSystems}
-        {systemsConfig}
-        isActive={(s) => system === s}
-        onSelect={selectSystem}
-    />
+<div class="title-row">
+    <h1 class="page-title">Pairings</h1>
 </div>
+
+{#if nights && nights.length}
+    <NightPicker {nights} {systemsConfig} active={system} onSelect={selectSystem} />
+{:else}
+    <div class="system-picker-theme">
+        <SystemPicker
+            systems={tabSystems}
+            {systemsConfig}
+            isActive={(s) => system === s}
+            onSelect={selectSystem}
+        />
+    </div>
+{/if}
 
 <div class="next-session-row">
     <span>Showing: <strong>{data.week}</strong></span>
@@ -282,141 +259,57 @@
 {#if !pairingsLoaded}
     <div class="empty-state">Loading…</div>
 {:else if !pdata.published}
-    <div class="empty-state">No pairings published yet for this week/system.</div>
+    <div class="empty-state">Pairings for {nightName} aren't out yet. This page shows them the moment they are.</div>
 {:else if pdata.matchups.length === 0}
     <div class="empty-state">No pairings yet.</div>
 {/if}
 
 {#if pairingsLoaded && pdata.published && pdata.matchups.length > 0}
-    <div class="stat-row">
-        <div class="stat-card">
-            <div class="stat-label">Players</div>
-            <div class="stat-value">{pdata.total_players}</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Matchups</div>
-            <div class="stat-value">{pdata.total_matchups}</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">On Standby</div>
-            <div class="stat-value">{pdata.byes}</div>
-        </div>
-    </div>
-{/if}
-
-<!-- Deliberately NOT wrapped in the {#if} above — an {#each ... in:fly}
-     block nested inside a conditional branch that's itself newly
-     activating (the common "loading -> content" pattern) never plays its
-     children's intro transitions in Svelte 5, even though the branch swap
-     and the each-block population happen in the same reactive flush.
-     Keeping this container always mounted (rendering zero items when
-     there's nothing to show) is what lets the per-card reveal fire. -->
-<div class="matchups">
-    {#each pdata.matchups as m, i (matchKey(m))}
-            <div
-                class={`matchup-card ${m.is_bye ? 'matchup-bye' : ''} ${accentClass(m.game_type)}`}
-                in:fly={{ y: 24, duration: 420, delay: cascadeDelay(i) }}
-            >
-                <div class="player-row player-a">
-                    {#if m.player_a_faction}
-                        <FactionIcon faction={m.player_a_faction}
-                                     folder={systemFolder(data.system, systemsConfig)}
-                                     class="matchup-icon" />
-                    {:else}
-                        <div class="matchup-icon-empty"></div>
-                    {/if}
-                    <div class="player-text">
-                        <!-- Level and tier lead on the left and trail on the
-                             right, so the two halves mirror each other around
-                             the VS rather than both reading left-to-right. -->
-                        <div class="player-name">
-                            {#if m.player_a_level}
-                                <span class="lvl-chip lvl-chip-lead" style={`color: ${levelColour(m.player_a_level)}`}>
-                                    Lvl. {m.player_a_level}
-                                </span>
-                            {/if}
-                            {m.player_a_name}
-                        </div>
-                        <div class="player-faction">{m.player_a_faction ?? '—'}</div>
-                        {#if experienceClass(m.player_a_experience)}
-                            <div class="player-exp">
-                                <span class={`exp-badge ${experienceClass(m.player_a_experience)}`}>
-                                    {expLabel(m.player_a_experience)}
-                                </span>
-                            </div>
-                        {/if}
-                    </div>
-                </div>
-
-                <div class="vs-divider">
-                    <span class="vs-line"></span>
-                    <span class="vs-label" in:scale={{ start: 0.4, duration: 250, delay: cascadeDelay(i) + 280 }}>VS</span>
-                    <span class="vs-line"></span>
-                </div>
-
-                <div class="player-row player-b">
-                    {#if m.player_b_name && m.player_b_faction}
-                        <FactionIcon faction={m.player_b_faction}
-                                     folder={systemFolder(data.system, systemsConfig)}
-                                     class="matchup-icon" />
-                    {:else}
-                        <div class="matchup-icon-empty"></div>
-                    {/if}
-                    <div class="player-text">
-                        <div class="player-name">
-                            {m.player_b_name ?? 'BYE / Standby'}
-                            {#if m.player_b_level}
-                                <span class="lvl-chip" style={`color: ${levelColour(m.player_b_level)}`}>
-                                    Lvl. {m.player_b_level}
-                                </span>
-                            {/if}
-                            {#if m.player_b_name && !m.is_bye && m.player_b_id == null}
-                                <span class="guest-badge">guest</span>
-                            {/if}
-                        </div>
-                        {#if m.player_b_name}
-                            <div class="player-faction">{m.player_b_faction ?? '—'}</div>
-                            {#if experienceClass(m.player_b_experience)}
-                                <div class="player-exp">
-                                    <span class={`exp-badge ${experienceClass(m.player_b_experience)}`}>
-                                        {expLabel(m.player_b_experience)}
-                                    </span>
-                                </div>
-                            {/if}
-                        {/if}
-                    </div>
-                </div>
-
-                {#if m.game_type || m.eta || m.points}
-                    <div class="matchup-meta">
-                        {#if m.game_type}
-                            <span class="matchup-meta-item">
-                                <span class="matchup-meta-label">Type</span>
-                                <span class="matchup-meta-value">{m.game_type}</span>
-                            </span>
-                        {/if}
-                        {#if m.eta}
-                            <span class="matchup-meta-item">
-                                <span class="matchup-meta-label">ETA</span>
-                                <span class="matchup-meta-value">{m.eta}</span>
-                            </span>
-                        {/if}
-                        {#if m.points}
-                            <span class="matchup-meta-item">
-                                <span class="matchup-meta-label">Points</span>
-                                <span class="matchup-meta-value">{m.points}</span>
-                            </span>
-                        {/if}
-                    </div>
+    {#if myGame && seat}
+        <section class="your-game" in:fly={{ y: 16, duration: 400 }}>
+            <div class="your-head">
+                <h2>Your game</h2>
+                {#if myGame.is_bye}
+                    <span class="your-when">Sitting out</span>
+                {:else}
+                    <span class="your-when">{gameLabel(myGame, myGameIndex)}{#if myGame.eta} · {myGame.eta}{/if}</span>
                 {/if}
             </div>
-        {/each}
+            {#if myGame.is_bye}
+                <p class="your-bye">You're sitting out this one. If someone drops, you're first in line for their opponent.</p>
+            {:else}
+                <div class="your-vs">
+                    <div class="your-side">
+                        <FactionIcon faction={seat.me.faction} folder={systemFolder(data.system, systemsConfig)} class="your-icon" />
+                        <div><div class="your-name">You</div><div class="your-faction">{seat.me.faction ?? '—'}</div></div>
+                    </div>
+                    <span class="your-v">VS</span>
+                    <div class="your-side your-side-b">
+                        <div><div class="your-name">{seat.them.name}</div><div class="your-faction">{seat.them.faction ?? '—'}</div></div>
+                        <FactionIcon faction={seat.them.faction} folder={systemFolder(data.system, systemsConfig)} class="your-icon" />
+                    </div>
+                </div>
+            {/if}
+            <div class="your-links">
+                <a href={`/signup?${new URLSearchParams({ system: data.system })}#rearrange`}>Re-arrange</a>
+                <a href={`/signup?${new URLSearchParams({ system: data.system })}#drop`}>Can't make it</a>
+            </div>
+        </section>
+    {/if}
+
+    <div class="games-head">
+        <h2 class="section-title">Every game</h2>
+        <span class="games-count">{pdata.total_players} players · {pdata.total_matchups} games{#if pdata.byes} · {pdata.byes} sitting out{/if}</span>
     </div>
+    <div class="games-card">
+        <GameList matchups={pdata.matchups} playerId={myPlayerId} folder={systemFolder(data.system, systemsConfig)} detail />
+    </div>
+{/if}
 
 {#if loggedIn && unpaired.length > 0}
     <div class="unpaired-section">
         <p class="unpaired-notice">⚠️ Looking for a game: {unpaired.map((p) => p.player_name).join(', ')}</p>
-        <p class="unpaired-note">Head to the home page and use the Re-arrange your game form.</p>
+        <p class="unpaired-note">Use <a href={`/signup?${new URLSearchParams({ system: data.system })}#rearrange`}>Re-arrange your game</a> on the signup page to give them one.</p>
     </div>
 {/if}
 
@@ -424,7 +317,100 @@
 {/if}
 
 <style>
-    .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
+    }
+
+    .your-game {
+        margin-bottom: 1.25rem;
+        padding: 16px 18px;
+        border: 1px solid var(--color-accent);
+        border-radius: 6px;
+        background: rgba(201, 161, 74, 0.08);
+    }
+
+    .your-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+
+    .your-head h2 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+    }
+
+    .your-when {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: var(--color-text-bright);
+    }
+
+    .your-vs {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+    }
+
+    .your-side { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .your-side-b { justify-content: flex-end; text-align: right; }
+    .your-side :global(.your-icon) { width: 48px; height: 48px; flex: none; }
+
+    .your-name { font-weight: 700; font-size: 1.1rem; color: var(--color-text-bright); }
+    .your-faction { font-size: 0.85rem; color: var(--color-text-dim); }
+
+    .your-v {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 1.1rem;
+        letter-spacing: 0.15em;
+        color: var(--color-accent);
+    }
+
+    .your-bye { margin: 10px 0 0; color: var(--color-text-muted); }
+
+    .your-links {
+        margin-top: 12px;
+        display: flex;
+        gap: 18px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .your-links a { color: var(--color-accent); }
+
+    .games-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .games-head .section-title { margin: 0.4rem 0 0.7rem; }
+    .games-count { font-size: 0.85rem; color: var(--color-text-dim); }
+
+    .games-card {
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .unpaired-note a { color: var(--color-accent); }
+
+    @media (max-width: 560px) {
+        .page-title { font-size: 2.1rem; }
+        .your-game { padding: 14px; }
+        .your-side :global(.your-icon) { width: 40px; height: 40px; }
+        .your-name { font-size: 1rem; }
+    }
 
     /* This page's system tiles look slightly different from the other
        pages' (SystemPicker.svelte's defaults) — preserved via custom
@@ -460,186 +446,6 @@
         margin-bottom: 1rem;
     }
 
-    .matchups { display: flex; flex-direction: column; gap: 14px; margin-top: 0.5rem; }
-
-    .matchup-card {
-        background: linear-gradient(135deg, rgba(30, 30, 40, 0.92) 0%, rgba(20, 20, 30, 0.95) 100%);
-        border: 1px solid rgba(180, 150, 90, 0.35);
-        border-radius: 12px;
-        padding: 18px 20px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-        color: #e8e4d8;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .matchup-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    }
-
-    .player-row { display: flex; align-items: center; gap: 14px; }
-    .player-row.player-a { justify-content: flex-start; }
-    .player-row.player-b { justify-content: flex-start; }
-
-    .player-text { display: flex; flex-direction: column; align-items: flex-start; flex: 1; }
-
-    .player-name {
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: #f4e9c8;
-        letter-spacing: 0.2px;
-        margin-bottom: 4px;
-        text-align: left;
-    }
-
-    .player-faction {
-        font-size: 0.95rem;
-        color: #b8a878;
-        font-style: italic;
-        text-align: left;
-    }
-
-    /* Marks a guest opponent (someone not on the system) */
-    .guest-badge {
-        display: inline-block;
-        margin-left: 6px;
-        padding: 1px 7px;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 700;
-        vertical-align: middle;
-        color: #161620;
-        background: #c9a14a;
-        letter-spacing: 0.3px;
-    }
-
-    /* Self-reported experience, sat beside the faction so a player can see what
-       they're walking into before the game rather than across the table.
-       Deliberately outlined rather than filled like .guest-badge: there's one
-       of these on almost every player, and two solid chips per card would
-       out-shout the names they're annotating. The colours are their own scale,
-       NOT the card's game-type accents — experience and competitiveness are
-       different axes and sharing a palette would imply they're the same one. */
-    /* Sits with the name, not the faction — it's who they are, not what they
-       brought. Colour only, no border: the tier badge below already carries
-       an outline and two chips would fight. */
-    /* Its own line under the faction, so the name row stays the name row and
-       the tier isn't competing with the army for the same line. */
-    .player-exp {
-        margin-top: 3px;
-    }
-
-    /* All the chip's typography lives here so BOTH players get it. Splitting a
-       "lead" variant out previously took the font-size with it, leaving the
-       right-hand chip to inherit the player name's 1.15rem — which is why one
-       side rendered noticeably larger than the other. */
-    .lvl-chip {
-        font-family: var(--font-body);
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        white-space: nowrap;
-        margin-left: 6px;
-    }
-
-    /* Left-hand player only: the chip sits before the name, so the gap flips. */
-    .lvl-chip-lead {
-        margin-left: 0;
-        margin-right: 6px;
-    }
-
-    .exp-badge-lead {
-        margin-left: 0;
-        margin-right: 6px;
-    }
-
-    .exp-badge {
-        display: inline-block;
-        margin-left: 6px;
-        padding: 0 6px;
-        border-radius: 999px;
-        border: 1px solid currentColor;
-        font-size: 0.65rem;
-        font-weight: 700;
-        font-style: normal;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        vertical-align: middle;
-        white-space: nowrap;
-    }
-    .exp-badge.exp-new {
-        color: #6eb46e;
-    }
-    .exp-badge.exp-some,
-    .exp-badge.exp-experienced {
-        color: #b8a878;
-    }
-    .exp-badge.exp-veteran {
-        color: #d08a50;
-    }
-
-    /* :global because the <img> lives inside FactionIcon; scoped to the row. */
-    .player-row :global(.matchup-icon) {
-        width: 48px;
-        height: 48px;
-        object-fit: contain;
-        flex: 0 0 auto;
-        filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
-    }
-
-    .matchup-icon-empty { width: 48px; height: 48px; flex: 0 0 auto; }
-
-    .vs-divider {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 12px 0;
-    }
-
-    .vs-line { flex: 1; height: 1px; background: rgba(180, 150, 90, 0.35); }
-
-    .vs-label {
-        font-size: 1rem;
-        font-weight: 800;
-        color: var(--color-accent);
-        text-shadow: 0 0 8px var(--color-accent-glow);
-        letter-spacing: 1px;
-    }
-
-    .matchup-meta {
-        margin-top: 14px;
-        padding-top: 12px;
-        border-top: 1px dashed rgba(180, 150, 90, 0.25);
-        display: flex;
-        justify-content: center;
-        gap: 22px;
-        font-size: 0.88rem;
-        color: #d4c8a0;
-        flex-wrap: wrap;
-    }
-
-    .matchup-meta-item { display: inline-flex; align-items: center; gap: 6px; }
-
-    .matchup-meta-label {
-        opacity: 0.7;
-        text-transform: uppercase;
-        font-size: 0.72rem;
-        letter-spacing: 0.6px;
-    }
-
-    .matchup-meta-value { font-weight: 600; color: #f0e4bc; }
-
-    .matchup-bye .player-row.player-b .player-name {
-        color: var(--color-text-faint);
-        font-style: italic;
-        font-weight: 400;
-    }
-
-    .accent-casual { border-left: 4px solid #6eb46e; }
-    .accent-competitive { border-left: 4px solid #d25050; }
-    .accent-intro { border-left: 4px solid #5a9bd4; }
-    .accent-standard { border-left: 4px solid #9c8bd1; }
-
     .unpaired-section {
         margin-top: 1.25rem;
         padding: 0.75rem 1rem;
@@ -659,55 +465,5 @@
         color: var(--color-text-dim);
         font-size: 0.82rem;
         font-style: italic;
-    }
-
-    @media (min-width: 768px) {
-        .matchup-card {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            grid-template-rows: auto auto;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .player-row.player-a {
-            grid-column: 1;
-            grid-row: 1;
-            justify-content: flex-end;
-            flex-direction: row-reverse;
-            text-align: right;
-        }
-
-        .player-row.player-a .player-text { align-items: flex-end; }
-        .player-row.player-a .player-name,
-        .player-row.player-a .player-faction,
-        .player-row.player-a .player-exp { text-align: right; }
-
-        .player-row.player-b {
-            grid-column: 3;
-            grid-row: 1;
-            justify-content: flex-start;
-        }
-
-        .vs-divider {
-            grid-column: 2;
-            grid-row: 1;
-            flex-direction: column;
-            margin: 0;
-            gap: 0;
-        }
-
-        .vs-divider .vs-line { display: none; }
-
-        .vs-label { font-size: 1.5rem; padding: 0 6px; }
-
-        .matchup-meta {
-            grid-column: 1 / -1;
-            grid-row: 2;
-        }
-
-        .player-row :global(.matchup-icon), .matchup-icon-empty { width: 56px; height: 56px; }
-        .player-name { font-size: 1.15rem; font-weight: 600; }
-        .player-faction { font-size: 0.92rem; }
     }
 </style>

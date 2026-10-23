@@ -173,14 +173,28 @@
     );
 
     const navItems = $derived([
-        { href: '/', label: 'Club' },
-        { href: '/signup', label: 'Signup' },
+        { href: '/', label: 'Home' },
+        { href: '/signup', label: 'Sign up' },
         { href: '/pairings', label: 'Pairings' },
         // Tournaments are still being built out, so they're platform-admin
         // only for now rather than in front of every club's players.
         ...(hasPlatformAdminAccess ? [{ href: '/tournaments', label: 'Events' }] : []),
         ...(hasAnyLeague ? [{ href: '/leagues', label: 'Leagues' }] : []),
-        { href: '/players', label: 'Players' }
+        { href: '/players', label: 'Players' },
+        { href: '/club', label: 'Club' }
+    ]);
+
+    /* The phone's bottom tab bar: the four places a player goes every week,
+       and Me, which opens the drawer holding everything else (Players, Club,
+       Admin, account). Leagues gives its slot to Players at a club with no
+       league, so the bar never has a dead tab. */
+    const tabItems = $derived([
+        { href: '/', label: 'Home', icon: 'home' },
+        { href: '/signup', label: 'Sign up', icon: 'signup' },
+        { href: '/pairings', label: 'Pairings', icon: 'pairings' },
+        hasAnyLeague
+            ? { href: '/leagues', label: 'Leagues', icon: 'leagues' }
+            : { href: '/players', label: 'Players', icon: 'players' }
     ]);
 
     // What a signed-out visitor on a club subdomain can actually reach. Without
@@ -231,7 +245,7 @@
         page.url.pathname === '/request-club' ||
         page.url.pathname === '/privacy' ||
         page.url.pathname.startsWith('/signin') ||
-        (!isBareHost && (page.url.pathname === '/' || page.url.pathname.startsWith('/book')))
+        (!isBareHost && (page.url.pathname === '/' || page.url.pathname === '/club' || page.url.pathname.startsWith('/book')))
     );
     // The three admin consoles. Not reading pages, so they get the wider
     // container above.
@@ -320,7 +334,7 @@
 {/if}
 
 <div class="page-wrap" data-sveltekit-preload-data="hover">
-    <header class="topbar" class:topbar-signed-out={authLoaded && !isAuthed && publicNavItems.length === 0}>
+    <header class="topbar" class:topbar-member={authLoaded && isAuthed} class:topbar-signed-out={authLoaded && !isAuthed && publicNavItems.length === 0}>
         <!-- Mobile-only: the logo doubles as the menu toggle. It's a normal
              flex child of the topbar row (not a floating fixed button), so
              it sits cleanly beside the nav-tab ribbon instead of
@@ -395,6 +409,14 @@
                         <svg class="user-menu-chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
                     </button>
                     <div id="user-menu" class="user-menu" class:open={userMenuOpen}>
+                        <!-- On a phone the top tabs give way to the bottom bar,
+                             so what the bar has no room for lives here. -->
+                        {#each navItems.filter((i) => !tabItems.some((t) => t.href === i.href)) as item}
+                            <a class="user-menu-item drawer-only" href={item.href} onclick={closeDrawer}>{item.label}</a>
+                        {/each}
+                        {#if hasAdminAccess}
+                            <a class="user-menu-item drawer-only" href="/admin" onclick={closeDrawer}>Admin</a>
+                        {/if}
                         {#if auth.player}
                             <a class="user-menu-item" href={`/players/${auth.player.id}`} onclick={closeDrawer}>Your player profile</a>
                         {/if}
@@ -433,7 +455,7 @@
         </aside>
     </header>
 
-    <main class="container" class:container-console={isConsole}>
+    <main class="container" class:container-console={isConsole} class:has-tabbar={authLoaded && isAuthed}>
         <div class="page-content">
             {#if !authLoaded}
                 <div class="auth-gate"></div>
@@ -481,6 +503,33 @@
         </div>
     </main>
 </div>
+
+{#if authLoaded && isAuthed}
+    <nav class="tabbar" aria-label="Main">
+        {#each tabItems as t}
+            <a href={t.href} class="tab" aria-current={isActive(t.href) ? 'page' : undefined} data-sveltekit-preload-data="hover">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    {#if t.icon === 'home'}
+                        <path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z" />
+                    {:else if t.icon === 'signup'}
+                        <rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16M12 13v4M10 15h4" />
+                    {:else if t.icon === 'pairings'}
+                        <path d="M5 5l6 6M19 5l-6 6M9 13l-4 4 2 2 4-4M15 13l4 4-2 2-4-4" />
+                    {:else if t.icon === 'leagues'}
+                        <path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a2 2 0 0 0 3 4M16 6h3a2 2 0 0 1-3 4M12 13v4M8 20h8" />
+                    {:else}
+                        <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6" />
+                    {/if}
+                </svg>
+                {t.label}
+            </a>
+        {/each}
+        <button type="button" class="tab" aria-expanded={drawerOpen} onclick={toggleDrawer}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 20a8 8 0 0 1 16 0" /></svg>
+            Me
+        </button>
+    </nav>
+{/if}
 
 <style>
     .nav-progress {
@@ -626,7 +675,8 @@
 
     /* The drawer is mobile-only, so is anything that exists purely to fill in
        for an affordance the mobile header doesn't have. */
-    .drawer-only { display: none; }
+    .drawer-only,
+    .user-menu-item.drawer-only { display: none; }
 
     .user-pill {
         display: flex;
@@ -857,7 +907,49 @@
         padding: 2rem 1rem;
     }
 
+    /* Phone-only bottom tab bar, for members. */
+    .tabbar { display: none; }
+
     @media (max-width: 768px) {
+        .tabbar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 800;
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            height: calc(64px + env(safe-area-inset-bottom));
+            padding-bottom: env(safe-area-inset-bottom);
+            background: #13161e;
+            border-top: 1px solid #232733;
+        }
+
+        .tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            background: none;
+            border: none;
+            color: var(--color-text-dim);
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .tab[aria-current='page'],
+        .tab[aria-expanded='true'] { color: var(--color-accent); }
+
+        .has-tabbar { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+
+        /* Members navigate by the bottom bar; the top ribbon would repeat it. */
+        .topbar-member .nav-tabs-wrap { display: none; }
+        .user-menu-item.drawer-only { display: block; }
+
         /* Show the logo/menu button, inline in the topbar row rather than
            floating fixed over the page — that overlap was what made the
            nav-tab ribbon look broken and scroll underneath it. */

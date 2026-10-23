@@ -18,6 +18,8 @@
     import { fetchMySystems, fetchSessionStart } from '$lib/mySystems';
     import FactionOptions from '$lib/FactionOptions.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
+    import NightPicker from '$lib/NightPicker.svelte';
+    import { fetchHome, weekday, type HomeNight } from '$lib/home/api';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import ExperienceBadge, { type ExperienceSummary } from '$lib/ExperienceBadge.svelte';
     import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
@@ -97,6 +99,38 @@
     }
 
     let showWeekField = $state(false);
+
+    /* The club's nights, for the tile grid. Null for a visitor (GET /home
+       needs an account) or if it fails, and the page falls back to the plain
+       system tiles. */
+    let nights = $state<HomeNight[] | null>(null);
+    onMount(async () => {
+        nights = (await fetchHome())?.nights ?? null;
+    });
+    const night = $derived(nights?.find((n) => n.system === data.system) ?? null);
+    /** "Wednesday", for the button: the night, not the system, is what a
+     *  player is saying yes to. Falls back to the system's name. */
+    const nightName = $derived(night && night.week === data.week ? weekday(night.date) : data.system);
+
+    /* Home's "Can't make it" and "Re-arrange" link here with #drop and
+       #rearrange. Both sections appear only once the signup and pairings have
+       loaded, after the browser has already looked for the fragment, so this
+       finds them itself (bounded, like the call-out focus below). */
+    let scrolledToHash = false;
+    async function scrollToHash() {
+        if (scrolledToHash) return;
+        const id = window.location.hash.slice(1);
+        if (id !== 'drop' && id !== 'rearrange') return;
+        for (let i = 0; i < 60; i++) {
+            const el = document.getElementById(id);
+            if (el) {
+                scrolledToHash = true;
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+            await new Promise(requestAnimationFrame);
+        }
+    }
 
 
     /* ---------- auth ---------- */
@@ -277,6 +311,7 @@
                 const body = await r.json();
                 current = body.current ?? null;
                 applyPrefill(body.current ?? body.last ?? null);
+                scrollToHash();
             } else {
                 applyPrefill(null);
             }
@@ -416,6 +451,7 @@
                 }
             }
             otherPlayers = others;
+            scrollToHash();
         } catch (_) {
             pairingsPublished = false;
             myPairing = null;
@@ -778,15 +814,26 @@
 {#if pageReady}
 <div class="page-reveal" in:fly={{ y: 24, duration: 550, easing: cubicOut }}>
 
-<SystemPicker
-    systems={tabSystems}
-    {systemsConfig}
-    isActive={(s) => system === s}
-    onSelect={selectSystem}
-/>
+<h1 class="page-title">Sign up</h1>
+
+{#if nights && nights.length}
+    <NightPicker {nights} {systemsConfig} active={system} onSelect={selectSystem} />
+{:else}
+    <SystemPicker
+        systems={tabSystems}
+        {systemsConfig}
+        isActive={(s) => system === s}
+        onSelect={selectSystem}
+    />
+{/if}
+
+<p class="count-line">
+    <b style={night ? `color: ${night.accent_color}` : ''}>{stats.signed_up}</b>{#if stats.cap_enabled && stats.cap_max_players}<span class="stat-cap">/{stats.cap_max_players}</span>{/if}
+    signed up for {nightName} so far{#if stats.newcomers || stats.veterans}<span class="count-split"> · {stats.newcomers} {stats.newcomers === 1 ? 'newcomer' : 'newcomers'} · {stats.veterans} {stats.veterans === 1 ? 'veteran' : 'veterans'}</span>{/if}
+</p>
 
 <div class="next-session-row">
-    <span>Next session: <strong>{data.week}</strong></span>
+    <span>Session: <strong>{data.week}</strong></span>
     <button type="button" class="link-button" onclick={() => (showWeekField = !showWeekField)}>
         {showWeekField ? 'Cancel' : 'Change week'}
     </button>
@@ -799,22 +846,7 @@
     </div>
 {/if}
 
-<div class="stat-row">
-    <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 0 }}>
-        <div class="stat-label">Signed Up</div>
-        <div class="stat-value">{stats.signed_up}{#if stats.cap_enabled && stats.cap_max_players}<span class="stat-cap">/{stats.cap_max_players}</span>{/if}</div>
-    </div>
-    <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 70 }}>
-        <div class="stat-label">Newcomers</div>
-        <div class="stat-value">{stats.newcomers}</div>
-    </div>
-    <div class="stat-card" in:fly={{ y: 16, duration: 400, delay: 140 }}>
-        <div class="stat-label">Veterans</div>
-        <div class="stat-value">{stats.veterans}</div>
-    </div>
-</div>
-
-<div class="section-title">Sign Up</div>
+<div class="section-title">Your signup</div>
 
 {#if !auth.authenticated}
     <div class="signup-card card">
@@ -839,7 +871,7 @@
     <div class="signup-card card">
         {#if current}
             <div class="signed-up-note">
-                ✓ You're signed up for {data.week}. Submitting again updates your entry.
+                ✓ You're in for {nightName}, {data.week}. Change anything below and save to update it.
             </div>
         {:else if stats.is_full}
             <div class="session-full-note">
@@ -866,24 +898,35 @@
                 </div>
             {/if}
 
-            <div class="field">
-                <label class="field-label" for="su-eta">Estimated Time of Arrival</label>
-                <select id="su-eta" class="field-select" bind:value={eta}
-                        onchange={() => (etaTouched = true)}>
-                    {#each etaChoices as t}
-                        <option value={t}>{t}</option>
-                    {/each}
-                </select>
+            <div class="field" class:field-full={etaChoices.length <= 6}>
+                <span class="field-label" id="su-eta-label">Getting there</span>
+                <!-- Taps for a short list; a club with no start time set
+                     still gets the long default list, which is a dropdown. -->
+                {#if etaChoices.length <= 6}
+                    <div class="chips chips-time" role="radiogroup" aria-labelledby="su-eta-label">
+                        {#each etaChoices as t}
+                            <button type="button" class="chip" role="radio" aria-checked={eta === t}
+                                    onclick={() => { eta = t; etaTouched = true; }}>{t}</button>
+                        {/each}
+                    </div>
+                {:else}
+                    <select class="field-select" aria-labelledby="su-eta-label" bind:value={eta}
+                            onchange={() => (etaTouched = true)}>
+                        {#each etaChoices as t}
+                            <option value={t}>{t}</option>
+                        {/each}
+                    </select>
+                {/if}
             </div>
 
             {#if cfg.vibeOptions}
-                <div class="field">
-                    <label class="field-label" for="su-vibe">Type of Game</label>
-                    <select id="su-vibe" class="field-select" bind:value={vibe}>
+                <div class="field field-full">
+                    <span class="field-label" id="su-vibe-label">Kind of game</span>
+                    <div class="chips" role="radiogroup" aria-labelledby="su-vibe-label">
                         {#each cfg.vibeOptions as v}
-                            <option value={v}>{v}</option>
+                            <button type="button" class="chip" role="radio" aria-checked={vibe === v} onclick={() => (vibe = v)}>{v}</button>
                         {/each}
-                    </select>
+                    </div>
                 </div>
             {/if}
 
@@ -919,14 +962,14 @@
         {#if cfg.showStandby}
             <label class="check-row">
                 <input type="checkbox" bind:checked={standby} />
-                <span>I Can Be on Standby</span>
+                <span>Happy to sit out if numbers are odd</span>
             </label>
         {/if}
 
         {#if cfg.showCanDemo}
             <label class="check-row">
                 <input type="checkbox" bind:checked={canDemo} />
-                <span>I Can Lead an Intro Game</span>
+                <span>I can teach someone new</span>
             </label>
         {/if}
 
@@ -941,14 +984,15 @@
         {/if}
 
         <div class="actions">
-            <button class="primary-button" onclick={submit} disabled={submitting || !mineLoaded || (stats.is_full && !current)} type="button">
-                {submitting ? 'Submitting…' : (stats.is_full && !current) ? 'Session full' : 'Submit'}
+            <button class="primary-button signup-cta" onclick={submit} disabled={submitting || !mineLoaded || (stats.is_full && !current)} type="button">
+                {submitting ? 'Saving…' : (stats.is_full && !current) ? 'Session full' : current ? 'Update my signup' : `Sign up for ${nightName}`}
             </button>
+            <p class="cta-note">Pairings go up before the night.</p>
         </div>
     </div>
 
 {#if current}
-        <div class="section-title">Need to Drop Out?</div>
+        <div class="section-title" id="drop">Can't make it?</div>
         <div class="signup-card card">
             <label class="check-row">
                 <input type="checkbox" bind:checked={dropConfirm} />
@@ -963,7 +1007,7 @@
     {/if}
 
     {#if pairingsPublished && myPairing}
-        <div class="section-title">Re-arrange your game</div>
+        <div class="section-title" id="rearrange">Re-arrange your game</div>
         <div class="signup-card card">
             <p class="muted" style="margin: 0 0 0.75rem;">
                 {#if myOpponentName}
@@ -1256,7 +1300,57 @@
     }
     .callout-book a { color: var(--color-accent); }
 
-    .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
+    }
+
+    .count-line { margin: -0.25rem 0 0.5rem; color: var(--color-text-muted); }
+    .count-line b { font-family: var(--font-heading); font-size: 1.25rem; color: var(--color-text-bright); }
+    .count-split { color: var(--color-text-dim); font-size: 0.9rem; }
+
+    .chips {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 6px;
+    }
+
+    .chips-time { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+
+    .chip {
+        min-height: 44px;
+        padding: 0 10px;
+        border-radius: var(--radius);
+        border: 1px solid #343a47;
+        background: none;
+        color: var(--color-text-muted);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .chip:hover { border-color: var(--color-accent-border); }
+
+    .chip[aria-checked='true'] {
+        border-color: var(--color-accent);
+        background: rgba(201, 161, 74, 0.16);
+        color: var(--color-text-bright);
+    }
+
+    .chip:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+    .signup-cta { min-height: 50px; padding: 0 28px; font-size: 1.05rem; }
+    .cta-note { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--color-text-dim); }
+
+    @media (max-width: 560px) {
+        .page-title { font-size: 2.1rem; }
+        .signup-cta { width: 100%; }
+        .cta-note { text-align: center; }
+        .count-split { display: block; }
+    }
 
     .next-session-row {
         display: flex;
