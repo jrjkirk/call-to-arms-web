@@ -7,6 +7,7 @@
 </script>
 
 <script lang="ts">
+    import { getMe } from '$lib/session';
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import ClubPage from '$lib/ClubPage.svelte';
@@ -22,8 +23,7 @@
 
     onMount(async () => {
         try {
-            const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
-            const me = r.ok ? await r.json() : { authenticated: false };
+            const me = (await getMe()) ?? { authenticated: false };
             signedIn = me.authenticated === true;
             clubName = me.active_club?.name ?? null;
             mode = signedIn && me.player != null ? 'week' : 'club';

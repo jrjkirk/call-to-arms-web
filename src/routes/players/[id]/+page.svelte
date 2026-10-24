@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import { page } from '$app/state';
     import { setPageTitle } from '$lib/pageTitle';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -139,7 +138,7 @@
     <h1 class="page-title">Player</h1>
     <p class="empty">{loadError}</p>
 {:else}
-<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+<div class="page-reveal" in:fade={{ duration: 140 }}>
 
 <h1 class="page-title">{player.name}</h1>
 

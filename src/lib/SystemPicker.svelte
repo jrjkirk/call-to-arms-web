@@ -10,7 +10,7 @@
   component needing to know which mode a caller is in.
 -->
 <script lang="ts">
-    import { fly } from 'svelte/transition';
+    
     import { systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from './systemsConfig';
 
     /* Systems whose logo has 404'd this page load, so the tile shows the
@@ -46,7 +46,6 @@
             class="system-card"
             class:active={isActive(s)}
             onclick={() => onSelect(s)}
-            in:fly={{ y: 16, duration: 400, delay: Math.min(i, 6) * 70 }}
         >
             {#if logo && !brokenLogos[s]}
                 <img src={logo} alt={s} onerror={() => (brokenLogos = { ...brokenLogos, [s]: true })} />

@@ -1,11 +1,11 @@
 <script lang="ts">
+    import { getAdminMe, getMe } from '$lib/session';
     import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { page } from '$app/state';
     import { loginHref } from '$lib/loginUrl';
     import { signInProviders } from '$lib/signInProviders';
     import { onMount } from 'svelte';
-    import { fly, fade } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import { PUBLIC_API_URL } from '$env/static/public';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
@@ -196,15 +196,9 @@
     }
 
     onMount(async () => {
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
-            if (r.ok) auth = await r.json();
-        } catch (_) {}
-        try {
-            // Always 200, even signed-out — no need to gate the call on auth.
-            const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
-            if (r.ok) adminScopes = (await r.json()).scopes ?? [];
-        } catch (_) {}
+        const [me, adminMe] = await Promise.all([getMe(), getAdminMe()]);
+        if (me) auth = me;
+        adminScopes = adminMe?.scopes ?? [];
         authLoaded = true;
         // Club slug is required here (unlike the old single-league page) so
         // has_league reflects THIS club's own leagues, not the platform
@@ -344,7 +338,7 @@
 </script>
 
 {#if pageReady}
-<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+<div class="page-reveal" in:fade={{ duration: 140 }}>
 
 <h1 class="page-title">Leagues</h1>
 
@@ -443,7 +437,7 @@
             </thead>
             <tbody>
                 {#each pagedRankings as row, i (row.player_id)}
-                    <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`} class:me={row.player_id === auth.player?.id} in:fade={{ duration: 200, delay: Math.min(i, 10) * 25 }}>
+                    <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`} class:me={row.player_id === auth.player?.id}>
                         <td class="center rank-col">
                             {#if medal(row.rank)}
                                 <span class="medal">{medal(row.rank)}</span>
@@ -517,7 +511,7 @@
                 {:else if factionStats !== null}
                     {#each factionStats as row, i}
                         {@const rank = i + 1}
-                        <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`} class:me={row.player_id === auth.player?.id} in:fade={{ duration: 200, delay: Math.min(i, 10) * 25 }}>
+                        <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`} class:me={row.player_id === auth.player?.id}>
                             <td class="center rank-col">
                                 {#if medal(rank)}
                                     <span class="medal">{medal(rank)}</span>

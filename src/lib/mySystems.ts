@@ -15,17 +15,12 @@
  * (tab/filter lists) use this one; anything needing per-system config, or
  * that must work signed-out, uses getSystemsConfig instead.
  */
-import { PUBLIC_API_URL } from '$env/static/public';
+import { getMySystemRows } from './session';
 
 export async function fetchMySystems(): Promise<string[] | null> {
-    try {
-        const r = await fetch(`${PUBLIC_API_URL}/systems/mine`, { credentials: 'include' });
-        if (!r.ok) return null;
-        const rows: { legacy_system_name: string }[] = await r.json();
-        return rows.map((row) => row.legacy_system_name);
-    } catch (_) {
-        return null;
-    }
+    // Shared with every other page for the visit ($lib/session).
+    const rows = await getMySystemRows();
+    return rows ? rows.map((row) => row.legacy_system_name) : null;
 }
 
 
@@ -40,13 +35,6 @@ export async function fetchMySystems(): Promise<string[] | null> {
  * club, which only the authenticated endpoint knows.
  */
 export async function fetchSessionStart(system: string): Promise<string | null> {
-    try {
-        const r = await fetch(`${PUBLIC_API_URL}/systems/mine`, { credentials: 'include' });
-        if (!r.ok) return null;
-        const rows: { legacy_system_name: string; session_start_time?: string | null }[] =
-            await r.json();
-        return rows.find((row) => row.legacy_system_name === system)?.session_start_time ?? null;
-    } catch (_) {
-        return null;
-    }
+    const rows = await getMySystemRows();
+    return rows?.find((row) => row.legacy_system_name === system)?.session_start_time ?? null;
 }

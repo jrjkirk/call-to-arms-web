@@ -1,12 +1,12 @@
 <script lang="ts">
+    import { getAdminMe, getMe } from '$lib/session';
     import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { page } from '$app/state';
     import { loginHref } from '$lib/loginUrl';
     import GoogleSignIn from '$lib/GoogleSignIn.svelte';
     import { signInProviders } from '$lib/signInProviders';
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import { goto, invalidateAll } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import {
@@ -20,7 +20,7 @@
     import FactionOptions from '$lib/FactionOptions.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
     import NightPicker from '$lib/NightPicker.svelte';
-    import { fetchHome, weekday, type HomeNight } from '$lib/home/api';
+    import { fetchHome, peekHome, weekday, type HomeNight } from '$lib/home/api';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import ExperienceBadge, { type ExperienceSummary } from '$lib/ExperienceBadge.svelte';
     import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
@@ -56,11 +56,16 @@
 
     let stats = $state({ signed_up: 0, newcomers: 0, veterans: 0, cap_enabled: false, cap_max_players: null as number | null, cap_tables: null as number | null, is_full: false });
 
+    /** Which system/week `stats` describes, so the count can show what this
+     *  visit already knows (from Your week) until the fresh one arrives,
+     *  rather than flashing 0. */
+    let statsFor = $state('');
+
     async function loadStats(sys: string, wk: string) {
         try {
             const params = new URLSearchParams({ system: sys, week: wk });
             const r = await fetch(`${PUBLIC_API_URL}/signups/stats?${params}`, { credentials: 'include' });
-            if (r.ok) stats = await r.json();
+            if (r.ok) { stats = await r.json(); statsFor = `${sys}|${wk}`; }
         } catch (_) {}
     }
 
@@ -105,8 +110,10 @@
        needs an account) or if it fails, and the page falls back to the plain
        system tiles. */
     let nights = $state<HomeNight[] | null>(null);
+    // From earlier in this visit straight away, refreshed behind.
     onMount(async () => {
-        nights = (await fetchHome())?.nights ?? null;
+        nights = peekHome()?.nights ?? null;
+        nights = (await fetchHome())?.nights ?? nights;
     });
     const night = $derived(nights?.find((n) => n.system === data.system) ?? null);
     /** "Wednesday", for the button: the night, not the system, is what a
@@ -180,15 +187,10 @@
     });
 
     onMount(async () => {
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
-            if (r.ok) auth = await r.json();
-        } catch (_) {}
-        try {
-            // Always 200, even signed-out — no need to gate the call on auth.
-            const r = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
-            if (r.ok) adminScopes = (await r.json()).scopes ?? [];
-        } catch (_) {}
+        // Shared answers for the visit ($lib/session): instant after the first page.
+        const [me, adminMe] = await Promise.all([getMe(), getAdminMe()]);
+        if (me) auth = me;
+        adminScopes = adminMe?.scopes ?? [];
         authLoaded = true;
         if (auth.authenticated) {
             mySystems = await fetchMySystems();
@@ -813,7 +815,7 @@
 
 
 {#if pageReady}
-<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+<div class="page-reveal" in:fade={{ duration: 140 }}>
 
 <h1 class="page-title">Sign up</h1>
 
@@ -829,7 +831,7 @@
 {/if}
 
 <p class="count-line">
-    <b style={night ? `color: ${night.accent_color}` : ''}>{stats.signed_up}</b>{#if stats.cap_enabled && stats.cap_max_players}<span class="stat-cap">/{stats.cap_max_players}</span>{/if}
+    <b style={night ? `color: ${night.accent_color}` : ''}>{statsFor === `${data.system}|${data.week}` || !night || night.week !== data.week ? stats.signed_up : night.signed_up}</b>{#if stats.cap_enabled && stats.cap_max_players}<span class="stat-cap">/{stats.cap_max_players}</span>{/if}
     signed up for {nightName} so far{#if stats.newcomers || stats.veterans}<span class="count-split"> · {stats.newcomers} {stats.newcomers === 1 ? 'newcomer' : 'newcomers'} · {stats.veterans} {stats.veterans === 1 ? 'veteran' : 'veterans'}</span>{/if}
 </p>
 

@@ -2,10 +2,10 @@
     import PageSkeleton from '$lib/PageSkeleton.svelte';
     import FactionIcon from '$lib/FactionIcon.svelte';
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
+    import { getMe } from '$lib/session';
     import { SYSTEMS as ALL_SYSTEMS } from '$lib/signupOptions';
     import { getSystemsConfig, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
     import { systemFolder } from '$lib/factions';
@@ -36,7 +36,7 @@
         getSystemsConfig(getClubSlugFromHostname(window.location.hostname)).then((c) => (systemsConfig = c));
         const [list, me, systems] = await Promise.all([
             fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
-            fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+            getMe(),
             fetchMySystems()
         ]);
         players = list;
@@ -95,7 +95,7 @@
 </script>
 
 {#if systemsResolved}
-<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+<div class="page-reveal" in:fade={{ duration: 140 }}>
 
 <h1 class="page-title">Players</h1>
 

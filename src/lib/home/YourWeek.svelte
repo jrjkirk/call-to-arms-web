@@ -9,8 +9,7 @@
 -->
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import FactionIcon from '../FactionIcon.svelte';
     import GameList from './GameList.svelte';
     import { systemFolder } from '../factions';
@@ -105,7 +104,7 @@
         </div>
     </div>
 {:else}
-<div class="week" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+<div class="week" in:fade={{ duration: 140 }}>
     <div class="week-head">
         <h1 class="page-title">Your week</h1>
         {#if clubName}<span class="club-name">{clubName}</span>{/if}

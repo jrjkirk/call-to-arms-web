@@ -1,8 +1,7 @@
 <script lang="ts">
     import { page } from '$app/state';
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchWeekId } from '$lib/weekId';
     import DiscordGatePanel, { type DiscordGate } from '$lib/DiscordGatePanel.svelte';
@@ -2966,7 +2965,7 @@
     <p class="muted">You don't have admin access.</p>
 {:else}
 
-    <div class="admin-shell" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+    <div class="admin-shell" in:fade={{ duration: 140 }}>
         <aside class="admin-sidebar">
             <CommandPalette commands={paletteCommands} label="Jump to" />
             <button
@@ -3055,7 +3054,7 @@
 
         <div class="admin-main">
         {#key activeNav}
-        <div class="admin-section-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+        <div class="admin-section-reveal" in:fade={{ duration: 140 }}>
 
     {#if activeNav === 'overview'}
     {#if onboarding && !onboarding.complete}

@@ -14,14 +14,15 @@
     import { navigating } from '$app/stores';
     import { afterNavigate, goto } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { fly } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import LandingHero from '$lib/LandingHero.svelte';
     import SignInPrompt from '$lib/SignInPrompt.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
     import NoticeBanner from '$lib/NoticeBanner.svelte';
     import PushPrompt from '$lib/PushPrompt.svelte';
     import { fitPhoneTitles } from '$lib/fitTitle';
+    import { clearSession, getMySystemRows, prime } from '$lib/session';
+    import { fetchHome } from '$lib/home/api';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
     import { resolveTitle, titleOverride } from '$lib/pageTitle';
@@ -81,6 +82,16 @@
             auth = authResp.ok ? await authResp.json() : { authenticated: false };
             signInProviders.set(auth.sign_in_providers ?? ['discord']);
             adminState = adminResp.ok ? await adminResp.json() : null;
+            // Every page reads these through $lib/session: give them the
+            // fresh answers, so a tab switch never waits on them again.
+            prime('/auth/me', auth);
+            prime('/admin/me', adminState);
+            // Warm what most tabs open with, in the background, so whichever
+            // tab is first doesn't wait for it.
+            if (auth.authenticated) {
+                getMySystemRows();
+                fetchHome();
+            }
             venueState = venueResp.ok ? await venueResp.json() : null;
             venueTakesBookings = infoResp.ok ? (await infoResp.json()).enabled === true : false;
         } catch (_) {
@@ -283,6 +294,7 @@
             method: 'POST',
             credentials: 'include'
         });
+        clearSession();
         await refreshAuth();
         window.location.href = '/';
     }
@@ -331,8 +343,8 @@
     });
 
     /* Phone page titles fill the space beside the logo ($lib/fitTitle). Fitted
-       now and again once the page's 200ms entrance has settled, since that
-       slide moves the title while it is being measured. */
+       now and again a moment later, for a page whose title arrives with its
+       data. */
     let titleFitTimer: ReturnType<typeof setTimeout> | null = null;
     function scheduleTitleFit() {
         if (typeof window === 'undefined') return;
@@ -560,7 +572,7 @@
                          as a worse jump than an instant cut. -->
                     <div
                         class="page-transition"
-                        in:fly={{ y: 8, duration: 200, easing: cubicOut }}
+                        in:fade={{ duration: 140 }}
                     >
                         {@render children()}
                     </div>
@@ -977,8 +989,8 @@
     }
 
     @keyframes logo-arrive {
-        from { opacity: 0; translate: 0 8px; }
-        to { opacity: 1; translate: 0 0; }
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 
     /* Phone-only bottom tab bar, for members. */
@@ -1097,10 +1109,9 @@
            not eyeballed: see the "Phone logo" board on the design canvas,
            version A2. Tied to the -60px pull-up below: change one, re-measure. */
         .topbar.topbar-member .topbar-logo-link {
-            /* The same 200ms fade-and-rise as the page (.page-transition's
-               fly). `translate`, not `transform`: transform already holds the
-               tagline nudge below. */
-            animation: logo-arrive 200ms cubic-bezier(0.33, 1, 0.68, 1) both;
+            /* The same 140ms fade as the page (.page-transition), so the logo
+               arrives with each tab rather than hovering over all of them. */
+            animation: logo-arrive 140ms ease-out both;
             display: flex;
             margin-right: 16px;
             transform: translateY(6.3px);

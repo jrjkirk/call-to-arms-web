@@ -1,9 +1,9 @@
 <script lang="ts">
+    import { getMe } from '$lib/session';
     import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
-    import { fly } from 'svelte/transition';
-    import { cubicOut } from 'svelte/easing';
+    import { fade } from 'svelte/transition';
     import { systemFolder } from '$lib/factions';
     import FactionIcon from '$lib/FactionIcon.svelte';
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
@@ -13,7 +13,7 @@
     import SystemPicker from '$lib/SystemPicker.svelte';
     import NightPicker from '$lib/NightPicker.svelte';
     import GameList from '$lib/home/GameList.svelte';
-    import { fetchHome, gameLabel, myMatchup, sides, weekday, type HomeNight } from '$lib/home/api';
+    import { fetchHome, fetchPairings, peekHome, peekPairings, gameLabel, myMatchup, sides, weekday, type HomeNight } from '$lib/home/api';
 
     // Icon folder per system comes from the backend-owned SystemConfig
     // (GET /systems); FALLBACK carries the same values until it loads.
@@ -70,19 +70,20 @@
     let pairingsLoaded = $state(false);
 
     async function loadPairings(sys: string, wk: string) {
-        pairingsLoaded = false;
-        try {
-            // No club param needed — the backend resolves the caller's own
-            // club from the session cookie (if logged in) or, for anonymous
-            // callers, this request's Origin header (subdomain-based
-            // resolution), falling back to the single-active-club stopgap
-            // only if neither is present.
-            const params = new URLSearchParams({ system: sys, week: wk });
-            const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
-            pdata = r.ok ? await r.json() : EMPTY_PAIRINGS;
-        } catch (_) {
-            pdata = EMPTY_PAIRINGS;
+        // What this visit last saw for this night (here, or on Home, which
+        // loads the same pairings), shown straight away while the fresh copy
+        // comes in. Only a first look waits.
+        const seen = peekPairings(sys, wk);
+        if (seen) {
+            pdata = seen as PairingsData;
+            pairingsLoaded = true;
+        } else {
+            pairingsLoaded = false;
         }
+        // No club param needed: the backend resolves the caller's own club
+        // from the session cookie (if logged in) or, for anonymous callers,
+        // this request's Origin header (subdomain-based resolution).
+        pdata = (await fetchPairings(sys, wk)) as PairingsData;
         pairingsLoaded = true;
     }
 
@@ -195,18 +196,22 @@
         // leagueSystems()'s doc comment in systemsConfig.ts.
         const club = getClubSlugFromHostname(window.location.hostname);
         getSystemsConfig(club).then((c) => (systemsConfig = c));
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/auth/me`, { credentials: 'include' });
-            if (r.ok) {
-                const me = await r.json();
-                loggedIn = me.authenticated === true;
-            }
-        } catch (_) {}
+        loggedIn = (await getMe())?.authenticated === true;
         if (loggedIn) {
-            const [systemsList, home] = await Promise.all([fetchMySystems(), fetchHome()]);
-            mySystems = systemsList;
-            nights = home?.nights ?? null;
-            myPlayerId = home?.player_id ?? null;
+            // The nights from earlier in this visit (Home loads the same), shown
+            // at once and refreshed behind; only a first look waits for them.
+            const seen = peekHome();
+            const fresh = fetchHome().then((home) => {
+                nights = home?.nights ?? null;
+                myPlayerId = home?.player_id ?? null;
+            });
+            if (seen) {
+                nights = seen.nights;
+                myPlayerId = seen.player_id;
+                mySystems = await fetchMySystems();
+            } else {
+                [mySystems] = await Promise.all([fetchMySystems(), fresh]);
+            }
         }
         systemsResolved = true;
     });
@@ -224,7 +229,7 @@
 </script>
 
 {#if systemsResolved}
-<div class="page-reveal" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
+<div class="page-reveal" in:fade={{ duration: 140 }}>
 
 <div class="title-row">
     <h1 class="page-title">Pairings</h1>
@@ -267,7 +272,7 @@
 
 {#if pairingsLoaded && pdata.published && pdata.matchups.length > 0}
     {#if myGame && seat}
-        <section class="your-game" in:fly={{ y: 16, duration: 400 }}>
+        <section class="your-game">
             <div class="your-head">
                 <h2>Your game</h2>
                 {#if myGame.is_bye}

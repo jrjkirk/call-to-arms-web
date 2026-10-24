@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { getAdminMe, getMySystemRows } from '$lib/session';
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
 
@@ -38,18 +39,14 @@
                 credentials: 'include'
             });
             list = r.ok ? ((await r.json()).tournaments ?? []) : [];
-            const a = await fetch(`${PUBLIC_API_URL}/admin/me`, { credentials: 'include' });
-            if (a.ok) {
-                const s = await a.json();
-                isAdmin = s.is_super_admin || s.is_platform_admin || (s.scopes ?? []).length > 0;
-            }
+            const s = await getAdminMe();
+            if (s) isAdmin = s.is_super_admin || s.is_platform_admin || (s.scopes ?? []).length > 0;
             // /systems/mine, not /venue/info: the latter only lists systems
             // when the club has table bookings switched on, so the picker was
             // empty for every club without a venue. This one is club-scoped to
             // the systems actually enabled here, which is also exactly the set
             // the create endpoint will accept.
-            const sy = await fetch(`${PUBLIC_API_URL}/systems/mine`, { credentials: 'include' });
-            systems = sy.ok ? await sy.json() : [];
+            systems = ((await getMySystemRows()) ?? []) as any;
         } catch (_) {
             error = 'Could not load events right now.';
         } finally {
