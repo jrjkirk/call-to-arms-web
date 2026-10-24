@@ -1082,13 +1082,13 @@
 
         .topbar-member .topbar-logo {
             height: auto;
-            width: min(190px, 50vw);
+            width: min(164px, 42vw);
         }
 
         .page-wrap:has(:global(.page-title)) .topbar-member { margin-bottom: -60px; }
 
         .page-wrap:has(.topbar-member) :global(.page-title) {
-            max-width: calc(100% - min(190px, 50vw) - 12px);
+            max-width: calc(100% - min(164px, 42vw) - 12px);
             white-space: nowrap;
         }
         .user-menu-item.drawer-only { display: block; }

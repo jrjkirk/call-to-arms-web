@@ -4,13 +4,12 @@
  * On a phone a member's header is the big logo on the right and the page title
  * on the left (see the layout's .topbar-member rules). This makes the title fill
  * that left-hand column, the rule Joel picked on the design canvas ("Phone
- * titles", option C, 2026-10-25):
- *   - a title of two or more words goes over two lines ("YOUR / WEEK"), as big
- *     as fits the column's width and the logo's height;
- *   - a one-word title is as big as fits the column's width, capped at the
- *     logo's height;
- *   - either way the bottom line's baseline sits exactly where the logo's
- *     "Rally. Pair. Play." ends.
+ * titles", option B, 2026-10-25, after trying C):
+ *   - the title is on one line, as big as fits the column's width, capped at
+ *     the logo's height (the logo is 164px wide to give the column more room);
+ *   - its baseline sits exactly where the logo's "Rally. Pair. Play." ends.
+ * Option C, stacking two-word titles over two lines ("YOUR / WEEK"), is kept
+ * behind STACK_TWO_WORDS for a quick switch back.
  *
  * Measured, not fixed, because some titles are data (a player's name, an
  * event's name). Runs on every navigation, on resize, and whenever a page adds
@@ -26,6 +25,8 @@ const GAP = 0.92; // two-line titles: baseline to baseline, as a share of the si
 const TAGLINE = 0.853;
 // Space between the title column and the logo.
 const GUTTER = 14;
+// Option C: put two-word titles on two lines. Off since Joel went with B.
+const STACK_TWO_WORDS = false;
 // Below this a title is not worth forcing: leave it as the page styles it.
 const MIN_SIZE = 24;
 // Capitals sit a hair above the baseline at these sizes; measured on the
@@ -78,7 +79,7 @@ function fitOne(title: HTMLElement, logo: HTMLElement) {
     const words = (title.textContent ?? '').trim().split(/\s+/).filter(Boolean);
     if (!words.length || column <= 0) return;
 
-    const split = words.length >= 2 ? bestSplit(title, words) : Infinity;
+    const split = STACK_TWO_WORDS && words.length >= 2 ? bestSplit(title, words) : Infinity;
     const twoLines = split !== Infinity;
     const size = twoLines
         ? Math.min((column * 100) / split, height / (GAP + CAP))
