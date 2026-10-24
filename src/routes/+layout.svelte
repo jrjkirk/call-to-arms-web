@@ -21,6 +21,7 @@
     import SiteBanner from '$lib/SiteBanner.svelte';
     import NoticeBanner from '$lib/NoticeBanner.svelte';
     import PushPrompt from '$lib/PushPrompt.svelte';
+    import { fitPhoneTitles } from '$lib/fitTitle';
     import { getSystemsConfig, leagueSystems } from '$lib/systemsConfig';
     import { getClubSlugFromHostname, legacyRedirectHost } from '$lib/clubSlug';
     import { resolveTitle, titleOverride } from '$lib/pageTitle';
@@ -315,6 +316,38 @@
 
     afterNavigate(() => {
         userMenuOpen = false;
+        scheduleTitleFit();
+    });
+
+    /* Phone page titles fill the space beside the logo ($lib/fitTitle). Fitted
+       now and again once the page's 200ms entrance has settled, since that
+       slide moves the title while it is being measured. */
+    let titleFitTimer: ReturnType<typeof setTimeout> | null = null;
+    function scheduleTitleFit() {
+        if (typeof window === 'undefined') return;
+        requestAnimationFrame(() => fitPhoneTitles());
+        if (titleFitTimer) clearTimeout(titleFitTimer);
+        titleFitTimer = setTimeout(() => fitPhoneTitles(), 260);
+    }
+
+    onMount(() => {
+        // A page that titles itself once its data arrives (a player's
+        // profile) adds the title after navigation has finished.
+        const content = document.querySelector('.page-content');
+        const observer = new MutationObserver(() => scheduleTitleFit());
+        if (content) observer.observe(content, { childList: true, subtree: true });
+        window.addEventListener('resize', scheduleTitleFit);
+        document.fonts?.ready.then(scheduleTitleFit);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', scheduleTitleFit);
+        };
+    });
+
+    // The header's shape changes once auth answers (the big logo only shows
+    // for members), so fit again then.
+    $effect(() => {
+        if (authLoaded && isAuthed) scheduleTitleFit();
     });
 
     function toggleDrawer() {
