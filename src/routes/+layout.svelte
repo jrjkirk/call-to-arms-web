@@ -314,8 +314,19 @@
         };
     });
 
+    let logoLink = $state<HTMLElement | null>(null);
+
+    /** Restart the logo's entrance animation, in step with the new page's. */
+    function replayLogo() {
+        if (!logoLink) return;
+        logoLink.style.animation = 'none';
+        void logoLink.offsetWidth; // let the browser see it stopped
+        logoLink.style.animation = '';
+    }
+
     afterNavigate(() => {
         userMenuOpen = false;
+        replayLogo();
         scheduleTitleFit();
     });
 
@@ -400,7 +411,13 @@
         {/if}
 
         {#if !showingHero}
-            <a class="topbar-logo-link" href={logoHref} aria-label="Call to Arms">
+            <!-- Its entrance replays on every page change (replayLogo), so on a
+                 phone, where it sits beside the page title, it arrives with
+                 each tab instead of hovering over all of them. The same
+                 element throughout: re-creating it left a frame with an
+                 image of no height, which threw the title fitter off. The
+                 animation only exists in the phone rules below. -->
+            <a class="topbar-logo-link" href={logoHref} aria-label="Call to Arms" bind:this={logoLink}>
                 <img class="topbar-logo" src="/logo.svg" alt="Call to Arms" />
             </a>
         {/if}
@@ -959,6 +976,11 @@
         padding: 2rem 1rem;
     }
 
+    @keyframes logo-arrive {
+        from { opacity: 0; translate: 0 8px; }
+        to { opacity: 1; translate: 0 0; }
+    }
+
     /* Phone-only bottom tab bar, for members. */
     .tabbar { display: none; }
 
@@ -1075,6 +1097,10 @@
            not eyeballed: see the "Phone logo" board on the design canvas,
            version A2. Tied to the -60px pull-up below: change one, re-measure. */
         .topbar.topbar-member .topbar-logo-link {
+            /* The same 200ms fade-and-rise as the page (.page-transition's
+               fly). `translate`, not `transform`: transform already holds the
+               tagline nudge below. */
+            animation: logo-arrive 200ms cubic-bezier(0.33, 1, 0.68, 1) both;
             display: flex;
             margin-right: 16px;
             transform: translateY(6.3px);
@@ -1233,5 +1259,9 @@
             background: linear-gradient(to right, transparent, var(--color-bg-base));
             pointer-events: none;
         }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .topbar.topbar-member .topbar-logo-link { animation: none; }
     }
 </style>

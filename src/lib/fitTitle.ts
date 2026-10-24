@@ -67,11 +67,33 @@ function bestSplit(el: HTMLElement, words: string[]): number {
     return best;
 }
 
+/** The logo's box where it will come to rest: it rises 8px into place on
+ *  every page change (the layout's logo-arrive animation), and a measurement
+ *  taken mid-rise would put the title 8px out once it settles. */
+function restingBox(logo: HTMLElement): DOMRect {
+    const box = logo.getBoundingClientRect();
+    const link = logo.parentElement;
+    const shift = link ? parseFloat((getComputedStyle(link).translate || '').split(' ')[1] ?? '0') || 0 : 0;
+    return new DOMRect(box.x, box.y - shift, box.width, box.height);
+}
+
+/** How far the page is still risen into place (the layout's 200ms entrance
+ *  on .page-transition), so the title can be measured where it will rest. */
+function pageShift(title: HTMLElement): number {
+    const wrap = title.closest<HTMLElement>('.page-transition');
+    if (!wrap) return 0;
+    const t = getComputedStyle(wrap).transform;
+    if (!t || t === 'none') return 0;
+    return new DOMMatrixReadOnly(t).m42;
+}
+
 function fitOne(title: HTMLElement, logo: HTMLElement) {
     reset(title);
-    const logoBox = logo.getBoundingClientRect();
+    const logoBox = restingBox(logo);
     const titleBox = title.getBoundingClientRect();
-    if (!logoBox.width || !titleBox.width) return;
+    // An image not yet loaded has no height, and would put the tagline at the
+    // logo's top edge: wait for the next fit instead of misplacing the title.
+    if (logoBox.height < 20 || !titleBox.width) return;
 
     const column = logoBox.left - GUTTER - titleBox.left;
     const tagline = logoBox.top + TAGLINE * logoBox.height;
@@ -95,7 +117,8 @@ function fitOne(title: HTMLElement, logo: HTMLElement) {
     (title.style as any).textWrap = twoLines ? 'balance' : '';
 
     // Then move it so the last line's baseline lands on the tagline.
-    const box = title.getBoundingClientRect();
+    const raw = title.getBoundingClientRect();
+    const box = new DOMRect(raw.x, raw.y - pageShift(title), raw.width, raw.height);
     const line = (twoLines ? GAP : 1) * size;
     const lastBaseline = box.bottom - line + ((twoLines ? GAP : 1) - 1) * size / 2 + BASELINE * size;
     const current = parseFloat(getComputedStyle(title).marginTop) || 0;
