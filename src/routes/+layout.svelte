@@ -19,6 +19,7 @@
     import SiteBanner from '$lib/SiteBanner.svelte';
     import NoticeBanner from '$lib/NoticeBanner.svelte';
     import PushPrompt from '$lib/PushPrompt.svelte';
+    import MeSheet from '$lib/MeSheet.svelte';
     import { fitPhoneTitles } from '$lib/fitTitle';
     import { clearSession, getMySystemRows, prime } from '$lib/session';
     import { fetchHome } from '$lib/home/api';
@@ -214,6 +215,34 @@
             : { href: '/players', label: 'Players', icon: 'players' }
     ]);
 
+    /* The Me sheet on a phone ($lib/MeSheet): everything the bottom bar has
+       no room for, with the same permission checks as the desktop account
+       menu, grouped. */
+    let sheetOpen = $state(false);
+    const meGroups = $derived([
+        {
+            label: 'Club',
+            links: navItems
+                .filter((i) => i.href !== '/' && !tabItems.some((t) => t.href === i.href))
+                .map((i) => ({ href: i.href, label: i.href === '/club' ? 'Club page' : i.label }))
+        },
+        {
+            label: 'You',
+            links: [
+                ...(auth.player ? [{ href: `/players/${auth.player.id}`, label: 'Your player profile' }] : []),
+                { href: '/account', label: 'Account & notifications' }
+            ]
+        },
+        {
+            label: 'Running things',
+            links: [
+                ...(hasAdminAccess ? [{ href: '/admin', label: 'Admin' }] : []),
+                ...(hasVenueAdminAccess ? [{ href: '/venue-admin', label: 'Venue admin' }] : []),
+                ...(hasPlatformAdminAccess ? [{ href: '/platform-admin', label: 'Platform admin' }] : [])
+            ]
+        }
+    ]);
+
     // What a signed-out visitor on a club subdomain can actually reach. Without
     // this the club page, its pairings and its booking form are three separate
     // dead ends with no way between them, which is how a stranger who followed
@@ -343,6 +372,7 @@
 
     afterNavigate(() => {
         userMenuOpen = false;
+        sheetOpen = false;
         scheduleTitleFit();
     });
 
@@ -581,12 +611,21 @@
 </div>
 
 {#if authLoaded && isAuthed}
+    <MeSheet
+        open={sheetOpen}
+        name={auth.player?.name ?? auth.user?.name ?? ''}
+        clubName={auth.active_club?.name ?? null}
+        avatarUrl={auth.user?.avatar_url ?? null}
+        groups={meGroups}
+        onClose={() => (sheetOpen = false)}
+        onSignOut={logout}
+    />
     <nav class="tabbar" aria-label="Main" data-sveltekit-preload-code="eager">
         <!-- One gold marker that slides to the tab you picked. -->
-        <span class="tab-marker" class:hidden={activeTab < 0 || drawerOpen}
+        <span class="tab-marker" class:hidden={activeTab < 0 || sheetOpen}
               style={`transform: translateX(${Math.max(activeTab, 0) * 100}%)`} aria-hidden="true"></span>
         {#each tabItems as t, i}
-            <a href={t.href} class="tab" class:on={i === activeTab && !drawerOpen} aria-current={isActive(t.href) ? 'page' : undefined} data-sveltekit-preload-data="tap">
+            <a href={t.href} class="tab" class:on={i === activeTab && !sheetOpen} aria-current={isActive(t.href) ? 'page' : undefined} data-sveltekit-preload-data="tap">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     {#if t.icon === 'home'}
                         <path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z" />
@@ -603,7 +642,7 @@
                 {t.label}
             </a>
         {/each}
-        <button type="button" class="tab" aria-expanded={drawerOpen} onclick={toggleDrawer}>
+        <button type="button" class="tab" aria-expanded={sheetOpen} onclick={() => (sheetOpen = !sheetOpen)}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 20a8 8 0 0 1 16 0" /></svg>
             Me
         </button>
@@ -1018,9 +1057,11 @@
             background: none;
             border: none;
             color: var(--color-text-dim);
-            font: inherit;
-            font-size: 0.72rem;
+            font-family: var(--font-heading);
+            font-size: 0.8rem;
             font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
             text-decoration: none;
             cursor: pointer;
         }
