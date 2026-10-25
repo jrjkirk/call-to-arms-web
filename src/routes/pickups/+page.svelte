@@ -327,7 +327,18 @@
     }
 
     .game.waiting { border-color: var(--color-accent); background: rgba(201, 161, 74, 0.08); }
-    .game.on { border-left: 3px solid var(--color-win); }
+    /* A confirmed game: a green bar beside it (design rule 1). */
+    .game.on { position: relative; padding-left: 36px; }
+    .game.on::before {
+        content: '';
+        position: absolute;
+        left: 18px;
+        top: 16px;
+        bottom: 16px;
+        width: 4px;
+        border-radius: 2px;
+        background: var(--color-win);
+    }
 
     .game-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 

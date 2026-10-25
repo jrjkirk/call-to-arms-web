@@ -499,7 +499,6 @@
 		margin: 0.6rem 0 0;
 		padding: 0.7rem 0.8rem 0.8rem;
 		border: 1px solid var(--color-steel-border);
-		border-left: 2px solid var(--color-accent);
 		border-radius: var(--radius);
 		background: var(--color-bg-deep);
 	}

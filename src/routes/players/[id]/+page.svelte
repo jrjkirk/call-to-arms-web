@@ -423,16 +423,24 @@
 
     .game {
         display: grid;
-        grid-template-columns: 28px 30px minmax(0, 1fr) auto;
+        grid-template-columns: 4px 28px 30px minmax(0, 1fr) auto;
         align-items: center;
         gap: 10px;
         padding: 10px 18px;
         border-top: 1px solid #1c2029;
     }
 
-    .game-W { box-shadow: inset 3px 0 0 var(--color-win); }
-    .game-L { box-shadow: inset 3px 0 0 #d4786c; }
-    .game-D { box-shadow: inset 3px 0 0 var(--color-text-muted); }
+    /* The result's colour: a standalone bar beside the row (design rule 1). */
+    .game::before {
+        content: '';
+        align-self: stretch;
+        min-height: 28px;
+        border-radius: 2px;
+        background: var(--result, transparent);
+    }
+    .game-W { --result: var(--color-win); }
+    .game-L { --result: #d4786c; }
+    .game-D { --result: var(--color-text-muted); }
 
     .game-result { font-family: var(--font-heading); font-weight: 700; font-size: 1.3rem; text-align: center; color: var(--color-text-faint); }
     .game-W .game-result { color: var(--color-win); }
@@ -473,7 +481,7 @@
         .header { padding: 14px; gap: 12px; }
         .header :global(.header-icon) { width: 54px; height: 54px; }
         .system-head, .block { padding-left: 14px; padding-right: 14px; }
-        .game { padding: 10px 14px; grid-template-columns: 22px 28px minmax(0, 1fr) auto; gap: 8px; }
+        .game { padding: 10px 14px; grid-template-columns: 4px 22px 28px minmax(0, 1fr) auto; gap: 8px; }
         .achievement-grid { grid-template-columns: 1fr 1fr; }
     }
 </style>

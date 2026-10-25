@@ -29,6 +29,7 @@
     import LineChart from '$lib/charts/LineChart.svelte';
     import BarChart from '$lib/charts/BarChart.svelte';
     import HBarChart from '$lib/charts/HBarChart.svelte';
+    import { systemFolder } from '$lib/factions';
     import PairingWeightPanel from '$lib/admin/PairingWeightPanel.svelte';
     import TableBookingPanel from '$lib/admin/TableBookingPanel.svelte';
     import AdminsPanel from '$lib/admin/AdminsPanel.svelte';
@@ -309,6 +310,7 @@
         next_session: string; session_day: string;
         signups: number; cap_max_players: number | null; pairing_count: number;
         status: 'live' | 'drafted' | 'none';
+        accent_color?: string;
     };
     type ChartPoint = { label: string; value: number };
     type AnalyticsState = {
@@ -329,9 +331,17 @@
 
     const STATUS_META: Record<string, { glyph: string; label: string; cls: string }> = {
         live: { glyph: '●', label: 'Pairings live', cls: 'live' },
-        drafted: { glyph: '◐', label: 'Drafted, unpublished', cls: 'drafted' },
+        drafted: { glyph: '◐', label: 'Drafted', cls: 'drafted' },
         none: { glyph: '○', label: 'No pairings yet', cls: 'none' },
     };
+    /** "DD/MM/YYYY" → "Wed 28 Oct". */
+    function nightLabel(w: string): string {
+        const [d, m, y] = (w || '').split('/').map(Number);
+        if (!d || !m || !y) return w;
+        return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+    const average = (pts: ChartPoint[]) =>
+        pts.length ? Math.round(pts.reduce((n, p) => n + p.value, 0) / pts.length) : 0;
     // "DD/MM/YYYY" → "DD/MM" for compact chart ticks.
     const shortWeek = (w: string) => (w && w.length >= 5 ? w.slice(0, 5) : w);
 
@@ -3057,104 +3067,94 @@
         <div class="admin-section-reveal" in:fade={{ duration: 140 }}>
 
     {#if activeNav === 'overview'}
-    {#if onboarding && !onboarding.complete}
-        <!-- ══ First-run onboarding checklist ══ -->
-        <section class="onboarding-card">
-            <header class="ob-head">
-                <div>
-                    <span class="ob-eyebrow">Getting started</span>
-                    <h3 class="ob-title">Set up {onboarding.club.name}</h3>
-                </div>
-                <span class="ob-progress">{onboardingDoneCount}/{ONBOARDING_STEPS.length}</span>
-            </header>
-            <ul class="ob-list">
-                {#each ONBOARDING_STEPS as step}
-                    {@const done = onboarding.items[step.key]}
-                    <li class="ob-item" class:done>
-                        <span class="ob-tick" aria-hidden="true">{done ? '✓' : '○'}</span>
-                        <div class="ob-text">
-                            <span class="ob-label">{step.label}</span>
-                            <span class="ob-hint">{step.hint}</span>
+    <div class="ov-top" class:solo={!onboarding || onboarding.complete}>
+        <!-- ══ This week: one row per system, its next night at a glance ══ -->
+        <section class="ov-panel">
+            <header class="ov-head"><h3 class="ov-title">This week</h3></header>
+            {#if analytics.loading}
+                {#each [0, 1, 2] as _}<div class="wk-row wk-skel"><span class="wk-bar"></span><span class="skel-line"></span></div>{/each}
+            {:else if analytics.overview.length === 0}
+                <p class="ov-empty">No game systems yet</p>
+            {:else}
+                {#each analytics.overview as s (s.system)}
+                    {@const logo = systemLogoUrl(s.system, systemsConfig)}
+                    <div class="wk-row">
+                        <span class="wk-bar" style={`background: ${s.accent_color ?? 'var(--color-accent)'}`}></span>
+                        <div class="wk-sys">
+                            {#if logo}<img src={logo} alt={s.name} />{:else}<b>{s.name}</b>{/if}
+                            <span class="wk-day" style={`color: ${s.accent_color ?? 'var(--color-accent)'}`}>{nightLabel(s.next_session)}</span>
                         </div>
-                        {#if !done}
-                            <button class="ob-go" type="button" onclick={() => (activeNav = step.nav)}>Set up →</button>
-                        {/if}
-                    </li>
+                        <div class="wk-count">
+                            <b>{s.signups}{#if s.cap_max_players}<small>/{s.cap_max_players}</small>{/if}</b>
+                            <span>signed up</span>
+                        </div>
+                        <span class="wk-status {s.status}">{STATUS_META[s.status].label}</span>
+                        <button type="button" class="secondary-button wk-open" onclick={() => { activeSystem = s.system; activeNav = 'pairings'; }}>Open</button>
+                    </div>
                 {/each}
-            </ul>
+            {/if}
+        </section>
+
+        {#if onboarding && !onboarding.complete}
+            <!-- ══ Set-up: what's left before the club is fully running ══ -->
+            <section class="ov-panel">
+                <header class="ov-head"><h3 class="ov-title">Set-up</h3></header>
+                <div class="su-progress" aria-label={`${onboardingDoneCount} of ${ONBOARDING_STEPS.length} done`}>
+                    <span class="su-segs">
+                        {#each ONBOARDING_STEPS as _, i}<span class="su-seg" class:done={i < onboardingDoneCount}></span>{/each}
+                    </span>
+                    <b>{onboardingDoneCount}/{ONBOARDING_STEPS.length}</b>
+                </div>
+                {#each ONBOARDING_STEPS.filter((st) => !onboarding!.items[st.key]) as step}
+                    <div class="su-row">
+                        <span class="su-label">{step.label}</span>
+                        <button type="button" class="secondary-button" onclick={() => (activeNav = step.nav)}>Set up</button>
+                    </div>
+                {/each}
+            </section>
+        {/if}
+    </div>
+
+    <!-- ══ Trends for one system ══ -->
+    {#if analytics.overview.length > 0}
+        <section class="ov-trends">
+            <header class="tr-head">
+                <h3 class="ov-title">Trends</h3>
+                {#if analytics.overview.length > 1}
+                    <div class="tr-switch" role="group" aria-label="Trends for">
+                        {#each analytics.overview as s (s.system)}
+                            {@const logo = systemLogoUrl(s.system, systemsConfig)}
+                            <button type="button" class="nav-system" aria-pressed={analytics.trendSystem === s.system} title={s.name} onclick={() => loadTrends(s.system)}>
+                                {#if logo}<img src={logo} alt={s.name} />{:else}<span>{s.name}</span>{/if}
+                            </button>
+                        {/each}
+                    </div>
+                {/if}
+            </header>
+            <div class="trend-grid" class:loading={analytics.trendsLoading}>
+                <div class="chart-card">
+                    <div class="cc-head"><span class="cc-title">Signups</span>{#if analytics.signups.length}<span class="cc-sub">{average(analytics.signups)} average</span>{/if}</div>
+                    <div class="cc-hero">{analytics.signups.at(-1)?.value ?? '–'}</div>
+                    <LineChart data={analytics.signups} yLabel="Signups" />
+                </div>
+                <div class="chart-card">
+                    <div class="cc-head"><span class="cc-title">Games played</span>{#if analytics.games.length}<span class="cc-sub">{average(analytics.games)} average</span>{/if}</div>
+                    <div class="cc-hero">{analytics.games.at(-1)?.value ?? '–'}</div>
+                    <BarChart data={analytics.games} highlightLast />
+                </div>
+                <div class="chart-card">
+                    <div class="cc-head"><span class="cc-title">League ratings</span><span class="cc-sub">players ranked</span></div>
+                    <div class="cc-hero">{analytics.ratings.reduce((n, b) => n + b.value, 0)}</div>
+                    <BarChart data={analytics.ratings} />
+                </div>
+                <div class="chart-card">
+                    <div class="cc-head"><span class="cc-title">Factions</span><span class="cc-sub">played</span></div>
+                    <div class="cc-hero">{analytics.factions.length}</div>
+                    <HBarChart data={analytics.factions} iconFolder={analytics.trendSystem ? systemFolder(analytics.trendSystem, systemsConfig) : ''} />
+                </div>
+            </div>
         </section>
     {/if}
-    <!-- ══ Command Table — at-a-glance dashboard overview ══ -->
-    <section class="command-table">
-        <header class="ct-head">
-            <span class="ct-eyebrow">Command Table</span>
-            <h3 class="ct-title">This week across the club</h3>
-        </header>
-
-        {#if analytics.loading}
-            <p class="muted small">Reading the board…</p>
-        {:else if analytics.overview.length === 0}
-            <p class="muted small">No systems to report on yet.</p>
-        {:else}
-            <!-- SITUATION: one status tile per system -->
-            <div class="ct-label">Situation</div>
-            <div class="status-grid">
-                {#each analytics.overview as s (s.system)}
-                    <button
-                        type="button"
-                        class="status-tile"
-                        class:selected={analytics.trendSystem === s.system}
-                        onclick={() => loadTrends(s.system)}
-                        title={`Show trends for ${s.name}`}
-                    >
-                        <div class="st-top">
-                            {#if systemLogoUrl(s.system, systemsConfig)}
-                                <img class="st-logo" src={systemLogoUrl(s.system, systemsConfig)} alt="" />
-                            {/if}
-                            <span class="st-name">{s.name}</span>
-                        </div>
-                        <div class="st-count">
-                            <span class="st-num">{s.signups}{#if s.cap_max_players}<span class="st-cap">/{s.cap_max_players}</span>{/if}</span>
-                            <span class="st-num-label">signed up</span>
-                        </div>
-                        <div class="st-status {STATUS_META[s.status].cls}">
-                            <span class="st-led" aria-hidden="true">{STATUS_META[s.status].glyph}</span>
-                            <span>{STATUS_META[s.status].label}</span>
-                        </div>
-                        <div class="st-next">{s.session_day} · next {s.next_session}</div>
-                    </button>
-                {/each}
-            </div>
-
-            <!-- TRENDS: charts for the focused system -->
-            <div class="ct-label ct-label-trends">
-                Trends
-                {#if analytics.trendSystem}<span class="ct-trend-sys">· {analytics.trendSystem}</span>{/if}
-            </div>
-            {#if analytics.trendsLoading}
-                <p class="muted small">Loading trends…</p>
-            {:else}
-                <div class="trend-grid">
-                    <div class="chart-card">
-                        <div class="chart-card-title">Signups over time</div>
-                        <LineChart data={analytics.signups} yLabel="Signups" />
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-card-title">Games per session</div>
-                        <BarChart data={analytics.games} />
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-card-title">League rating spread</div>
-                        <BarChart data={analytics.ratings} />
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-card-title">Faction popularity</div>
-                        <HBarChart data={analytics.factions} />
-                    </div>
-                </div>
-            {/if}
-        {/if}
-    </section>
     {/if}
 
     {#if activeNav === 'clubguide' && adminMe.is_super_admin}
@@ -3298,7 +3298,7 @@
                                 <HelpTip label="club events" text={"One-off dates for the whole club.\n\n\u2022 Closures, open days, anything not tied to one game night\n\u2022 For a single system's tournament or campaign day, use that system's own events so it shows in the right colour"} /></div>
                             <div class="league-settings-body">
                                 {#if clubWideEvents.events.length === 0 && !clubWideEvents.loading}
-                                    <p class="muted small">No club-wide events yet. Add one below.</p>
+                                    <p class="muted small">No club-wide events yet</p>
                                 {:else}
                                     <ul class="history-list">
                                         {#each clubWideEvents.events as ev (ev.id)}
@@ -3496,7 +3496,7 @@
                                                     {#if ls.seasonsLoading}
                                                         <p class="muted small">Loading…</p>
                                                     {:else if ls.seasons.length === 0}
-                                                        <p class="muted small">No season yet. Create one below to start recording results.</p>
+                                                        <p class="muted small">No season yet</p>
                                                     {:else}
                                                         <ul class="season-list">
                                                             {#each ls.seasons as s}
@@ -3636,7 +3636,7 @@
                                             {#if ls.resultsLoading}
                                                 <p class="muted small">Loading…</p>
                                             {:else if ls.results.length === 0}
-                                                <p class="muted small">No results recorded yet this season.</p>
+                                                <p class="muted small">No results yet</p>
                                             {:else}
                                                 <div class="grid-wrap league-results-wrap">
                                                     <table class="pairing-grid league-results-grid">
@@ -3795,15 +3795,11 @@
                                         </span>
                                     </span>
                                 </div>
-                                <p class="a-note">
-                                    {#if !lrs.posting_enabled}
-                                        League posts are switched off for this system. Turn them back on under Discord.
-                                    {:else if !lrs.has_webhook}
-                                        No League rankings channel set yet. Add the webhook under Discord.
-                                    {:else}
-                                        Posts every {lrs.day} at {lrs.time}.
-                                    {/if}
-                                </p>
+                                {#if !lrs.posting_enabled}
+                                    <p class="a-note">League posts are off. Turn them on under Discord.</p>
+                                {:else if !lrs.has_webhook}
+                                    <p class="a-note">No league channel yet. Add its webhook under Discord.</p>
+                                {/if}
                                 <div class="auto-pairings-form">
                                     <div class="field field-narrow">
                                         <label class="field-label" for="lr-day-{scope}">Day</label>
@@ -3930,7 +3926,7 @@
                                 {#if ps.signupsLoading}
                                     <p class="muted small">Loading…</p>
                                 {:else if ps.signupRows.length === 0}
-                                    <p class="muted small">No signups for this week yet.</p>
+                                    <p class="muted small">No signups yet</p>
                                 {:else}
                                     <div class="grid-wrap">
                                         <table class="pairing-grid">
@@ -4136,9 +4132,9 @@
                                     <h4 class="a-title">
                                         Weekly pairings
                                         {#if ps.published}
-                                            <span class="pub-badge pub-live">● Published</span>
+                                            <span class="pub-badge pub-live">Published</span>
                                         {:else}
-                                            <span class="pub-badge pub-draft">○ Unpublished</span>
+                                            <span class="pub-badge pub-draft">Unpublished</span>
                                         {/if}
                                     </h4>
                                     {#if postSwitches[scope]}
@@ -4210,7 +4206,7 @@
                                 {/if}
 
                                 {#if ps.editRows.length === 0 && !ps.loading}
-                                    <p class="muted small">No pairings for this week. Generate to create them.</p>
+                                    <p class="muted small">No pairings yet</p>
                                 {:else if ps.editRows.length > 0}
                                     <!-- Editable grid -->
                                     <div class="grid-wrap">
@@ -4526,11 +4522,6 @@
                                         <span class="a-state" class:is-on={aps.enabled}>{aps.enabled ? 'On' : 'Off'}</span>
                                     </span>
                                 </div>
-                                <p class="a-note">
-                                    {aps.enabled
-                                        ? `Runs every ${aps.day} at ${aps.time}.`
-                                        : 'Pairings are generated by hand from the Pairings tab.'}
-                                </p>
                                 <div class="auto-pairings-form">
                                     <div class="field field-narrow">
                                         <label class="field-label" for="ap-day-{scope}">Day</label>
@@ -4593,11 +4584,6 @@
                                         <span class="a-state" class:is-on={cta.enabled}>{cta.enabled ? 'Scheduled' : 'Off'}</span>
                                     </span>
                                 </div>
-                                <p class="a-note">
-                                    {cta.enabled
-                                        ? `Posts ${cta.days_before} day${cta.days_before === 1 ? '' : 's'} before each session, at ${cta.time}.`
-                                        : 'Not posting automatically.'}
-                                </p>
                                 <div class="auto-pairings-form">
                                     <div class="field field-narrow">
                                         <label class="field-label" for="cta-days-{scope}">Days before</label>
@@ -4763,7 +4749,7 @@
                                     </div>
 
                                     {#if ms.missions.length === 0}
-                                        <p class="muted small">No missions yet. Add your first one above.</p>
+                                        <p class="muted small">No missions yet</p>
                                     {:else}
                                         <div class="mission-table-wrap">
                                             <table class="mission-table">
@@ -5332,7 +5318,7 @@
                                             <HelpTip label="system events" text={"Tournaments, campaign days, one-off sessions.\n\nShown on the Club page calendar in this system's accent colour, alongside its regular sessions."} /></div>
                                         <div class="league-settings-body">
                                             {#if es.events.length === 0 && !es.loading}
-                                                <p class="muted small">No events yet. Add one below.</p>
+                                                <p class="muted small">No events yet</p>
                                             {:else}
                                                 <ul class="history-list">
                                                     {#each es.events as ev (ev.id)}
@@ -5622,7 +5608,7 @@
                     </li>
                 {/each}
                 {#if clubSystemsMine.length === 0}
-                    <p class="muted">No systems configured yet. Add one below.</p>
+                    <p class="muted">No systems yet</p>
                 {/if}
             </ul>
 
@@ -5791,10 +5777,10 @@
 
     .nav-dot {
         display: inline-block;
+        flex: none;
         width: 6px;
         height: 6px;
-        margin-left: 0.4rem;
-        vertical-align: 0.12em;
+        margin-left: auto;
         border-radius: 50%;
         background: var(--color-accent);
     }
@@ -5830,7 +5816,7 @@
         font-weight: 600;
         letter-spacing: 0.2em;
         color: var(--color-accent);
-        margin: 1rem 0 0.45rem 0.5rem;
+        margin: 1.1rem 0 0.45rem 0.5rem;
     }
 
     .nav-mobile { display: none; }
@@ -5880,39 +5866,59 @@
         margin-top: 0.2rem;
     }
 
+    /* Capitals in the heading face; the current item gets a gold bar beside
+       it (a standalone bar, like the rest of the app), not an edge line. */
     .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
         text-align: left;
         background: transparent;
         border: none;
-        border-left: 3px solid transparent;
-        border-radius: 0 4px 4px 0;
-        color: var(--color-text-muted);
-        font: inherit;
-        font-size: 0.92rem;
-        font-weight: 600;
+        border-radius: 4px;
+        color: var(--color-text-dim);
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         min-height: 38px;
-        padding: 0.45rem 0.65rem;
+        padding: 0.4rem 0.5rem;
         cursor: pointer;
-        transition: background 0.12s ease, color 0.12s ease, border-left-color 0.12s ease;
+        transition: background 0.12s ease, color 0.12s ease;
+    }
+    .nav-item::before {
+        content: '';
+        flex: none;
+        width: 4px;
+        height: 20px;
+        border-radius: 2px;
+        background: transparent;
+        transition: background 0.12s ease;
     }
 
-    /* Community/support Discord link — pinned in the admin sidebar, in Discord
-       blurple so it's easy to spot from any section. */
+    /* Community/support Discord link, pinned in the admin sidebar. A quiet
+       outline button like every other secondary action (design rule 6). */
     .admin-discord-link {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 0.5rem;
-        margin: 1rem 0.6rem 0;
-        padding: 0.55rem 0.8rem;
-        background: #5865f2;
-        color: #fff;
-        font-size: 0.85rem;
+        margin: 1rem 0.5rem 0;
+        min-height: 40px;
+        padding: 0 0.8rem;
+        border: 1px solid #343a47;
+        color: var(--color-text-muted);
+        font-family: var(--font-heading);
+        font-size: 0.95rem;
         font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         border-radius: var(--radius);
         text-decoration: none;
-        transition: background 0.15s ease, transform 0.12s ease;
+        transition: border-color 0.15s ease, color 0.15s ease;
     }
-    .admin-discord-link:hover { background: #4752c4; transform: translateY(-1px); }
+    .admin-discord-link:hover { border-color: var(--color-accent-border); color: var(--color-text-bright); }
     .admin-discord-icon { width: 18px; height: 18px; flex: 0 0 auto; }
 
     .nav-item:hover {
@@ -5921,10 +5927,10 @@
     }
 
     .nav-item.active {
-        background: rgba(201, 161, 74, 0.1);
-        border-left-color: var(--color-accent);
+        background: rgba(201, 161, 74, 0.08);
         color: var(--color-text-bright);
     }
+    .nav-item.active::before { background: var(--color-accent); }
 
     .nav-item:focus-visible,
     .nav-system:focus-visible {
@@ -5961,279 +5967,193 @@
         .nav-mobile { display: block; }
     }
 
-    /* ── Command Table (dashboard overview) ─────────────────────────────── */
-    .onboarding-card {
-        margin-bottom: 1.75rem;
-        padding: 1.25rem 1.5rem 1.4rem;
-        background: linear-gradient(135deg, rgba(201, 161, 74, 0.08), var(--color-surface) 60%);
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.34);
+    /* ── Overview ───────────────────────────────────────────────────────────
+       This week beside Set-up, then Trends. Colour is a standalone bar beside
+       a row, status is a coloured word, and the numbers are the headline. */
+    .ov-top {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+        gap: 1.25rem;
+        align-items: start;
+        margin-bottom: 1.5rem;
+    }
+    .ov-top.solo { grid-template-columns: minmax(0, 1fr); }
+    @media (max-width: 1100px) {
+        .ov-top { grid-template-columns: minmax(0, 1fr); }
+    }
+    .ov-panel {
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .ov-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.85rem 1.25rem;
+        border-bottom: 1px solid #232733;
+    }
+    .ov-title {
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        margin: 0;
+    }
+    .ov-empty {
+        margin: 0;
+        padding: 1.4rem 1.25rem;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--color-text-faint);
     }
 
-    .ob-head {
+    .wk-row {
+        display: grid;
+        grid-template-columns: 4px minmax(0, 1fr) 6.5rem minmax(0, 0.9fr) auto;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.85rem 1.25rem;
+        border-top: 1px solid #1c2029;
+    }
+    .wk-row:first-of-type { border-top: none; }
+    .wk-bar {
+        align-self: stretch;
+        min-height: 2.6rem;
+        border-radius: 2px;
+        background: var(--color-steel-border);
+    }
+    .wk-sys { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+    .wk-sys img {
+        height: 26px;
+        width: auto;
+        max-width: 11rem;
+        object-fit: contain;
+        object-position: left center;
+    }
+    .wk-sys b { color: var(--color-text-bright); }
+    .wk-day { font-size: 0.88rem; font-weight: 600; }
+    .wk-count { display: flex; flex-direction: column; line-height: 1; }
+    .wk-count b {
+        font-family: var(--font-heading);
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--color-text-bright);
+        font-variant-numeric: tabular-nums;
+    }
+    .wk-count small { font-size: 1.1rem; color: var(--color-text-faint); }
+    .wk-count span { font-size: 0.75rem; color: var(--color-text-dim); margin-top: 0.15rem; }
+    .wk-status {
+        font-family: var(--font-heading);
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--color-text-faint);
+    }
+    .wk-status.live { color: var(--color-win); }
+    .wk-status.drafted { color: var(--color-accent); }
+    .wk-skel { grid-template-columns: 4px 1fr; }
+    .skel-line {
+        height: 1rem;
+        width: 60%;
+        border-radius: 3px;
+        background: #1c2029;
+    }
+    @media (max-width: 640px) {
+        .wk-row {
+            grid-template-columns: 4px minmax(0, 1fr) auto;
+            row-gap: 0.4rem;
+            padding: 0.8rem 0.9rem;
+        }
+        .wk-bar { grid-row: span 2; }
+        .wk-count { grid-column: 3; grid-row: 1; align-items: flex-end; }
+        .wk-status { grid-column: 2; grid-row: 2; font-size: 0.85rem; }
+        .wk-open { grid-column: 3; grid-row: 2; }
+    }
+
+    .su-progress {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+    }
+    .su-segs { flex: 1; display: flex; gap: 4px; }
+    .su-seg { flex: 1; height: 8px; border-radius: 2px; background: #2a2f3c; }
+    .su-seg.done { background: var(--color-accent); }
+    .su-progress b {
+        font-family: var(--font-heading);
+        font-size: 1.5rem;
+        color: var(--color-accent);
+        font-variant-numeric: tabular-nums;
+    }
+    .su-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.7rem 1.25rem;
+        border-top: 1px solid #1c2029;
+    }
+    .su-label { font-weight: 600; color: var(--color-text-bright); }
+
+    .tr-head {
+        display: flex;
+        align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .ob-eyebrow {
-        display: block;
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--color-accent);
-    }
-
-    .ob-title {
-        margin: 0.15rem 0 0;
-        font-size: 1.2rem;
-        color: var(--color-text-bright);
-    }
-
-    .ob-progress {
-        flex: 0 0 auto;
-        font-family: var(--font-heading);
-        font-size: 1.6rem;
-        font-weight: 700;
-        line-height: 1;
-        color: var(--color-accent);
-    }
-
-    .ob-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-
-    /* Eight uniform rows is a tall list to scroll past every time the tab
-       opens, and each row only ever fills half the panel. Two columns once
-       there is room for them; auto-fit rather than a fixed 2, so it collapses
-       on its own at narrow widths without a second breakpoint. */
-    @media (min-width: 1000px) {
-        .ob-list { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
-    }
-
-    .ob-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.6rem 0.75rem;
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        background: var(--color-surface-dark);
-    }
-
-    .ob-item.done { opacity: 0.6; }
-
-    .ob-tick {
-        flex: 0 0 auto;
-        width: 1.5rem; height: 1.5rem;
-        display: grid; place-items: center;
-        border-radius: 50%;
-        font-size: 0.9rem; font-weight: 700;
-        color: var(--color-text-faint);
-        border: 1px solid var(--color-steel-border);
-    }
-
-    .ob-item.done .ob-tick {
-        color: #1b1206;
-        background: var(--color-accent);
-        border-color: var(--color-accent);
-    }
-
-    .ob-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
-    .ob-label { font-weight: 600; color: var(--color-text-bright); }
-    .ob-item.done .ob-label { text-decoration: line-through; }
-    .ob-hint { font-size: 0.82rem; color: var(--color-text-dim); }
-
-    .ob-go {
-        flex: 0 0 auto;
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: var(--color-accent);
-        background: none;
-        border: 1px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        padding: 0.35rem 0.7rem;
-        cursor: pointer;
-        font-family: inherit;
-        transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    .ob-go:hover { background: var(--color-surface-hover); border-color: var(--color-accent); }
-
-    .command-table {
-        margin-bottom: 2.25rem;
-        padding: 1.4rem 1.5rem 1.6rem;
-        background: var(--color-surface);
-        border: 1px solid var(--color-steel-border);
-        /* the "gilt edge" of the command table — a single accent hairline on top */
-        border-top: 2px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.34);
-    }
-    .ct-head {
-        display: flex;
-        flex-direction: column;
-        gap: 0.15rem;
-        margin-bottom: 1.25rem;
-    }
-    .ct-eyebrow {
-        text-transform: uppercase;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 2.5px;
-        color: var(--color-accent);
-    }
-    .ct-title {
-        margin: 0;
-        font-size: 1.25rem;
-        color: var(--color-text-bright);
-        letter-spacing: -0.01em;
-    }
-    .ct-label {
-        text-transform: uppercase;
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 1.8px;
-        color: var(--color-steel);
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid var(--color-steel-border-soft);
-        margin-bottom: 0.9rem;
-    }
-    .ct-label-trends {
-        margin-top: 1.6rem;
-    }
-    .ct-trend-sys {
-        color: var(--color-text-dim);
-        font-weight: 600;
-        letter-spacing: 0.5px;
-    }
-
-    .status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 0.85rem;
-    }
-    .status-tile {
-        text-align: left;
-        display: flex;
-        flex-direction: column;
-        gap: 0.55rem;
-        padding: 0.85rem 0.95rem;
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border);
-        /* status-tile signature: a 3px gilt left rule, echoing the global .stat-card */
-        border-left: 3px solid var(--color-accent-border);
-        border-radius: var(--radius);
-        cursor: pointer;
-        transition: border-color 0.14s ease, transform 0.08s ease, background 0.14s ease;
-    }
-    .status-tile:hover {
-        border-color: var(--color-accent-border);
-        background: var(--color-surface-hover);
-    }
-    .status-tile:active {
-        transform: translateY(1px);
-    }
-    .status-tile.selected {
-        border-color: var(--color-accent);
-        border-left-color: var(--color-accent);
-        box-shadow: 0 0 0 1px var(--color-accent-border) inset;
-    }
-    .st-top {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .st-logo {
-        width: 26px;
-        height: 26px;
-        object-fit: contain;
-        flex-shrink: 0;
-    }
-    .st-name {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: var(--color-text-bright);
-        line-height: 1.15;
-    }
-    .st-count {
-        display: flex;
-        align-items: baseline;
-        gap: 0.4rem;
-    }
-    .st-num {
-        font-size: 1.9rem;
-        font-weight: 800;
-        color: var(--color-accent-bright);
-        font-variant-numeric: tabular-nums;
-        line-height: 1;
-    }
-    .st-cap {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--color-text-dim);
-    }
-    .signup-cap-section {
-        border-bottom: 1px solid var(--color-steel-border-soft);
-        padding-bottom: 1rem;
-        margin-bottom: 0.5rem;
-    }
-    .signup-cap-row {
-        display: flex;
-        align-items: flex-end;
-        gap: 0.85rem;
         flex-wrap: wrap;
+        margin-bottom: 0.75rem;
     }
-    .st-num-label {
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--color-text-dim);
-    }
-    .st-status {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.76rem;
-        color: var(--color-text-muted);
-    }
-    .st-led {
-        font-size: 0.7rem;
-        line-height: 1;
-    }
-    .st-status.live .st-led {
-        color: var(--color-win);
-    }
-    .st-status.drafted .st-led {
-        color: var(--color-accent);
-    }
-    .st-status.none .st-led {
-        color: var(--color-steel);
-    }
-    .st-next {
-        font-size: 0.72rem;
-        color: var(--color-text-faint);
-        font-variant-numeric: tabular-nums;
-    }
-
-    /* There are four charts. auto-fit gave three across on a wide console and
-       left the fourth on its own, which reads as a missing chart rather than a
-       full set. Capped at two so it stays a 2x2 block. */
+    .tr-switch { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tr-switch .nav-system { min-height: 38px; min-width: 5.5rem; padding: 4px 10px; }
+    .tr-switch .nav-system img { height: 20px; }
     .trend-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 1rem;
+        transition: opacity 0.15s ease;
     }
+    .trend-grid.loading { opacity: 0.5; }
     @media (min-width: 900px) {
         .trend-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     .chart-card {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border-soft);
-        border-radius: var(--radius);
-        padding: 0.95rem 1.05rem 1.05rem;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+        padding: 1rem 1.15rem 1.1rem;
+        min-width: 0;
+    }
+    .cc-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.2rem 0.75rem;
+    }
+    .cc-title {
+        font-family: var(--font-heading);
+        font-size: 0.92rem;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+    }
+    .cc-sub { font-size: 0.82rem; color: var(--color-text-dim); white-space: nowrap; }
+    .cc-hero {
+        font-family: var(--font-heading);
+        font-size: 2.6rem;
+        font-weight: 700;
+        line-height: 1.05;
+        color: var(--color-text-bright);
+        font-variant-numeric: tabular-nums;
+        margin-bottom: 0.5rem;
     }
 
     .section-intro {
@@ -6287,8 +6207,6 @@
     .wh-help {
         margin: 0 0 1.1rem;
         max-width: 68ch;
-        border-left: 2px solid var(--color-steel-border);
-        padding-left: 0.8rem;
     }
     .wh-help summary {
         cursor: pointer;
@@ -6402,27 +6320,35 @@
         align-items: flex-start;
     }
 
+    /* Publish sits beside Generate, the main action, so it is the gold outline;
+       Unpublish takes it back: red outline (design rule 6). */
     .publish-btn {
-        border: none;
+        display: inline-flex;
+        align-items: center;
         border-radius: var(--radius);
         padding: 0 14px;
-        height: 2.2rem;
+        min-height: 2.3rem;
         box-sizing: border-box;
-        font-size: 0.85rem;
+        font-family: var(--font-heading);
+        font-size: 0.98rem;
         font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         cursor: pointer;
-        transition: opacity 0.15s;
+        transition: opacity 0.15s, background 0.15s;
         white-space: nowrap;
     }
 
     .pub-on {
-        background: #7f1d1d;
-        color: #fca5a5;
+        background: transparent;
+        color: var(--color-loss);
+        border: 1px solid color-mix(in srgb, var(--color-loss) 45%, transparent);
     }
 
     .pub-off {
-        background: #166534;
-        color: #bbf7d0;
+        background: transparent;
+        color: var(--color-accent);
+        border: 1px solid var(--color-accent-border);
     }
 
     .publish-btn:hover {
@@ -6484,22 +6410,25 @@
     .pairing-summary {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.4rem 1rem;
+        align-items: baseline;
+        gap: 0.4rem 1.4rem;
         padding: 0.6rem 0.85rem;
         margin: 0 0 0.85rem;
         background: var(--color-surface-dark);
         border: 1px solid var(--color-steel-border-soft);
-        border-left: 3px solid var(--color-accent-border);
         border-radius: var(--radius);
-        font-size: 0.8rem;
-        color: var(--color-text-muted);
+        font-size: 0.85rem;
+        color: var(--color-text-dim);
     }
     .ps-stat {
         white-space: nowrap;
     }
     .ps-stat strong {
+        font-family: var(--font-heading);
+        font-size: 1.35rem;
         color: var(--color-text-bright);
         font-variant-numeric: tabular-nums;
+        margin-right: 0.15rem;
     }
     /* Non-zero rematch/mirror/mismatch counts are the things a weighting tweak
        is meant to reduce — tint them so they read as "worth a look". */

@@ -77,16 +77,34 @@
         flex-direction: column;
         background: #13161e;
         border: 1px solid #232733;
-        border-top: 3px solid var(--accent);
         border-radius: 6px;
         overflow: hidden;
     }
 
     .photo { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
 
-    .body { display: flex; flex-direction: column; gap: 8px; padding: 12px; flex: 1; }
+    /* The system's colour is a standalone bar beside the text (design rule 1). */
+    .body { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 12px 28px; flex: 1; }
+    .body::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        bottom: 12px;
+        width: 4px;
+        border-radius: 2px;
+        background: var(--accent);
+    }
 
-    .day { font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+    .day {
+        font-family: var(--font-heading);
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        overflow-wrap: anywhere;
+        text-transform: uppercase;
+        color: var(--accent);
+    }
 
     .logo { height: 28px; width: 100%; object-fit: contain; object-position: left center; }
 

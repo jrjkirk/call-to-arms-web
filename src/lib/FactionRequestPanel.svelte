@@ -154,12 +154,7 @@
 </script>
 
 <div class="fr">
-	<p class="fr-lede">
-		New teams or armies out? Ask for them here. Every club shares {system}'s list, so each name is
-		checked before it goes live. You'll get a notice when it's done.
-	</p>
-
-	<label class="field-label" for="fr-names">Factions to add, one per line</label>
+	<label class="field-label" for="fr-names">Factions</label>
 	<textarea
 		id="fr-names"
 		class="field-input fr-names"
@@ -235,13 +230,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-	}
-
-	.fr-lede {
-		margin: 0 0 0.35rem;
-		font-size: 0.88rem;
-		color: var(--color-text-muted);
-		line-height: 1.4;
 	}
 
 	.fr-names {

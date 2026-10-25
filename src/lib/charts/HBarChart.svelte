@@ -1,128 +1,98 @@
 <!--
-  Single-series horizontal bar chart (hand-rolled inline SVG). Used for ranked
-  categorical magnitudes like faction popularity. Category labels sit in muted
-  ink at the left; each gilt bar has a 4px rounded right end and a direct value
-  label. Rows are sized to the data, so the SVG height grows with the category
-  count. Empty state included.
+  Single-series horizontal bars, for ranked categories like faction
+  popularity. Plain HTML rather than SVG: the names are real text that wraps
+  and truncates like the rest of the page, and each row can carry the
+  faction's own icon. Gold bars rounded at the far end, value in bright ink
+  at the right.
 -->
 <script lang="ts">
+    import FactionIcon from '$lib/FactionIcon.svelte';
+
     type Row = { label: string; value: number };
 
     let {
         data,
+        /** Icon folder for faction rows; omit for rows without icons. */
+        iconFolder = '',
+        limit = 8,
     }: {
         /** Pre-sorted (largest first) is expected but not required. */
         data: Row[];
+        iconFolder?: string;
+        limit?: number;
     } = $props();
 
-    const W = 640;
-    const ROW_H = 30;
-    const GAP = 8;
-    const PAD = { top: 8, right: 40, bottom: 8, left: 150 };
-    const plotW = W - PAD.left - PAD.right;
-
-    const H = $derived(PAD.top + PAD.bottom + data.length * ROW_H);
-    const maxVal = $derived(Math.max(1, ...data.map((d) => d.value)));
-
-    function barW(v: number): number {
-        return (v / maxVal) * plotW;
-    }
-    function rowY(i: number): number {
-        return PAD.top + i * ROW_H;
-    }
-
-    let hovered = $state<number | null>(null);
-
-    function truncate(s: string): string {
-        return s.length > 20 ? s.slice(0, 19) + '…' : s;
-    }
+    const rows = $derived(data.slice(0, limit));
+    const maxVal = $derived(Math.max(1, ...rows.map((d) => d.value)));
 </script>
 
 {#if data.length === 0}
-    <div class="chart-empty">No data yet.</div>
+    <div class="chart-empty">No data yet</div>
 {:else}
-    <figure class="chart" role="img" aria-label="Ranked horizontal bar chart">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
-            <title>Ranked bars</title>
-            {#each data as d, i}
-                <g
-                    class="row"
-                    class:on={hovered === i}
-                    onpointerenter={() => (hovered = i)}
-                    onpointerleave={() => (hovered = null)}
-                    role="presentation"
-                >
-                    <!-- full-width hit target -->
-                    <rect class="hit" x="0" y={rowY(i)} width={W} height={ROW_H} />
-                    <text class="cat" x={PAD.left - 10} y={rowY(i) + (ROW_H - GAP) / 2 + 4} text-anchor="end">
-                        {truncate(d.label)}
-                    </text>
-                    <rect
-                        class="bar"
-                        x={PAD.left}
-                        y={rowY(i)}
-                        width={Math.max(2, barW(d.value))}
-                        height={ROW_H - GAP}
-                        rx="4"
-                    />
-                    <text class="val" x={PAD.left + Math.max(2, barW(d.value)) + 8} y={rowY(i) + (ROW_H - GAP) / 2 + 4}>
-                        {d.value}
-                    </text>
-                </g>
-            {/each}
-        </svg>
-    </figure>
+    <ol class="hbars" class:icons={!!iconFolder}>
+        {#each rows as d}
+            <li>
+                {#if iconFolder}<FactionIcon faction={d.label} folder={iconFolder} class="hb-icon" />{/if}
+                <span class="hb-name" title={d.label}>{d.label}</span>
+                <span class="hb-track"><span class="hb-bar" style={`width: ${Math.max(2, (d.value / maxVal) * 100)}%`}></span></span>
+                <b class="hb-val">{d.value}</b>
+            </li>
+        {/each}
+    </ol>
 {/if}
 
 <style>
-    .chart {
-        position: relative;
+    .hbars {
+        list-style: none;
         margin: 0;
-        width: 100%;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
     }
-    svg {
-        width: 100%;
-        height: auto;
+    li {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(3rem, 1fr) 2rem;
+        align-items: center;
+        gap: 0.65rem;
+    }
+    .icons li { grid-template-columns: 1.5rem minmax(0, 1.4fr) minmax(3rem, 1fr) 2rem; }
+    :global(.hb-icon) {
+        width: 1.5rem;
+        height: 1.5rem;
+        object-fit: contain;
+    }
+    .hb-name {
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .hb-track { display: block; }
+    .hb-bar {
         display: block;
+        height: 10px;
+        border-radius: 0 4px 4px 0;
+        background: var(--color-accent);
     }
-    .hit {
-        fill: transparent;
-    }
-    .row.on .hit {
-        fill: var(--color-surface-hover);
-    }
-    .cat {
-        fill: var(--color-text-muted);
-        font-size: 13px;
-        font-family: var(--font-body);
-    }
-    .bar {
-        fill: var(--color-accent);
-        transition: fill 0.12s ease;
-    }
-    .row.on .bar {
-        fill: var(--color-accent-bright);
-    }
-    .val {
-        fill: var(--color-text-dim);
-        font-size: 12px;
-        font-weight: 700;
+    li:hover .hb-bar { background: var(--color-accent-bright); }
+    .hb-val {
+        font-family: var(--font-heading);
+        font-size: 1.1rem;
+        color: var(--color-text-bright);
+        text-align: right;
         font-variant-numeric: tabular-nums;
-        font-family: var(--font-body);
     }
     .chart-empty {
         display: flex;
         align-items: center;
         justify-content: center;
         min-height: 140px;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
         color: var(--color-text-faint);
-        font-style: italic;
-        border: 1px dashed var(--color-steel-border);
-        border-radius: var(--radius);
-    }
-    @media (prefers-reduced-motion: reduce) {
-        .bar {
-            transition: none;
-        }
     }
 </style>

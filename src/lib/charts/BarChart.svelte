@@ -1,8 +1,10 @@
 <!--
   Single-series vertical bar chart (hand-rolled inline SVG). Used for discrete
   per-week counts (games-over-time) and frequency histograms (rating spread).
-  Thin gilt bars with a 4px rounded top anchored to the baseline, a 2px surface
-  gap between neighbours, recessive grid, per-bar hover tooltip, empty state.
+  Gold bars rounded at the top only (anchored flat on the baseline), a small
+  gap between neighbours, recessive grid and no y-axis. With `highlightLast`
+  (a time series) the latest bar is full gold and labelled, the rest dimmed;
+  a histogram has no "latest", so it leaves every bar the same.
 -->
 <script lang="ts">
     type Bar = { label: string; value: number };
@@ -10,72 +12,82 @@
     let {
         data,
         valueSuffix = '',
+        highlightLast = false,
     }: {
         data: Bar[];
         valueSuffix?: string;
+        highlightLast?: boolean;
     } = $props();
 
-    const W = 640;
-    const H = 280;
-    const PAD = { top: 16, right: 18, bottom: 34, left: 44 };
-    const plotW = W - PAD.left - PAD.right;
+    // Drawn at the width it is shown at, so labels stay real-size text on a
+    // phone instead of shrinking with a scaled-down picture.
+    let cw = $state(640);
+    const W = $derived(Math.max(240, Math.round(cw)));
+    const H = 200;
+    const PAD = { top: 26, right: 4, bottom: 28, left: 4 };
+    const plotW = $derived(W - PAD.left - PAD.right);
     const plotH = H - PAD.top - PAD.bottom;
 
     const maxVal = $derived(Math.max(1, ...data.map((d) => d.value)));
-    const niceMax = $derived.by(() => {
-        const m = maxVal;
-        if (m <= 5) return 5;
-        const pow = Math.pow(10, Math.floor(Math.log10(m)));
-        return Math.ceil(m / (pow / 2)) * (pow / 2);
-    });
-    const ticks = $derived([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(niceMax * f)));
+    const top = $derived(maxVal * 1.1);
 
-    const GAP = 6; // viewBox-unit gap between bars (>=2px rendered)
+    const GAP = 4;
     const bandW = $derived(data.length ? plotW / data.length : plotW);
     const barW = $derived(Math.max(2, bandW - GAP));
+    const last = $derived(data.length - 1);
 
     function barX(i: number): number {
         return PAD.left + i * bandW + (bandW - barW) / 2;
     }
-    function barH(v: number): number {
-        return (v / niceMax) * plotH;
-    }
     function barY(v: number): number {
-        return PAD.top + plotH - barH(v);
+        return PAD.top + plotH - (v / top) * plotH;
+    }
+    /** Rounded top corners, square on the baseline. */
+    function barPath(i: number, v: number): string {
+        const x0 = barX(i), x1 = x0 + barW, y0 = barY(v), base = PAD.top + plotH;
+        const r = Math.min(4, barW / 2, Math.max(0, base - y0));
+        return `M${x0},${base} L${x0},${y0 + r} Q${x0},${y0} ${x0 + r},${y0} L${x1 - r},${y0} Q${x1},${y0} ${x1},${y0 + r} L${x1},${base} Z`;
     }
 
     let hovered = $state<number | null>(null);
-    const labelEvery = $derived(Math.max(1, Math.ceil(data.length / 10)));
+    const labelEvery = $derived(Math.max(1, Math.ceil(data.length / Math.max(2, Math.floor(W / 80)))));
 </script>
 
 {#if data.length === 0}
-    <div class="chart-empty">No data yet.</div>
+    <div class="chart-empty">No data yet</div>
 {:else}
-    <figure class="chart" role="img" aria-label="Bar chart">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
-            <title>Bar chart</title>
-            {#each ticks as t}
-                <line class="grid" x1={PAD.left} x2={W - PAD.right} y1={barY(t)} y2={barY(t)} />
-                <text class="axis-y" x={PAD.left - 8} y={barY(t) + 4} text-anchor="end">{t}</text>
+    <figure class="chart" bind:clientWidth={cw} role="img" aria-label="Bar chart">
+        <svg viewBox={`0 0 ${W} ${H}`} >
+            {#each [0.5, 1] as f}
+                <line class="grid" x1={PAD.left} x2={W - PAD.right} y1={PAD.top + plotH * (1 - f)} y2={PAD.top + plotH * (1 - f)} />
             {/each}
 
             {#each data as d, i}
-                <rect
+                <path
                     class="bar"
+                    class:dim={highlightLast && i !== last && hovered !== i}
                     class:on={hovered === i}
-                    x={barX(i)}
-                    y={barY(d.value)}
-                    width={barW}
-                    height={barH(d.value)}
-                    rx="4"
+                    d={barPath(i, d.value)}
+                />
+                <!-- The hit target is the whole column, so short bars are as
+                     easy to hover as tall ones. -->
+                <rect
+                    class="hit"
+                    x={PAD.left + i * bandW}
+                    y={PAD.top}
+                    width={bandW}
+                    height={plotH}
                     onpointerenter={() => (hovered = i)}
                     onpointerleave={() => (hovered = null)}
                     role="presentation"
                 />
-                {#if i % labelEvery === 0 || i === data.length - 1}
-                    <text class="axis-x" x={barX(i) + barW / 2} y={H - 12} text-anchor="middle">{d.label}</text>
+                {#if (i % labelEvery === 0 && last - i >= labelEvery) || i === last}
+                    <text class="axis-x" x={barX(i) + barW / 2} y={H - 8} text-anchor="middle">{d.label}</text>
                 {/if}
             {/each}
+            {#if highlightLast && hovered === null}
+                <text class="latest" x={barX(last) + barW / 2} y={barY(data[last].value) - 8} text-anchor="middle">{data[last].value}{valueSuffix}</text>
+            {/if}
         </svg>
 
         {#if hovered !== null}
@@ -100,47 +112,58 @@
         width: 100%;
         height: auto;
         display: block;
+        overflow: visible;
     }
     .grid {
         stroke: var(--color-steel-border-soft);
         stroke-width: 1;
     }
-    .axis-y,
     .axis-x {
-        fill: var(--color-text-dim);
-        font-size: 12px;
+        fill: var(--color-text-faint);
+        font-size: 13px;
         font-family: var(--font-body);
     }
     .bar {
         fill: var(--color-accent);
-        transition: fill 0.12s ease;
+        transition: fill 0.12s ease, opacity 0.12s ease;
     }
-    .bar.on {
-        fill: var(--color-accent-bright);
+    .bar.dim { opacity: 0.42; }
+    .bar.on { fill: var(--color-accent-bright); }
+    .hit { fill: transparent; }
+    .latest {
+        fill: var(--color-text-bright);
+        font-size: 16px;
+        font-weight: 700;
+        font-family: var(--font-body);
+        font-variant-numeric: tabular-nums;
     }
     .tooltip {
         position: absolute;
         transform: translate(-50%, calc(-100% - 10px));
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-accent-border);
+        background: var(--color-bg-deep);
+        border: 1px solid var(--color-steel-border);
         border-radius: var(--radius);
-        padding: 0.3rem 0.5rem;
+        padding: 0.3rem 0.55rem;
         pointer-events: none;
         white-space: nowrap;
         display: flex;
         flex-direction: column;
-        gap: 0.1rem;
+        gap: 0.05rem;
         box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
     }
     .tt-label {
-        font-size: 0.68rem;
+        font-family: var(--font-heading);
+        font-size: 0.75rem;
+        font-weight: 700;
         color: var(--color-text-dim);
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.1em;
     }
     .tt-value {
-        font-size: 1.05rem;
+        font-family: var(--font-heading);
+        font-size: 1.3rem;
         font-weight: 700;
+        line-height: 1;
         color: var(--color-text-bright);
         font-variant-numeric: tabular-nums;
     }
@@ -149,14 +172,13 @@
         align-items: center;
         justify-content: center;
         min-height: 140px;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
         color: var(--color-text-faint);
-        font-style: italic;
-        border: 1px dashed var(--color-steel-border);
-        border-radius: var(--radius);
     }
     @media (prefers-reduced-motion: reduce) {
-        .bar {
-            transition: none;
-        }
+        .bar { transition: none; }
     }
 </style>

@@ -257,7 +257,6 @@
     .confirm-button:disabled { opacity: 0.5; cursor: not-allowed; }
     .existing-account {
         border: 1px solid var(--color-accent-border);
-        border-left: 3px solid var(--color-accent);
         border-radius: var(--radius);
         background: var(--color-surface-dark);
         padding: 0.8rem 1rem;

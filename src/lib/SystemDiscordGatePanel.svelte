@@ -401,8 +401,6 @@ Needs the <strong>Manage Server</strong> permission.
 	   have asked the question. */
 	.gate-disclosure {
 		margin: 0.9rem 0 0;
-		border-left: 2px solid var(--color-steel-border);
-		padding-left: 0.8rem;
 		font-size: 0.85rem;
 		color: var(--color-text-dim);
 	}

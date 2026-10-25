@@ -151,13 +151,6 @@
         }
     }
 
-    function medal(rank: number): string {
-        if (rank === 1) return '🥇';
-        if (rank === 2) return '🥈';
-        if (rank === 3) return '🥉';
-        return '';
-    }
-
     /* ---------- auth ---------- */
     type AuthState = {
         authenticated: boolean;
@@ -438,11 +431,7 @@
                 {#each pagedRankings as row, i (row.player_id)}
                     <tr class={`row-rank-${row.rank <= 3 ? row.rank : 'plain'}`} class:me={row.player_id === auth.player?.id}>
                         <td class="center rank-col">
-                            {#if medal(row.rank)}
-                                <span class="medal">{medal(row.rank)}</span>
-                            {:else}
-                                {row.rank}
-                            {/if}
+                            {row.rank}
                         </td>
                         <td class="rank-change-col">
                             {#if row.previous_rank != null && row.previous_rank !== row.rank}
@@ -512,11 +501,7 @@
                         {@const rank = i + 1}
                         <tr class={`row-rank-${rank <= 3 ? rank : 'plain'}`} class:me={row.player_id === auth.player?.id}>
                             <td class="center rank-col">
-                                {#if medal(rank)}
-                                    <span class="medal">{medal(rank)}</span>
-                                {:else}
-                                    {rank}
-                                {/if}
+                                {rank}
                             </td>
                             <td>
                                 <a href="/players/{row.player_id}" class="name-link">{row.player_name}</a>
@@ -864,14 +849,9 @@
 
     /* Your own row, wherever it sits in the table. */
     .league-table tbody tr.me td { background: rgba(201, 161, 74, 0.1); }
-    .league-table tbody tr.me td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
     .league-table tbody tr.me .name-link { color: var(--color-accent-bright); }
     .games-col { width: 80px; color: var(--color-text-dim); }
 
-    .medal {
-        font-size: 1.3rem;
-        line-height: 1;
-    }
 
     .name-link {
         color: var(--color-text-bright);
@@ -907,16 +887,30 @@
         color: var(--color-text-faint);
     }
 
-    /* Podium: a flat gilt tint + a gilt edge on the champion's first cell, so
-       the leader reads as the leader at a glance. Silver and bronze get
-       quieter tints of the same idea. */
-    .row-rank-1 td { background: rgba(201, 161, 74, 0.16); }
-    .row-rank-1 td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
+    /* Podium: the top three take a standalone bar beside their rank, in gold,
+       silver and bronze, and the rank itself in the same colour (design rule
+       1: a bar, never an edge). Your own row gets a gold bar too. */
+    .league-table tbody td.rank-col { position: relative; }
+    .row-rank-1 td.rank-col::before,
+    .row-rank-2 td.rank-col::before,
+    .row-rank-3 td.rank-col::before,
+    .league-table tbody tr.me td.rank-col::before {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 8px;
+        bottom: 8px;
+        width: 4px;
+        border-radius: 2px;
+        background: var(--podium);
+    }
+    .league-table tbody tr.me { --podium: var(--color-accent); }
+    .row-rank-1 { --podium: var(--color-accent); }
+    .row-rank-2 { --podium: #c0c8d6; }
+    .row-rank-3 { --podium: #c98a4b; }
+    .row-rank-1 td.rank-col, .row-rank-2 td.rank-col, .row-rank-3 td.rank-col { color: var(--podium); font-size: 1.45rem; }
+    .row-rank-1 td { background: rgba(201, 161, 74, 0.08); }
     .row-rank-1 .elo-col { color: var(--color-accent-bright); }
-    .row-rank-2 td { background: rgba(192, 200, 214, 0.06); }
-    .row-rank-2 td:first-child { box-shadow: inset 3px 0 0 rgba(192, 200, 214, 0.5); }
-    .row-rank-3 td { background: rgba(184, 115, 51, 0.08); }
-    .row-rank-3 td:first-child { box-shadow: inset 3px 0 0 rgba(184, 115, 51, 0.6); }
     .rank-change {
         font-size: 0.7rem;
         font-weight: 600;
@@ -962,7 +956,6 @@
             height: 24px;
         }
 
-        .medal { font-size: 1.1rem; }
     }
 
     /* ---------- faction filter ---------- */

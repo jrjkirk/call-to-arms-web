@@ -36,6 +36,39 @@ page, so it's there when wanted and out of the way when not.
 Applies equally to section intros: one line, or none. Anything longer belongs
 in a tooltip.
 
+## Design rules (Joel's, settled 2026-10-25)
+
+One visual language for player pages and admin alike. The worked examples live
+on the "Design cohesion" page of the design canvas
+(claude.ai/artifact/Npyc8fdbhdfBhFehgedqAz).
+
+1. **Colour is a standalone bar, never an edge.** A system, vibe, result or
+   current item is marked by a 4px bar with rounded ends, sitting *beside* the
+   content with a gap, like Home's "This week" rows. Never `border-left`,
+   `border-top: 3px`, or an `inset` box-shadow sliver on a card. In CSS: a
+   `<span>` or a `::before` with `width: 4px; border-radius: 2px`.
+2. **Labels in capitals in the heading face.** Labels, headings, tabs, buttons
+   and status words are Barlow Condensed (`var(--font-heading)`), uppercase,
+   letter-spaced. Body text and values stay in Barlow, sentence case.
+3. **No explanation text** (see the section above). Keep a `HelpTip` only where
+   what something does genuinely isn't obvious from its label.
+4. **Status is a coloured word, not a pill.** `PUBLISHED` in green, `DRAFTED`
+   in gold, `NO PAIRINGS YET` in faint grey. No badges, dots or LEDs.
+5. **Numbers are the headline.** A count or score is a big condensed figure
+   with a small label under or beside it, not a sentence.
+6. **One button language:** gold solid (the main action), gold outline
+   (secondary), red outline (destructive), quiet grey outline. No Discord
+   blurple, green fills or rounded pills for actions.
+
+Palette: page `#0a0b0e`, panels `#13161e` with a `#232733` border, dividers
+`#1c2029`, gold `#c9a14a`, win `#6fae72`, loss `#d4786c`. Dark and gold
+always; no added imagery; gender-neutral copy.
+
+Charts (`src/lib/charts`) follow the same rules: one series means one gold hue
+and no legend (the card title names it), a big headline number above the
+chart, no y-axis, recessive gridlines, the latest value labelled directly and
+the rest on hover.
+
 ## Conventions
 
 - `PUBLIC_API_URL` env var holds the backend base URL (set in `.env` locally, as a Vercel env var in production).

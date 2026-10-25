@@ -1155,7 +1155,6 @@
     <p class="muted">You don't have platform admin access.</p>
 {:else}
     <p class="section-intro platform-banner" in:fly={{ y: 8, duration: 200, easing: cubicOut }}>
-        Cross-club management.
         <HelpTip label="this console" text={"Creating clubs, configuring their systems, appointing their delegates, and toggling which clubs are live.\n\nSeparate from, and more powerful than, a club's own Admin tools."} />
         <a href="/admin">Club admin</a>
     </p>
@@ -1948,11 +1947,10 @@
             <div class="sub-section">
                 <h4 class="sub-heading">Active status</h4>
                 <p class="section-intro">
-                    Currently
                     <span class="status-badge" class:status-active={selectedClub.active} class:status-inactive={!selectedClub.active}>
                         {selectedClub.active ? 'Active' : 'Inactive'}
                     </span>
-                    {selectedClub.active ? 'and visible on the public club picker.' : 'and hidden from the public club picker.'}
+                    <HelpTip label="active clubs" text={"Active clubs show on the public club picker. Inactive ones are hidden."} />
                 </p>
                 {#if activeError}
                     <p class="field-error">{activeError}</p>
@@ -2227,7 +2225,6 @@
         margin: 0.2rem 0 0;
         padding: 0.75rem 0.85rem 0.9rem;
         border: 1px solid var(--color-steel-border);
-        border-left: 2px solid var(--color-accent);
         border-radius: var(--radius);
         background: var(--color-bg-deep);
     }
@@ -2300,21 +2297,34 @@
         padding: 0.6rem;
     }
 
+    /* Capitals, with a standalone gold bar beside the current item, as on
+       the club admin page. */
     .nav-item {
         text-align: left;
         background: transparent;
         border: none;
-        border-left: 3px solid transparent;
-        border-radius: 0;
-        color: var(--color-text-muted);
-        font-size: 0.85rem;
-        font-weight: 600;
-        padding: 0.5rem 0.6rem;
+        border-radius: 4px;
+        color: var(--color-text-dim);
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        min-height: 38px;
+        padding: 0.4rem 0.5rem;
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 0.4rem;
-        transition: background 0.12s ease, color 0.12s ease, border-left-color 0.12s ease;
+        gap: 0.6rem;
+        transition: background 0.12s ease, color 0.12s ease;
+    }
+    .nav-item::before {
+        content: '';
+        flex: none;
+        width: 4px;
+        height: 20px;
+        border-radius: 2px;
+        background: transparent;
     }
 
     .nav-item:hover {
@@ -2323,10 +2333,10 @@
     }
 
     .nav-item.active {
-        background: var(--color-surface-hover);
-        border-left-color: var(--color-accent);
-        color: var(--color-accent-bright);
+        background: rgba(201, 161, 74, 0.08);
+        color: var(--color-text-bright);
     }
+    .nav-item.active::before { background: var(--color-accent); }
 
     .admin-main {
         min-width: 0;
@@ -2342,18 +2352,12 @@
             flex-wrap: wrap;
             gap: 0.35rem;
         }
-        .nav-item {
-            border-left: none;
-            border-bottom: 2px solid transparent;
-        }
-        .nav-item.active {
-            border-bottom-color: var(--color-accent);
-        }
+
     }
 
     .managing-panel {
         margin-top: 1.25rem;
-        border-top: 2px solid var(--color-accent-border);
+        border-top: 1px solid var(--color-steel-border);
     }
 
     .managing-header {

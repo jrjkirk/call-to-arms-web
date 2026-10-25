@@ -211,7 +211,7 @@
         overflow-y: auto;
         padding: 10px 22px 20px;
         background: #13161e;
-        border-top: 1px solid var(--color-accent);
+        border-top: 1px solid #232733;
         border-radius: 14px 14px 0 0;
         box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.6);
     }
@@ -233,11 +233,11 @@
 
     .handle span {
         display: block;
-        width: 40px;
-        height: 4px;
+        width: 44px;
+        height: 5px;
         margin: 0 auto;
-        border-radius: 2px;
-        background: #4a5060;
+        border-radius: 3px;
+        background: var(--color-accent);
     }
 
     .sheet.fixed { touch-action: none; }

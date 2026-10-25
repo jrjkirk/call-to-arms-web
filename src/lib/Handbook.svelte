@@ -225,25 +225,34 @@
     }
 
     .hb-note {
-        border-left: 2px solid var(--color-steel-border);
-        padding-left: 0.8rem;
         color: var(--color-text-faint);
         font-size: 0.9rem;
         margin: 0 0 0.9rem;
     }
+    /* Warnings and proofs carry a standalone bar beside them (design rule 1). */
+    .hb-warn, .hb-proof { position: relative; }
+    .hb-warn::before, .hb-proof::before {
+        content: '';
+        position: absolute;
+        left: 0.7rem;
+        top: 0.7rem;
+        bottom: 0.7rem;
+        width: 4px;
+        border-radius: 2px;
+        background: var(--color-loss);
+    }
+    .hb-proof::before { background: var(--color-win); }
     .hb-warn {
-        border-left: 3px solid var(--color-loss);
         background: color-mix(in srgb, var(--color-loss) 8%, transparent);
-        border-radius: 0 4px 4px 0;
-        padding: 0.7rem 0.85rem;
+        border-radius: 5px;
+        padding: 0.7rem 0.85rem 0.7rem calc(0.7rem + 16px);
         margin: 0 0 0.9rem;
         font-size: 0.92rem;
     }
     .hb-proof {
-        border-left: 3px solid var(--color-win);
         background: color-mix(in srgb, var(--color-win) 9%, transparent);
-        border-radius: 0 4px 4px 0;
-        padding: 0.7rem 0.85rem;
+        border-radius: 5px;
+        padding: 0.7rem 0.85rem 0.7rem calc(0.7rem + 16px);
         margin: 0 0 0.9rem;
         font-size: 0.92rem;
     }

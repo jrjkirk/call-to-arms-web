@@ -145,8 +145,7 @@
         flex-direction: column;
         background: var(--color-surface);
         border: 1px solid var(--color-steel-border);
-        border-top: 3px solid var(--card-accent, var(--color-accent));
-        border-radius: var(--radius);
+        border-radius: 6px;
         overflow: hidden;
         transition: box-shadow 0.15s ease;
     }
@@ -193,13 +192,26 @@
         pointer-events: none;
     }
 
+    /* The system's colour: a standalone bar beside the text (design rule 1). */
     .slide-body {
-        padding: 1.1rem 1.3rem 1.3rem;
+        position: relative;
+        padding: 1.1rem 1.3rem 1.3rem calc(1.3rem + 16px);
         display: flex;
         flex-direction: column;
         gap: 0.45rem;
         text-decoration: none;
         color: inherit;
+    }
+
+    .slide-body::before {
+        content: '';
+        position: absolute;
+        left: 1.3rem;
+        top: 1.1rem;
+        bottom: 1.3rem;
+        width: 4px;
+        border-radius: 2px;
+        background: var(--card-accent, var(--color-accent));
     }
 
     .slide-name {
