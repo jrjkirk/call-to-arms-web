@@ -1,12 +1,13 @@
 <!--
-  A night's games, one row each: the label, one player on the left, "v", the
-  other mirrored on the right with their icon outermost. The caller's own game
-  is picked out in gold, label and "v" both. Players sitting out are listed
-  after the games rather than as a half-empty row.
+  A night's games, one row each, laid out like Home's "This week" list: a
+  standalone bar in the colour of the kind of game, then the game. "GAME 1"
+  and its details (kind, time, points) across the top, then each player on a
+  full-width line of their own: icon, name, level, and the faction in full.
+  Option A on the design canvas's "Pairing cards" page (2026-10-25): the old
+  mirrored rows cut factions short on a phone.
 
-  `detail` adds what the old pairings cards carried under each game (kind of
-  game, arrival, points, levels, guest), for the pairings page; the home tab
-  leaves it off.
+  The caller's own game is tinted gold. Players sitting out follow the games.
+  `detail` adds the details line and levels; Home and Pairings both use it.
 -->
 <script lang="ts">
     import FactionIcon from '../FactionIcon.svelte';
@@ -52,44 +53,49 @@
         return LEVEL_BANDS[LEVEL_BANDS.length - 1][1];
     }
 
-    const hasMeta = (m: Matchup) => !!(m.game_type || m.eta || m.points || m.prearranged);
+    function sidesOf(m: Matchup) {
+        return [
+            { id: m.player_a_id, name: m.player_a_name, faction: m.player_a_faction, level: m.player_a_level, guest: false },
+            { id: m.player_b_id, name: m.player_b_name ?? '', faction: m.player_b_faction, level: m.player_b_level, guest: m.player_b_id == null }
+        ];
+    }
 </script>
 
 <ol class="games">
     {#each games as m, i (m.id ?? `${m.player_a_name}|${m.player_b_name}`)}
-        {@const [kind, num] = gameLabel(m, i).split(' ')}
-        <li class="game" class:mine={mine(m)} class:detail style={detail ? `--vibe: ${vibeColour(m.game_type)}` : ''}>
-            <span class="label"><small>{kind}</small> {num}</span>
-            <div class="side">
-                <FactionIcon faction={m.player_a_faction} {folder} class="game-icon" />
-                <div class="who">
-                    <span class="name">
-                        {m.player_a_name}
-                        {#if detail && m.player_a_level}<span class="lvl lvl-top" style={`color: ${levelColour(m.player_a_level)}`}>Lvl {m.player_a_level}</span>{/if}
-                    </span>
-                    <span class="faction">{#if detail && m.player_a_level}<span class="lvl lvl-sub" style={`color: ${levelColour(m.player_a_level)}`}>Lvl {m.player_a_level}</span> {/if}{m.player_a_faction ?? '—'}</span>
+        {@const [a, b] = sidesOf(m)}
+        <li class="game" class:mine={mine(m)}>
+            <span class="bar" style={`background: ${vibeColour(m.game_type)}`} title={m.game_type ?? undefined}></span>
+            <div class="body">
+                <div class="top">
+                    <span class="label">{gameLabel(m, i)}</span>
+                    {#if detail}
+                        <span class="meta">
+                            {#if m.game_type}<b style={`color: ${vibeColour(m.game_type)}`}>{m.game_type}</b>{/if}
+                            {#if m.eta}<b class="m-time">{m.eta}</b>{/if}
+                            {#if m.points}<b class="m-points">{Number(m.points).toLocaleString('en-GB')} pts</b>{/if}
+                            {#if m.prearranged}<b class="m-quiet">Arranged</b>{/if}
+                        </span>
+                    {/if}
                 </div>
+                {#each [a, b] as p, k}
+                    {#if k === 1}<span class="vs">VS</span>{/if}
+                    <div class="player">
+                        <span class="icon"><FactionIcon faction={p.faction} {folder} class="game-icon" /></span>
+                        <div class="who">
+                            <span class="name-line">
+                                <span class="name" class:me={p.id != null && p.id === playerId}>{p.name}</span>
+                                {#if p.guest}
+                                    <span class="tag">Guest</span>
+                                {:else if detail && p.level}
+                                    <span class="tag" style={`color: ${levelColour(p.level)}`}>Lvl {p.level}</span>
+                                {/if}
+                            </span>
+                            <span class="faction">{p.faction ?? 'No faction given'}</span>
+                        </div>
+                    </div>
+                {/each}
             </div>
-            <span class="v">v</span>
-            <div class="side side-b">
-                <div class="who">
-                    <span class="name">
-                        {#if detail && m.player_b_level}<span class="lvl lvl-top" style={`color: ${levelColour(m.player_b_level)}`}>Lvl {m.player_b_level}</span>{/if}
-                        {m.player_b_name}
-                        {#if m.player_b_id == null}<span class="guest">guest</span>{/if}
-                    </span>
-                    <span class="faction">{m.player_b_faction ?? '—'}{#if detail && m.player_b_level} <span class="lvl lvl-sub" style={`color: ${levelColour(m.player_b_level)}`}>Lvl {m.player_b_level}</span>{/if}</span>
-                </div>
-                <FactionIcon faction={m.player_b_faction} {folder} class="game-icon" />
-            </div>
-            {#if detail && hasMeta(m)}
-                <div class="meta">
-                    {#if m.game_type}<b class="m-vibe">{m.game_type}</b>{/if}
-                    {#if m.eta}<b class="m-time">{m.eta}</b>{/if}
-                    {#if m.points}<b class="m-points">{Number(m.points).toLocaleString('en-GB')} pts</b>{/if}
-                    {#if m.prearranged}<b class="m-quiet">Arranged</b>{/if}
-                </div>
-            {/if}
         </li>
     {/each}
 </ol>
@@ -108,146 +114,97 @@
     }
 
     .game {
-        display: grid;
-        grid-template-columns: 76px minmax(0, 1fr) 36px minmax(0, 1fr);
-        align-items: center;
-        gap: 10px;
-        padding: 12px 20px;
+        display: flex;
+        gap: 14px;
+        padding: 14px 18px;
         border-bottom: 1px solid #1c2029;
     }
 
     .game:last-child { border-bottom: none; }
-
     .game.mine { background: rgba(201, 161, 74, 0.08); }
 
-    .label,
-    .v {
+    /* The kind of game, as a bar of its own: the same device as the night
+       rows in Home's "This week". */
+    .bar {
+        width: 4px;
+        flex: none;
+        align-self: stretch;
+        border-radius: 2px;
+    }
+
+    .body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+    .top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+
+    .label {
         font-family: var(--font-heading);
         font-weight: 700;
-        font-size: 1.1rem;
-        color: var(--color-text-dim);
-        white-space: nowrap;
-    }
-
-    .v { text-align: center; }
-
-    .label small { font-size: inherit; }
-
-    .game.mine .label,
-    .game.mine .v { color: var(--color-accent); }
-
-    .side {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 0;
-    }
-
-    .side-b {
-        justify-content: flex-end;
-        text-align: right;
-    }
-
-    .side :global(.game-icon) {
-        width: 34px;
-        height: 34px;
-        flex: none;
-    }
-
-    .who {
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-    }
-
-    .name {
-        font-weight: 600;
-        color: var(--color-text-bright);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .faction {
-        font-size: 0.82rem;
-        color: var(--color-text-dim);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .lvl,
-    .guest {
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: var(--color-text-dim);
-        text-transform: uppercase;
+        font-size: 1.05rem;
         letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--color-text-dim);
     }
 
-    /* The kind of game as a coloured edge on the row, and in its colour below. */
-    .game.detail { box-shadow: inset 3px 0 0 var(--vibe); }
+    .game.mine .label { color: var(--color-accent); }
 
-    .meta {
-        grid-column: 2 / -1;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 4px 8px;
-        margin-top: 2px;
-    }
-
-    /* Bold, coloured words rather than bubbles: the kind of game in its own
-       colour, then the time and the points, dot-separated. */
-    .meta b {
-        font-weight: 700;
-        font-size: 0.9rem;
-        font-variant-numeric: tabular-nums;
-    }
-
-    .meta b + b::before {
-        content: '·';
-        margin-right: 8px;
-        color: var(--color-text-faint);
-        font-weight: 400;
-    }
-
-    .m-vibe { color: var(--vibe); }
+    .meta { display: flex; flex-wrap: wrap; gap: 2px 0; font-size: 0.85rem; }
+    .meta b { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .meta b + b::before { content: '·'; margin: 0 7px; color: #4a5060; font-weight: 400; }
     .m-time { color: var(--color-text-bright); }
     .m-points { color: var(--color-accent); }
     .m-quiet { color: var(--color-text-dim); }
 
-    /* A level sits beside the name where there's room, and beside the faction
-       on a phone, where it would otherwise squeeze the name off the row. */
-    .lvl-sub { display: none; }
+    .player { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+    .icon { width: 38px; height: 38px; flex: none; }
+    .icon :global(.game-icon) { width: 38px; height: 38px; display: block; }
+
+    .who { display: flex; flex-direction: column; min-width: 0; }
+
+    .name-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+    .name { font-weight: 700; font-size: 1.02rem; color: var(--color-text-bright); }
+    .name.me { color: var(--color-accent-bright); }
+
+    .tag {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-text-dim);
+    }
+
+    .faction { font-size: 0.88rem; color: var(--color-text-dim); }
+
+    /* Just the word: no rules either side. Lined up with the names. */
+    .vs {
+        margin: 5px 0 5px 50px;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: 0.16em;
+        color: #5c6270;
+    }
+
+    .game.mine .vs { color: var(--color-accent); }
 
     .sitting-out {
         margin: 0;
-        padding: 12px 20px;
+        padding: 12px 18px;
         border-top: 1px dashed #343a47;
-        font-size: 0.88rem;
+        font-size: 0.9rem;
         color: var(--color-text-dim);
     }
 
     @media (max-width: 560px) {
-        .game {
-            grid-template-columns: 34px minmax(0, 1fr) 14px minmax(0, 1fr);
-            gap: 6px;
-            padding: 10px 12px;
-        }
-        .label, .v { font-size: 1.05rem; }
-        /* "Game" over the number: the word costs a third of a phone's width
-           on one line, and the faction names were paying for it. */
-        .label { display: flex; flex-direction: column; align-items: center; line-height: 1; }
-        .label small { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; }
-        .side { gap: 6px; }
-        .side :global(.game-icon) { width: 28px; height: 28px; }
-        .name { font-size: 0.92rem; }
-        .faction { font-size: 0.75rem; }
-        .sitting-out { padding: 10px 12px; }
-        .meta { grid-column: 1 / -1; }
-        .lvl-top { display: none; }
-        .lvl-sub { display: inline; font-size: 0.66rem; margin: 0 4px; }
-        .meta b { font-size: 0.85rem; }
+        .game { padding: 13px 14px; gap: 12px; }
+        .sitting-out { padding: 11px 14px; }
     }
 </style>
