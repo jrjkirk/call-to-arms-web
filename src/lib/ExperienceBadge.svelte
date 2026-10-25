@@ -1,6 +1,4 @@
 <script lang="ts">
-	import HelpTip from './HelpTip.svelte';
-
 	/**
 	 * A player's standing in one game system: games played, the tier that lands
 	 * in, and a way to add games played elsewhere.
@@ -48,18 +46,22 @@
 	const tierLabel = $derived(
 		(exp?.tier ?? '').toLowerCase() === 'some' ? 'Experienced' : (exp?.tier ?? '')
 	);
+	/** The tier after this one, and how many games away it is. */
+	const nextTier = $derived(
+		exp && exp.next_tier_at != null
+			? { name: exp.next_tier_at >= exp.veteran_at ? 'Veteran' : 'Experienced', away: Math.max(0, exp.next_tier_at - exp.total_games) }
+			: null
+	);
 </script>
 
 {#if exp}
 	<div class="exp">
+		<!-- The tier as a coloured word, the games as the number, and how far
+		     the next tier is. -->
 		<div class="exp-row">
-			<span class="exp-badge {tierClass}">{tierLabel}</span>
-			<HelpTip
-				label="experience"
-				text={`${exp.total_games} games of ${exp.system}
-• ${exp.experienced_at}+ games: Experienced
-• ${exp.veteran_at}+ games: Veteran`}
-			/>
+			<b class="exp-tier {tierClass}">{tierLabel}</b>
+			<span class="exp-games"><b>{exp.total_games}</b> {exp.total_games === 1 ? 'game' : 'games'}</span>
+			{#if nextTier}<span class="exp-next">{nextTier.away} to {nextTier.name}</span>{/if}
 			{#if !editing}
 				<button class="exp-link" type="button" onclick={open}>Edit</button>
 			{/if}
@@ -67,7 +69,7 @@
 
 		{#if editing}
 			<div class="exp-edit">
-				<label class="field-label" for="exp-extra">Games played elsewhere</label>
+				<label class="field-label" for="exp-extra">Games elsewhere</label>
 				<div class="exp-edit-row">
 					<input
 						id="exp-extra"
@@ -103,24 +105,28 @@
 
 	.exp-row {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
+		align-items: baseline;
+		gap: 0.4rem 0.9rem;
 		flex-wrap: wrap;
 	}
 
-	/* Outlined, matching the badge on the pairing card — a player should
-	   recognise the thing on their pairing as the same thing they saw here. */
-	.exp-badge {
-		display: inline-block;
-		padding: 0 8px;
-		border-radius: 999px;
-		border: 1px solid currentColor;
-		font-size: 0.72rem;
+	/* A coloured word, not a pill (design rule 4). */
+	.exp-tier {
+		font-family: var(--font-heading);
+		font-size: 1.15rem;
 		font-weight: 700;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		letter-spacing: 0.4px;
 		white-space: nowrap;
 	}
+	.exp-games { color: var(--color-text-dim); font-size: 0.9rem; }
+	.exp-games b {
+		font-family: var(--font-heading);
+		font-size: 1.3rem;
+		color: var(--color-text-bright);
+		font-variant-numeric: tabular-nums;
+	}
+	.exp-next { color: var(--color-text-faint); font-size: 0.85rem; }
 	.exp-new { color: #6eb46e; }
 	.exp-experienced { color: #b8a878; }
 	.exp-veteran { color: #d08a50; }
@@ -131,11 +137,13 @@
 	.exp-link {
 		background: none;
 		border: none;
-		padding: 0;
-		font: inherit;
-		font-size: 0.78rem;
+		padding: 0.3rem 0;
+		font-family: var(--font-heading);
+		font-size: 0.9rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		color: var(--color-accent);
-		text-decoration: underline;
 		cursor: pointer;
 	}
 	.exp-link:hover { color: var(--color-text-bright); }

@@ -21,11 +21,9 @@
     let { data } = $props();
 
     let system = $state(data.system);
-    let week = $state(data.week);
 
     $effect(() => {
         system = data.system;
-        week = data.week;
     });
 
     // Pairings content is fetched client-side (never SSR) so the request
@@ -155,12 +153,6 @@
         goto(`/pairings?${new URLSearchParams({ system: s })}`, { invalidateAll: true });
     }
 
-    function applyWeek() {
-        const params = new URLSearchParams({ system, week });
-        goto(`/pairings?${params}`, { invalidateAll: true });
-    }
-
-    let showWeekField = $state(false);
 
 
     /* ---------- the caller's nights and own game ---------- */
@@ -247,19 +239,6 @@
     </div>
 {/if}
 
-<div class="next-session-row">
-    <span>Showing: <strong>{data.week}</strong></span>
-    <button type="button" class="link-button" onclick={() => (showWeekField = !showWeekField)}>
-        {showWeekField ? 'Cancel' : 'Change week'}
-    </button>
-</div>
-
-{#if showWeekField}
-    <div class="field week-field">
-        <label class="field-label" for="week">Week (DD/MM/YYYY)</label>
-        <input id="week" class="field-input" type="text" bind:value={week} onblur={applyWeek} />
-    </div>
-{/if}
 
 {#if !pairingsLoaded}
     <div class="empty-state">Loading…</div>
@@ -411,30 +390,6 @@
        property overrides rather than duplicating the component. */
     .system-picker-theme {
         display: contents;
-    }
-
-    .next-session-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-size: 0.9rem;
-        color: var(--color-text-base);
-        margin-bottom: 1rem;
-    }
-
-    .link-button {
-        background: none;
-        border: none;
-        color: var(--color-accent);
-        font-family: inherit;
-        font-size: 0.85rem;
-        text-decoration: underline;
-        cursor: pointer;
-        padding: 0;
-    }
-
-    .week-field {
-        margin-bottom: 1rem;
     }
 
     .unpaired-section {

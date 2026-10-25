@@ -23,6 +23,7 @@
     import { fetchHome, peekHome, weekday, type HomeNight } from '$lib/home/api';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import ExperienceBadge, { type ExperienceSummary } from '$lib/ExperienceBadge.svelte';
+    import HelpTip from '$lib/HelpTip.svelte';
     import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
 
     // Discord membership gate. Held per form area so the prompt appears next
@@ -51,9 +52,13 @@
     });
 
     let system = $state(data.system);
-    let week = $state(data.week);
 
-    let stats = $state({ signed_up: 0, newcomers: 0, veterans: 0, cap_enabled: false, cap_max_players: null as number | null, cap_tables: null as number | null, is_full: false });
+    let stats = $state({
+        signed_up: 0, newcomers: 0, veterans: 0, cap_enabled: false,
+        cap_max_players: null as number | null, cap_tables: null as number | null, is_full: false,
+        /** Set only when this system's admin has auto-pairings on. */
+        pairings_post: null as { day: string; time: string } | null
+    });
 
     /** Which system/week `stats` describes, so the count can show what this
      *  visit already knows (from Your week) until the fresh one arrives,
@@ -70,7 +75,6 @@
 
     $effect(() => {
         system = data.system;
-        week = data.week;
         loadStats(data.system, data.week);
     });
 
@@ -98,11 +102,6 @@
         goto(`/signup?${new URLSearchParams({ system: s })}`, { invalidateAll: true });
     }
 
-    function changeWeek() {
-        goto(`/signup?${new URLSearchParams({ system, week })}`, { invalidateAll: true });
-    }
-
-    let showWeekField = $state(false);
 
     /* The club's nights, for the tile grid. Null for a visitor (GET /home
        needs an account) or if it fails, and the page falls back to the plain
@@ -677,24 +676,19 @@
     />
 {/if}
 
-<p class="count-line">
-    <b style={night ? `color: ${night.accent_color}` : ''}>{statsFor === `${data.system}|${data.week}` || !night || night.week !== data.week ? stats.signed_up : night.signed_up}</b>{#if stats.cap_enabled && stats.cap_max_players}<span class="stat-cap">/{stats.cap_max_players}</span>{/if}
-    signed up for {nightName} so far{#if stats.newcomers || stats.veterans}<span class="count-split"> · {stats.newcomers} {stats.newcomers === 1 ? 'newcomer' : 'newcomers'} · {stats.veterans} {stats.veterans === 1 ? 'veteran' : 'veterans'}</span>{/if}
-</p>
-
-<div class="next-session-row">
-    <span>Session: <strong>{data.week}</strong></span>
-    <button type="button" class="link-button" onclick={() => (showWeekField = !showWeekField)}>
-        {showWeekField ? 'Cancel' : 'Change week'}
-    </button>
+<!-- The night in numbers: who's coming, and how many are new or veterans. -->
+<div class="night-stats">
+    <span class="ns">
+        <b style={night ? `color: ${night.accent_color}` : ''}>{statsFor === `${data.system}|${data.week}` || !night || night.week !== data.week ? stats.signed_up : night.signed_up}{#if stats.cap_enabled && stats.cap_max_players}<small>/{stats.cap_max_players}</small>{/if}</b>
+        <span>Signed up</span>
+    </span>
+    {#if stats.newcomers}
+        <span class="ns"><b class="ns-new">{stats.newcomers}</b><span>{stats.newcomers === 1 ? 'Newcomer' : 'Newcomers'}</span></span>
+    {/if}
+    {#if stats.veterans}
+        <span class="ns"><b class="ns-vet">{stats.veterans}</b><span>{stats.veterans === 1 ? 'Veteran' : 'Veterans'}</span></span>
+    {/if}
 </div>
-
-{#if showWeekField}
-    <div class="field week-field">
-        <label class="field-label" for="week">Week (DD/MM/YYYY)</label>
-        <input id="week" class="field-input" type="text" bind:value={week} onblur={changeWeek} />
-    </div>
-{/if}
 
 <div class="section-title">Your signup</div>
 
@@ -720,18 +714,14 @@
 {:else}
     <div class="signup-card card">
         {#if current}
-            <div class="signed-up-note">
-                ✓ You're in for {nightName}, {data.week}. Change anything below and save to update it.
-            </div>
+            <p class="state-word in">You're in</p>
         {:else if stats.is_full}
-            <div class="session-full-note">
-                🚫 This session is full ({stats.cap_tables} table{stats.cap_tables === 1 ? '' : 's'} · {stats.cap_max_players} players). Sign-ups are closed for {data.week}.
-            </div>
+            <p class="state-word full">Full</p>
         {/if}
 
         <div class="form-grid">
             <div class="field">
-                <label class="field-label" for="su-faction">{cfg.factionLabel}</label>
+                <label class="field-label" for="su-faction">{cfg.factionLabel.replace(/^Your /i, '')}</label>
                 <select id="su-faction" class="field-select" bind:value={faction}>
                     <option value={NONE_FACTION}>None</option>
                     <FactionOptions {systemsConfig} system={data.system} />
@@ -740,16 +730,13 @@
 
             {#if cfg.showPoints}
                 <div class="field">
-                    <label class="field-label" for="su-points">Army Points</label>
+                    <label class="field-label" for="su-points">Points</label>
                     <input id="su-points" class="field-input" type="number" min="0" max={cfg.maxPoints} step="50" bind:value={points} />
-                    {#if cfg.pointsCaption}
-                        <p class="field-caption">{cfg.pointsCaption}</p>
-                    {/if}
                 </div>
             {/if}
 
             <div class="field" class:field-full={etaChoices.length <= 6}>
-                <span class="field-label" id="su-eta-label">Getting there</span>
+                <span class="field-label" id="su-eta-label">Arrives</span>
                 <!-- Taps for a short list; a club with no start time set
                      still gets the long default list, which is a dropdown. -->
                 {#if etaChoices.length <= 6}
@@ -782,7 +769,7 @@
 
             {#if cfg.showScenario}
                 <div class="field">
-                    <label class="field-label" for="su-scen">Scenario Preference</label>
+                    <label class="field-label" for="su-scen">Scenario</label>
                     <select id="su-scen" class="field-select" bind:value={scenario}>
                         {#each cfg.scenarioOptions as s}
                             <option value={s}>{s}</option>
@@ -801,7 +788,7 @@
                         onSaveExtra={saveExperienceExtra}
                     />
                 {:else}
-                    <p class="muted small">Counting your games…</p>
+                    <p class="muted small">…</p>
                 {/if}
             </div>
         </div>
@@ -837,7 +824,9 @@
             <button class="primary-button signup-cta" onclick={submit} disabled={submitting || !mineLoaded || (stats.is_full && !current)} type="button">
                 {submitting ? 'Saving…' : (stats.is_full && !current) ? 'Session full' : current ? 'Update my signup' : `Sign up for ${nightName}`}
             </button>
-            <p class="cta-note">Pairings go up before the night.</p>
+            {#if stats.pairings_post}
+                <p class="cta-note">Pairings go up {stats.pairings_post.day} at {stats.pairings_post.time}</p>
+            {/if}
         </div>
     </div>
 
@@ -846,11 +835,11 @@
         <div class="signup-card card">
             <label class="check-row">
                 <input type="checkbox" bind:checked={dropConfirm} />
-                <span>I confirm I want to drop my signup for this week</span>
+                <span>I can't make it</span>
             </label>
             <div class="actions">
-                <button class="drop-button" onclick={drop} disabled={!dropConfirm || dropping} type="button">
-                    {dropping ? 'Dropping…' : 'Drop My Signup'}
+                <button class="danger-button drop-button" onclick={drop} disabled={!dropConfirm || dropping} type="button">
+                    {dropping ? 'Dropping…' : 'Drop out'}
                 </button>
             </div>
         </div>
@@ -859,18 +848,15 @@
     {#if pairingsPublished && myPairing}
         <div class="section-title" id="rearrange">Re-arrange your game</div>
         <div class="signup-card card">
-            <p class="muted" style="margin: 0 0 0.75rem;">
-                {#if myOpponentName}
-                    Your current pairing: vs <strong>{myOpponentName}</strong>
-                {:else}
-                    You currently have no opponent.
-                {/if}
+            <p class="current-opp">
+                <span class="field-label">Playing</span>
+                <b>{myOpponentName ?? 'Nobody yet'}</b>
             </p>
             {#if otherPlayers.length > 0}
                 <div class="field">
-                    <label class="field-label" for="swap-target">Re-arrange with</label>
+                    <label class="field-label" for="swap-target">Swap to</label>
                     <select id="swap-target" class="field-select" bind:value={swapTarget}>
-                        <option value="">Select player</option>
+                        <option value="">Select</option>
                         {#each otherPlayers as p}
                             <option value={p.player_id}>{p.player_name}</option>
                         {/each}
@@ -899,23 +885,19 @@
                     </button>
                 </div>
             {:else}
-                <p class="muted">No other players in this week's pairings.</p>
+                <p class="muted">Nobody to swap with</p>
             {/if}
         </div>
     {/if}
 
-    <div class="section-title">Pre-Arranged Game</div>
+    <div class="section-title">Pre-arranged game
+        <HelpTip label="pre-arranged games" text={"For a game you've already agreed with someone.\n\n\u2022 Neither of you can already be signed up: drop out first if you are\n\u2022 Playing someone who isn't on the app? Tick Guest and type their name\n\u2022 If one of you drops out later, the other goes back into the pairings"} />
+    </div>
     <details class="card prearranged-card">
-        <summary>Set up a pre-arranged game</summary>
-        <p class="prompt-body small">For a game you have already arranged with someone.</p>
-        <ul class="prompt-body small prearranged-points">
-            <li>Neither player can already be signed up for {data.week}. Drop first if you are.</li>
-            <li>Playing someone who isn't on the system? Tick <em>“Player B is a guest”</em> and type their name.</li>
-            <li>If one of you drops out later, the other goes back into the pairings pool.</li>
-        </ul>
+        <summary>Arrange a game</summary>
 
         {#if players.length < 1}
-            <p class="muted">Pre-arranged games need at least one active player in the system.</p>
+            <p class="muted">No players yet</p>
         {:else}
             <div class="form-grid">
                 <div class="field">
@@ -938,7 +920,7 @@
                     {/if}
                 </div>
                 <div class="field">
-                    <label class="field-label" for="pre-a-fac">Player A's {prePlayerFactionLabel}</label>
+                    <label class="field-label" for="pre-a-fac">{prePlayerFactionLabel}</label>
                     <select id="pre-a-fac" class="field-select" bind:value={preAFaction}>
                         <option value={NONE_FACTION}>None</option>
                         <FactionOptions {systemsConfig} system={data.system} />
@@ -970,11 +952,11 @@
                     {/if}
                     <label class="guest-toggle">
                         <input type="checkbox" bind:checked={preBIsGuest} />
-                        Player B is a guest (not on the system)
+                        Guest
                     </label>
                 </div>
                 <div class="field">
-                    <label class="field-label" for="pre-b-fac">Player B's {prePlayerFactionLabel}</label>
+                    <label class="field-label" for="pre-b-fac">{prePlayerFactionLabel}</label>
                     <select id="pre-b-fac" class="field-select" bind:value={preBFaction}>
                         <option value={NONE_FACTION}>None</option>
                         <FactionOptions {systemsConfig} system={data.system} />
@@ -983,13 +965,13 @@
 
                 {#if preShowPoints}
                     <div class="field">
-                        <label class="field-label" for="pre-pts">Army Points</label>
+                        <label class="field-label" for="pre-pts">Points</label>
                         <input id="pre-pts" class="field-input" type="number" min="0" max={cfg.maxPoints} step="50" bind:value={prePoints} />
                     </div>
                 {/if}
 
                 <div class="field">
-                    <label class="field-label" for="pre-eta">Estimated Time of Arrival</label>
+                    <label class="field-label" for="pre-eta">Arrives</label>
                     <select id="pre-eta" class="field-select" bind:value={preEta}
                             onchange={() => (etaTouched = true)}>
                         {#each etaChoices as t}
@@ -999,7 +981,7 @@
                 </div>
 
                 <div class="field">
-                    <label class="field-label" for="pre-vibe">Type of Game</label>
+                    <label class="field-label" for="pre-vibe">Kind of game</label>
                     <select id="pre-vibe" class="field-select" bind:value={preVibe}>
                         {#each preVibeOptions as v}
                             <option value={v}>{v}</option>
@@ -1020,22 +1002,12 @@
 
             <div class="actions">
                 <button class="primary-button" onclick={submitPrearranged} disabled={preSubmitting} type="button">
-                    {preSubmitting ? 'Submitting…' : 'Submit'}
+                    {preSubmitting ? 'Arranging…' : 'Arrange game'}
                 </button>
             </div>
         {/if}
     </details>
 
-    <!-- Call outs became Pick-up games (/pickups), October 2026: a window
-         you're free in and a matched game, instead of one exact time that
-         someone had to spot down here. -->
-    <a class="pickup-cta" href={`/pickups?${new URLSearchParams({ system: data.system })}`}>
-        <span>
-            <b>Can't make club night?</b>
-            Say when you're free and we'll find you a pick-up game.
-        </span>
-        <span class="pickup-cta-go">Pick-ups ›</span>
-    </a>
 {/if}
 
 </div>
@@ -1052,9 +1024,52 @@
         margin: 0 0 1rem;
     }
 
-    .count-line { margin: -0.25rem 0 0.5rem; color: var(--color-text-muted); }
-    .count-line b { font-family: var(--font-heading); font-size: 1.25rem; color: var(--color-text-bright); }
-    .count-split { color: var(--color-text-dim); font-size: 0.9rem; }
+    /* The night in numbers (design rule 5): big condensed figures, each with
+       a capitals label; newcomers and veterans in the colours their
+       experience tier uses everywhere else. */
+    .night-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.6rem;
+        margin: 0.2rem 0 1.4rem;
+    }
+    .ns { display: flex; flex-direction: column; gap: 0.2rem; }
+    .ns b {
+        font-family: var(--font-heading);
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--color-text-bright);
+        font-variant-numeric: tabular-nums;
+    }
+    .ns b small { font-size: 1.1rem; color: var(--color-text-faint); }
+    .ns > span {
+        font-family: var(--font-heading);
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+        text-transform: uppercase;
+        color: var(--color-text-dim);
+    }
+    .ns-new { color: #6eb46e !important; }
+    .ns-vet { color: #d08a50 !important; }
+
+    /* Where the signup stands, as a coloured word (design rule 4). */
+    .state-word {
+        margin: 0 0 1rem;
+        font-family: var(--font-heading);
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+    .state-word.in { color: var(--color-win); }
+    .state-word.full { color: #d4786c; }
+
+    .current-opp { display: flex; align-items: baseline; gap: 0.6rem; margin: 0 0 0.9rem; }
+    .current-opp .field-label { margin: 0; }
+    .current-opp b { color: var(--color-text-bright); font-size: 1.05rem; }
 
     .chips {
         display: grid;
@@ -1087,42 +1102,27 @@
     .chip:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
     .signup-cta { min-height: 50px; padding: 0 28px; font-size: 1.05rem; }
-    .cta-note { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--color-text-dim); }
+    .cta-note {
+        margin: 0.6rem 0 0;
+        font-family: var(--font-heading);
+        font-size: 0.92rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--color-text-dim);
+    }
 
     @media (max-width: 560px) {
         .page-title { font-size: 2.1rem; }
         .signup-cta { width: 100%; }
         .cta-note { text-align: center; }
-        .count-split { display: block; }
-    }
-
-    .next-session-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-size: 0.9rem;
-        color: var(--color-text-base);
-        margin-bottom: 1rem;
-    }
-
-    .link-button {
-        background: none;
-        border: none;
-        color: var(--color-accent);
-        font-family: inherit;
-        font-size: 0.85rem;
-        text-decoration: underline;
-        cursor: pointer;
-        padding: 0;
-    }
-
-    .week-field {
-        margin-bottom: 1rem;
+        .night-stats { column-gap: 1.1rem; }
+        .ns > span { letter-spacing: 0.05em; }
     }
 
     .signup-card { padding: 1.25rem 1.5rem; margin-bottom: 0.5rem; }
 
-    .muted { margin: 0; color: var(--color-text-dim); font-style: italic; }
+    .muted { margin: 0; color: var(--color-text-dim); }
 
     .prompt-body { margin: 0 0 0.9rem; color: var(--color-text-base); line-height: 1.5; }
 
@@ -1134,13 +1134,6 @@
 
     @media (max-width: 600px) {
         .form-grid { grid-template-columns: 1fr; }
-    }
-
-    .field-caption {
-        margin: 0.3rem 0 0;
-        font-size: 0.78rem;
-        color: var(--color-text-dim);
-        font-style: italic;
     }
 
     .check-row {
@@ -1158,31 +1151,6 @@
         height: 17px;
         accent-color: var(--color-accent);
         cursor: pointer;
-    }
-
-    .signed-up-note {
-        background: rgba(110, 180, 110, 0.10);
-        border: 1px solid rgba(110, 180, 110, 0.40);
-        color: var(--color-text-bright);
-        padding: 0.55rem 0.9rem;
-        border-radius: var(--radius);
-        margin-bottom: 1rem;
-        font-size: 0.88rem;
-    }
-
-    .session-full-note {
-        background: rgba(207, 90, 84, 0.12);
-        border: 1px solid rgba(207, 90, 84, 0.45);
-        color: var(--color-text-bright);
-        padding: 0.55rem 0.9rem;
-        border-radius: var(--radius);
-        margin-bottom: 1rem;
-        font-size: 0.88rem;
-    }
-
-    .stat-cap {
-        color: var(--color-text-dim);
-        font-weight: 700;
     }
 
     .error {
@@ -1226,22 +1194,7 @@
         transform: scale(0.98);
     }
 
-    .drop-button {
-        background: rgba(210, 80, 80, 0.12);
-        border: 1px solid rgba(210, 80, 80, 0.5);
-        color: var(--color-text-bright);
-        padding: 0.7rem 1.25rem;
-        border-radius: var(--radius);
-        font-size: 0.95rem;
-        font-weight: 600;
-        font-family: inherit;
-        cursor: pointer;
-        transition: background 0.15s ease, transform 0.08s ease;
-    }
-
-    .drop-button:hover:not(:disabled) { background: rgba(210, 80, 80, 0.25); }
-    .drop-button:active:not(:disabled) { transform: scale(0.98); }
-    .drop-button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .drop-button { min-height: 2.8rem; padding: 0 1.25rem; }
 
     .prearranged-card {
         padding: 1.25rem 1.5rem;
@@ -1266,17 +1219,17 @@
         accent-color: var(--color-gold, #c9a14a);
     }
 
-    .prearranged-points {
-        margin: 0.35rem 0 0;
-        padding-left: 1.1rem;
-    }
-    .prearranged-points li { margin-bottom: 0.25rem; }
     .prearranged-card summary {
         cursor: pointer;
-        font-weight: 600;
+        font-family: var(--font-heading);
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         color: var(--color-text-bright);
         list-style: none;
     }
+    .prearranged-card[open] summary { margin-bottom: 1rem; }
 
     .prearranged-card summary::-webkit-details-marker { display: none; }
 
@@ -1289,10 +1242,6 @@
         content: '▾ ';
     }
 
-    .prompt-body.small {
-        font-size: 0.85rem;
-        margin-top: 0.75rem;
-    }
 
     .field-full { grid-column: 1 / -1; }
 
@@ -1306,20 +1255,4 @@
     .signin-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
 
-    .pickup-cta {
-        margin-top: 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 16px 18px;
-        background: #13161e;
-        border: 1px solid var(--color-accent-border);
-        border-radius: 6px;
-        color: var(--color-text-muted);
-        text-decoration: none;
-    }
-
-    .pickup-cta b { display: block; color: var(--color-text-bright); }
-    .pickup-cta-go { flex: none; font-weight: 700; color: var(--color-accent); }
 </style>
