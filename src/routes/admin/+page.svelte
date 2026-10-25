@@ -2965,7 +2965,7 @@
     <p class="muted">You don't have admin access.</p>
 {:else}
 
-    <div class="admin-shell" in:fade={{ duration: 140 }}>
+    <div class="admin-shell">
         <aside class="admin-sidebar">
             <CommandPalette commands={paletteCommands} label="Jump to" />
             <button

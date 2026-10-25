@@ -40,6 +40,12 @@ function reset(el: HTMLElement) {
     delete el.dataset.fitted;
 }
 
+/** Not sized this time, but shown as the page styles it: the phone layout
+ *  hides a title until it is marked, so it never appears and then resizes. */
+function skip(el: HTMLElement) {
+    el.dataset.fitted = 'skip';
+}
+
 /** Width of `text` set exactly like `el`, at 100px. */
 function widthAt100(el: HTMLElement, text: string): number {
     const probe = el.cloneNode(false) as HTMLElement;
@@ -93,20 +99,20 @@ function fitOne(title: HTMLElement, logo: HTMLElement) {
     const titleBox = title.getBoundingClientRect();
     // An image not yet loaded has no height, and would put the tagline at the
     // logo's top edge: wait for the next fit instead of misplacing the title.
-    if (logoBox.height < 20 || !titleBox.width) return;
+    if (logoBox.height < 20 || !titleBox.width) return skip(title);
 
     const column = logoBox.left - GUTTER - titleBox.left;
     const tagline = logoBox.top + TAGLINE * logoBox.height;
     const height = tagline - logoBox.top; // the logo's own height, top to tagline
     const words = (title.textContent ?? '').trim().split(/\s+/).filter(Boolean);
-    if (!words.length || column <= 0) return;
+    if (!words.length || column <= 0) return skip(title);
 
     const split = STACK_TWO_WORDS && words.length >= 2 ? bestSplit(title, words) : Infinity;
     const twoLines = split !== Infinity;
     const size = twoLines
         ? Math.min((column * 100) / split, height / (GAP + CAP))
         : Math.min((column * 100) / widthAt100(title, words.join(' ')), height / CAP);
-    if (size < MIN_SIZE) return;
+    if (size < MIN_SIZE) return skip(title);
 
     title.style.fontSize = `${size}px`;
     title.style.lineHeight = twoLines ? String(GAP) : '1';

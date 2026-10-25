@@ -6,7 +6,6 @@
     import GoogleSignIn from '$lib/GoogleSignIn.svelte';
     import { signInProviders } from '$lib/signInProviders';
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
     import { goto, invalidateAll } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
     import {
@@ -815,7 +814,7 @@
 
 
 {#if pageReady}
-<div class="page-reveal flow" in:fade={{ duration: 140 }}>
+<div class="page-reveal">
 
 <h1 class="page-title">Sign up</h1>
 

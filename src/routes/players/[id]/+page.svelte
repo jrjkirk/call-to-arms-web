@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
     import { page } from '$app/state';
     import { setPageTitle } from '$lib/pageTitle';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -138,7 +137,7 @@
     <h1 class="page-title">Player</h1>
     <p class="empty">{loadError}</p>
 {:else}
-<div class="page-reveal flow" in:fade={{ duration: 140 }}>
+<div class="page-reveal">
 
 <h1 class="page-title">{player.name}</h1>
 

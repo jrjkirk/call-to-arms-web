@@ -7,7 +7,6 @@
     import { page } from '$app/state';
     import { setPageTitle } from './pageTitle';
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
     import { PUBLIC_API_URL } from '$env/static/public';
     import ClubHero from './ClubHero.svelte';
     import ClubNights from './ClubNights.svelte';
@@ -137,8 +136,8 @@
 {:else if error || !data}
     <div class="empty-state">Couldn't load the club page right now. Try refreshing.</div>
 {:else}
-    <div class="page-reveal" in:fade={{ duration: 140 }}>
-        <div class="club-grid flow">
+    <div class="page-reveal">
+        <div class="club-grid">
             <div class="hero"><ClubHero club={data.club} {venueEnabled} {signedIn} openingHours={data.club.opening_hours} /></div>
 
             <section class="panel hours">

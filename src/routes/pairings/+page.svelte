@@ -3,7 +3,6 @@
     import PageSkeleton from '$lib/PageSkeleton.svelte';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
-    import { fade } from 'svelte/transition';
     import { systemFolder } from '$lib/factions';
     import FactionIcon from '$lib/FactionIcon.svelte';
     import { getSystemsConfig, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '$lib/systemsConfig';
@@ -229,7 +228,7 @@
 </script>
 
 {#if systemsResolved}
-<div class="page-reveal flow" in:fade={{ duration: 140 }}>
+<div class="page-reveal">
 
 <div class="title-row">
     <h1 class="page-title">Pairings</h1>

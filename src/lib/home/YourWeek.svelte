@@ -9,7 +9,6 @@
 -->
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
     import FactionIcon from '../FactionIcon.svelte';
     import GameList from './GameList.svelte';
     import { systemFolder } from '../factions';
@@ -104,7 +103,7 @@
         </div>
     </div>
 {:else}
-<div class="week" in:fade={{ duration: 140 }}>
+<div class="week">
     <div class="week-head">
         <h1 class="page-title">Your week</h1>
         {#if clubName}<span class="club-name">{clubName}</span>{/if}
@@ -113,7 +112,7 @@
     {#if !home}
         <div class="empty-state">Couldn't load your week right now. Try refreshing.</div>
     {:else}
-    <div class="grid flow">
+    <div class="grid">
         <!-- ── Your next game ─────────────────────────────────────────── -->
         <section class="panel next">
             <header class="panel-head">
@@ -206,7 +205,7 @@
         <!-- ── This week ──────────────────────────────────────────────── -->
         <section class="panel nights">
             <header class="panel-head"><h2>This week</h2></header>
-            <ul class="night-list flow">
+            <ul class="night-list">
                 {#each home.nights as n (n.system)}
                     <li class="night-row">
                         <span class="night-bar" style={`background: ${n.accent_color}`}></span>

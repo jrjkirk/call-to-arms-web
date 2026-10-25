@@ -55,7 +55,7 @@
     const hasMeta = (m: Matchup) => !!(m.game_type || m.eta || m.points || m.prearranged);
 </script>
 
-<ol class="games flow">
+<ol class="games">
     {#each games as m, i (m.id ?? `${m.player_a_name}|${m.player_b_name}`)}
         {@const [kind, num] = gameLabel(m, i).split(' ')}
         <li class="game" class:mine={mine(m)} class:detail style={detail ? `--vibe: ${vibeColour(m.game_type)}` : ''}>

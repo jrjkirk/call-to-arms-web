@@ -2,7 +2,6 @@
     import PageSkeleton from '$lib/PageSkeleton.svelte';
     import FactionIcon from '$lib/FactionIcon.svelte';
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchMySystems } from '$lib/mySystems';
     import { getMe } from '$lib/session';
@@ -95,7 +94,7 @@
 </script>
 
 {#if systemsResolved}
-<div class="page-reveal" in:fade={{ duration: 140 }}>
+<div class="page-reveal">
 
 <h1 class="page-title">Players</h1>
 
@@ -127,7 +126,7 @@
     <span class="list-count">{filtered.length} {filtered.length === 1 ? 'player' : 'players'} · most recent first</span>
 </div>
 
-<ul class="player-list flow">
+<ul class="player-list">
     {#each pageItems as p (p.id)}
         {@const faction = p.usual_faction ?? p.default_faction}
         <li>

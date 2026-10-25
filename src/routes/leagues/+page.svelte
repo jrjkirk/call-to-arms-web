@@ -5,7 +5,6 @@
     import { loginHref } from '$lib/loginUrl';
     import { signInProviders } from '$lib/signInProviders';
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
     import { PUBLIC_API_URL } from '$env/static/public';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import { discordGateFrom, detailText, type DiscordGateBlock } from '$lib/discordGate';
@@ -338,7 +337,7 @@
 </script>
 
 {#if pageReady}
-<div class="page-reveal flow" in:fade={{ duration: 140 }}>
+<div class="page-reveal">
 
 <h1 class="page-title">Leagues</h1>
 

@@ -156,7 +156,7 @@
 {:else if upcoming.length === 0}
     <p class="empty">Nothing coming up yet.{#if isAdmin} Use New event to add one.{/if}</p>
 {:else}
-    <div class="diary flow">
+    <div class="diary">
         {#each upcoming as t (t.id)}
             <a class="ev" href={`/tournaments/${t.id}`}>
                 <div class="ev-img">

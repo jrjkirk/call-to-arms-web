@@ -12,9 +12,8 @@
     import { onMount } from 'svelte';
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
-    import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+    import { afterNavigate, goto, onNavigate } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { cubicOut } from 'svelte/easing';
     import LandingHero from '$lib/LandingHero.svelte';
     import SignInPrompt from '$lib/SignInPrompt.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
@@ -326,48 +325,24 @@
         };
     });
 
-    /* Pages slide in the way you moved along the tabs: right along the bar
-       (Home → Sign up → Pairings) brings the new page in from the right, left
-       brings it from the left, like a native app's tabs. Anywhere that isn't
-       a tab (a profile, the account page) rises gently instead. */
-    let slideDir = 0;
-
-    function tabIndex(pathname: string): number {
-        const order = [...navItems.map((i) => i.href), '/admin'];
-        return order.findIndex((href) => isActive(href, pathname));
-    }
-
-    beforeNavigate(({ from, to }) => {
-        const a = from ? tabIndex(from.url.pathname) : -1;
-        const b = to ? tabIndex(to.url.pathname) : -1;
-        slideDir = a >= 0 && b >= 0 && a !== b ? Math.sign(b - a) : 0;
+    /* Tab changes are a crossfade by the browser (View Transitions): it
+       snapshots the old page, swaps in the new one, and fades between them,
+       so nothing on the new page has to animate itself into place. The tab
+       bar and the logo are named (see the styles) so they stay put instead
+       of fading with the page. Browsers without it just swap instantly. */
+    onNavigate((navigation) => {
+        if (typeof document === 'undefined' || !('startViewTransition' in document)) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        return new Promise((resolve) => {
+            (document as any).startViewTransition(async () => {
+                resolve();
+                await navigation.complete;
+            });
+        });
     });
-
-    function pageIn(_node: Element) {
-        const still = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const dir = slideDir;
-        return {
-            duration: still ? 120 : 260,
-            easing: cubicOut,
-            css: (t: number) => still
-                ? `opacity: ${t}`
-                : `opacity: ${t}; transform: translate(${((1 - t) * dir * 22).toFixed(2)}px, ${dir === 0 ? ((1 - t) * 6).toFixed(2) : 0}px)`
-        };
-    }
-
-    let logoLink = $state<HTMLElement | null>(null);
-
-    /** Restart the logo's entrance animation, in step with the new page's. */
-    function replayLogo() {
-        if (!logoLink) return;
-        logoLink.style.animation = 'none';
-        void logoLink.offsetWidth; // let the browser see it stopped
-        logoLink.style.animation = '';
-    }
 
     afterNavigate(() => {
         userMenuOpen = false;
-        replayLogo();
         scheduleTitleFit();
     });
 
@@ -377,6 +352,9 @@
     let titleFitTimer: ReturnType<typeof setTimeout> | null = null;
     function scheduleTitleFit() {
         if (typeof window === 'undefined') return;
+        // Now, before the browser paints or takes the crossfade's snapshot of
+        // the new page, so a title is never seen at the wrong size.
+        fitPhoneTitles();
         requestAnimationFrame(() => fitPhoneTitles());
         if (titleFitTimer) clearTimeout(titleFitTimer);
         titleFitTimer = setTimeout(() => fitPhoneTitles(), 260);
@@ -452,13 +430,7 @@
         {/if}
 
         {#if !showingHero}
-            <!-- Its entrance replays on every page change (replayLogo), so on a
-                 phone, where it sits beside the page title, it arrives with
-                 each tab instead of hovering over all of them. The same
-                 element throughout: re-creating it left a frame with an
-                 image of no height, which threw the title fitter off. The
-                 animation only exists in the phone rules below. -->
-            <a class="topbar-logo-link" href={logoHref} aria-label="Call to Arms" bind:this={logoLink}>
+            <a class="topbar-logo-link" href={logoHref} aria-label="Call to Arms">
                 <img class="topbar-logo" src="/logo.svg" alt="Call to Arms" />
             </a>
         {/if}
@@ -599,10 +571,7 @@
                          for the transition's duration (this div has no fixed
                          height to position them absolutely within), which reads
                          as a worse jump than an instant cut. -->
-                    <div
-                        class="page-transition"
-                        in:pageIn
-                    >
+                    <div class="page-transition">
                         {@render children()}
                     </div>
                 {/key}
@@ -1017,10 +986,10 @@
         padding: 2rem 1rem;
     }
 
-    @keyframes logo-arrive {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
+    /* Named for the browser's page crossfade (onNavigate above): these two
+       are the same on every tab, so they stay still while the page fades. */
+    .tabbar { view-transition-name: tabbar; }
+    .topbar-logo-link { view-transition-name: brand-logo; }
 
     /* Phone-only bottom tab bar, for members. */
     .tabbar { display: none; }
@@ -1108,6 +1077,10 @@
         /* Members navigate by the bottom bar; the top ribbon would repeat it. */
         .topbar-member .nav-tabs-wrap { display: none; }
 
+        /* Hidden until $lib/fitTitle has sized it, so a title never shows at
+           the default size and then jumps to its fitted one. */
+        .page-wrap:has(.topbar-member) :global(.page-title:not([data-fitted])) { visibility: hidden; }
+
         /* The phone header for a member is the logo, large, top right. Menu
            and navigation live in the bottom bar, so the row is free for it.
            Pages with a title (Home, Sign up, Pairings, Leagues) pull their
@@ -1138,9 +1111,6 @@
            not eyeballed: see the "Phone logo" board on the design canvas,
            version A2. Tied to the -60px pull-up below: change one, re-measure. */
         .topbar.topbar-member .topbar-logo-link {
-            /* Fades in with the page (.page-transition), so the logo arrives
-               with each tab rather than hovering over all of them. */
-            animation: logo-arrive 260ms cubic-bezier(0.33, 1, 0.68, 1) both;
             display: flex;
             margin-right: 16px;
             transform: translateY(6.3px);
@@ -1301,7 +1271,4 @@
         }
     }
 
-    @media (prefers-reduced-motion: reduce) {
-        .topbar.topbar-member .topbar-logo-link { animation: none; }
-    }
 </style>

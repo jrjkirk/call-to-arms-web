@@ -17,7 +17,6 @@
      * method, so the nudge switches itself on when a second method ships.
      */
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
     import { page } from '$app/state';
     import { PUBLIC_API_URL } from '$env/static/public';
     import HelpTip from '$lib/HelpTip.svelte';
@@ -365,7 +364,7 @@
 {:else if !account}
     <p class="account-muted">Loading…</p>
 {:else}
-<div class="account" in:fade={{ duration: 140 }}>
+<div class="account">
 
     {#if merge}
         <section class="a-card account-merge">

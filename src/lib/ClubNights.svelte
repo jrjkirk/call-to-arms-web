@@ -37,7 +37,7 @@
     let brokenLogos = $state<Record<string, boolean>>({});
 </script>
 
-<div class="nights flow">
+<div class="nights">
     {#each ordered as s (s.slug)}
         {@const logo = systemLogoUrl(s.legacy_system_name, systemsConfig)}
         <article class="night" style={`--accent: ${s.accent_color}`}>
