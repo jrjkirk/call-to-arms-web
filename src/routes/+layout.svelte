@@ -1058,6 +1058,10 @@
        are the same on every tab, so they stay still while the page fades. */
     .tabbar { view-transition-name: tabbar; }
     .topbar-logo-link { view-transition-name: brand-logo; }
+    /* A swipe between tabs (data-swipe) slides the whole page, so the logo
+       goes with it: held still while the page slid past, it looked pinned
+       on. Only the tab bar, the app's frame, stays put. */
+    :global(html[data-swipe]) .topbar-logo-link { view-transition-name: none; }
 
     /* Phone-only bottom tab bar, for members. */
     .tabbar { display: none; }

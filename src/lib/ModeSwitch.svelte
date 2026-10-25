@@ -47,6 +47,11 @@
 
     .thumb.right { left: 50%; }
 
+    /* A swipe to another tab slides the page, switch included; holding it
+       still is only for flipping between its own two pages. */
+    :global(html[data-swipe]) .mode,
+    :global(html[data-swipe]) .thumb { view-transition-name: none; }
+
     a {
         position: relative;
         min-height: 44px;
