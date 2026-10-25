@@ -24,7 +24,7 @@ function usesSidewaysDrag(el: Element | null): boolean {
         // Dropdowns, buttons and checkboxes do nothing with a sideways drag, so
         // a swipe across the signup form still changes tab. Sliders do, and so
         // does a text field you're typing in (it moves the cursor).
-        if (n.matches('input[type="range"], textarea, [contenteditable=""], [contenteditable="true"], [data-no-swipe], .leaflet-container')) {
+        if (n.matches('input[type="range"], textarea, [contenteditable=""], [contenteditable="true"], [data-no-swipe], .maplibregl-map')) {
             return true;
         }
         if (n.matches('input') && n === document.activeElement) return true;

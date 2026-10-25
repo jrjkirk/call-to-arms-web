@@ -43,7 +43,7 @@ export const SITE_NAME = 'Call to Arms';
 const ROUTE_TITLES: Record<string, string> = {
 	'/': SITE_NAME, // replaced by the club's own name once loaded
 	'/club': SITE_NAME, // replaced by the club's own name once loaded
-	'/find': 'Find a club · Call to Arms',
+	'/find': 'Clubs · Call to Arms',
 	'/signup': 'Signup · Call to Arms',
 	'/pairings': 'Pairings · Call to Arms',
 	'/pickups': 'Pick-up games · Call to Arms',

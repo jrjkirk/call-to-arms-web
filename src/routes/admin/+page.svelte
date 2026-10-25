@@ -31,6 +31,7 @@
     import HBarChart from '$lib/charts/HBarChart.svelte';
     import { systemFolder } from '$lib/factions';
     import FactionIcon from '$lib/FactionIcon.svelte';
+    import LocationPicker from '$lib/map/LocationPicker.svelte';
     import { vibeColour } from '$lib/vibeColour';
     import PairingWeightPanel from '$lib/admin/PairingWeightPanel.svelte';
     import TableBookingPanel from '$lib/admin/TableBookingPanel.svelte';
@@ -816,10 +817,6 @@
         region: string | null;
     };
 
-    function googleMapsSearchUrl(address: string): string {
-        const q = address.trim() || 'Manchester, UK';
-        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
-    }
     type OpeningHoursRow = { day: string; enabled: boolean; open: string; close: string; note: string };
     let clubProfile = $state<ClubProfileState | null>(null);
     let clubHours = $state<OpeningHoursRow[]>(
@@ -3254,42 +3251,15 @@
                              a venue one. -->
                         <div class="a-head club-page-subhead">
                             <h4 class="a-title">Location</h4>
-                            <HelpTip label="location" text="Your address drives the map pin on your Club page and your marker on the club finder. Set latitude and longitude to place it precisely. Your blurb, website and Discord invite moved to Venue Admin → Settings → Venue." />
+                            <HelpTip label="location" text="Where your pin goes on your Club page and the club finder. Find the address, then drag the pin to the door. Your blurb, website and Discord invite live in Venue Admin → Settings → Venue." />
                         </div>
-                        <div class="form-grid">
-                        </div>
-                        <div class="field">
-                            <label class="field-label" for="club-address">Address</label>
-                            <input id="club-address" class="field-input" type="text" placeholder="123 Example St, Manchester, UK" bind:value={clubProfile.address} />
-                        </div>
-                        <div class="field">
-                            <label class="field-label" for="club-region">Region</label>
-                            <select id="club-region" class="field-input" bind:value={clubProfile.region}>
-                                <option value={null}>Not set</option>
-                                {#each UK_REGIONS as region}
-                                    <option value={region}>{region}</option>
-                                {/each}
-                            </select>
-                        </div>
-                        <div class="form-grid">
-                            <div class="field">
-                                <label class="field-label" for="club-lat">Latitude</label>
-                                <input id="club-lat" class="field-input" type="number" step="any" placeholder="53.4808" bind:value={clubProfile.latitude} />
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="club-lng">Longitude</label>
-                                <input id="club-lng" class="field-input" type="number" step="any" placeholder="-2.2426" bind:value={clubProfile.longitude} />
-                            </div>
-                        </div>
-                        <p class="field-label-hint">
-                            <a class="hint-link" href={googleMapsSearchUrl(clubProfile.address)} target="_blank" rel="noopener noreferrer">
-                                Find this address on Google Maps ↗
-                            </a>
-                            <HelpTip
-                                label="finding your coordinates"
-                                text={"• Right-click the exact spot on the map.\n• Click the numbers at the top of the menu to copy them.\n• Paste them into the two boxes above.\n\nWithout coordinates you have no map pin. The address still shows."}
-                            />
-                        </p>
+                        <LocationPicker
+                            id="club"
+                            bind:address={clubProfile.address}
+                            bind:latitude={clubProfile.latitude}
+                            bind:longitude={clubProfile.longitude}
+                            bind:region={clubProfile.region}
+                        />
 
                         {#if clubProfileError}<p class="field-error">{clubProfileError}</p>{/if}
                         {#if clubProfileMessage}<p class="pairing-message">{clubProfileMessage}</p>{/if}
@@ -6715,14 +6685,7 @@
         margin-top: 0.35rem;
     }
 
-    .field-label-hint .hint-link {
-        color: var(--color-accent);
-        text-decoration: underline;
-    }
 
-    .field-label-hint .hint-link:hover {
-        color: var(--color-accent-bright);
-    }
 
     /* Missions */
     .mission-guidelines {

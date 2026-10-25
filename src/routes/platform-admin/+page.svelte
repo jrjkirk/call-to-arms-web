@@ -11,6 +11,7 @@
     import { CANONICAL_VIBES } from '$lib/systemsConfig';
     import { UK_REGIONS } from '$lib/regions';
     import HelpTip from '$lib/HelpTip.svelte';
+    import LocationPicker from '$lib/map/LocationPicker.svelte';
     import { accountLabel } from '$lib/accountName';
     import CommandPalette, { type Command } from '$lib/CommandPalette.svelte';
 
@@ -87,10 +88,6 @@
         return out;
     })();
 
-    function googleMapsSearchUrl(address: string): string {
-        const q = address.trim() || 'Manchester, UK';
-        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
-    }
 
     let adminMe = $state<AdminMe | null>(null);
     let pageLoading = $state(true);
@@ -2003,26 +2000,12 @@
                 {:else if !clubProfile}
                     <p class="field-error">{clubProfileError || 'Failed to load.'}</p>
                 {:else}
-                    <div class="field">
-                        <label class="field-label" for="pa-club-address">Address</label>
-                        <input id="pa-club-address" class="field-input" type="text" placeholder="123 Example St, Manchester, UK" bind:value={clubProfile.address} />
-                    </div>
-                    <div class="form-grid">
-                        <div class="field">
-                            <label class="field-label" for="pa-club-lat">Latitude</label>
-                            <input id="pa-club-lat" class="field-input" type="number" step="any" placeholder="53.4808" bind:value={clubProfile.latitude} />
-                        </div>
-                        <div class="field">
-                            <label class="field-label" for="pa-club-lng">Longitude</label>
-                            <input id="pa-club-lng" class="field-input" type="number" step="any" placeholder="-2.2426" bind:value={clubProfile.longitude} />
-                        </div>
-                    </div>
-                    <p class="field-label-hint">
-                        <a class="hint-link" href={googleMapsSearchUrl(clubProfile.address)} target="_blank" rel="noopener noreferrer">
-                            Find this address on Google Maps ↗
-                        </a>
-                        <HelpTip label="coordinates" text={"They place the map pin, on this club's own page and on the map logged-out visitors see.\n\n\u2022 Open the address in Google Maps\n\u2022 Right-click the exact spot\n\u2022 Click the lat/long at the top of the menu to copy it\n\u2022 Paste the two numbers above\n\nNo coordinates, no pin. The address text still shows."} />
-                    </p>
+                    <LocationPicker
+                        id="pa-club"
+                        bind:address={clubProfile.address}
+                        bind:latitude={clubProfile.latitude}
+                        bind:longitude={clubProfile.longitude}
+                    />
 
                     <h5 class="sub-heading">Opening Hours</h5>
                     <div class="club-hours-grid">
@@ -2424,14 +2407,7 @@
         font-size: 0.8rem;
     }
 
-    .field-label-hint .hint-link {
-        color: var(--color-accent);
-        text-decoration: underline;
-    }
 
-    .field-label-hint .hint-link:hover {
-        color: var(--color-accent-bright);
-    }
 
     .club-hours-grid {
         display: grid;
