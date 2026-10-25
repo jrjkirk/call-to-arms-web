@@ -1,6 +1,6 @@
 <script lang="ts">
     import { page } from '$app/state';
-    import { onMount } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import { fade } from 'svelte/transition';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { fetchWeekId } from '$lib/weekId';
@@ -30,6 +30,8 @@
     import BarChart from '$lib/charts/BarChart.svelte';
     import HBarChart from '$lib/charts/HBarChart.svelte';
     import { systemFolder } from '$lib/factions';
+    import FactionIcon from '$lib/FactionIcon.svelte';
+    import { vibeColour } from '$lib/vibeColour';
     import PairingWeightPanel from '$lib/admin/PairingWeightPanel.svelte';
     import TableBookingPanel from '$lib/admin/TableBookingPanel.svelte';
     import AdminsPanel from '$lib/admin/AdminsPanel.svelte';
@@ -252,6 +254,36 @@
         points: string;
         prearranged: boolean;
     };
+    /** Which signup / game on the Pairings tab has its editor open. */
+    let openSignup = $state<number | null>(null);
+    let openGame = $state<number | null>(null);
+
+    /** What a pairing card shows: names, factions, and the game's vibe, time
+     *  and points, following the signups where the game doesn't set its own
+     *  (as the API does). */
+    function gameView(ps: PairingsState, er: EditRow, idx: number) {
+        const byId = (id: number | null) => (id == null ? undefined : ps.signupRows.find((r) => r.id === id));
+        const nameOf = (id: number | null) => ps.signups.find((x) => x.id === id)?.name ?? byId(id)?.player_name ?? '';
+        const a = byId(er.a_signup_id);
+        const b = byId(er.b_signup_id);
+        const fixed = er.id === null;
+        const bye = er.b_signup_id === null;
+        const faction = (f: string | null | undefined) => (f && f !== NONE_FACTION ? f : '');
+        const etas = [a?.eta, b?.eta].filter((t): t is string => !!t).sort();
+        const pts = [a?.points, b?.points].filter((n): n is number => typeof n === 'number');
+        return {
+            bye,
+            number: ps.editRows.slice(0, idx + 1).filter((r) => r.b_signup_id !== null).length,
+            aName: fixed ? ps.rows[idx]?.a_name ?? '' : nameOf(er.a_signup_id),
+            bName: fixed ? ps.rows[idx]?.b_name ?? '' : nameOf(er.b_signup_id),
+            aFaction: faction(er.a_faction),
+            bFaction: faction(er.b_faction),
+            vibe: er.type || er.a_type || a?.vibe || '',
+            eta: er.eta || etas.at(-1) || '',
+            points: er.points || (pts.length ? String(Math.min(...pts)) : ''),
+        };
+    }
+
     type AutoPairingsSettings = {
         enabled: boolean;
         day: string;
@@ -2348,8 +2380,14 @@
         if (activeNav !== 'systemconfig') return;
         const row = activeClubSystemRow;
         if (!row) return;
-        csSelectId = String(row.system_id);
-        onClubSystemPick();
+        // Untracked: filling the form writes csVibeOptions and then reads it
+        // back (csVibeOptions[0]), which made this effect depend on its own
+        // output and re-run until Svelte stopped it (effect_update_depth_exceeded).
+        // It should re-run only when the selected system's row changes.
+        untrack(() => {
+            csSelectId = String(row.system_id);
+            onClubSystemPick();
+        });
     });
 
     async function saveSystemConfig() {
@@ -3861,21 +3899,60 @@
         {@const scope = activeSystem}
         <div class="dash-group" style={panelAccentStyle}>
             <div class="dash-group-header static">
-                <span class="dash-group-title">This Week's Signups</span>
+                <span class="dash-group-title">Pairings</span>
+                {#if pairings[scope]}
+                    <span class="pub-badge" class:pub-live={pairings[scope].published} class:pub-draft={!pairings[scope].published}>{pairings[scope].published ? 'Published' : 'Unpublished'}</span>
+                {/if}
             </div>
             <div class="dash-group-body">
         <section class="admin-section">
-                        {#if signupCapState[scope] && !signupCapState[scope].loading}
-                            {@const cap = signupCapState[scope]}
-                            <div class="sub-section signup-cap-section">
-                                <div class="a-head">
-                                    <h4 class="a-title">Signups</h4>
-                                    <HelpTip
-                                        label="the signup cap"
-                                        text="Caps how many players can sign up for this system in a week. Once the cap is reached, later players can still join as standby and get paired if someone drops. Leave it off for unlimited signups."
+                        {#if isSystemScope(scope) && pairings[scope]}
+                            {@const ps = pairings[scope]}
+                            {@const folder = systemFolder(scope, systemsConfig)}
+
+                            <!-- The week and what to do with it -->
+                            <div class="pr-bar">
+                                <div class="field field-narrow">
+                                    <label class="field-label" for="week-{scope}">Week</label>
+                                    <input
+                                        id="week-{scope}"
+                                        class="field-input week-input"
+                                        type="text"
+                                        placeholder="DD/MM/YYYY"
+                                        bind:value={ps.week}
+                                        onblur={() => loadPairings(scope)}
                                     />
-                                    {#if postSwitches[scope]}
-                                        <span class="a-head-end">
+                                </div>
+                                <div class="pairing-btn-row">
+                                    <button
+                                        class="primary-button"
+                                        type="button"
+                                        disabled={ps.loading}
+                                        onclick={() => generatePairings(scope)}
+                                    >{ps.loading ? 'Working…' : 'Generate'}</button>
+                                    <button
+                                        class={`publish-btn ${ps.published ? 'pub-on' : 'pub-off'}`}
+                                        type="button"
+                                        onclick={() => togglePublish(scope)}
+                                    >{ps.published ? 'Unpublish' : 'Publish'}</button>
+                                    <button
+                                        class="secondary-button"
+                                        type="button"
+                                        disabled={ps.posting}
+                                        onclick={() => postDiscord(scope)}
+                                    >{ps.posting ? 'Posting…' : 'Post to Discord'}</button>
+                                </div>
+                            </div>
+                            {#if ps.error}<p class="field-error">{ps.error}</p>{/if}
+                            {#if ps.message}<p class="pairing-message">{ps.message}</p>{/if}
+
+                            <div class="pr-cols">
+                                <!-- ══ Signups: one row each; tap to edit ══ -->
+                                <div class="pr-panel">
+                                    <div class="pr-head">
+                                        <h4 class="a-title">Signups{#if ps.signupRows.length} · {ps.signupRows.length}{/if}</h4>
+                                        {#if postSwitches[scope]}
+                                        <span class="pr-head-end">
                                             <HelpTip
                                                 label="signup posts"
                                                 text={"Whether each signup and drop-out is announced in Discord.\n\nTurn it off while you are setting the club up, so your channel is not filling with test signups. The webhook stays saved either way, so switching back on needs nothing else."}
@@ -3888,172 +3965,98 @@
                                             />
                                         </span>
                                     {/if}
-                                </div>
-                                <label class="check-row ap-toggle">
-                                    <input type="checkbox" bind:checked={cap.enabled} />
-                                    <span>Cap signups for this system</span>
-                                </label>
-                                {#if cap.enabled}
-                                    <div class="signup-cap-row">
-                                        <div class="field field-narrow">
-                                            <label class="field-label" for="cap-tables-{scope}">Tables</label>
-                                            <input id="cap-tables-{scope}" class="field-input" type="number" min="1" bind:value={cap.tables} />
-                                        </div>
-                                        <p class="muted small">
-                                            = up to <strong>{(Number(cap.tables) || 0) * cap.players_per_table}</strong> players
-                                            <HelpTip label="the cap" text={"\u2022 " + cap.players_per_table + " players per table.\n\u2022 New sign-ups are blocked once it is full.\n\u2022 Anyone already signed up can still edit theirs."} />
-                                        </p>
                                     </div>
-                                {/if}
-                                {#if cap.error}<p class="field-error">{cap.error}</p>{/if}
-                                {#if cap.message}<p class="pairing-message">{cap.message}</p>{/if}
-                                <button class="secondary-button" type="button" disabled={cap.saving} onclick={() => saveSignupCap(scope)}>
-                                    {cap.saving ? 'Saving…' : 'Save signup cap'}
-                                </button>
-                            </div>
-                        {/if}
-
-                        <!-- Weekly Pairings (system scopes only) -->
-                        {#if isSystemScope(scope) && pairings[scope]}
-                            {@const ps = pairings[scope]}
-
-                            <div class="sub-section">
-
-                                {#if ps.signupsError}
-                                    <p class="field-error">{ps.signupsError}</p>
-                                {/if}
-
-                                {#if ps.signupsLoading}
-                                    <p class="muted small">Loading…</p>
-                                {:else if ps.signupRows.length === 0}
-                                    <p class="muted small">No signups yet</p>
-                                {:else}
-                                    <div class="grid-wrap">
-                                        <table class="pairing-grid">
-                                            <thead>
-                                                <tr>
-                                                    <th>Name</th>
-                                                    <th>Faction</th>
-                                                    {#if ps.signupConfig?.show_points}<th>Pts</th>{/if}
-                                                    <th>ETA</th>
-                                                    <th>Exp</th>
-                                                    <th>Vibe</th>
-                                                    {#if ps.signupConfig?.show_standby}<th>Standby</th>{/if}
-                                                    {#if ps.signupConfig?.show_scenario}<th>Scenario</th>{/if}
-                                                    {#if ps.signupConfig?.show_can_demo}<th>Demo</th>{/if}
-                                                    <th></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {#each ps.signupRows as su (su.id)}
-                                                    <tr>
-                                                        <td><span class="cell-text">{su.player_name}</span></td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                bind:value={su.faction}
-                                                                onchange={() => patchSignup(scope, su, 'faction', su.faction)}
-                                                            >
+                                    {#if ps.signupsError}<p class="field-error">{ps.signupsError}</p>{/if}
+                                    {#if ps.signupsLoading}
+                                        <p class="muted small pr-pad">Loading…</p>
+                                    {:else if ps.signupRows.length === 0}
+                                        <p class="muted small pr-pad">No signups yet</p>
+                                    {:else}
+                                        <div class="su-cols su-colhead" class:no-pts={!ps.signupConfig?.show_points}>
+                                            <span></span><span>Player</span><span>Arrives</span>{#if ps.signupConfig?.show_points}<span>Points</span>{/if}<span></span>
+                                        </div>
+                                        {#each ps.signupRows as su (su.id)}
+                                            {@const open = openSignup === su.id}
+                                            <div class="su-item" class:open>
+                                                <button
+                                                    type="button"
+                                                    class="su-cols su-line"
+                                                    class:no-pts={!ps.signupConfig?.show_points}
+                                                    aria-expanded={open}
+                                                    onclick={() => (openSignup = open ? null : su.id)}
+                                                >
+                                                    <span class="vbar" style={`background: ${vibeColour(ps.signupConfig?.vibe_fixed ?? su.vibe)}`}></span>
+                                                    <span class="su-who">
+                                                        <b>{su.player_name}</b>
+                                                        <small>
+                                                            {su.faction && su.faction !== NONE_FACTION ? su.faction : 'No faction'}
+                                                            {#if su.standby_ok}<em>Standby</em>{/if}
+                                                            {#if su.can_demo}<em>Teaches</em>{/if}
+                                                        </small>
+                                                    </span>
+                                                    <b class="su-eta">{su.eta || '–'}</b>
+                                                    {#if ps.signupConfig?.show_points}<b class="su-pts">{su.points ?? '–'}</b>{/if}
+                                                    <span class="su-chev" aria-hidden="true">{open ? '–' : '+'}</span>
+                                                </button>
+                                                {#if open}
+                                                    <div class="row-edit">
+                                                        <label class="field">
+                                                            <span class="field-label">Faction</span>
+                                                            <select class="field-select" bind:value={su.faction} onchange={() => patchSignup(scope, su, 'faction', su.faction)}>
                                                                 <option value={NONE_FACTION}>None</option>
                                                                 <FactionOptions {systemsConfig} system={scope} />
                                                             </select>
-                                                        </td>
+                                                        </label>
                                                         {#if ps.signupConfig?.show_points}
-                                                            <td>
-                                                                <input
-                                                                    class="cell-input-num"
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="10000"
-                                                                    step="250"
-                                                                    bind:value={su.points}
-                                                                    onchange={() => patchSignup(scope, su, 'points', su.points)}
-                                                                />
-                                                            </td>
+                                                            <label class="field field-narrow">
+                                                                <span class="field-label">Points</span>
+                                                                <input class="field-input" type="number" min="0" max="10000" step="250" bind:value={su.points} onchange={() => patchSignup(scope, su, 'points', su.points)} />
+                                                            </label>
                                                         {/if}
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                bind:value={su.eta}
-                                                                onchange={() => patchSignup(scope, su, 'eta', su.eta)}
-                                                            >
+                                                        <label class="field field-narrow">
+                                                            <span class="field-label">Arrives</span>
+                                                            <select class="field-select" bind:value={su.eta} onchange={() => patchSignup(scope, su, 'eta', su.eta)}>
                                                                 <option value="">—</option>
-                                                                {#each ETA_OPTIONS as t}
-                                                                    <option>{t}</option>
-                                                                {/each}
+                                                                {#each ETA_OPTIONS as t}<option>{t}</option>{/each}
                                                             </select>
-                                                        </td>
-                                                        <td>
-                                                            <select
-                                                                class="cell-select"
-                                                                bind:value={su.experience}
-                                                                onchange={() => patchSignup(scope, su, 'experience', su.experience)}
-                                                            >
-                                                                {#each EXPERIENCE_OPTIONS as e}
-                                                                    <option>{e}</option>
-                                                                {/each}
+                                                        </label>
+                                                        <label class="field field-narrow">
+                                                            <span class="field-label">Experience</span>
+                                                            <select class="field-select" bind:value={su.experience} onchange={() => patchSignup(scope, su, 'experience', su.experience)}>
+                                                                {#each EXPERIENCE_OPTIONS as e}<option>{e}</option>{/each}
                                                             </select>
-                                                        </td>
-                                                        <td>
-                                                            {#if ps.signupConfig?.vibe_fixed}
-                                                                <span class="cell-text">{ps.signupConfig.vibe_fixed}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    bind:value={su.vibe}
-                                                                    onchange={() => patchSignup(scope, su, 'vibe', su.vibe)}
-                                                                >
-                                                                    {#each ps.signupConfig?.vibe_options ?? [] as v}
-                                                                        <option>{v}</option>
-                                                                    {/each}
+                                                        </label>
+                                                        {#if !ps.signupConfig?.vibe_fixed}
+                                                            <label class="field field-narrow">
+                                                                <span class="field-label">Vibe</span>
+                                                                <select class="field-select" bind:value={su.vibe} onchange={() => patchSignup(scope, su, 'vibe', su.vibe)}>
+                                                                    {#each ps.signupConfig?.vibe_options ?? [] as v}<option>{v}</option>{/each}
                                                                 </select>
-                                                            {/if}
-                                                        </td>
-                                                        {#if ps.signupConfig?.show_standby}
-                                                            <td class="cell-check">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    bind:checked={su.standby_ok}
-                                                                    onchange={() => patchSignup(scope, su, 'standby_ok', su.standby_ok)}
-                                                                />
-                                                            </td>
+                                                            </label>
                                                         {/if}
                                                         {#if ps.signupConfig?.show_scenario}
-                                                            <td>
-                                                                <input
-                                                                    class="cell-input"
-                                                                    type="text"
-                                                                    bind:value={su.scenario}
-                                                                    onchange={() => patchSignup(scope, su, 'scenario', su.scenario)}
-                                                                />
-                                                            </td>
+                                                            <label class="field">
+                                                                <span class="field-label">Scenario</span>
+                                                                <input class="field-input" type="text" bind:value={su.scenario} onchange={() => patchSignup(scope, su, 'scenario', su.scenario)} />
+                                                            </label>
                                                         {/if}
-                                                        {#if ps.signupConfig?.show_can_demo}
-                                                            <td class="cell-check">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    bind:checked={su.can_demo}
-                                                                    onchange={() => patchSignup(scope, su, 'can_demo', su.can_demo)}
-                                                                />
-                                                            </td>
-                                                        {/if}
-                                                        <td class="cell-delete">
-                                                            <button
-                                                                class="remove-btn"
-                                                                type="button"
-                                                                title="Force drop this signup"
-                                                                onclick={() => forceDropSignup(scope, su.id)}
-                                                            >×</button>
-                                                        </td>
-                                                    </tr>
-                                                {/each}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                {/if}
-
-                                <details class="add-signup-details" bind:open={ps.addSignup.open}>
-                                    <summary>+ Add signup</summary>
+                                                        <div class="row-edit-checks">
+                                                            {#if ps.signupConfig?.show_standby}
+                                                                <label class="check-row"><input type="checkbox" bind:checked={su.standby_ok} onchange={() => patchSignup(scope, su, 'standby_ok', su.standby_ok)} /><span>Standby</span></label>
+                                                            {/if}
+                                                            {#if ps.signupConfig?.show_can_demo}
+                                                                <label class="check-row"><input type="checkbox" bind:checked={su.can_demo} onchange={() => patchSignup(scope, su, 'can_demo', su.can_demo)} /><span>Can teach</span></label>
+                                                            {/if}
+                                                        </div>
+                                                        <button class="danger-button row-edit-drop" type="button" onclick={() => forceDropSignup(scope, su.id)}>Drop</button>
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                    {/if}
+                                    <div class="pr-pad">
+                                        <details class="add-signup-details" bind:open={ps.addSignup.open}>
+                                    <summary>+ Add</summary>
                                     <div class="add-signup-form">
                                         <div class="field">
                                             <label class="field-label" for="add-player-{scope}">Player</label>
@@ -4125,20 +4128,15 @@
                                         onclick={() => submitAddSignup(scope)}
                                     >{ps.addSignup.submitting ? 'Adding…' : 'Add signup'}</button>
                                 </details>
-                            </div>
+                                    </div>
+                                </div>
 
-                            <div class="sub-section pairings-section">
-                                <div class="a-head">
-                                    <h4 class="a-title">
-                                        Weekly pairings
-                                        {#if ps.published}
-                                            <span class="pub-badge pub-live">Published</span>
-                                        {:else}
-                                            <span class="pub-badge pub-draft">Unpublished</span>
-                                        {/if}
-                                    </h4>
-                                    {#if postSwitches[scope]}
-                                        <span class="a-head-end">
+                                <!-- ══ Pairings: game cards; tap ⋯ to edit ══ -->
+                                <div class="pr-panel">
+                                    <div class="pr-head">
+                                        <h4 class="a-title">Games{#if ps.editRows.length} · {ps.editRows.filter((r) => r.b_signup_id !== null).length}{/if}</h4>
+                                        {#if postSwitches[scope]}
+                                        <span class="pr-head-end">
                                             <HelpTip
                                                 label="pairings posts"
                                                 text={"Whether the pairings image is posted to Discord, by the button below and by auto-pairings.\n\nPublishing is unaffected: your players can still see the week on the Pairings page. This only controls whether it also lands in the channel."}
@@ -4151,50 +4149,9 @@
                                             />
                                         </span>
                                     {/if}
-                                </div>
-
-                                <!-- Week input + action buttons -->
-                                <div class="pairing-controls">
-                                    <div class="field field-narrow">
-                                        <label class="field-label" for="week-{scope}">Week</label>
-                                        <input
-                                            id="week-{scope}"
-                                            class="field-input week-input"
-                                            type="text"
-                                            placeholder="DD/MM/YYYY"
-                                            bind:value={ps.week}
-                                            onblur={() => loadPairings(scope)}
-                                        />
                                     </div>
-                                    <div class="pairing-btn-row">
-                                        <button
-                                            class="primary-button"
-                                            type="button"
-                                            disabled={ps.loading}
-                                            onclick={() => generatePairings(scope)}
-                                        >{ps.loading ? 'Working…' : 'Generate'}</button>
-                                        <button
-                                            class={`publish-btn ${ps.published ? 'pub-on' : 'pub-off'}`}
-                                            type="button"
-                                            onclick={() => togglePublish(scope)}
-                                        >{ps.published ? 'Unpublish' : 'Publish'}</button>
-                                        <button
-                                            class="secondary-button"
-                                            type="button"
-                                            disabled={ps.posting}
-                                            onclick={() => postDiscord(scope)}
-                                        >{ps.posting ? 'Posting…' : 'Post to Discord'}</button>
-                                    </div>
-                                </div>
-
-                                {#if ps.error}
-                                    <p class="field-error">{ps.error}</p>
-                                {/if}
-                                {#if ps.message}
-                                    <p class="pairing-message">{ps.message}</p>
-                                {/if}
-
-                                {#if ps.summary && (ps.summary.games > 0 || ps.summary.byes > 0)}
+                                    <div class="pr-pad">
+                                    {#if ps.summary && (ps.summary.games > 0 || ps.summary.byes > 0)}
                                     <div class="pairing-summary" title="How these pairings scored against your weighting. Lower rematch/mirror/mismatch counts mean the matcher satisfied your weights.">
                                         <span class="ps-stat"><strong>{ps.summary.games}</strong> game{ps.summary.games === 1 ? '' : 's'}</span>
                                         {#if ps.summary.byes > 0}<span class="ps-stat"><strong>{ps.summary.byes}</strong> BYE</span>{/if}
@@ -4204,207 +4161,113 @@
                                         {#if ps.summary.widest_eta_gap_mins > 0}<span class="ps-stat">widest ETA gap <strong>{ps.summary.widest_eta_gap_mins}m</strong></span>{/if}
                                     </div>
                                 {/if}
-
-                                {#if ps.editRows.length === 0 && !ps.loading}
-                                    <p class="muted small">No pairings yet</p>
-                                {:else if ps.editRows.length > 0}
-                                    <!-- Editable grid -->
-                                    <div class="grid-wrap">
-                                        <table class="pairing-grid">
-                                            <thead>
-                                                <tr>
-                                                    <th>A</th>
-                                                    <th>A Faction</th>
-                                                    <th>A Type</th>
-                                                    <th>B</th>
-                                                    <th>B Faction</th>
-                                                    <th>B Type</th>
-                                                    <th>Type</th>
-                                                    {#if usesPoints(systemsConfig, scope)}
-                                                        <th>
-                                                            ETA <HelpTip label="game time" text={"The time for THIS GAME.\n\nLeave it blank and it follows the players' own times (the later of the two), which is what they signed up with. Setting it here never changes their signups: to do that, edit the signup in the list above."} />
-                                                        </th>
-                                                        <th>Pts</th>
-                                                    {/if}
-                                                    <th></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {#each ps.editRows as er, idx}
-                                                    <tr class:prearranged-row={er.prearranged}>
-                                                        <!-- A signup -->
-                                                        <td>
-                                                            {#if er.id === null}
-                                                                <span class="cell-text">{ps.rows[idx]?.a_name ?? '—'}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    value={String(er.a_signup_id ?? '')}
-                                                                    onchange={(e) => {
-                                                                        const v = (e.target as HTMLSelectElement).value;
-                                                                        er.a_signup_id = v ? Number(v) : null;
-                                                                        ps.dirty = true;
-                                                                    }}
-                                                                >
-                                                                    {#each ps.signups as su}
-                                                                        <option value={String(su.id)}>{su.id} · {su.name}</option>
-                                                                    {/each}
-                                                                </select>
-                                                            {/if}
-                                                        </td>
-                                                        <!-- A Faction -->
-                                                        <td>
-                                                            {#if er.id === null}
-                                                                <span class="cell-text">{er.a_faction || '—'}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    bind:value={er.a_faction}
-                                                                    onchange={() => (ps.dirty = true)}
-                                                                >
-                                                                    <option value={NONE_FACTION}>None</option>
-                                                                    <FactionOptions {systemsConfig} system={scope} />
-                                                                </select>
-                                                            {/if}
-                                                        </td>
-                                                        <!-- A Type -->
-                                                        <td>
-                                                            {#if er.id === null}
-                                                                <span class="cell-text">{er.a_type || '—'}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    bind:value={er.a_type}
-                                                                    onchange={() => (ps.dirty = true)}
-                                                                >
-                                                                    <option value="">—</option>
-                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}
-                                                                        <option>{v}</option>
-                                                                    {/each}
-                                                                </select>
-                                                            {/if}
-                                                        </td>
-                                                        <!-- B signup -->
-                                                        <td>
-                                                            {#if er.id === null}
-                                                                <span class="cell-text">{ps.rows[idx]?.b_name ?? 'BYE'}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    value={String(er.b_signup_id ?? '')}
-                                                                    onchange={(e) => {
-                                                                        const v = (e.target as HTMLSelectElement).value;
-                                                                        er.b_signup_id = v ? Number(v) : null;
-                                                                        ps.dirty = true;
-                                                                    }}
-                                                                >
-                                                                    <option value="">BYE</option>
-                                                                    {#each ps.signups as su}
-                                                                        <option value={String(su.id)}>{su.id} · {su.name}</option>
-                                                                    {/each}
-                                                                </select>
-                                                            {/if}
-                                                        </td>
-                                                        <!-- B Faction -->
-                                                        <td>
-                                                            {#if er.id === null}
-                                                                <span class="cell-text">{er.b_faction || '—'}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    bind:value={er.b_faction}
-                                                                    onchange={() => (ps.dirty = true)}
-                                                                >
-                                                                    <option value={NONE_FACTION}>None</option>
-                                                                    <FactionOptions {systemsConfig} system={scope} />
-                                                                </select>
-                                                            {/if}
-                                                        </td>
-                                                        <!-- B Type -->
-                                                        <td>
-                                                            {#if er.id === null}
-                                                                <span class="cell-text">{er.b_type || '—'}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    bind:value={er.b_type}
-                                                                    onchange={() => (ps.dirty = true)}
-                                                                >
-                                                                    <option value="">—</option>
-                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}
-                                                                        <option>{v}</option>
-                                                                    {/each}
-                                                                </select>
-                                                            {/if}
-                                                        </td>
-                                                        <!-- Shared Type -->
-                                                        <td>
-                                                            {#if er.id === null}
-                                                                <span class="cell-text">{er.type || '—'}</span>
-                                                            {:else}
-                                                                <select
-                                                                    class="cell-select"
-                                                                    bind:value={er.type}
-                                                                    onchange={() => (ps.dirty = true)}
-                                                                >
-                                                                    <option value="">—</option>
-                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}
-                                                                        <option>{v}</option>
-                                                                    {/each}
-                                                                </select>
-                                                            {/if}
-                                                        </td>
-                                                        <!-- ETA + Points (points-bearing systems) -->
-                                                        {#if usesPoints(systemsConfig, scope)}
-                                                            <td>
-                                                                {#if er.id === null}
-                                                                    <span class="cell-text">{er.eta || '—'}</span>
-                                                                {:else}
-                                                                    <select
-                                                                        class="cell-select"
-                                                                        bind:value={er.eta}
-                                                                        onchange={() => (ps.dirty = true)}
-                                                                    >
-                                                                        <option value="">—</option>
-                                                                        {#each ETA_OPTIONS as t}
-                                                                            <option>{t}</option>
-                                                                        {/each}
-                                                                    </select>
-                                                                {/if}
-                                                            </td>
-                                                            <td>
-                                                                {#if er.id === null}
-                                                                    <span class="cell-text">{er.points || '—'}</span>
-                                                                {:else}
-                                                                    <input
-                                                                        class="cell-input-num"
-                                                                        type="number"
-                                                                        min="0"
-                                                                        step="250"
-                                                                        bind:value={er.points}
-                                                                        oninput={() => (ps.dirty = true)}
-                                                                    />
-                                                                {/if}
-                                                            </td>
-                                                        {/if}
-                                                        <!-- Delete -->
-                                                        <td class="cell-delete">
-                                                            {#if er.id !== null}
-                                                                <button
-                                                                    class="remove-btn"
-                                                                    type="button"
-                                                                    title="Delete this pairing"
-                                                                    onclick={() => deletePairing(scope, er.id!)}
-                                                                >×</button>
-                                                            {/if}
-                                                        </td>
-                                                    </tr>
-                                                {/each}
-                                            </tbody>
-                                        </table>
                                     </div>
-
-                                    <div class="save-row">
+                                    {#if ps.editRows.length === 0 && !ps.loading}
+                                        <p class="muted small pr-pad">No pairings yet</p>
+                                    {:else if ps.editRows.length > 0}
+                                        {#each ps.editRows as er, idx}
+                                            {@const g = gameView(ps, er, idx)}
+                                            {@const open = openGame === idx}
+                                            <div class="gm" class:open>
+                                                <span class="vbar" style={`background: ${vibeColour(g.vibe)}`}></span>
+                                                <div class="gm-main">
+                                                    <div class="gm-top">
+                                                        <span class="gm-no">{g.bye ? 'Sits out' : `Game ${g.number}`}{#if er.prearranged}<em>Arranged</em>{/if}</span>
+                                                        {#if !g.bye}
+                                                            <span class="gm-meta">
+                                                                {#if g.vibe}<b style={`color: ${vibeColour(g.vibe)}`}>{g.vibe}</b>{/if}
+                                                                {#if g.eta}<b class="gm-eta">{g.eta}</b>{/if}
+                                                                {#if g.points}<b class="gm-pts">{g.points} pts</b>{/if}
+                                                            </span>
+                                                        {/if}
+                                                    </div>
+                                                    <div class="gm-vs" class:bye={g.bye}>
+                                                        <span class="gm-side">
+                                                            <FactionIcon faction={g.aFaction} {folder} class="gm-icon" />
+                                                            <span><b>{g.aName}</b><small>{g.aFaction || 'No faction'}</small></span>
+                                                        </span>
+                                                        {#if !g.bye}
+                                                            <span class="gm-x">VS</span>
+                                                            <span class="gm-side">
+                                                                <FactionIcon faction={g.bFaction} {folder} class="gm-icon" />
+                                                                <span><b>{g.bName}</b><small>{g.bFaction || 'No faction'}</small></span>
+                                                            </span>
+                                                        {/if}
+                                                    </div>
+                                                    {#if open && er.id !== null}
+                                                        <div class="row-edit">
+                                                            <label class="field">
+                                                                <span class="field-label">Player A</span>
+                                                                <select class="field-select" value={String(er.a_signup_id ?? '')} onchange={(e) => { const v = (e.target as HTMLSelectElement).value; er.a_signup_id = v ? Number(v) : null; ps.dirty = true; }}>
+                                                                    {#each ps.signups as su}<option value={String(su.id)}>{su.name}</option>{/each}
+                                                                </select>
+                                                            </label>
+                                                            <label class="field">
+                                                                <span class="field-label">A faction</span>
+                                                                <select class="field-select" bind:value={er.a_faction} onchange={() => (ps.dirty = true)}>
+                                                                    <option value={NONE_FACTION}>None</option>
+                                                                    <FactionOptions {systemsConfig} system={scope} />
+                                                                </select>
+                                                            </label>
+                                                            <label class="field field-narrow">
+                                                                <span class="field-label">A vibe</span>
+                                                                <select class="field-select" bind:value={er.a_type} onchange={() => (ps.dirty = true)}>
+                                                                    <option value="">—</option>
+                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}<option>{v}</option>{/each}
+                                                                </select>
+                                                            </label>
+                                                            <label class="field">
+                                                                <span class="field-label">Player B</span>
+                                                                <select class="field-select" value={String(er.b_signup_id ?? '')} onchange={(e) => { const v = (e.target as HTMLSelectElement).value; er.b_signup_id = v ? Number(v) : null; ps.dirty = true; }}>
+                                                                    <option value="">BYE</option>
+                                                                    {#each ps.signups as su}<option value={String(su.id)}>{su.name}</option>{/each}
+                                                                </select>
+                                                            </label>
+                                                            <label class="field">
+                                                                <span class="field-label">B faction</span>
+                                                                <select class="field-select" bind:value={er.b_faction} onchange={() => (ps.dirty = true)}>
+                                                                    <option value={NONE_FACTION}>None</option>
+                                                                    <FactionOptions {systemsConfig} system={scope} />
+                                                                </select>
+                                                            </label>
+                                                            <label class="field field-narrow">
+                                                                <span class="field-label">B vibe</span>
+                                                                <select class="field-select" bind:value={er.b_type} onchange={() => (ps.dirty = true)}>
+                                                                    <option value="">—</option>
+                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}<option>{v}</option>{/each}
+                                                                </select>
+                                                            </label>
+                                                            <label class="field field-narrow">
+                                                                <span class="field-label">Game vibe</span>
+                                                                <select class="field-select" bind:value={er.type} onchange={() => (ps.dirty = true)}>
+                                                                    <option value="">—</option>
+                                                                    {#each vibeOptionsFor(systemsConfig, scope) as v}<option>{v}</option>{/each}
+                                                                </select>
+                                                            </label>
+                                                            {#if usesPoints(systemsConfig, scope)}
+                                                                <label class="field field-narrow">
+                                                                    <span class="field-label">Time <HelpTip label="game time" text={"The time for THIS GAME.\n\nLeave it blank and it follows the players' own times (the later of the two), which is what they signed up with. Setting it here never changes their signups: to do that, edit the signup."} /></span>
+                                                                    <select class="field-select" bind:value={er.eta} onchange={() => (ps.dirty = true)}>
+                                                                        <option value="">—</option>
+                                                                        {#each ETA_OPTIONS as t}<option>{t}</option>{/each}
+                                                                    </select>
+                                                                </label>
+                                                                <label class="field field-narrow">
+                                                                    <span class="field-label">Points</span>
+                                                                    <input class="field-input" type="number" min="0" step="250" bind:value={er.points} oninput={() => (ps.dirty = true)} />
+                                                                </label>
+                                                            {/if}
+                                                            <button class="danger-button row-edit-drop" type="button" onclick={() => deletePairing(scope, er.id!)}>Delete game</button>
+                                                        </div>
+                                                    {/if}
+                                                </div>
+                                                {#if er.id !== null}
+                                                    <button type="button" class="gm-edit" aria-label={`Edit ${g.bye ? g.aName : `game ${g.number}`}`} aria-expanded={open} onclick={() => (openGame = open ? null : idx)}>{open ? '–' : '⋯'}</button>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                        <div class="pr-pad">
+                                        <div class="save-row">
                                         {#if ps.dirty}
                                             <span class="dirty-indicator">Unsaved changes</span>
                                         {/if}
@@ -4415,7 +4278,9 @@
                                             onclick={() => savePairings(scope)}
                                         >{ps.saving ? 'Saving…' : 'Save Pairing Changes'}</button>
                                     </div>
-                                {/if}
+                                        </div>
+                                    {/if}
+                                </div>
                             </div>
 
                             {#if ps.published}
@@ -4459,6 +4324,42 @@
                                 </div>
                             {/if}
                         {/if}
+
+                        {#if signupCapState[scope] && !signupCapState[scope].loading}
+                            {@const cap = signupCapState[scope]}
+                            <div class="sub-section signup-cap-section">
+                                <div class="a-head">
+                                    <h4 class="a-title">Signup cap</h4>
+                                    <HelpTip
+                                        label="the signup cap"
+                                        text="Caps how many players can sign up for this system in a week. Once the cap is reached, later players can still join as standby and get paired if someone drops. Leave it off for unlimited signups."
+                                    />
+                                    
+                                </div>
+                                <label class="check-row ap-toggle">
+                                    <input type="checkbox" bind:checked={cap.enabled} />
+                                    <span>Cap signups for this system</span>
+                                </label>
+                                {#if cap.enabled}
+                                    <div class="signup-cap-row">
+                                        <div class="field field-narrow">
+                                            <label class="field-label" for="cap-tables-{scope}">Tables</label>
+                                            <input id="cap-tables-{scope}" class="field-input" type="number" min="1" bind:value={cap.tables} />
+                                        </div>
+                                        <p class="muted small">
+                                            = up to <strong>{(Number(cap.tables) || 0) * cap.players_per_table}</strong> players
+                                            <HelpTip label="the cap" text={"\u2022 " + cap.players_per_table + " players per table.\n\u2022 New sign-ups are blocked once it is full.\n\u2022 Anyone already signed up can still edit theirs."} />
+                                        </p>
+                                    </div>
+                                {/if}
+                                {#if cap.error}<p class="field-error">{cap.error}</p>{/if}
+                                {#if cap.message}<p class="pairing-message">{cap.message}</p>{/if}
+                                <button class="secondary-button" type="button" disabled={cap.saving} onclick={() => saveSignupCap(scope)}>
+                                    {cap.saving ? 'Saving…' : 'Save signup cap'}
+                                </button>
+                            </div>
+                        {/if}
+
         </section>
             </div>
         </div>
@@ -5000,11 +4901,11 @@
                              that decides what the club runs, not how. -->
                         {#if activeClubSystemRow}
                             <div class="sub-section pairings-section">
-                                <h4 class="a-title">Schedule &amp; vibes
+                                <h4 class="a-title">Club night
                                     <HelpTip label="schedule and vibes" text={"When this game night runs, and how players sign up for it.\n\n\u2022 The schedule drives the Club page calendar and decides which week a signup lands in\n\u2022 Vibes are the game types players choose from\n\u2022 Leave vibes on the platform default unless your club runs something different"} /></h4>
-                                <form class="appoint-form system-form cs-edit-form" onsubmit={(e) => { e.preventDefault(); saveSystemConfig(); }}>
-                                    <div class="field field-narrow">
-                                        <label class="field-label" for="sc-day">
+                                <form class="cs-rows-form" onsubmit={(e) => { e.preventDefault(); saveSystemConfig(); }}>
+                                    <div class="set-row">
+                                        <label class="set-label" for="sc-day">
                                             Day
                                             <HelpTip
                                                 label="the session day"
@@ -5017,8 +4918,8 @@
                                             {/each}
                                         </select>
                                     </div>
-                                    <div class="field field-narrow">
-                                        <label class="field-label" for="sc-cadence">
+                                    <div class="set-row">
+                                        <label class="set-label" for="sc-cadence">
                                             Cadence
                                             <HelpTip
                                                 label="cadence"
@@ -5032,8 +4933,8 @@
                                         </select>
                                     </div>
                                     {#if csSessionCadence === 'fortnightly'}
-                                        <div class="field field-narrow">
-                                            <label class="field-label" for="sc-anchor">
+                                        <div class="set-row">
+                                            <label class="set-label" for="sc-anchor">
                                                 Anchor date
                                                 <HelpTip
                                                     label="the anchor date"
@@ -5043,8 +4944,8 @@
                                             <input id="sc-anchor" class="field-input" type="date" bind:value={csCadenceAnchor} />
                                         </div>
                                     {/if}
-                                    <div class="field field-narrow">
-                                        <label class="field-label" for="sc-start-time">
+                                    <div class="set-row">
+                                        <label class="set-label" for="sc-start-time">
                                             Start time
                                             <HelpTip
                                                 label="the start time"
@@ -5058,20 +4959,15 @@
                                             {/each}
                                         </select>
                                     </div>
-                                    <div class="field-row-break"></div>
+                                    
 
-                                    <div class="field cs-vibes-field">
-                                        <span class="field-label">
-                                            Vibes
+                                    <div class="set-block">
+<div class="set-row"><span class="set-label">Vibes
                                             <HelpTip
                                                 label="the vibe list"
                                                 text={"What players pick when they sign up.\n\n• Platform defaults follow the catalogue, so the list changes when that does.\n• Your own list stays exactly as you leave it."}
-                                            />
-                                        </span>
-                                        <label class="check-row">
-                                            <input type="checkbox" bind:checked={csUseDefaultVibes} />
-                                            <span>Use the platform defaults</span>
-                                        </label>
+                                            /></span>
+<label class="check-row set-default"><input type="checkbox" bind:checked={csUseDefaultVibes} /><span>Platform defaults</span></label></div>
                                         {#if !csUseDefaultVibes}
                                             <div class="vibe-head">
                                                 <span class="vibe-head-name">Name</span>
@@ -5128,20 +5024,15 @@
                                         {/if}
                                     </div>
 
-                                    <div class="field-row-break"></div>
+                                    
 
-                                    <div class="field cs-vibes-field">
-                                        <span class="field-label">
-                                            Points
+                                    <div class="set-block">
+<div class="set-row"><span class="set-label">Points
                                             <HelpTip
                                                 label="points"
                                                 text={"What the signup form asks for, and what the matcher tries to match on.\n\n• Platform defaults follow the catalogue, so they change when it does\n• Your own numbers stay exactly as you leave them\n• Turning points off hides the field and stops the matcher scoring it"}
-                                            />
-                                        </span>
-                                        <label class="check-row">
-                                            <input type="checkbox" bind:checked={csUseDefaultPoints} />
-                                            <span>Use the platform defaults</span>
-                                        </label>
+                                            /></span>
+<label class="check-row set-default"><input type="checkbox" bind:checked={csUseDefaultPoints} /><span>Platform defaults</span></label></div>
                                         {#if !csUseDefaultPoints}
                                             <label class="check-row">
                                                 <input type="checkbox" bind:checked={csUsesPoints} />
@@ -5162,18 +5053,13 @@
                                         {/if}
                                     </div>
 
-                                    <div class="field cs-vibes-field">
-                                        <span class="field-label">
-                                            Scenarios
+                                    <div class="set-block">
+<div class="set-row"><span class="set-label">Scenarios
                                             <HelpTip
                                                 label="scenarios"
                                                 text={"A scenario preference on the signup form, which the matcher then tries to agree on.\n\n• Turn it on and there has to be at least one scenario to pick\n• Clear the list to go back to the catalogue's"}
-                                            />
-                                        </span>
-                                        <label class="check-row">
-                                            <input type="checkbox" bind:checked={csUseDefaultScenarios} />
-                                            <span>Use the platform defaults</span>
-                                        </label>
+                                            /></span>
+<label class="check-row set-default"><input type="checkbox" bind:checked={csUseDefaultScenarios} /><span>Platform defaults</span></label></div>
                                         {#if !csUseDefaultScenarios}
                                             <label class="check-row">
                                                 <input type="checkbox" bind:checked={csUsesScenarios} />
@@ -5209,18 +5095,13 @@
                                         {/if}
                                     </div>
 
-                                    <div class="field cs-vibes-field">
-                                        <span class="field-label">
-                                            Signup options
+                                    <div class="set-block">
+<div class="set-row"><span class="set-label">Signup options
                                             <HelpTip
                                                 label="signup options"
                                                 text={"The two checkboxes at the foot of the signup form.\n\n• Standby lets a player volunteer to sit out if the numbers are odd\n• Intro games have their own note below"}
-                                            />
-                                        </span>
-                                        <label class="check-row">
-                                            <input type="checkbox" bind:checked={csUseDefaultExtras} />
-                                            <span>Use the platform defaults</span>
-                                        </label>
+                                            /></span>
+<label class="check-row set-default"><input type="checkbox" bind:checked={csUseDefaultExtras} /><span>Platform defaults</span></label></div>
                                         {#if !csUseDefaultExtras}
                                             <label class="check-row">
                                                 <input type="checkbox" bind:checked={csAllowsDemo} />
@@ -5242,9 +5123,9 @@
                                     {/if}
                                     {#if csError}<p class="field-error">{csError}</p>{/if}
                                     {#if csMessage}<p class="pairing-message">{csMessage}</p>{/if}
-                                    <div class="system-form-actions">
+                                    <div class="system-form-actions set-actions">
                                         <button type="submit" class="primary-button" disabled={csSaving || (!csUseDefaultVibes && csVibeOptions.length === 0)}>
-                                            {csSaving ? 'Saving…' : 'Save this system'}
+                                            {csSaving ? 'Saving…' : 'Save changes'}
                                         </button>
                                     </div>
                                 </form>
@@ -5286,7 +5167,7 @@
                                 </div>
 
                                 <div class="field carousel-photo-field">
-                                    <label class="field-label" for="carousel-photo-{scope}">Carousel photo (optional)
+                                    <label class="field-label" for="carousel-photo-{scope}">Photo
                                         <HelpTip label="the photo" text={"Landscape 16:9, e.g. 800\u00d7450px. PNG, JPEG or WEBP, max 5 MB.\n\nLeave it unset to show the system's logo."} /></label>
                                     {#if cs.photo_url}
                                         <div class="carousel-photo-preview">
@@ -6406,6 +6287,254 @@
         opacity: 0.75;
     }
 
+    /* ── Game system config: one setting per row ──────────────────────────
+       A capitals label on the left, its control on the right. The four
+       default-or-custom groups are a row with their switch, opening out
+       underneath when the club sets its own. */
+    .cs-rows-form { display: block; margin-top: 0.4rem; }
+    .set-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        min-height: 3.1rem;
+        padding: 0.45rem 0;
+        border-top: 1px solid #1c2029;
+    }
+    .set-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-family: var(--font-heading);
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-text-bright);
+    }
+    .set-row > .field-select,
+    .set-row > .field-input { width: 12rem; max-width: 100%; }
+    .set-block { border-top: 1px solid #1c2029; }
+    .set-block > .set-row { border-top: none; }
+    .set-block > :not(.set-row) { margin-left: 0; }
+    .set-block > :last-child:not(.set-row) { margin-bottom: 0.9rem; }
+    .set-default span {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-dim);
+    }
+    .set-actions {
+        display: flex;
+        justify-content: flex-end;
+        padding-top: 0.9rem;
+        border-top: 1px solid #1c2029;
+    }
+
+    /* ── Pairings tab ─────────────────────────────────────────────────────
+       The week's controls across the top, then Signups beside Games. Each
+       signup and game is a row with a vibe bar; tapping it opens its editor
+       in place, so the page reads like the player Pairings tab until an
+       admin wants to change something. */
+    .pr-bar {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 0.75rem 1.25rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .pr-bar .field { margin: 0; }
+    .pr-cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+        gap: 1rem;
+        align-items: start;
+        margin-bottom: 1rem;
+    }
+    @media (max-width: 1180px) {
+        .pr-cols { grid-template-columns: minmax(0, 1fr); }
+    }
+    .pr-panel {
+        background: var(--color-surface-dark);
+        border: 1px solid #232733;
+        border-radius: 6px;
+        overflow: hidden;
+        min-width: 0;
+    }
+    .pr-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-height: 2.4rem;
+        padding: 0.7rem 1rem;
+        border-bottom: 1px solid #232733;
+    }
+    .pr-head { flex-wrap: wrap; }
+    .pr-head .a-title { margin: 0; white-space: nowrap; }
+    .pr-head-end { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .pr-pad { padding: 0.75rem 1rem; }
+    .pr-pad:empty { display: none; }
+    .pr-pad .pairing-summary { margin: 0; }
+    .pr-pad .save-row { margin: 0; }
+
+    .vbar {
+        align-self: stretch;
+        width: 4px;
+        min-height: 2.2rem;
+        border-radius: 2px;
+    }
+
+    .su-cols {
+        display: grid;
+        grid-template-columns: 4px minmax(0, 1fr) 3.6rem 3.6rem 1.2rem;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 1rem;
+    }
+    .su-cols.no-pts { grid-template-columns: 4px minmax(0, 1fr) 3.6rem 1.2rem; }
+    .su-colhead {
+        padding-top: 0.5rem;
+        padding-bottom: 0.3rem;
+        font-family: var(--font-heading);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--color-text-faint);
+    }
+    .su-item { border-top: 1px solid #1c2029; }
+    .su-item.open { background: rgba(201, 161, 74, 0.04); }
+    .su-line {
+        width: 100%;
+        background: none;
+        border: none;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+    .su-line:hover { background: var(--color-surface-hover); }
+    .su-line:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+    .su-who { display: flex; flex-direction: column; min-width: 0; }
+    .su-who b { color: var(--color-text-bright); }
+    .su-who small {
+        font-size: 0.82rem;
+        color: var(--color-text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .su-who em, .gm-no em {
+        font-style: normal;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 0.78rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        margin-left: 0.45rem;
+    }
+    .su-eta { color: var(--color-text-bright); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .su-pts { color: var(--color-accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .su-chev { color: var(--color-text-faint); font-size: 1.1rem; text-align: right; }
+
+    /* The editor that opens under a signup or a game. */
+    .row-edit {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.6rem 0.75rem;
+        padding: 0.4rem 1rem 0.9rem calc(1rem + 4px + 0.75rem);
+    }
+    .row-edit .field { margin: 0; min-width: 9rem; flex: 1 1 9rem; }
+    .row-edit .field-narrow { flex: 0 1 8rem; min-width: 7rem; }
+    .row-edit-checks { display: flex; gap: 1rem; flex-wrap: wrap; flex: 1 1 100%; }
+    .row-edit-drop { margin-left: auto; }
+
+    .gm {
+        display: flex;
+        gap: 0.85rem;
+        padding: 0.8rem 1rem;
+        border-top: 1px solid #1c2029;
+    }
+    .gm.open { background: rgba(201, 161, 74, 0.04); }
+    .gm-main { flex: 1; min-width: 0; }
+    .gm-main .row-edit { padding: 0.75rem 0 0.2rem; }
+    .gm-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.45rem;
+    }
+    .gm-no {
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-text-dim);
+    }
+    .gm-meta { display: inline-flex; gap: 0.75rem; font-size: 0.88rem; }
+    .gm-eta { color: var(--color-text-bright); }
+    .gm-pts { color: var(--color-accent); }
+    .gm-vs {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .gm-vs.bye { grid-template-columns: minmax(0, 1fr); }
+    .gm-side { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+    .gm-side > span { display: flex; flex-direction: column; min-width: 0; }
+    .gm-side b { color: var(--color-text-bright); }
+    .gm-side small {
+        font-size: 0.82rem;
+        color: var(--color-text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    :global(.gm-icon) { width: 32px; height: 32px; flex: none; object-fit: contain; }
+    .gm-x {
+        font-family: var(--font-heading);
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        color: #5c6270;
+    }
+    .gm-edit {
+        align-self: flex-start;
+        min-width: 2.2rem;
+        min-height: 2.2rem;
+        background: none;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        color: var(--color-text-dim);
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .gm-edit:hover, .gm-edit[aria-expanded='true'] { border-color: #343a47; color: var(--color-text-bright); }
+    @media (max-width: 640px) {
+        .pr-head, .pr-pad { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .su-cols {
+            grid-template-columns: 4px minmax(0, 1fr) auto auto 0.8rem;
+            gap: 0.6rem;
+            padding: 0.6rem 0.75rem;
+        }
+        .su-cols.no-pts { grid-template-columns: 4px minmax(0, 1fr) auto 0.8rem; }
+        .gm { padding: 0.75rem; gap: 0.65rem; }
+        .gm-vs { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
+        .gm-x { padding-left: calc(32px + 0.6rem); }
+        .row-edit { padding-left: 1rem; }
+    }
+
     /* ── Pairing quality summary strip ──────────────────────────────────── */
     .pairing-summary {
         display: flex;
@@ -6436,9 +6565,6 @@
         color: var(--color-tnt);
     }
 
-    .prearranged-row td {
-        background: rgba(201, 161, 74, 0.06);
-    }
 
     .preview-row td {
         opacity: 0.75;

@@ -12,6 +12,7 @@
 <script lang="ts">
     import FactionIcon from '../FactionIcon.svelte';
     import { gameLabel, type Matchup } from './api';
+    import { vibeColour } from '../vibeColour';
 
     let {
         matchups,
@@ -32,15 +33,6 @@
         return playerId != null && (m.player_a_id === playerId || m.player_b_id === playerId);
     }
 
-    /* Each kind of game keeps the colour it had on the old pairings cards, so
-       regulars recognise a competitive table at a glance. Anything else (a
-       club's own vibe) takes the gold. */
-    const VIBE_COLOURS: Record<string, string> = {
-        casual: '#6eb46e', competitive: '#d25050', intro: '#5a9bd4', standard: '#9c8bd1'
-    };
-    function vibeColour(gameType: string | null): string {
-        return VIBE_COLOURS[(gameType ?? '').toLowerCase()] ?? '#c9a14a';
-    }
 
     // Same ladder as the profile bar and the posted image, so a level reads in
     // the same colour wherever a player sees it.
