@@ -74,7 +74,6 @@
                             {#if m.game_type}<b style={`color: ${vibeColour(m.game_type)}`}>{m.game_type}</b>{/if}
                             {#if m.eta}<b class="m-time">{m.eta}</b>{/if}
                             {#if m.points}<b class="m-points">{Number(m.points).toLocaleString('en-GB')} pts</b>{/if}
-                            {#if m.prearranged}<b class="m-quiet">Arranged</b>{/if}
                         </span>
                     {/if}
                 </div>
@@ -159,7 +158,6 @@
     .meta b + b::before { content: '·'; margin: 0 7px; color: #4a5060; font-weight: 400; }
     .m-time { color: var(--color-text-bright); }
     .m-points { color: var(--color-accent); }
-    .m-quiet { color: var(--color-text-dim); }
 
     .player { display: flex; align-items: center; gap: 12px; min-width: 0; }
 
