@@ -138,7 +138,7 @@
     <h1 class="page-title">Player</h1>
     <p class="empty">{loadError}</p>
 {:else}
-<div class="page-reveal" in:fade={{ duration: 140 }}>
+<div class="page-reveal flow" in:fade={{ duration: 140 }}>
 
 <h1 class="page-title">{player.name}</h1>
 

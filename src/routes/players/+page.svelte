@@ -127,7 +127,7 @@
     <span class="list-count">{filtered.length} {filtered.length === 1 ? 'player' : 'players'} · most recent first</span>
 </div>
 
-<ul class="player-list">
+<ul class="player-list flow">
     {#each pageItems as p (p.id)}
         {@const faction = p.usual_faction ?? p.default_faction}
         <li>

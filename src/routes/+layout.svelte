@@ -12,9 +12,9 @@
     import { onMount } from 'svelte';
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
-    import { afterNavigate, goto } from '$app/navigation';
+    import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { fade } from 'svelte/transition';
+    import { cubicOut } from 'svelte/easing';
     import LandingHero from '$lib/LandingHero.svelte';
     import SignInPrompt from '$lib/SignInPrompt.svelte';
     import SiteBanner from '$lib/SiteBanner.svelte';
@@ -326,6 +326,35 @@
         };
     });
 
+    /* Pages slide in the way you moved along the tabs: right along the bar
+       (Home → Sign up → Pairings) brings the new page in from the right, left
+       brings it from the left, like a native app's tabs. Anywhere that isn't
+       a tab (a profile, the account page) rises gently instead. */
+    let slideDir = 0;
+
+    function tabIndex(pathname: string): number {
+        const order = [...navItems.map((i) => i.href), '/admin'];
+        return order.findIndex((href) => isActive(href, pathname));
+    }
+
+    beforeNavigate(({ from, to }) => {
+        const a = from ? tabIndex(from.url.pathname) : -1;
+        const b = to ? tabIndex(to.url.pathname) : -1;
+        slideDir = a >= 0 && b >= 0 && a !== b ? Math.sign(b - a) : 0;
+    });
+
+    function pageIn(_node: Element) {
+        const still = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const dir = slideDir;
+        return {
+            duration: still ? 120 : 260,
+            easing: cubicOut,
+            css: (t: number) => still
+                ? `opacity: ${t}`
+                : `opacity: ${t}; transform: translate(${((1 - t) * dir * 22).toFixed(2)}px, ${dir === 0 ? ((1 - t) * 6).toFixed(2) : 0}px)`
+        };
+    }
+
     let logoLink = $state<HTMLElement | null>(null);
 
     /** Restart the logo's entrance animation, in step with the new page's. */
@@ -572,7 +601,7 @@
                          as a worse jump than an instant cut. -->
                     <div
                         class="page-transition"
-                        in:fade={{ duration: 140 }}
+                        in:pageIn
                     >
                         {@render children()}
                     </div>
@@ -1109,9 +1138,9 @@
            not eyeballed: see the "Phone logo" board on the design canvas,
            version A2. Tied to the -60px pull-up below: change one, re-measure. */
         .topbar.topbar-member .topbar-logo-link {
-            /* The same 140ms fade as the page (.page-transition), so the logo
-               arrives with each tab rather than hovering over all of them. */
-            animation: logo-arrive 140ms ease-out both;
+            /* Fades in with the page (.page-transition), so the logo arrives
+               with each tab rather than hovering over all of them. */
+            animation: logo-arrive 260ms cubic-bezier(0.33, 1, 0.68, 1) both;
             display: flex;
             margin-right: 16px;
             transform: translateY(6.3px);

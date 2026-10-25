@@ -28,7 +28,7 @@
     let brokenLogos = $state<Record<string, boolean>>({});
 </script>
 
-<div class="night-grid" role="group" aria-label={label}>
+<div class="night-grid flow" role="group" aria-label={label}>
     {#each nights as n (n.system)}
         {@const logo = n.logo_url || systemLogoUrl(n.system, systemsConfig)}
         <button

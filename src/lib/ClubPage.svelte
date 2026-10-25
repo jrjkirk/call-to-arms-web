@@ -138,7 +138,7 @@
     <div class="empty-state">Couldn't load the club page right now. Try refreshing.</div>
 {:else}
     <div class="page-reveal" in:fade={{ duration: 140 }}>
-        <div class="club-grid">
+        <div class="club-grid flow">
             <div class="hero"><ClubHero club={data.club} {venueEnabled} {signedIn} openingHours={data.club.opening_hours} /></div>
 
             <section class="panel hours">

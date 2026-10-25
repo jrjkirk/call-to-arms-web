@@ -113,7 +113,7 @@
     {#if !home}
         <div class="empty-state">Couldn't load your week right now. Try refreshing.</div>
     {:else}
-    <div class="grid">
+    <div class="grid flow">
         <!-- ── Your next game ─────────────────────────────────────────── -->
         <section class="panel next">
             <header class="panel-head">
@@ -206,7 +206,7 @@
         <!-- ── This week ──────────────────────────────────────────────── -->
         <section class="panel nights">
             <header class="panel-head"><h2>This week</h2></header>
-            <ul class="night-list">
+            <ul class="night-list flow">
                 {#each home.nights as n (n.system)}
                     <li class="night-row">
                         <span class="night-bar" style={`background: ${n.accent_color}`}></span>

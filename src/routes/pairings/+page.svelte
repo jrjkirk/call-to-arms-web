@@ -229,7 +229,7 @@
 </script>
 
 {#if systemsResolved}
-<div class="page-reveal" in:fade={{ duration: 140 }}>
+<div class="page-reveal flow" in:fade={{ duration: 140 }}>
 
 <div class="title-row">
     <h1 class="page-title">Pairings</h1>

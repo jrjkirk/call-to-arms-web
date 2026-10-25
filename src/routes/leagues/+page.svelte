@@ -338,7 +338,7 @@
 </script>
 
 {#if pageReady}
-<div class="page-reveal" in:fade={{ duration: 140 }}>
+<div class="page-reveal flow" in:fade={{ duration: 140 }}>
 
 <h1 class="page-title">Leagues</h1>
 
