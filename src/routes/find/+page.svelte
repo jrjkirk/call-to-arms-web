@@ -4,10 +4,17 @@
   rather than pills, colour as a bar beside a row, and no paragraphs.
 
   Search narrows by name or town, NEAR ME sorts by distance, the system logos
-  filter to clubs that run them. The map and the list show the same clubs:
-  tap a pin and its row is picked out, and every row goes to that club. A
-  member's own club is marked CURRENT and listed first.
+  filter to clubs that run them. The map and the list show the same clubs,
+  and either picks one: tap a pin for its card (SWITCH, or CURRENT), or a row
+  to go straight there. A member's own club is marked CURRENT and listed
+  first. Every club gets a pin: one whose admin hasn't placed it yet is put
+  at its address.
 -->
+<script lang="ts" module>
+    /** Clubs placed from their address this visit (see placeUnpinned). */
+    const placedThisVisit: Record<string, { lat: number; lng: number }> = {};
+</script>
+
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -15,6 +22,7 @@
     import { FALLBACK_SYSTEMS_CONFIG, getSystemsConfig, systemLogoUrl, type SystemConfig } from '$lib/systemsConfig';
     import { getMe } from '$lib/session';
     import { peek, revalidate } from '$lib/swr';
+    import { findPlace } from '$lib/geocode';
 
     type FinderSystem = { slug: string; name: string; legacy_system_name: string };
     type FinderClub = {
@@ -46,7 +54,24 @@
         getMe().then((me) => (currentSlug = me?.active_club?.slug ?? null));
         await revalidate<FinderClub[]>('/clubs', (v) => (clubs = v));
         loaded = true;
+        placeUnpinned();
     });
+
+    /* Clubs whose admin hasn't placed a pin yet still get one, from their
+       address ($lib/geocode, the same lookup as the admin's FIND). Kept for
+       the visit, so it's looked up once. */
+    let placed = $state<Record<string, { lat: number; lng: number }>>({ ...placedThisVisit });
+    async function placeUnpinned() {
+        for (const c of clubs) {
+            if (c.latitude != null || !c.address || placed[c.slug]) continue;
+            const at = await findPlace(c.address);
+            if (at) placed[c.slug] = placedThisVisit[c.slug] = { lat: at.lat, lng: at.lng };
+        }
+    }
+    function where(c: FinderClub): { lat: number; lng: number } | null {
+        if (c.latitude != null && c.longitude != null) return { lat: c.latitude, lng: c.longitude };
+        return placed[c.slug] ?? null;
+    }
 
     function nearMe() {
         if (near) {
@@ -73,11 +98,12 @@
     }
 
     function miles(c: FinderClub): number | null {
-        if (!near || c.latitude == null || c.longitude == null) return null;
+        const at = where(c);
+        if (!near || !at) return null;
         const rad = (d: number) => (d * Math.PI) / 180;
-        const dLat = rad(c.latitude - near.lat);
-        const dLon = rad(c.longitude - near.lng);
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(near.lat)) * Math.cos(rad(c.latitude)) * Math.sin(dLon / 2) ** 2;
+        const dLat = rad(at.lat - near.lat);
+        const dLon = rad(at.lng - near.lng);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(near.lat)) * Math.cos(rad(at.lat)) * Math.sin(dLon / 2) ** 2;
         return 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
@@ -122,14 +148,21 @@
     });
 
     const pins = $derived<MapPin[]>(
-        shown
-            .filter((c) => c.latitude != null && c.longitude != null)
-            .map((c) => ({ id: c.slug, lat: c.latitude!, lng: c.longitude!, label: c.name, active: c.slug === focused }))
+        shown.flatMap((c) => {
+            const at = where(c);
+            return at ? [{ id: c.slug, lat: at.lat, lng: at.lng, label: c.name, active: c.slug === focused }] : [];
+        })
     );
 
+    const focusedClub = $derived(shown.find((c) => c.slug === focused) ?? null);
+
+    /* A pin picks its club: the card on the map, and (beside the map, on a
+       wide screen) its row in the list. */
     function pick(slug: string | number) {
-        focused = String(slug);
-        document.getElementById(`club-${slug}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        focused = focused === String(slug) ? null : String(slug);
+        if (focused && window.matchMedia('(min-width: 781px)').matches) {
+            document.getElementById(`club-${slug}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     }
 
     const clubUrl = (slug: string) => `https://${slug}.calltoarms.app`;
@@ -162,7 +195,33 @@
 
 <div class="layout">
     <div class="map">
-        <ClubMap {pins} user={near} onselect={pick} />
+        <ClubMap {pins} user={near} onselect={pick} onbackground={() => (focused = null)} />
+        {#if focusedClub}
+            {@const c = focusedClub}
+            {@const mi = miles(c)}
+            {@const current = c.slug === currentSlug}
+            <div class="pick-card" role="dialog" aria-label={c.name}>
+                <span class="bar" class:current></span>
+                <div class="pick-main">
+                    <b class="club-name">{c.name}</b>
+                    <span class="club-where">{town(c)}{#if mi != null}<b class="club-mi">{mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi</b>{/if}</span>
+                    {#if c.systems.length}
+                        <span class="club-sys">
+                            {#each c.systems as s (s.legacy_system_name)}
+                                {@const logo = systemLogoUrl(s.legacy_system_name, systemsConfig)}
+                                {#if logo}<img src={logo} alt={s.name} title={s.name} />{:else}<small>{s.name}</small>{/if}
+                            {/each}
+                        </span>
+                    {/if}
+                </div>
+                {#if current}
+                    <span class="club-state">Current</span>
+                {:else}
+                    <a class="primary-button pick-go" href={clubUrl(c.slug)}>{currentSlug ? 'Switch' : 'Visit'}</a>
+                {/if}
+                <button type="button" class="pick-close" aria-label="Close" onclick={() => (focused = null)}>×</button>
+            </div>
+        {/if}
     </div>
 
     <div class="list">
@@ -247,6 +306,37 @@
     }
     .map { position: sticky; top: 1rem; height: min(70vh, 560px); }
 
+    /* The picked club, over the foot of the map. */
+    .pick-card {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.8rem 0.9rem;
+        background: #13161e;
+        border: 1px solid #343a47;
+        border-radius: 6px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+    .pick-card .bar { background: var(--color-accent); }
+    .pick-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+    .pick-go { flex: none; }
+    .pick-close {
+        position: absolute;
+        top: 2px;
+        right: 6px;
+        background: none;
+        border: none;
+        color: var(--color-text-faint);
+        font-size: 1.1rem;
+        line-height: 1;
+        padding: 4px;
+        cursor: pointer;
+    }
+
     .list {
         background: #13161e;
         border: 1px solid #232733;
@@ -320,7 +410,7 @@
     @media (max-width: 780px) {
         .page-title { font-size: 2.1rem; }
         .layout { grid-template-columns: minmax(0, 1fr); }
-        .map { position: static; height: 300px; }
+        .map { position: relative; height: 340px; }
         .add { justify-content: space-between; }
     }
 </style>

@@ -27,6 +27,7 @@
         picker = null,
         onpick,
         onselect,
+        onbackground,
         zoom = 13,
         class: className = ''
     }: {
@@ -35,6 +36,8 @@
         picker?: { lat: number; lng: number } | null;
         onpick?: (lat: number, lng: number) => void;
         onselect?: (id: string | number) => void;
+        /** A tap on the map itself, not a pin: clears a selection. */
+        onbackground?: () => void;
         /** Zoom for a single point (one pin, or the picker). */
         zoom?: number;
         class?: string;
@@ -81,7 +84,7 @@
         return el;
     }
 
-    function drawPins() {
+    function drawPins(reframe = true) {
         if (!ready) return;
         for (const m of markers) m.remove();
         markers = [];
@@ -100,7 +103,7 @@
             el.className = 'cm-user';
             markers.push(new ml.Marker({ element: el }).setLngLat([user.lng, user.lat]).addTo(map));
         }
-        frame();
+        if (reframe) frame();
     }
 
     /** Fit the view to what's on it: every pin and the viewer. */
@@ -155,8 +158,8 @@
             // across the bottom of a small map; it opens on a tap.
             container.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
             if (picker) placePicker(picker.lat, picker.lng, false);
-            drawPins();
         });
+        if (onbackground) map.on('click', () => onbackground?.());
         if (onpick) {
             map.on('click', (e: any) => {
                 placePicker(e.lngLat.lat, e.lngLat.lng, false);
@@ -167,11 +170,28 @@
 
     onDestroy(() => map?.remove());
 
-    // Pins or the viewer changed (a filter, "near me"): redraw and reframe.
+    // Pins or the viewer changed (a filter, "near me"): redraw, and reframe
+    // only if which pins are shown changed; picking one out shouldn't move
+    // the map under your finger.
+    let framedFor = '';
     $effect(() => {
+        const key = pins.map((p) => `${p.id}@${p.lat},${p.lng}`).join('|') + (user ? `|u${user.lat},${user.lng}` : '');
         pins;
-        user;
-        if (ready) drawPins();
+        if (!ready) return;
+        drawPins(key !== framedFor);
+        framedFor = key;
+    });
+
+    // A pin picked out (active): ease it into the upper part of the map, so
+    // a card over the foot of the map (the Clubs page) never covers it.
+    let lastActive: string | number | null = null;
+    $effect(() => {
+        const on = pins.find((p) => p.active) ?? null;
+        if (!ready) return;
+        if (on && on.id !== lastActive) {
+            map.easeTo({ center: [on.lng, on.lat], offset: [0, -container.clientHeight * 0.18], duration: 350 });
+        }
+        lastActive = on?.id ?? null;
     });
 
     // The picker moved from outside (an address was found): follow it.
