@@ -194,7 +194,6 @@
         { href: '/', label: 'Home' },
         { href: '/signup', label: 'Sign up' },
         { href: '/pairings', label: 'Pairings' },
-        { href: '/pickups', label: 'Pick-ups' },
         // Tournaments are still being built out, so they're platform-admin
         // only for now rather than in front of every club's players.
         ...(hasPlatformAdminAccess ? [{ href: '/tournaments', label: 'Events' }] : []),
@@ -225,7 +224,7 @@
             label: 'Club',
             links: navItems
                 .filter((i) => i.href !== '/' && !tabItems.some((t) => t.href === i.href))
-                .map((i) => ({ href: i.href, label: i.href === '/club' ? 'Club page' : i.href === '/pickups' ? 'Pick-up games' : i.label }))
+                .map((i) => ({ href: i.href, label: i.href === '/club' ? 'Club page' : i.label }))
         },
         {
             label: 'You',
@@ -268,6 +267,9 @@
 
     function isActive(href: string, pathname: string = page.url.pathname): boolean {
         if (href === '/') return pathname === '/';
+        // Pick-up games are the Sign up tab's second mode (the switch at the
+        // top of both pages), so SIGN UP stays lit on either.
+        if (href === '/signup' && pathname.startsWith('/pickups')) return true;
         return pathname.startsWith(href);
     }
 

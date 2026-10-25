@@ -76,6 +76,7 @@
 		if (kind === 'opponent_dropped') return 'Your game has changed';
 		if (kind === 'game_found') return 'You have a game';
 		if (kind === 'faction_request') return 'Faction request';
+		if (kind === 'pickup') return 'Pick-up game';
 		return 'Pairings are up';
 	}
 
@@ -107,7 +108,11 @@
 					<p class="notice-body">{n.body}</p>
 					<!-- A faction request's outcome isn't about a week, so there
 					     are no pairings to point at. -->
-					{#if n.kind !== 'faction_request'}
+					{#if n.kind === 'pickup'}
+						<a class="notice-link" href="/pickups" onclick={() => dismiss(n)}>
+							View pick-up games
+						</a>
+					{:else if n.kind !== 'faction_request'}
 						<a class="notice-link" href={pairingsHref(n)} onclick={() => dismiss(n)}>
 							View pairings
 						</a>

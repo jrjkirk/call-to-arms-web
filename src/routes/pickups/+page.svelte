@@ -11,6 +11,7 @@
     import { page } from '$app/state';
     import PageSkeleton from '$lib/PageSkeleton.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
+    import ModeSwitch from '$lib/ModeSwitch.svelte';
     import FactionOptions from '$lib/FactionOptions.svelte';
     import { fetchMySystems } from '$lib/mySystems';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
@@ -129,10 +130,11 @@
 </script>
 
 {#if !ready}
-    <PageSkeleton title="Pick-ups" />
+    <PageSkeleton title="Sign up" />
 {:else}
 <div class="pickups">
-    <h1 class="page-title">Pick-ups</h1>
+    <h1 class="page-title">Sign up</h1>
+    <ModeSwitch mode="pickup" {system} />
     <p class="lede">Can't make club night? Say when you're free and we'll find you a game.</p>
 
     {#if message}<p class="message">{message}</p>{/if}
@@ -242,9 +244,9 @@
 
             <span class="field-label">Where</span>
             <div class="chips" role="radiogroup" aria-label="Where">
-                <button type="button" class="chip" role="radio" aria-checked={venue === 'club'} onclick={() => (venue = 'club')}>At the club</button>
+                <button type="button" class="chip" role="radio" aria-checked={venue === 'club'} onclick={() => (venue = 'club')}>The club</button>
                 <button type="button" class="chip" role="radio" aria-checked={venue === 'tbc'} onclick={() => (venue = 'tbc')}>We'll sort it</button>
-                <button type="button" class="chip" role="radio" aria-checked={venue === 'other'} onclick={() => (venue = 'other')}>Somewhere else</button>
+                <button type="button" class="chip" role="radio" aria-checked={venue === 'other'} onclick={() => (venue = 'other')}>Elsewhere</button>
             </div>
             {#if venue === 'other'}
                 <input class="field-input venue-text" type="text" maxlength="120" placeholder="Where? (a shop, a venue, a town)" bind:value={venueText} />
@@ -277,7 +279,7 @@
 
             <label class="field">
                 <span class="field-label">Anything else (optional)</span>
-                <input class="field-input" type="text" maxlength="500" placeholder="e.g. happy to play a narrative game" bind:value={notes} />
+                <input class="field-input" type="text" maxlength="500" placeholder="e.g. narrative game" bind:value={notes} />
             </label>
 
             <button class="primary-button ask" type="button" disabled={busy} onclick={ask}>
@@ -351,26 +353,45 @@
     .actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
     .actions button { min-height: 44px; }
 
+    /* One column on a phone, every field full width, so nothing is cut off
+       at 360px or with a larger text size; two columns once there's room. */
     .form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        grid-template-columns: 1fr;
         gap: 12px;
-        margin-bottom: 4px;
+        margin-bottom: 12px;
     }
 
-    .times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .times label { display: flex; flex-direction: column; }
+    @media (min-width: 640px) {
+        .form-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .field { display: flex; flex-direction: column; margin: 0; }
+
+    /* Free from / until: side by side while each has at least 7.5em, stacked
+       when the screen or the text size won't allow that. */
+    .times { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr)); gap: 10px; }
+    .times label { display: flex; flex-direction: column; min-width: 0; }
+
+    .pickups :global(.field-input),
+    .pickups :global(.field-select) {
+        width: 100%;
+        min-height: 46px;
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
 
     .chips {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(5.5em, 1fr));
         gap: 6px;
         margin: 4px 0 14px;
     }
 
     .chip {
         min-height: 44px;
-        padding: 0 10px;
+        padding: 6px 8px;
+        line-height: 1.15;
         border-radius: var(--radius);
         border: 1px solid #343a47;
         background: none;

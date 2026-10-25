@@ -19,6 +19,7 @@
     import FactionOptions from '$lib/FactionOptions.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
     import NightPicker from '$lib/NightPicker.svelte';
+    import ModeSwitch from '$lib/ModeSwitch.svelte';
     import { fetchHome, peekHome, weekday, type HomeNight } from '$lib/home/api';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import ExperienceBadge, { type ExperienceSummary } from '$lib/ExperienceBadge.svelte';
@@ -663,11 +664,7 @@
 
 <h1 class="page-title">Sign up</h1>
 
-<!-- Sam's "Find me a game" switch: club night, or a pick-up game outside it. -->
-<div class="mode" role="tablist" aria-label="What kind of game">
-    <span class="mode-on" role="tab" aria-selected="true">Club night</span>
-    <a role="tab" aria-selected="false" href={`/pickups?${new URLSearchParams({ system: data.system })}`}>Pick-up game</a>
-</div>
+<ModeSwitch mode="club" system={data.system} />
 
 {#if nights && nights.length}
     <NightPicker {nights} {systemsConfig} active={system} onSelect={selectSystem} />
@@ -1308,32 +1305,6 @@
 
     .signin-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
-    .mode {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4px;
-        padding: 4px;
-        margin: 0 0 1rem;
-        background: #13161e;
-        border: 1px solid #232733;
-        border-radius: 6px;
-    }
-
-    .mode > * {
-        min-height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 4px;
-        font-family: var(--font-heading);
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        text-decoration: none;
-        color: var(--color-text-dim);
-    }
-
-    .mode .mode-on { background: rgba(201, 161, 74, 0.16); color: var(--color-text-bright); }
 
     .pickup-cta {
         margin-top: 1.5rem;
