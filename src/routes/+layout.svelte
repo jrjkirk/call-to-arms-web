@@ -13,6 +13,7 @@
     import { page } from '$app/state';
     import { navigating } from '$app/stores';
     import { afterNavigate, goto, onNavigate } from '$app/navigation';
+    import { attachTabSwipe } from '$lib/tabSwipe';
     import { PUBLIC_API_URL } from '$env/static/public';
     import LandingHero from '$lib/LandingHero.svelte';
     import SignInPrompt from '$lib/SignInPrompt.svelte';
@@ -366,12 +367,37 @@
         if (typeof document === 'undefined' || !('startViewTransition' in document)) return;
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         return new Promise((resolve) => {
-            (document as any).startViewTransition(async () => {
+            const vt = (document as any).startViewTransition(async () => {
                 resolve();
                 await navigation.complete;
             });
+            // A swipe's direction (data-swipe, set below) lasts one transition.
+            vt.finished.finally(() => delete document.documentElement.dataset.swipe);
         });
     });
+
+    /* Swipe left or right on a phone to move between the bottom bar's tabs
+       ($lib/tabSwipe). Only where the bar shows, only from one of its tabs,
+       and not while the Me sheet is open. The page slides the way the finger
+       went (data-swipe, styled in app.css); a tap stays a plain crossfade. */
+    onMount(() =>
+        attachTabSwipe(
+            () =>
+                authLoaded && isAuthed && !sheetOpen && !$navigating && activeTab >= 0 &&
+                window.matchMedia('(max-width: 768px)').matches,
+            (direction) => {
+                const to = tabItems[activeTab + (direction === 'next' ? 1 : -1)];
+                if (!to) return;
+                const root = document.documentElement;
+                const transitions = 'startViewTransition' in document;
+                root.dataset.swipe = direction;
+                goto(to.href).finally(() => {
+                    // No View Transitions in this browser: nothing else clears it.
+                    if (!transitions) delete root.dataset.swipe;
+                });
+            }
+        )
+    );
 
     afterNavigate(() => {
         userMenuOpen = false;

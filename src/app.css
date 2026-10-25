@@ -601,6 +601,18 @@ input[type="radio"] {
     animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
+/* A swipe between tabs (src/lib/tabSwipe.ts) slides a short way in the
+   finger's direction as it fades, so the page moves the way it was pushed.
+   Short on purpose: a long slide read as things jumping about. */
+html[data-swipe='next']::view-transition-old(root) { animation: 200ms cubic-bezier(0.25, 0.1, 0.25, 1) both swipe-out-left; }
+html[data-swipe='next']::view-transition-new(root) { animation: 200ms cubic-bezier(0.25, 0.1, 0.25, 1) both swipe-in-right; }
+html[data-swipe='prev']::view-transition-old(root) { animation: 200ms cubic-bezier(0.25, 0.1, 0.25, 1) both swipe-out-right; }
+html[data-swipe='prev']::view-transition-new(root) { animation: 200ms cubic-bezier(0.25, 0.1, 0.25, 1) both swipe-in-left; }
+@keyframes swipe-out-left { to { opacity: 0; transform: translateX(-32px); } }
+@keyframes swipe-in-right { from { opacity: 0; transform: translateX(32px); } }
+@keyframes swipe-out-right { to { opacity: 0; transform: translateX(32px); } }
+@keyframes swipe-in-left { from { opacity: 0; transform: translateX(-32px); } }
+
 :where(.night-tile, .chip, .filter, .system-card, .nav-system, .btn, .night-join,
        .primary-button, .secondary-button, .danger-button, .new-btn, .player, .ev) {
     transition: transform 0.14s ease, background-color 0.15s ease, border-color 0.15s ease;
