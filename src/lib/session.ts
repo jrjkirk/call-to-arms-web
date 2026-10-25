@@ -14,6 +14,7 @@
  * failed answer is never kept, so the next ask tries again.
  */
 import { PUBLIC_API_URL } from '$env/static/public';
+import { forget } from './swr';
 
 const cache = new Map<string, Promise<any>>();
 
@@ -42,6 +43,7 @@ export function prime(path: string, value: unknown): void {
 /** Forget everything: signing out, or anything that changes who is signed in. */
 export function clearSession(): void {
     cache.clear();
+    forget();
 }
 
 export const getMe = () => cached('/auth/me');

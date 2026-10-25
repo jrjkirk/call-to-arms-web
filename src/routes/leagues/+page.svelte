@@ -1,3 +1,8 @@
+<script lang="ts" module>
+    /** Which league this visit last showed (see selectedSystem). */
+    let lastLeagueSystem: string | null = null;
+</script>
+
 <script lang="ts">
     import { getAdminMe, getMe } from '$lib/session';
     import PageSkeleton from '$lib/PageSkeleton.svelte';
@@ -15,6 +20,7 @@
     import { NONE_FACTION } from '$lib/signupOptions';
     import HelpTip from '$lib/HelpTip.svelte';
     import SystemPicker from '$lib/SystemPicker.svelte';
+    import { peek, revalidate } from '$lib/swr';
 
     // One "Leagues" page for the whole club: a row of system tiles (same
     // pattern as /pairings and /players) picks which system's league to show
@@ -24,7 +30,12 @@
     let systemsConfig = $state<SystemConfig[]>(FALLBACK_SYSTEMS_CONFIG);
     const leagueSystemsList = $derived(leagueSystems(systemsConfig));
 
-    let selectedSystem = $state<string | null>(null);
+    // The league you were last looking at this visit, so coming back to the
+    // tab shows the same one rather than jumping to the first.
+    let selectedSystem = $state<string | null>(lastLeagueSystem);
+    $effect(() => {
+        lastLeagueSystem = selectedSystem;
+    });
     // Once the real per-club league list resolves, default to its first
     // entry (only if nothing's been picked yet — never fights a user's
     // in-progress selection).
@@ -78,15 +89,13 @@
     const pastSeasons = $derived(seasons.filter((s) => !s.current && s.champion));
     const viewingSeason = $derived(seasons.find((s) => s.id === viewingSeasonId) ?? null);
 
+    // Each of these shows what this visit last saw at once and refreshes it
+    // behind, touching the page only if it changed ($lib/swr).
     async function loadSeasons() {
         if (!selectedSystem) return;
-        try {
-            const params = new URLSearchParams({ system: selectedSystem });
-            const r = await fetch(`${PUBLIC_API_URL}/league/seasons?${params}`, { credentials: 'include' });
-            seasons = r.ok ? await r.json() : [];
-        } catch (_) {
-            seasons = [];
-        }
+        const k = `/league/seasons?${new URLSearchParams({ system: selectedSystem })}`;
+        seasons = peek<SeasonRow[]>(k) ?? [];
+        await revalidate<SeasonRow[]>(k, (v) => (seasons = v));
     }
 
     function onSeasonChange(e: Event) {
@@ -103,27 +112,22 @@
 
     async function loadRankings() {
         if (!selectedSystem) return;
-        try {
-            const params = new URLSearchParams({ system: selectedSystem });
-            if (viewingSeasonId !== null) params.set('season_id', String(viewingSeasonId));
-            const [rankingsResp, playersResp] = await Promise.all([
-                fetch(`${PUBLIC_API_URL}/league/rankings?${params}`, { credentials: 'include' }),
-                fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' }),
-            ]);
-            if (rankingsResp.ok) rankings = await rankingsResp.json();
-            if (playersResp.ok) allPlayers = await playersResp.json();
-        } catch (_) {}
+        const params = new URLSearchParams({ system: selectedSystem });
+        if (viewingSeasonId !== null) params.set('season_id', String(viewingSeasonId));
+        const k = `/league/rankings?${params}`;
+        rankings = peek<any[]>(k) ?? rankings;
+        allPlayers = peek<{ id: number; name: string }[]>('/players') ?? allPlayers;
+        await Promise.all([
+            revalidate<any[]>(k, (v) => (rankings = v)),
+            revalidate<{ id: number; name: string }[]>('/players', (v) => (allPlayers = v)),
+        ]);
     }
 
     async function loadFactions() {
         if (!selectedSystem) return;
-        try {
-            const params = new URLSearchParams({ system: selectedSystem });
-            const r = await fetch(`${PUBLIC_API_URL}/league/factions?${params}`, { credentials: 'include' });
-            factions = r.ok ? (await r.json()).factions : [];
-        } catch (_) {
-            factions = [];
-        }
+        const k = `/league/factions?${new URLSearchParams({ system: selectedSystem })}`;
+        factions = peek<{ factions: string[] }>(k)?.factions ?? [];
+        await revalidate<{ factions: string[] }>(k, (v) => (factions = v.factions ?? []));
     }
 
     async function loadFactionStats(faction: string) {
@@ -239,13 +243,9 @@
 
     async function loadFormConfig() {
         if (!selectedSystem) return;
-        try {
-            const params = new URLSearchParams({ system: selectedSystem });
-            const r = await fetch(`${PUBLIC_API_URL}/league/config?${params}`, { credentials: 'include' });
-            formConfig = r.ok ? await r.json() : ASK_EVERYTHING;
-        } catch (_) {
-            formConfig = ASK_EVERYTHING;
-        }
+        const k = `/league/config?${new URLSearchParams({ system: selectedSystem })}`;
+        formConfig = peek<LeagueFormConfig>(k) ?? ASK_EVERYTHING;
+        await revalidate<LeagueFormConfig>(k, (v) => (formConfig = v));
     }
     let submitError = $state<string | null>(null);
     // The Discord membership gate now covers result submission, and it's the

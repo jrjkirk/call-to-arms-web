@@ -20,7 +20,8 @@
     import SystemPicker from '$lib/SystemPicker.svelte';
     import NightPicker from '$lib/NightPicker.svelte';
     import ModeSwitch from '$lib/ModeSwitch.svelte';
-    import { fetchHome, peekHome, weekday, type HomeNight } from '$lib/home/api';
+    import { fetchHome, fetchPairings, peekHome, peekPairings, weekday, type HomeNight, type PairingsData } from '$lib/home/api';
+    import { peek, revalidate } from '$lib/swr';
     import DiscordGateNotice from '$lib/DiscordGateNotice.svelte';
     import ExperienceBadge, { type ExperienceSummary } from '$lib/ExperienceBadge.svelte';
     import HelpTip from '$lib/HelpTip.svelte';
@@ -65,12 +66,13 @@
      *  rather than flashing 0. */
     let statsFor = $state('');
 
+    // Everything this page reads comes through $lib/swr: what this visit last
+    // saw shows at once, and the fresh answer replaces it only if it changed.
     async function loadStats(sys: string, wk: string) {
-        try {
-            const params = new URLSearchParams({ system: sys, week: wk });
-            const r = await fetch(`${PUBLIC_API_URL}/signups/stats?${params}`, { credentials: 'include' });
-            if (r.ok) { stats = await r.json(); statsFor = `${sys}|${wk}`; }
-        } catch (_) {}
+        const k = `/signups/stats?${new URLSearchParams({ system: sys, week: wk })}`;
+        const seen = peek<typeof stats>(k);
+        if (seen) { stats = seen; statsFor = `${sys}|${wk}`; }
+        await revalidate<typeof stats>(k, (v) => { stats = v; statsFor = `${sys}|${wk}`; });
     }
 
     $effect(() => {
@@ -233,14 +235,9 @@
     let expError = $state<string | null>(null);
 
     async function loadMyExperience(system: string) {
-        myExperience = null;
-        try {
-            const r = await fetch(
-                `${PUBLIC_API_URL}/signups/experience?system=${encodeURIComponent(system)}`,
-                { credentials: 'include' }
-            );
-            if (r.ok) myExperience = await r.json();
-        } catch (_) {}
+        const k = `/signups/experience?system=${encodeURIComponent(system)}`;
+        myExperience = peek<ExperienceSummary>(k) ?? null;
+        await revalidate<ExperienceSummary>(k, (v) => (myExperience = v));
     }
 
     async function saveExperienceExtra(extra: number) {
@@ -301,24 +298,28 @@
         canDemo = !!src?.can_demo;
     }
 
+    type MineBody = { current: SignupRow | null; last: SignupRow | null };
+    function applyMine(body: MineBody) {
+        current = body.current ?? null;
+        applyPrefill(body.current ?? body.last ?? null);
+    }
+
     async function loadMine() {
-        mineLoaded = false;
-        current = null;
-        try {
-            const params = new URLSearchParams({ system: data.system, week: data.week });
-            const r = await fetch(`${PUBLIC_API_URL}/signups/mine?${params}`, { credentials: 'include' });
-            if (r.ok) {
-                const body = await r.json();
-                current = body.current ?? null;
-                applyPrefill(body.current ?? body.last ?? null);
-                scrollToHash();
-            } else {
-                applyPrefill(null);
-            }
-        } catch (_) {
-            applyPrefill(null);
+        const k = `/signups/mine?${new URLSearchParams({ system: data.system, week: data.week })}`;
+        const seen = peek<MineBody>(k);
+        if (seen) {
+            applyMine(seen);
+            mineLoaded = true;
+        } else {
+            mineLoaded = false;
+            current = null;
         }
+        // Applied again only if it changed, so a form someone has started
+        // filling in isn't reset by the same answer arriving twice.
+        const changed = await revalidate<MineBody>(k, applyMine);
+        if (!seen && !changed) applyPrefill(null);
         mineLoaded = true;
+        scrollToHash();
     }
 
     // Re-fetch my signup whenever auth resolves or the system/week changes
@@ -421,18 +422,19 @@
     let swapSuccess = $state<string | null>(null);
     let swapError = $state<string | null>(null);
 
+    /* The week's pairings, shared with Home and Pairings ($lib/home/api): if
+       either has already shown this week, the re-arrange card is drawn from
+       that at once and refreshed behind. */
     async function loadPairings(sys: string, wk: string) {
+        const seenPairings = peekPairings(sys, wk);
+        if (seenPairings) showPairings(seenPairings);
+        showPairings(await fetchPairings(sys, wk));
+    }
+
+    function showPairings(d: PairingsData) {
         const myPlayerId = auth.player?.id;
         if (!myPlayerId) return;
         try {
-            // No club param needed — the backend resolves the caller's own
-            // club from the session cookie (authenticated, since we already
-            // returned above otherwise) or, for anonymous callers, this
-            // request's Origin header (subdomain-based resolution).
-            const params = new URLSearchParams({ system: sys, week: wk });
-            const r = await fetch(`${PUBLIC_API_URL}/pairings?${params}`, { credentials: 'include' });
-            if (!r.ok) { pairingsPublished = false; myPairing = null; otherPlayers = []; return; }
-            const d = await r.json();
             if (!d.published) { pairingsPublished = false; myPairing = null; otherPlayers = []; return; }
             pairingsPublished = true;
             myPairing = (d.matchups as MatchupWithIds[]).find(
@@ -515,13 +517,10 @@
 
     /* ---------- pre-arranged game ---------- */
     type PlayerOption = { id: number; name: string };
-    let players = $state<PlayerOption[]>([]);
+    let players = $state<PlayerOption[]>(peek<PlayerOption[]>('/players') ?? []);
 
-    onMount(async () => {
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/players`, { credentials: 'include' });
-            if (r.ok) players = await r.json();
-        } catch (_) {}
+    onMount(() => {
+        revalidate<PlayerOption[]>('/players', (v) => (players = v));
     });
 
     let preA = $state<number | ''>('');

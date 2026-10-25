@@ -14,6 +14,7 @@
     import { navigating } from '$app/stores';
     import { afterNavigate, goto, onNavigate } from '$app/navigation';
     import { attachTabSwipe } from '$lib/tabSwipe';
+    import { warmTabs } from '$lib/warmTabs';
     import { PUBLIC_API_URL } from '$env/static/public';
     import LandingHero from '$lib/LandingHero.svelte';
     import SignInPrompt from '$lib/SignInPrompt.svelte';
@@ -374,6 +375,12 @@
             // A swipe's direction (data-swipe, set below) lasts one transition.
             vt.finished.finally(() => delete document.documentElement.dataset.swipe);
         });
+    });
+
+    /* Once someone is signed in, fetch the other tabs' data while the
+       browser is idle ($lib/warmTabs), so their first visit opens filled in. */
+    $effect(() => {
+        if (authLoaded && isAuthed) warmTabs(getClubSlugFromHostname(window.location.hostname) ?? undefined);
     });
 
     /* Swipe left or right on a phone to move between the bottom bar's tabs
