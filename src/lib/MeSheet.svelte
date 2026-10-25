@@ -4,6 +4,11 @@
   menu" page (2026-10-25): bold all-caps rows in groups, no icons, except on
   the two actions at the foot, Change club and Sign out.
 
+  It drags: pull it down by the handle or header (or anywhere, when it isn't
+  scrolled) and it follows the finger; let go past a third of its height, or
+  with a flick, and it closes, otherwise it springs back. A drag never counts
+  as a tap on a link. Tapping the handle closes it too.
+
   What it lists is decided by the layout (the same permission checks the
   desktop account menu uses); this only lays it out.
 -->
@@ -36,6 +41,94 @@
         name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')
     );
 
+    /* ---------- drag to dismiss ---------- */
+    let sheetEl = $state<HTMLElement | null>(null);
+    let dragY = $state(0);
+    let dragging = $state(false);
+    let settling = $state(false);
+    let startY = 0;
+    let startT = 0;
+    let lastY = 0;
+    let lastT = 0;
+    let pointerId: number | null = null;
+    let moved = false;
+
+    function canDragFrom(target: EventTarget | null): boolean {
+        if (!sheetEl) return false;
+        if ((target as HTMLElement | null)?.closest('.grab')) return true;
+        // Anywhere else only when the sheet isn't scrolled down, so dragging
+        // inside a long sheet still scrolls it.
+        return sheetEl.scrollTop <= 0;
+    }
+
+    function down(e: PointerEvent) {
+        if (e.button !== 0 || !canDragFrom(e.target)) return;
+        pointerId = e.pointerId;
+        startY = lastY = e.clientY;
+        startT = lastT = performance.now();
+        moved = false;
+        settling = false;
+    }
+
+    function move(e: PointerEvent) {
+        if (pointerId !== e.pointerId) return;
+        const dy = Math.max(0, e.clientY - startY);
+        if (!dragging && dy > 6) {
+            dragging = true;
+            moved = true;
+            sheetEl?.setPointerCapture(e.pointerId);
+        }
+        if (dragging) {
+            dragY = dy;
+            lastY = e.clientY;
+            lastT = performance.now();
+        }
+    }
+
+    function up(e: PointerEvent) {
+        if (pointerId !== e.pointerId) return;
+        pointerId = null;
+        if (!dragging) return;
+        dragging = false;
+        const height = sheetEl?.offsetHeight ?? 400;
+        const velocity = (e.clientY - lastY) / Math.max(1, performance.now() - lastT) || (dragY / Math.max(1, performance.now() - startT));
+        if (dragY > height / 3 || velocity > 0.5) {
+            onClose();
+        } else {
+            settling = true;
+            dragY = 0;
+        }
+    }
+
+    /** A drag that ends over a link must not follow it. */
+    function swallowClickAfterDrag(e: MouseEvent) {
+        if (moved) {
+            e.preventDefault();
+            e.stopPropagation();
+            moved = false;
+        }
+    }
+
+    $effect(() => {
+        if (!open) {
+            dragY = 0;
+            dragging = false;
+        }
+    });
+
+    /** Whether the sheet's content is taller than the sheet. When it isn't
+     *  (the usual case), the whole sheet is a drag zone and the browser is
+     *  told not to scroll or pull-to-refresh from it, which would cancel the
+     *  drag mid-way. */
+    let scrollable = $state(false);
+    $effect(() => {
+        if (open && sheetEl) scrollable = sheetEl.scrollHeight > sheetEl.clientHeight + 1;
+    });
+
+    const scrimOpacity = $derived(
+        sheetEl && dragY > 0 ? Math.max(0, 1 - dragY / (sheetEl.offsetHeight || 400)) : 1
+    );
+
     $effect(() => {
         if (!open) return;
         const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -45,9 +138,18 @@
 </script>
 
 {#if open}
-    <button class="scrim" type="button" aria-label="Close menu" onclick={onClose} transition:fade={{ duration: 160 }}></button>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="Me" transition:fly={{ y: 320, duration: 240, easing: cubicOut, opacity: 1 }}>
-        <span class="handle" aria-hidden="true"></span>
+    <button class="scrim" type="button" aria-label="Close menu" onclick={onClose}
+            style={`opacity: ${scrimOpacity}`} transition:fade={{ duration: 160 }}></button>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Me" tabindex="-1"
+         bind:this={sheetEl}
+         class:dragging class:settling class:fixed={!scrollable}
+         style={dragY ? `transform: translateY(${dragY}px)` : ''}
+         onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}
+         onclickcapture={swallowClickAfterDrag}
+         ontransitionend={() => (settling = false)}
+         transition:fly={{ y: 320, duration: 240, easing: cubicOut, opacity: 1 }}>
+        <div class="grab">
+        <button class="handle" type="button" aria-label="Close menu" onclick={onClose}><span></span></button>
 
         <div class="who">
             {#if avatarUrl}
@@ -59,6 +161,7 @@
                 <span class="who-name">{name}</span>
                 {#if clubName}<span class="who-club">{clubName}</span>{/if}
             </div>
+        </div>
         </div>
 
         {#each groups.filter((g) => g.links.length) as g (g.label)}
@@ -113,14 +216,33 @@
         box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.6);
     }
 
+    /* The handle and header: always a drag zone, and the browser doesn't
+       try to scroll from here, so the drag gets every move. */
+    .grab { touch-action: none; }
+
     .handle {
+        display: block;
+        width: 100%;
+        height: 26px;
+        margin: -10px 0 4px;
+        padding: 0;
+        background: none;
+        border: none;
+        cursor: grab;
+    }
+
+    .handle span {
         display: block;
         width: 40px;
         height: 4px;
-        margin: 0 auto 14px;
+        margin: 0 auto;
         border-radius: 2px;
-        background: #343a47;
+        background: #4a5060;
     }
+
+    .sheet.fixed { touch-action: none; }
+    .sheet.dragging { transition: none; user-select: none; }
+    .sheet.settling { transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
 
     .who { display: flex; align-items: center; gap: 12px; }
 
