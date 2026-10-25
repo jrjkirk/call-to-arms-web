@@ -28,6 +28,9 @@
         background: #13161e;
         border: 1px solid #232733;
         border-radius: 8px;
+        /* Held still through the page crossfade, like the tab bar: only the
+           thumb moves when you flip. */
+        view-transition-name: mode-switch;
     }
 
     .thumb {

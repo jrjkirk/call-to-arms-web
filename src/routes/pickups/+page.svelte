@@ -135,7 +135,6 @@
 <div class="pickups">
     <h1 class="page-title">Sign up</h1>
     <ModeSwitch mode="pickup" {system} />
-    <p class="lede">Can't make club night? Say when you're free and we'll find you a game.</p>
 
     {#if message}<p class="message">{message}</p>{/if}
     {#if error}<p class="error">{error}</p>{/if}
@@ -313,10 +312,11 @@
         font-weight: 700;
         line-height: 1;
         text-transform: uppercase;
-        margin: 0 0 0.6rem;
+        /* The same as Sign up's, so the Club night / Pick-up game switch sits
+           in exactly the same place on both pages and doesn't hop. */
+        margin: 0 0 1rem;
     }
 
-    .lede { margin: 0 0 1.1rem; color: var(--color-text-muted); }
 
     .panel {
         background: #13161e;
