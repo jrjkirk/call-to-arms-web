@@ -11,6 +11,7 @@
     import { onMount } from 'svelte';
     import FactionIcon from '../FactionIcon.svelte';
     import GameList from './GameList.svelte';
+    import { fetchPickups, needsMyAnswer, peekPickups, type PickupList } from '../pickups';
     import { systemFolder } from '../factions';
     import { getSystemsConfig, systemLogoUrl, FALLBACK_SYSTEMS_CONFIG, type SystemConfig } from '../systemsConfig';
     import { getClubSlugFromHostname } from '../clubSlug';
@@ -20,6 +21,12 @@
     } from './api';
 
     let { clubName = null }: { clubName?: string | null } = $props();
+
+    // Pick-up games: anything waiting on this player's answer leads the page.
+    let pickups = $state<PickupList | null>(peekPickups());
+    const pickupWaiting = $derived((pickups?.mine ?? []).filter(needsMyAnswer));
+    const pickupOn = $derived((pickups?.mine ?? []).filter((r) => r.match?.status === 'confirmed'));
+    const pickupLooking = $derived(pickups?.others.length ?? 0);
 
     // Seeded from the last visit, so coming back to Home paints at once.
     const seen = peekHome();
@@ -36,6 +43,7 @@
 
     onMount(async () => {
         getSystemsConfig(getClubSlugFromHostname(window.location.hostname)).then((c) => (systemsConfig = c));
+        fetchPickups().then((p) => (pickups = p));
         if (home) await show(home, true);
         const fresh = await fetchHome();
         home = fresh;
@@ -112,6 +120,18 @@
     {#if !home}
         <div class="empty-state">Couldn't load your week right now. Try refreshing.</div>
     {:else}
+    {#each pickupWaiting as r (r.id)}
+        <a class="pickup-strip waiting" href="/pickups">
+            <span><b>Pick-up game found:</b> you vs {r.match?.opponent?.name}, {r.match?.when}. Accept or decline.</span>
+            <span class="strip-go">Answer ›</span>
+        </a>
+    {/each}
+    {#each pickupOn as r (r.id)}
+        <a class="pickup-strip on" href="/pickups">
+            <span><b>Pick-up game on:</b> you vs {r.match?.opponent?.name}, {r.match?.when}, {r.match?.where}.</span>
+            <span class="strip-go">Details ›</span>
+        </a>
+    {/each}
     <div class="grid">
         <!-- ── Your next game ─────────────────────────────────────────── -->
         <section class="panel next">
@@ -230,6 +250,10 @@
                     </li>
                 {/each}
             </ul>
+            <a class="nights-foot" href="/pickups">
+                <span>Can't make these? Find a pick-up game</span>
+                <span class="foot-count">{pickupLooking ? `${pickupLooking} looking ›` : '›'}</span>
+            </a>
         </section>
 
         <!-- ── Pairings ───────────────────────────────────────────────── -->
@@ -703,5 +727,42 @@
 
         .league { padding: 16px 14px; }
         .panel-foot { padding: 12px 14px; }
+    }
+
+    .pickup-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+        padding: 14px 18px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--color-text-muted);
+    }
+
+    .pickup-strip b { color: var(--color-text-bright); }
+    .pickup-strip.waiting { background: rgba(201, 161, 74, 0.1); border: 1px solid var(--color-accent); }
+    .pickup-strip.on { background: rgba(111, 174, 114, 0.08); border: 1px solid rgba(111, 174, 114, 0.5); }
+    .strip-go { flex: none; font-weight: 700; color: var(--color-accent); }
+    .pickup-strip.on .strip-go { color: var(--color-win); }
+
+    .nights-foot {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 20px;
+        border-top: 1px solid #232733;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        text-decoration: none;
+    }
+
+    .foot-count { color: var(--color-accent); white-space: nowrap; }
+
+    @media (max-width: 560px) {
+        .nights-foot { padding: 12px 14px; }
+        .pickup-strip { padding: 12px 14px; }
     }
 </style>

@@ -29,7 +29,6 @@
     // action so "try again" re-runs it after they join.
     let signupGate = $state<DiscordGateBlock | null>(null);
     let preGate = $state<DiscordGateBlock | null>(null);
-    let coGate = $state<DiscordGateBlock | null>(null);
     let gateRetry = $state<null | (() => void | Promise<void>)>(null);
     let gateRetrying = $state(false);
 
@@ -72,7 +71,6 @@
         system = data.system;
         week = data.week;
         loadStats(data.system, data.week);
-        loadCallOuts(data.system);
     });
 
     const cfg = $derived(formConfig(data.system, systemsConfig));
@@ -657,159 +655,6 @@
         }
         preSubmitting = false;
     }
-
-    /* ---------- call outs (ad-hoc, can't-make-club-night games) ---------- */
-    type CallOut = {
-        id: number; creator_name: string;
-        game_at: string; game_date: string; game_time: string; when_label: string;
-        vibe: string | null; faction: string | null; points: number | null;
-        notes: string | null; status: string; is_mine: boolean;
-    };
-    // Whether this club sells table space, so the call-out form can point at
-    // the booking page. Same source as the club page's Book a table button.
-    let venueEnabled = $state(false);
-    onMount(async () => {
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/venue/info`, { credentials: 'include' });
-            if (r.ok) venueEnabled = (await r.json()).enabled === true;
-        } catch (_) {
-            venueEnabled = false;
-        }
-    });
-
-    let callOuts = $state<CallOut[]>([]);
-
-    // Which call-out the URL fragment is pointing at, so one followed from
-    // Discord is visibly the one you came for. The browser can't scroll to it
-    // on its own: the list arrives after the page does, and by then the
-    // fragment has already been resolved against a page that didn't have it.
-    let targetedCallOut = $state<number | null>(null);
-
-    async function focusTargetedCallOut() {
-        const m = /^#call-out-(\d+)$/.exec(window.location.hash);
-        if (!m) return;
-        const id = Number(m[1]);
-        if (!callOuts.some((c) => c.id === id)) return;
-        targetedCallOut = id;
-
-        // Wait for the element rather than guessing when it appears. The card
-        // is several conditionals deep, so neither a frame callback nor tick()
-        // was enough on its own — both ran while getElementById still returned
-        // null, and the optional chain swallowed it into a silent no-op.
-        // Bounded, so a call-out that never renders costs half a second and
-        // then stops.
-        for (let i = 0; i < 40; i++) {
-            const el = document.getElementById(`call-out-${id}`);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return;
-            }
-            await new Promise(requestAnimationFrame);
-        }
-    }
-
-    async function loadCallOuts(sys: string) {
-        try {
-            const params = new URLSearchParams({ system: sys });
-            const r = await fetch(`${PUBLIC_API_URL}/call-outs?${params}`, { credentials: 'include' });
-            callOuts = r.ok ? ((await r.json()).call_outs ?? []) : [];
-        } catch (_) {
-            callOuts = [];
-        }
-        focusTargetedCallOut();
-    }
-
-    let coDate = $state('');
-    let coTime = $state('18:30');
-    let coVibe = $state('Casual');
-    let coFaction = $state(NONE_FACTION);
-    let coPoints = $state(2000);
-    let coNotes = $state('');
-    let coSubmitting = $state(false);
-    let coSuccess = $state<string | null>(null);
-    let coError = $state<string | null>(null);
-
-    // Reset the per-system fields when the system changes (mirrors the
-    // pre-arranged form's reset). Location/date/notes are left alone so a
-    // config reload can't wipe what the user is mid-way through typing.
-    $effect(() => {
-        coVibe = defaultVibeFor(systemsConfig, data.system);
-        coFaction = NONE_FACTION;
-        coPoints = cfg.defaultPoints;
-        coSuccess = null;
-        coError = null;
-    });
-
-    async function submitCallOut() {
-        if (coSubmitting) return;
-        coError = null;
-        coSuccess = null;
-        if (!coDate) { coError = 'Please pick a date.'; return; }
-        if (!coTime) { coError = 'Please pick a time.'; return; }
-        if (coFaction === NONE_FACTION) { coError = `Please pick ${prePlayerFactionLabel.toLowerCase()}.`; return; }
-
-        coSubmitting = true;
-        coGate = null;
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/call-outs`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    system: data.system,
-                    game_date: coDate,
-                    game_time: coTime,
-                    vibe: coVibe,
-                    faction: coFaction === NONE_FACTION ? null : coFaction,
-                    points: preShowPoints ? coPoints : null,
-                    notes: coNotes.trim() || null
-                })
-            });
-            const body = await r.json().catch(() => ({}));
-            if (!r.ok) {
-                const g = discordGateFrom(body);
-                if (g) { coGate = g; gateRetry = submitCallOut; }
-                else coError = detailText(body, 'Could not post the call-out.');
-            } else {
-                coSuccess = 'Call-out posted. It stays here and in Discord until someone takes it up or the time passes.';
-                coDate = '';
-                coNotes = '';
-                await loadCallOuts(data.system);
-            }
-        } catch (_) {
-            coError = 'Network error. Please try again.';
-        }
-        coSubmitting = false;
-    }
-
-    async function takeCallOut(id: number) {
-        coError = null;
-        coGate = null;
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/call-outs/${id}/take`, { method: 'POST', credentials: 'include' });
-            const body = await r.json().catch(() => ({}));
-            if (!r.ok) {
-                const g = discordGateFrom(body);
-                if (g) { coGate = g; gateRetry = () => takeCallOut(id); }
-                else coError = detailText(body, 'Could not take up this call-out.');
-            }
-            else await loadCallOuts(data.system);
-        } catch (_) {
-            coError = 'Network error. Please try again.';
-        }
-    }
-
-    async function cancelCallOut(id: number) {
-        coError = null;
-        try {
-            const r = await fetch(`${PUBLIC_API_URL}/call-outs/${id}/cancel`, { method: 'POST', credentials: 'include' });
-            const body = await r.json().catch(() => ({}));
-            if (!r.ok) coError = detailText(body, 'Could not cancel this call-out.');
-            else await loadCallOuts(data.system);
-        } catch (_) {
-            coError = 'Network error. Please try again.';
-        }
-    }
 </script>
 
 
@@ -817,6 +662,12 @@
 <div class="page-reveal">
 
 <h1 class="page-title">Sign up</h1>
+
+<!-- Sam's "Find me a game" switch: club night, or a pick-up game outside it. -->
+<div class="mode" role="tablist" aria-label="What kind of game">
+    <span class="mode-on" role="tab" aria-selected="true">Club night</span>
+    <a role="tab" aria-selected="false" href={`/pickups?${new URLSearchParams({ system: data.system })}`}>Pick-up game</a>
+</div>
 
 {#if nights && nights.length}
     <NightPicker {nights} {systemsConfig} active={system} onSelect={selectSystem} />
@@ -1178,117 +1029,16 @@
         {/if}
     </details>
 
-    <div class="section-title">Call Outs</div>
-
-    {#if callOuts.length > 0}
-        <div class="callout-list">
-            {#each callOuts as co (co.id)}
-                <!-- id is the anchor the Discord link points at, so someone
-                     following "Take it up in the app" lands on the call-out
-                     itself rather than the top of the page. -->
-                <div class="card callout-item" id={`call-out-${co.id}`}
-                     class:callout-targeted={targetedCallOut === co.id}>
-                    <div class="callout-head">
-                        <strong>{co.creator_name}</strong> is looking for a game
-                        <span class="callout-when">🗓️ {co.when_label}</span>
-                    </div>
-                    <div class="callout-meta">
-                        {#if co.faction}⚔️ {co.faction}{/if}{#if co.vibe} • 🎭 {co.vibe}{/if}{#if co.points != null} • 🛡️ {co.points} pts{/if}
-                    </div>
-                    {#if co.notes}
-                        <div class="callout-notes">📝 {co.notes}</div>
-                    {/if}
-                    <div class="actions callout-actions">
-                        {#if co.is_mine}
-                            <span class="muted callout-own">This is your call-out</span>
-                            <button class="drop-button" onclick={() => cancelCallOut(co.id)} type="button">Cancel</button>
-                        {:else if isClaimed}
-                            <button class="primary-button" onclick={() => takeCallOut(co.id)} type="button">I'll take this game</button>
-                        {/if}
-                    </div>
-                </div>
-            {/each}
-        </div>
-    {:else}
-        <p class="muted">No open call-outs for this system right now. Post one below if you're after an ad-hoc game.</p>
-    {/if}
-
-    <details class="card prearranged-card callout-card">
-        <summary>Post a call-out</summary>
-        <p class="prompt-body small">
-            Want a game but not on a session day? Use this form to sign up and publicise
-            your availability.
-        </p>
-
-        {#if venueEnabled}
-            <!-- A nudge, not a link between the two: posting a call-out doesn't
-                 book anything, and a table you haven't asked for isn't waiting
-                 for you. Deliberately kept as a reminder rather than an
-                 automatic booking. The game might not get taken up, and
-                 holding a table on the chance it does costs the venue money. -->
-            <p class="prompt-body small callout-book">
-                Playing at the club? A call-out doesn’t reserve anything.
-                <a href="/book" target="_blank" rel="noopener">Book a table</a>
-                once someone takes you up on it.
-            </p>
-        {/if}
-
-        <div class="form-grid">
-            <div class="field">
-                <label class="field-label" for="co-date">Date</label>
-                <input id="co-date" class="field-input" type="date" bind:value={coDate} />
-            </div>
-            <div class="field">
-                <label class="field-label" for="co-time">Time</label>
-                <input id="co-time" class="field-input" type="time" bind:value={coTime} />
-            </div>
-
-            <div class="field">
-                <label class="field-label" for="co-fac">Your {prePlayerFactionLabel}</label>
-                <select id="co-fac" class="field-select" bind:value={coFaction}>
-                    <option value={NONE_FACTION}>None</option>
-                    <FactionOptions {systemsConfig} system={data.system} />
-                </select>
-            </div>
-
-            <div class="field">
-                <label class="field-label" for="co-vibe">Type of Game</label>
-                <select id="co-vibe" class="field-select" bind:value={coVibe}>
-                    {#each preVibeOptions as v}
-                        <option value={v}>{v}</option>
-                    {/each}
-                </select>
-            </div>
-
-            {#if preShowPoints}
-                <div class="field">
-                    <label class="field-label" for="co-pts">Army Points</label>
-                    <input id="co-pts" class="field-input" type="number" min="0" max={cfg.maxPoints} step="50" bind:value={coPoints} />
-                </div>
-            {/if}
-
-            <div class="field field-full">
-                <label class="field-label" for="co-notes">Notes (optional)</label>
-                <textarea id="co-notes" class="field-input callout-notes-input" maxlength="500" rows="2" placeholder="Recommended: SBC. Plus anything else: parking, what you're after…" bind:value={coNotes}></textarea>
-            </div>
-        </div>
-
-        {#if coGate}
-            <DiscordGateNotice gate={coGate} onRetry={retryGate} retrying={gateRetrying} />
-        {/if}
-        {#if coError}
-            <div class="error fade-in">{coError}</div>
-        {/if}
-        {#if coSuccess}
-            <div class="success fade-in">{coSuccess}</div>
-        {/if}
-
-        <div class="actions">
-            <button class="primary-button" onclick={submitCallOut} disabled={coSubmitting} type="button">
-                {coSubmitting ? 'Posting…' : 'Post call-out'}
-            </button>
-        </div>
-    </details>
+    <!-- Call outs became Pick-up games (/pickups), October 2026: a window
+         you're free in and a matched game, instead of one exact time that
+         someone had to spot down here. -->
+    <a class="pickup-cta" href={`/pickups?${new URLSearchParams({ system: data.system })}`}>
+        <span>
+            <b>Can't make club night?</b>
+            Say when you're free and we'll find you a pick-up game.
+        </span>
+        <span class="pickup-cta-go">Pick-ups ›</span>
+    </a>
 {/if}
 
 </div>
@@ -1297,13 +1047,6 @@
 {/if}
 
 <style>
-    .callout-book {
-        border-left: 2px solid var(--color-accent-border);
-        padding-left: 0.6rem;
-        color: var(--color-text-faint);
-    }
-    .callout-book a { color: var(--color-accent); }
-
     .page-title {
         font-size: 2.4rem;
         font-weight: 700;
@@ -1556,70 +1299,56 @@
 
     .field-full { grid-column: 1 / -1; }
 
-    .callout-notes-input {
-        resize: vertical;
-        min-height: 2.4rem;
-        font-family: inherit;
+
+
+
+
+
+
+
+    .signin-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+    .mode {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        padding: 4px;
+        margin: 0 0 1rem;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
     }
 
-    .callout-card { margin-top: 0.75rem; }
-
-    .callout-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
-
-    /* Marks the call-out a Discord link pointed at. Fades rather than latches,
-       so it says "this one" on arrival without staying shouty afterwards. */
-    .callout-targeted {
-        border-color: var(--color-accent);
-        animation: callout-target-fade 2.6s ease-out forwards;
-    }
-
-    @keyframes callout-target-fade {
-        0%   { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent); }
-        100% { box-shadow: 0 0 0 2px transparent; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .callout-targeted { animation: none; }
-    }
-
-    .callout-item { padding: 1rem 1.25rem; }
-
-    .callout-head {
-        color: var(--color-text-bright);
-        margin-bottom: 0.35rem;
-    }
-
-    .callout-when {
-        display: inline-block;
-        margin-left: 0.5rem;
-        color: var(--color-accent);
-        font-weight: 600;
-        white-space: nowrap;
-    }
-
-    .callout-meta {
-        color: var(--color-text-base);
-        font-size: 0.9rem;
-    }
-
-    .callout-notes {
-        margin-top: 0.4rem;
-        color: var(--color-text-dim);
-        font-size: 0.88rem;
-    }
-
-    .callout-actions {
-        margin-top: 0.85rem;
+    .mode > * {
+        min-height: 40px;
         display: flex;
         align-items: center;
-        gap: 0.85rem;
+        justify-content: center;
+        border-radius: 4px;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-decoration: none;
+        color: var(--color-text-dim);
     }
 
-    .callout-own { font-size: 0.85rem; }
-    .signin-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    .mode .mode-on { background: rgba(201, 161, 74, 0.16); color: var(--color-text-bright); }
+
+    .pickup-cta {
+        margin-top: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        background: #13161e;
+        border: 1px solid var(--color-accent-border);
+        border-radius: 6px;
+        color: var(--color-text-muted);
+        text-decoration: none;
+    }
+
+    .pickup-cta b { display: block; color: var(--color-text-bright); }
+    .pickup-cta-go { flex: none; font-weight: 700; color: var(--color-accent); }
 </style>

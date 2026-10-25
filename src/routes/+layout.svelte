@@ -194,6 +194,7 @@
         { href: '/', label: 'Home' },
         { href: '/signup', label: 'Sign up' },
         { href: '/pairings', label: 'Pairings' },
+        { href: '/pickups', label: 'Pick-ups' },
         // Tournaments are still being built out, so they're platform-admin
         // only for now rather than in front of every club's players.
         ...(hasPlatformAdminAccess ? [{ href: '/tournaments', label: 'Events' }] : []),
@@ -224,7 +225,7 @@
             label: 'Club',
             links: navItems
                 .filter((i) => i.href !== '/' && !tabItems.some((t) => t.href === i.href))
-                .map((i) => ({ href: i.href, label: i.href === '/club' ? 'Club page' : i.label }))
+                .map((i) => ({ href: i.href, label: i.href === '/club' ? 'Club page' : i.href === '/pickups' ? 'Pick-up games' : i.label }))
         },
         {
             label: 'You',

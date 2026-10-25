@@ -46,6 +46,7 @@ const ROUTE_TITLES: Record<string, string> = {
 	'/find': 'Find a club · Call to Arms',
 	'/signup': 'Signup · Call to Arms',
 	'/pairings': 'Pairings · Call to Arms',
+	'/pickups': 'Pick-up games · Call to Arms',
 	'/league': 'League · Call to Arms',
 	'/leagues': 'Leagues · Call to Arms',
 	'/players': 'Players · Call to Arms',
