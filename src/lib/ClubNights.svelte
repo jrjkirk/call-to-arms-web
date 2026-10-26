@@ -1,6 +1,7 @@
 <!--
-  The club's game nights as a grid of cards, one per system: the day in the
-  system's colour, its logo, how often it runs, and the system's own Discord.
+  The club's game nights, one wide card per system: its photo, the day in
+  the system's colour, its logo, how often it runs, its blurb in full (capped
+  at 250 characters when it's written) and the system's own Discord.
   Replaces the one-at-a-time carousel, which hid five of six nights behind
   arrows. The blurb and photo a system admin sets for the carousel still show
   here, when they've set them.
@@ -40,7 +41,7 @@
 <div class="nights">
     {#each ordered as s (s.slug)}
         {@const logo = systemLogoUrl(s.legacy_system_name, systemsConfig)}
-        <article class="night" style={`--accent: ${s.accent_color}`}>
+        <article class="night" class:no-photo={!s.photo_url} style={`--accent: ${s.accent_color}`}>
             {#if s.photo_url}
                 <img class="photo" src={s.photo_url} alt="" loading="lazy" />
             {/if}
@@ -62,35 +63,35 @@
 </div>
 
 <style>
+    /* One wide card per night (2026-10-26): the small grid squares cut the
+       blurb off and shrank the photo to a thumbnail. Photo left and text
+       right where there's room, photo on top on a phone. */
     .nights {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 10px;
-    }
-
-    @media (max-width: 560px) {
-        .nights { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .night {
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
         background: #13161e;
         border: 1px solid #232733;
         border-radius: 6px;
         overflow: hidden;
     }
+    .night.no-photo { grid-template-columns: minmax(0, 1fr); }
 
-    .photo { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+    .photo { display: block; width: 100%; height: 100%; min-height: 11rem; object-fit: cover; }
 
     /* The system's colour is a standalone bar beside the text (design rule 1). */
-    .body { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 12px 28px; flex: 1; }
+    .body { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 16px 34px; }
     .body::before {
         content: '';
         position: absolute;
-        left: 12px;
-        top: 12px;
-        bottom: 12px;
+        left: 16px;
+        top: 16px;
+        bottom: 16px;
         width: 4px;
         border-radius: 2px;
         background: var(--accent);
@@ -98,38 +99,44 @@
 
     .day {
         font-family: var(--font-heading);
-        font-size: 0.95rem;
+        font-size: 1.1rem;
         font-weight: 700;
-        letter-spacing: 0.04em;
-        overflow-wrap: anywhere;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--accent);
     }
 
-    .logo { height: 28px; width: 100%; object-fit: contain; object-position: left center; }
+    .logo { height: 34px; width: 100%; max-width: 15rem; object-fit: contain; object-position: left center; }
 
-    .name { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-bright); }
-
-    .cadence { font-size: 0.82rem; color: var(--color-text-dim); }
-
-    .blurb {
-        margin: 0;
-        font-size: 0.85rem;
-        color: var(--color-text-muted);
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+    .name {
+        font-family: var(--font-heading);
+        font-size: 1.2rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-bright);
     }
+
+    .cadence { font-size: 0.9rem; font-weight: 600; color: var(--color-text-dim); }
+
+    .blurb { margin: 2px 0 0; font-size: 0.95rem; line-height: 1.5; color: var(--color-text-muted); }
 
     .discord {
         margin-top: auto;
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #8b96ff;
+        padding-top: 4px;
+        font-family: var(--font-heading);
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-accent);
         text-decoration: none;
     }
 
-    .discord:hover { text-decoration: underline; }
+    .discord:hover { color: var(--color-accent-bright); }
+
+    @media (max-width: 640px) {
+        .night { grid-template-columns: minmax(0, 1fr); }
+        .photo { height: auto; min-height: 0; aspect-ratio: 16 / 9; }
+    }
 </style>

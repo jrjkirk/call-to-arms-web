@@ -681,12 +681,9 @@
         <b style={night ? `color: ${night.accent_color}` : ''}>{statsFor === `${data.system}|${data.week}` || !night || night.week !== data.week ? stats.signed_up : night.signed_up}{#if stats.cap_enabled && stats.cap_max_players}<small>/{stats.cap_max_players}</small>{/if}</b>
         <span>Signed up</span>
     </span>
-    {#if stats.newcomers}
-        <span class="ns"><b class="ns-new">{stats.newcomers}</b><span>{stats.newcomers === 1 ? 'Newcomer' : 'Newcomers'}</span></span>
-    {/if}
-    {#if stats.veterans}
-        <span class="ns"><b class="ns-vet">{stats.veterans}</b><span>{stats.veterans === 1 ? 'Veteran' : 'Veterans'}</span></span>
-    {/if}
+    <!-- Always all three, so on a phone they sit in the night tiles' columns. -->
+    <span class="ns"><b class="ns-new">{stats.newcomers}</b><span>{stats.newcomers === 1 ? 'Newcomer' : 'Newcomers'}</span></span>
+    <span class="ns"><b class="ns-vet">{stats.veterans}</b><span>{stats.veterans === 1 ? 'Veteran' : 'Veterans'}</span></span>
 </div>
 
 <div class="section-title">Your signup</div>
@@ -1115,7 +1112,10 @@
         .page-title { font-size: 2.1rem; }
         .signup-cta { width: 100%; }
         .cta-note { text-align: center; }
-        .night-stats { column-gap: 1.1rem; }
+        /* The same three columns as the night tiles above (NightPicker),
+           each number centred under a tile. */
+        .night-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+        .ns { align-items: center; text-align: center; }
         .ns > span { letter-spacing: 0.05em; }
     }
 

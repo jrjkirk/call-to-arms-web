@@ -357,7 +357,7 @@
     }
 </script>
 
-<h2 class="page-heading">Account</h2>
+<h1 class="page-title">Account</h1>
 
 {#if loadError}
     <p class="account-muted">{loadError}</p>
@@ -621,15 +621,17 @@
         </div>
         {#if confirmingSignOut}
             <div class="account-confirm">
-                <span>Sign out on every device?</span>
-                <button class="danger-button" type="button" disabled={signingOut} onclick={signOutEverywhere}>
+                <span class="confirm-word">Every device?</span>
+                <button class="danger-button with-icon" type="button" disabled={signingOut} onclick={signOutEverywhere}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" /></svg>
                     {signingOut ? 'Signing out…' : 'Sign out everywhere'}
                 </button>
                 <button class="secondary-button" type="button" disabled={signingOut}
                         onclick={() => (confirmingSignOut = false)}>Cancel</button>
             </div>
         {:else}
-            <button class="danger-button" type="button" onclick={() => (confirmingSignOut = true)}>
+            <button class="danger-button with-icon" type="button" onclick={() => (confirmingSignOut = true)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" /></svg>
                 Sign out everywhere
             </button>
         {/if}
@@ -641,7 +643,14 @@
 {/if}
 
 <style>
-    .page-heading { font-size: 1.5rem; margin: 0 0 1rem; }
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
+        margin: 0 0 1rem;
+    }
+    @media (max-width: 560px) { .page-title { font-size: 2.1rem; } }
     .account-notice { margin: 0 0 0.9rem; }
 
     .account { max-width: 640px; }
@@ -669,7 +678,8 @@
         min-width: 0;
     }
     .account-name {
-        font-size: 1.15rem;
+        font-family: var(--font-heading);
+        font-size: 1.6rem;
         font-weight: 700;
         color: var(--color-text-bright);
         overflow-wrap: anywhere;
@@ -680,16 +690,29 @@
         gap: 0.5rem;
         flex-wrap: wrap;
     }
+    /* Small actions (Edit, Remove, Use for posts): capitals in the heading
+       face, gold, no underline, like every other quiet action in the app. */
     .account-edit {
         background: none;
         border: none;
-        padding: 0;
+        padding: 0.3rem 0;
         color: var(--color-accent);
-        font: inherit;
-        font-size: 0.84rem;
+        font-family: var(--font-heading);
+        font-size: 0.92rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         cursor: pointer;
     }
-    .account-edit:hover { text-decoration: underline; }
+    .account-edit:hover { color: var(--color-accent-bright); }
+    .with-icon { gap: 0.5rem; }
+    .confirm-word {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-bright) !important;
+    }
     .account-name-form .field-label,
     .account-email-form .field-label { margin-bottom: 0.3rem; }
     .account-email-form { margin-top: 0.8rem; }
@@ -759,7 +782,15 @@
         align-items: center;
         gap: 0.4rem;
     }
-    .account-another a { color: var(--color-accent); }
+    .account-another a {
+        color: var(--color-accent);
+        font-family: var(--font-heading);
+        font-size: 0.92rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-decoration: none;
+    }
     .account-password {
         margin: 0.5rem 0 0;
         display: flex;

@@ -26,7 +26,6 @@
     let pickups = $state<PickupList | null>(peekPickups());
     const pickupWaiting = $derived((pickups?.mine ?? []).filter(needsMyAnswer));
     const pickupOn = $derived((pickups?.mine ?? []).filter((r) => r.match?.status === 'confirmed'));
-    const pickupLooking = $derived(pickups?.others.length ?? 0);
 
     // Seeded from the last visit, so coming back to Home paints at once.
     const seen = peekHome();
@@ -210,15 +209,46 @@
                     <a class="btn btn-line" href={signupHref(gameNight, '#drop')}>Can't make it</a>
                 </footer>
             {:else}
+                <!-- No button: This week, beside or below, signs up for any night. -->
                 <div class="next-body next-plain">
                     <p class="next-big">No game yet this week</p>
                     <p class="next-note">Pick a night and you'll be paired before it starts.</p>
                 </div>
-                {#if home.nights.length}
-                    <footer class="panel-actions">
-                        <a class="btn btn-gold" href={signupHref(home.nights[0])}>Sign up for {weekday(home.nights[0].date)}</a>
-                    </footer>
+            {/if}
+        </section>
+
+        <!-- ── Open pick-ups: other players looking for a game ────────── -->
+        <section class="panel pickups">
+            <header class="panel-head">
+                <h2>Open pick-ups</h2>
+                <a class="head-link" href="/pickups">Ask for a game</a>
+            </header>
+            {#if pickups?.others.length}
+                <ul class="pick-list">
+                    {#each pickups.others.slice(0, 4) as r (r.id)}
+                        {@const night = home.nights.find((x) => x.system === r.system)}
+                        {@const logo = systemLogoUrl(r.system, systemsConfig)}
+                        <li>
+                            <a class="pick-row" href="/pickups">
+                                <span class="night-bar" style={`background: ${night?.accent_color ?? 'var(--color-accent)'}`}></span>
+                                <span class="pick-who">
+                                    <b>{r.player_name}</b>
+                                    <span>{r.when}</span>
+                                </span>
+                                <span class="pick-sys">
+                                    {#if logo}<img src={logo} alt={r.system} />{:else}<b>{r.system}</b>{/if}
+                                    <span>{r.where}</span>
+                                </span>
+                                <span class="pick-go" aria-hidden="true">›</span>
+                            </a>
+                        </li>
+                    {/each}
+                </ul>
+                {#if pickups.others.length > 4}
+                    <a class="pick-more" href="/pickups">{pickups.others.length - 4} more</a>
                 {/if}
+            {:else}
+                <p class="pick-empty">None open</p>
             {/if}
         </section>
 
@@ -250,10 +280,6 @@
                     </li>
                 {/each}
             </ul>
-            <a class="nights-foot" href="/pickups">
-                <span>Can't make these? Find a pick-up game</span>
-                <span class="foot-count">{pickupLooking ? `${pickupLooking} looking ›` : '›'}</span>
-            </a>
         </section>
 
         <!-- ── Pairings ───────────────────────────────────────────────── -->
@@ -342,8 +368,44 @@
         min-width: 0;
     }
 
-    .next, .games { grid-column: span 8; }
+    .next, .games, .pickups { grid-column: span 8; }
     .nights, .season { grid-column: span 4; }
+    /* This week sits beside both Your next game and Open pick-ups. */
+    .next, .pickups { grid-column: 1 / span 8; }
+    .nights { grid-column: 9 / span 4; grid-row: 1 / span 2; align-self: start; }
+
+    /* ── Open pick-ups ── */
+    .pick-list { list-style: none; margin: 0; padding: 0; }
+    .pick-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 22px;
+        border-top: 1px solid #1c2029;
+        color: inherit;
+        text-decoration: none;
+    }
+    .pick-list li:first-child .pick-row { border-top: none; }
+    .pick-row:hover { background: rgba(201, 161, 74, 0.05); }
+    .pick-row .night-bar { align-self: stretch; }
+    .pick-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .pick-who b { color: var(--color-text-bright); font-size: 1.05rem; }
+    .pick-who span { font-size: 0.9rem; font-weight: 600; color: var(--color-accent); }
+    .pick-sys { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; text-align: right; }
+    .pick-sys img { height: 22px; width: auto; max-width: 120px; object-fit: contain; }
+    .pick-sys span { font-size: 0.85rem; color: var(--color-text-dim); }
+    .pick-go { color: var(--color-text-faint); font-size: 1.3rem; }
+    .pick-empty, .pick-more {
+        margin: 0;
+        padding: 16px 22px;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--color-text-faint);
+        text-decoration: none;
+    }
+    .pick-more { display: block; padding-top: 10px; border-top: 1px solid #1c2029; color: var(--color-accent); }
     .wide { grid-column: span 12; }
 
     .skeleton {
@@ -690,7 +752,7 @@
 
     /* ── Tablet: one column ── */
     @media (max-width: 900px) {
-        .next, .games, .nights, .season { grid-column: span 12; }
+        .next, .games, .nights, .season, .pickups { grid-column: 1 / -1; grid-row: auto; }
     }
 
     /* ── Phone ── */
@@ -699,6 +761,8 @@
         .club-name { display: none; }
         .grid { gap: 14px; }
         .panel-head { padding: 12px 14px; }
+        .pick-row { padding: 12px 14px; }
+        .pick-empty, .pick-more { padding-left: 14px; padding-right: 14px; }
         .panel-head h2 { font-size: 0.92rem; letter-spacing: 0.18em; }
         .panel-logo { height: 20px; }
 
@@ -747,22 +811,9 @@
     .strip-go { flex: none; font-weight: 700; color: var(--color-accent); }
     .pickup-strip.on .strip-go { color: var(--color-win); }
 
-    .nights-foot {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 12px 20px;
-        border-top: 1px solid #232733;
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: var(--color-text-muted);
-        text-decoration: none;
-    }
 
-    .foot-count { color: var(--color-accent); white-space: nowrap; }
 
     @media (max-width: 560px) {
-        .nights-foot { padding: 12px 14px; }
         .pickup-strip { padding: 12px 14px; }
     }
 </style>

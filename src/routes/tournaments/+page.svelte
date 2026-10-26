@@ -77,8 +77,13 @@
     }
 
     const canCreate = $derived(nName.trim() !== '' && nSystem !== '' && nDate !== '');
-    const upcoming = $derived(list.filter((t) => t.status !== 'finished'));
-    const past = $derived(list.filter((t) => t.status === 'finished'));
+    /* Past is by date as well as status: an event whose day has gone by is
+       past even if nobody marked it finished (Clash of Generals sat under
+       Coming up for that reason). Today in the UK, as YYYY-MM-DD. */
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    const isPast = (t: T) => t.status === 'finished' || (t.end_date ?? t.date) < today;
+    const upcoming = $derived(list.filter((t) => !isPast(t)));
+    const past = $derived(list.filter(isPast).sort((a, b) => b.date.localeCompare(a.date)));
 
     const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
     const monthShort = (iso: string) =>
@@ -154,7 +159,7 @@
 {#if loading}
     <div class="skeleton"></div>
 {:else if upcoming.length === 0}
-    <p class="empty">Nothing coming up yet.{#if isAdmin} Use New event to add one.{/if}</p>
+    <p class="empty">No events coming up</p>
 {:else}
     <div class="diary">
         {#each upcoming as t (t.id)}
@@ -198,7 +203,7 @@
 {/if}
 
 {#if past.length}
-    <h2 class="section-title past-title">Finished</h2>
+    <h2 class="section-title past-title">Past events</h2>
     <div class="diary past-diary">
         {#each past as t (t.id)}
             <a class="ev past" href={`/tournaments/${t.id}`}>
@@ -263,7 +268,19 @@
     .new-btn:hover { background: rgba(201, 161, 74, 0.08); }
 
     .skeleton { height: 260px; border-radius: 6px; border: 1px solid #232733; background: #13161e; }
-    .empty { color: var(--color-text-dim); }
+    /* A placeholder in the panel's place, so Coming up never looks missing. */
+    .empty {
+        margin: 0 0 0.5rem;
+        padding: 1.2rem 1.25rem;
+        background: #13161e;
+        border: 1px dashed #343a47;
+        border-radius: 6px;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--color-text-faint);
+    }
 
     .diary {
         display: grid;

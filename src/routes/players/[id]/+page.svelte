@@ -37,7 +37,9 @@
 
     const player = $derived(apiData?.player ?? { name: '' });
     const club = $derived(apiData?.club ?? null);
-    const titles = $derived(apiData?.titles ?? []);
+    const titles = $derived<string[]>(apiData?.titles ?? []);
+    /** The colour an admin gave each title; uncoloured ones are gold. */
+    const titleColors = $derived<Record<string, string>>(apiData?.title_colors ?? {});
     const achievements = $derived(apiData?.achievements ?? []);
     const signupCounts = $derived(apiData?.signup_counts ?? {});
 
@@ -114,6 +116,14 @@
     }
 
     /** The faction they've played most, across every system, for the header. */
+    const RESULT_WORD: Record<string, string> = { W: 'Win', L: 'Loss', D: 'Draw' };
+    const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    /** "DD/MM/YYYY" → "28 Oct". */
+    function shortDate(week: string): string {
+        const [d, m] = (week ?? '').split('/').map(Number);
+        return d && m ? `${d} ${MONTHS_SHORT[m - 1]}` : week;
+    }
+
     const usual = $derived.by(() => {
         let best: { system: string; faction: string; n: number } | null = null;
         for (const [system, facs] of Object.entries(factionUsage as Record<string, Record<string, number>>)) {
@@ -142,20 +152,23 @@
 <h1 class="page-title">{player.name}</h1>
 
 <section class="panel header">
-    {#if usual}
-        <FactionIcon faction={usual.faction} folder={systemFolder(usual.system, systemsConfig)} class="header-icon" />
-    {:else if discord?.avatar_url}
+    {#if discord?.avatar_url}
         <img class="header-avatar" src={discord.avatar_url} alt="" />
     {/if}
     <div class="header-text">
-        {#each titles as t}
-            <div class="header-title">{t}</div>
-        {/each}
+        <!-- Each title its own tag: a bar and the title in the colour an
+             admin gave it (gold if none). -->
+        {#if titles.length}
+            <div class="titles">
+                {#each titles as t}
+                    <span class="title-tag" style={`--tc: ${titleColors[t] ?? 'var(--color-accent)'}`}>{t}</span>
+                {/each}
+            </div>
+        {/if}
         {#if usual}<div class="header-usual">{usual.faction}, usually</div>{/if}
         <div class="header-sub">
-            {#if club}{club.name}{/if}{#if discord} · {discord.discord_name} on Discord{/if}
+            {#if club}<span>{club.name}</span>{/if}{#if discord}<span>{discord.discord_name} on Discord</span>{/if}
         </div>
-        <a class="header-back" href="/players">All players ›</a>
     </div>
 </section>
 
@@ -241,20 +254,21 @@
                 {#each games as g}
                     {@const r = g.result === 'Win' ? 'W' : g.result === 'Loss' ? 'L' : g.result === 'Draw' ? 'D' : ''}
                     <li class={`game game-${r || 'none'}`}>
-                        <span class="game-result">{r || '·'}</span>
                         <span class="game-icon">
                             {#if g.opponent_faction}<FactionIcon faction={g.opponent_faction} folder={systemFolder(sysName, systemsConfig)} class="fi" />{/if}
                         </span>
                         <span class="game-who">
                             {#if g.opponent_name}
-                                <b>v {g.opponent_name}</b>
-                                <span>{g.opponent_faction ?? 'Unknown faction'}{#if g.your_faction} · with {g.your_faction}{/if}</span>
+                                <b>{g.opponent_name}</b>
+                                <span>{g.opponent_faction ?? 'Faction not given'}</span>
                             {:else}
                                 <b>Sat out</b>
-                                <span>{g.your_faction ?? ''}</span>
                             {/if}
                         </span>
-                        <span class="game-date">{g.week}</span>
+                        <span class="game-end">
+                            {#if r}<span class="game-result">{RESULT_WORD[r]}</span>{/if}
+                            <span class="game-date">{shortDate(g.week)}</span>
+                        </span>
                     </li>
                 {/each}
             </ul>
@@ -318,27 +332,29 @@
 
     .header-text { flex: 1; min-width: 0; }
 
-    .header-title {
+    .titles { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 6px; }
+    .title-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
         font-family: var(--font-heading);
         font-weight: 700;
-        font-size: 1rem;
-        letter-spacing: 0.12em;
+        font-size: 1.05rem;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: var(--color-accent);
+        color: var(--tc);
+    }
+    .title-tag::before {
+        content: '';
+        width: 4px;
+        height: 1.1em;
+        border-radius: 2px;
+        background: var(--tc);
     }
 
     .header-usual { color: var(--color-text-muted); }
-    .header-sub { margin-top: 2px; font-size: 0.85rem; color: var(--color-text-faint); }
+    .header-sub { display: flex; flex-wrap: wrap; gap: 0 14px; margin-top: 2px; font-size: 0.85rem; color: var(--color-text-faint); }
 
-    .header-back {
-        display: inline-block;
-        margin-top: 6px;
-        font-size: 0.88rem;
-        font-weight: 600;
-        color: var(--color-accent);
-        text-decoration: none;
-        white-space: nowrap;
-    }
 
     /* ── One system ── */
     .system-head {
@@ -421,37 +437,41 @@
 
     .games { list-style: none; margin: 0; padding: 0; }
 
+    /* A game: the result's colour as a bar, their faction's icon, who and
+       what they played, and the result word over the date. */
     .game {
         display: grid;
-        grid-template-columns: 4px 28px 30px minmax(0, 1fr) auto;
+        grid-template-columns: 4px 36px minmax(0, 1fr) auto;
         align-items: center;
-        gap: 10px;
-        padding: 10px 18px;
+        gap: 12px;
+        padding: 12px 18px;
         border-top: 1px solid #1c2029;
     }
-
-    /* The result's colour: a standalone bar beside the row (design rule 1). */
     .game::before {
         content: '';
         align-self: stretch;
-        min-height: 28px;
+        min-height: 36px;
         border-radius: 2px;
-        background: var(--result, transparent);
+        background: var(--result, #232733);
     }
     .game-W { --result: var(--color-win); }
     .game-L { --result: #d4786c; }
     .game-D { --result: var(--color-text-muted); }
 
-    .game-result { font-family: var(--font-heading); font-weight: 700; font-size: 1.3rem; text-align: center; color: var(--color-text-faint); }
-    .game-W .game-result { color: var(--color-win); }
-    .game-L .game-result { color: #d4786c; }
-    .game-D .game-result { color: var(--color-text-muted); }
-
-    .game-icon :global(.fi) { width: 30px; height: 30px; display: block; }
-    .game-who { display: flex; flex-direction: column; min-width: 0; }
-    .game-who b { color: var(--color-text-bright); font-weight: 600; }
-    .game-who span { font-size: 0.82rem; color: var(--color-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .game-date { font-size: 0.8rem; color: var(--color-text-faint); font-variant-numeric: tabular-nums; }
+    .game-icon :global(.fi) { width: 36px; height: 36px; display: block; object-fit: contain; }
+    .game-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .game-who b { color: var(--color-text-bright); font-size: 1.02rem; font-weight: 700; }
+    .game-who span { font-size: 0.85rem; color: var(--color-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .game-end { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .game-result {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--result);
+    }
+    .game-date { font-size: 0.82rem; color: var(--color-text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     /* ── Achievements ── */
     .achievements { padding: 16px 18px; }
@@ -481,7 +501,7 @@
         .header { padding: 14px; gap: 12px; }
         .header :global(.header-icon) { width: 54px; height: 54px; }
         .system-head, .block { padding-left: 14px; padding-right: 14px; }
-        .game { padding: 10px 14px; grid-template-columns: 4px 22px 28px minmax(0, 1fr) auto; gap: 8px; }
+        .game { padding: 11px 14px; gap: 10px; }
         .achievement-grid { grid-template-columns: 1fr 1fr; }
     }
 </style>

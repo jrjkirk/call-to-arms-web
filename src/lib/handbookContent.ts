@@ -5,127 +5,150 @@
  * edited without going near 7,000 lines of admin markup, and so the club and
  * system versions can't drift into different voices.
  *
- * Screenshots are real, taken from a club set up for the purpose. They live in
- * static/help/ and are referenced by name.
+ * Rewritten 2026-10-26 for the app as it now is: the Overview, Pairings as
+ * signup rows and game cards, Game System Config as rows, a club's location
+ * found by address, pick-up games in place of call-outs, notifications, and
+ * coloured titles. Screenshots are real, taken from a club set up for the
+ * purpose, and live in static/help/.
  */
 import type { Section } from './Handbook.svelte';
 
 /** For a brand-new club super-admin who has just been handed a club. */
 export const CLUB_HANDBOOK: Section[] = [
     {
+        id: 'overview',
+        title: 'Start at the Overview',
+        lede: 'Your home in admin. It shows this week at a glance and what is left to set up.',
+        blocks: [
+            { where: 'Admin › Overview' },
+            { fig: 'fig-overview', caption: 'This week on the left, set-up on the right, trends below.' },
+            { list: [
+                '<strong>This week</strong>: one row per game night, with how many are signed up and whether pairings are live. OPEN takes you to that night’s pairings.',
+                '<strong>Set-up</strong>: the steps still to do, each with a button to the right tab. It disappears once you are done.',
+                '<strong>Trends</strong>: signups, games, league ratings and factions for one system. The logos above switch between systems.'
+            ] }
+        ]
+    },
+    {
         id: 'systems',
         title: 'Turn on the games you play',
-        lede: 'Nothing else works until this is done. A club with no systems enabled has no signup form and no pairings, and every other step here has nowhere to attach itself.',
+        lede: 'Nothing else works until this is done. A system that is off has no signup form and no pairings.',
         blocks: [
             { where: 'Club admin › Systems' },
-            { p: 'Tick the games your club actually plays and save. Each one becomes its own world inside the app, with its own signups, its own pairings and its own admins.' },
-            { fig: 'fig-systems', caption: 'Ticking a box here is what makes a game appear on your club page and your signup form.' },
-            { warn: '<b>Enable only what you run.</b> Every enabled system appears on your club page as something people can sign up for, whether or not anyone is organising it. A system nobody runs looks like a dead club night to a visitor deciding whether to come.' },
-            { proof: 'The system picker at the top of this page lists your games, and the Signup page offers them.' }
+            { fig: 'fig-systems', caption: 'Each system you turn on becomes its own night, with its own signups, pairings and admins.' },
+            { warn: '<b>Turn on only what you run.</b> Every system that is on shows on your club page as a night people can come to. One nobody organises looks like a dead night to a visitor.' },
+            { proof: 'The system logos at the top of the admin sidebar list your games, and Sign up offers them.' }
         ]
     },
     {
         id: 'schedule',
-        title: 'Set when each game meets',
-        lede: 'Do this for each system before you tell anyone the club exists. The schedule decides which week a signup lands in.',
+        title: 'Set each club night',
+        lede: 'Do this for each system before anyone signs up. The schedule decides which week a signup lands in.',
         blocks: [
             { where: 'pick a system › Game System Config' },
-            { fig: 'fig-schedule', caption: 'The anchor date only appears when you choose a fortnightly cadence.' },
-            { p: 'Pick the day and whether it runs weekly or fortnightly. Fortnightly asks for an <strong>anchor date</strong>, which is any date a session actually ran. The app counts fortnights from there, so it is what separates a session week from an off week. Once it is right you never touch it again.' },
-            { p: 'Start time is optional and only affects how the session reads on your club page calendar.' },
-            { warn: '<b>Moving the day later moves more than the day.</b> It changes which week signups land in and what your calendar shows, and it moves the call to arms, because that posts a set number of days before the session.' },
-            { proof: 'Your club page calendar shows the session on the right dates.' }
+            { fig: 'fig-schedule', caption: 'One setting per row. The four default groups open out when you switch them to your own.' },
+            { p: '<strong>Day</strong> and <strong>how often</strong> come first. Fortnightly asks for an <strong>anchor date</strong>: any date a session really ran. Fortnights count from there, and you never need to change it again.' },
+            { p: '<strong>Start time</strong> is optional. It sets the arrival times players pick from and shows on your club calendar.' },
+            { p: 'Lower down is the <strong>club page card</strong>: a photo, a blurb of up to 250 characters, and the night’s colour. That colour is used for the night everywhere in the app.' },
+            { warn: '<b>Moving the day moves more than the day.</b> It changes which week signups land in, what your calendar shows, and when the call to arms posts.' },
+            { proof: 'Your club page lists the night on the right day, with its photo and blurb.' }
         ]
     },
     {
         id: 'page',
-        title: 'Make your club page worth landing on',
-        lede: 'This is what a stranger sees when they find you. It is the only page that has to sell anything.',
+        title: 'Put your club on the map',
+        lede: 'This is what a stranger sees when they find you, and where your pin goes on the Clubs page.',
         blocks: [
             { where: 'Club admin › Club page' },
-            { fig: 'fig-clubpage', caption: 'The blurb, logo and Discord invite are the three things the onboarding checklist asks for.' },
-            { list: [
-                '<strong>A blurb.</strong> Two or three sentences on where you meet and what a first visit is like.',
-                '<strong>A logo.</strong> It appears on your club page and on every pairings image posted to Discord.',
-                '<strong>A Discord invite.</strong> The front door. Somebody who finds you at 11pm cannot sign up for a session yet, but they can join the server.'
-            ] },
-            { note: 'Card order is not settable. The carousel is shuffled for every visitor so no one system is permanently first.' },
-            { proof: 'Open your club page while logged out. If it tells a stranger what you play, when you meet and how to reach you, it is done.' }
+            { fig: 'fig-clubpage', caption: 'Type the address and press FIND. Then drag the pin to your door.' },
+            { p: 'Type your address with its postcode and press <strong>FIND</strong>. The pin drops on the postcode and the region fills itself in. Drag the pin, or tap the map, to put it exactly on your door, then save.' },
+            { p: 'Add your <strong>logo</strong> here too. It shows on your club page and on every pairings image posted to Discord. Opening hours are on the same tab.' },
+            { note: 'Your blurb, website and Discord invite live in Venue Admin › Settings › Venue.' },
+            { proof: 'Open the Clubs page from the Me menu. Your club has a pin, and tapping it shows your card.' }
         ]
     },
     {
         id: 'discord',
         title: 'Connect Discord',
-        lede: 'Almost everything the app does ends in a Discord post. Skip this and the app still works, but it goes very quiet.',
+        lede: 'Most of what the app does ends in a Discord post. Without this the app still works, but it is very quiet.',
         blocks: [
             { where: 'pick a system › Discord' },
-            { p: 'Two different things get confused here. The <strong>invite link</strong> from the last step is how people join your server. A <strong>webhook</strong> is how the app posts into a channel. You need both, and they are set in different places.' },
-            { p: 'Two routes to the same place. Either <strong>Server Settings, then Integrations, then Create Webhook</strong>, or hover the channel you want, click its cogwheel, and go to <strong>Integrations</strong>. Name it something you will recognise later, pick the channel, then <strong>Copy Webhook URL</strong> and paste it in here. Discord\u2019s own walkthrough is <a href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" target="_blank" rel="noopener noreferrer">Intro to Webhooks</a>.' },
-            { p: 'You need the <strong>Manage Webhooks</strong> permission on that server, or on that channel. Without it the Integrations panel will not open at all, which is the usual reason this step stalls.' },
-            { note: 'No Manage Webhooks? Ask whoever runs the Discord server to do one of two things: grant you Manage Webhooks, or create the webhook themselves and send you the URL. If they send it, ask for it in a direct message rather than a channel, because anyone who can read it can post as your club.' },
-            { fig: 'fig-discord', caption: 'One webhook per kind of message. The per-system ones let each game post to its own channel.' },
-            { table: { head: ['Webhook', 'Posts', 'Where it is set'], rows: [
-                ['<strong>Signup</strong>', 'Each person as they sign up, and drop-outs', "That system's Discord tab"],
-                ['<strong>Pairings</strong>', "The week's matchups, as an image", "That system's Discord tab"],
-                ['<strong>Call to arms</strong>', 'The message that opens signups', "That system's Discord tab"],
-                ['<strong>Level-up</strong>', 'When a player reaches a new level', "That system's Discord tab"],
-                ['<strong>League result, rankings, achievement</strong>', 'Results, standings and unlocks', "That system's Discord tab, once its league is on"],
-                ['<strong>Venue booking</strong>', 'Table bookings for your venue', 'Club-wide, under Table booking']
+            { fig: 'fig-discord', caption: 'One webhook per kind of post, set per system, so each night can post to its own channel.' },
+            { p: 'A <strong>webhook</strong> is a link that lets the app post into one Discord channel. Make it in Discord: hover the channel, click its cog, go to <strong>Integrations</strong>, then <strong>Create Webhook</strong>. Pick the channel, press <strong>Copy Webhook URL</strong>, and paste it here.' },
+            { p: 'You need the <strong>Manage Webhooks</strong> permission on that server. Without it, Integrations will not open. Ask whoever runs the server to grant it, or to make the webhook and send you the link in a direct message.' },
+            { table: { head: ['Webhook', 'Posts'], rows: [
+                ['<strong>Signup notifications</strong>', 'Each signup and drop-out'],
+                ['<strong>Pairings post</strong>', 'The week’s games, as an image'],
+                ['<strong>Call to Arms post</strong>', 'The weekly “signups are open” message'],
+                ['<strong>Pick-up games</strong>', 'A player asking for a game, a game confirmed, a game called off'],
+                ['<strong>Level-up</strong>', 'A player reaching level 10, 20, 30 and so on'],
+                ['<strong>League result, rankings, achievements</strong>', 'Once that system’s league is on']
             ] } },
-            { p: 'Nearly everything is set per system rather than here, because a club can run each game night out of a different server entirely. If you have appointed a system admin, these are theirs to set and you can leave them to it.' },
-            { warn: '<b>A webhook URL is a password.</b> Anyone holding it can post into that channel as your club, forever, with no login. If one leaks, delete it in Discord and make a new one. That is the only way to revoke it.' },
-            { proof: 'Sign yourself up for this week and watch the post land in the right channel.' }
+            { p: 'Switches beside Signups and Games on the Pairings tab turn signup and pairings posts off without removing the webhook. They are handy while you are testing.' },
+            { warn: '<b>A webhook link is a password.</b> Anyone holding it can post into that channel as your club, with no login. If one leaks, delete it in Discord and make a new one.' },
+            { proof: 'Sign yourself up and watch the post land in the right channel.' }
         ]
     },
     {
         id: 'admins',
         title: 'Hand out admin jobs',
-        lede: 'Optional, and the step most worth doing early. Running every system yourself is how a club stalls the first week you are away.',
+        lede: 'Optional, and worth doing early. Running every night yourself is how a club stalls the week you are away.',
         blocks: [
             { where: 'Club admin › Admins' },
-            { fig: 'fig-admins', caption: 'Admin is granted per game system, so somebody can run one night without getting the keys to the club.' },
-            { p: 'Whoever organises your Kill Team night can be given Kill Team and nothing else. They generate and publish its pairings, edit its schedule and write its call to arms. They cannot touch your other games or your club settings.' },
-            { note: 'The person has to have logged in at least once before you can appoint them. An account is only made the first time someone signs in, so there is nobody to grant it to until they have been through the door.' },
-            { proof: 'They log in and see an Admin tab with their system in the picker, and only theirs.' }
+            { fig: 'fig-admins', caption: 'Admin is given per system, so someone can run one night without the keys to the club.' },
+            { p: 'Whoever runs your Kill Team night can be given Kill Team and nothing else. They make its pairings, set its schedule and write its call to arms. They cannot touch your other nights or your club settings.' },
+            { note: 'They must have signed in at least once before you can appoint them. An account only exists after its first sign-in.' },
+            { proof: 'They see an Admin tab with their system’s logo, and only theirs.' }
         ]
     },
     {
         id: 'week',
         title: 'Run your first week',
-        lede: 'Everything above was setup you do once. This is the loop you will run every week.',
+        lede: 'Everything above you do once. This is the loop you run every week.',
         blocks: [
             { where: 'pick a system › Pairings' },
-            { p: 'Tell people to sign up, then generate the pairings once signups have settled. The evening before works well. The matcher does the work and gives you a grid you can still edit by hand. Odd numbers produce one bye, which is correct behaviour.' },
-            { fig: 'fig-grid', caption: 'The summary line above the grid is worth reading before you publish: it counts rematches, mirror matches and vibe mismatches, and shows the widest gap in arrival times.' },
-            { warn: '<b>Generate and publish are different actions.</b> Generating produces a draft only you can see. Publishing is what players get. If you regenerate after publishing, publish again, because players are looking at the old set until you do.' },
-            { p: 'When somebody drops out they can do it themselves from the signup page. Their opponent is given a bye and Discord is told. Two players can also swap opponents between themselves. You do not need to regenerate the week for either.' },
-            { proof: 'The grid shows a green <strong>Published</strong> badge, and a club member who is not an admin can open the Pairings page and see the week.' }
+            { fig: 'fig-grid', caption: 'Signups on the left, games on the right. Tap a signup, or ⋯ on a game, to edit it in place.' },
+            { p: 'Once signups settle, press <strong>GENERATE</strong>. You get a draft only admins can see. Read the line above the games: it counts rematches, mirror matches and mismatched kinds of game. Fix anything by tapping ⋯ on a game, then <strong>SAVE PAIRING CHANGES</strong>.' },
+            { p: '<strong>PUBLISH</strong> is the moment players see the week, and the moment they are notified. <strong>POST TO DISCORD</strong> sends the pairings image.' },
+            { warn: '<b>Generating again after publishing does not republish.</b> Players keep the old set until you press Publish again.' },
+            { p: 'After publishing, the week looks after itself. A player who drops out has their opponent re-seated, with someone sitting out if possible. A late signup is seated the same way. Two players can swap opponents themselves. None of this needs you to generate again.' },
+            { proof: 'The panel header reads PUBLISHED, and the week shows on the Pairings tab for players.' }
+        ]
+    },
+    {
+        id: 'players',
+        title: 'Players, titles and blocks',
+        lede: 'Who plays, what they have won, and who should never be paired together.',
+        blocks: [
+            { where: 'pick a system › Players' },
+            { p: 'The roster for that system, with games, level and rating. <strong>Edit</strong> on a player opens their titles. Give each title a name and pick its colour. Titles show on the player’s profile, club-wide.' },
+            { where: 'Club admin › Players & blocks' },
+            { p: 'A <strong>block</strong> stops the matcher ever pairing two players. Blocks are always obeyed, whatever the weighting says. Archive a player who has left: their history stays, and they leave the lists.' }
         ]
     },
     {
         id: 'roles',
         title: 'Who can do what',
-        lede: 'Four levels, deliberately narrow. Somebody running one game night does not need the keys to the club.',
+        lede: 'Four levels, kept narrow on purpose.',
         blocks: [
             { table: { head: ['Role', 'Can', 'Cannot'], rows: [
-                ['<strong>Club super-admin</strong><br>you', 'Everything for this club, including systems, club page, Discord, admins, venue and table booking', 'Touch another club'],
-                ['<strong>Game-system admin</strong>', 'Everything for their system: pairings, schedule, vibes, call to arms, its Discord and its league', 'Club settings, other systems, appointing admins'],
-                ['<strong>Venue staff</strong>', 'The venue diary, bookings, floor plan and club-night tables', 'Anything about games, pairings or players'],
-                ['<strong>Player</strong>', 'Sign up, drop out, swap opponents, post call-outs, report results, book a table', 'See any admin screen']
-            ] } },
-            { note: 'Venue staff is a separate grant from game admin on purpose. A bar manager needs tonight’s table plan and nothing else.' }
+                ['<strong>Club super-admin</strong><br>you', 'Everything for this club: systems, club page, Discord, admins, venue and table booking', 'Touch another club'],
+                ['<strong>System admin</strong>', 'Everything for their system: pairings, schedule, kinds of game, call to arms, its Discord and its league', 'Club settings, other systems, appointing admins'],
+                ['<strong>Venue staff</strong>', 'The venue diary, bookings, floor plan and club-night tables', 'Anything about games or players'],
+                ['<strong>Player</strong>', 'Sign up, drop out, re-arrange, ask for pick-up games, report results, book a table', 'See any admin screen']
+            ] } }
         ]
     },
     {
         id: 'more',
         title: 'The rest of it',
-        lede: 'None of this is needed to run a club night. Add them when the club asks.',
+        lede: 'None of this is needed to run a club night. Add it when the club asks.',
         blocks: [
-            { p: '<strong>Leagues</strong> give a system a ladder, with players reporting their own results and standings posting to Discord. It runs per system, so you can have a competitive Old World league and keep Kill Team purely social.' },
-            { p: '<strong>Missions</strong> are a pool of scenarios. When it is on, the call to arms picks one at random each week and attaches its map.' },
-            { p: '<strong>Call-outs</strong> are for games outside club night. A player posts that they want a game at a particular time and somebody takes them up on it. There is nothing for you to administer.' },
-            { p: '<strong>Venue Admin</strong> is for clubs that own or run their venue. It gives you a floor plan of the room and public table bookings, and once pairings are published it seats every game on a real named table.' },
-            { note: 'If you play at somebody else’s venue instead, Table booking emails them a table count each week. Use one or the other.' }
+            { p: '<strong>Leagues</strong> give a system a ladder. Players report their own results and the standings post to Discord. It is per system, so one night can be competitive and another purely social.' },
+            { p: '<strong>Pick-up games</strong> are for games outside club night. A player says when they are free and the app pairs them with someone who is free then too. Both accept, and it is on. There is nothing for you to run.' },
+            { p: '<strong>Events</strong> are one-off days such as a tournament. Admins add them from the Events page with <strong>+ NEW EVENT</strong>.' },
+            { p: '<strong>Notifications</strong>: players who turn them on get a buzz when pairings go up, their opponent drops, their game changes, or a pick-up game is found. Publishing is what sends the first one, so publish when you mean it.' },
+            { p: '<strong>Venue Admin</strong> is for clubs that run their own venue: a floor plan, public table bookings, and every published game seated on a named table. If you play at someone else’s venue, <strong>Table booking</strong> emails them your table count each week instead.' }
         ]
     }
 ];
@@ -135,159 +158,159 @@ export const SYSTEM_HANDBOOK: Section[] = [
     {
         id: 'yours',
         title: 'What you have been given',
-        lede: 'You run one game system. Everything on the left under THIS SYSTEM is yours.',
+        lede: 'You run one game system. Everything in the sidebar under THIS SYSTEM is yours.',
         blocks: [
-            { p: 'You decide when your game meets, what game types it offers, where it posts on Discord, how its pairings are made, what its call to arms says, and whether it runs a league.' },
-            { p: 'Club-wide settings are not yours and do not appear in your sidebar at all, so there is nothing here you can break for anybody else. Players and blocks is the one club-level tab you share, because a block between two players matters to every system they play.' },
-            { p: 'If more than one system is yours, the picker at the top of the page switches between them. Every setting on this page applies to the system showing there.' },
-            { note: 'If a setting you need is missing, it is a club-level one. Ask your club super-admin.' }
-        ]
-    },
-    {
-        id: 'discord',
-        title: 'Point your game at a Discord channel',
-        lede: 'Do this second. Your system posts its own signups, pairings and call to arms, and until you set these it posts nowhere.',
-        blocks: [
-            { where: 'Discord' },
-            { fig: 'fig-sysdiscord', caption: 'Three webhooks, one per kind of message. They are yours to set, and they are what makes your game night visible in the server.' },
-            { p: 'A <strong>webhook</strong> is a URL that lets the app post into one Discord channel. You create it in Discord, not here.' },
-            { p: 'Two routes to the same place. Either <strong>Server Settings, then Integrations, then Create Webhook</strong>, or hover the channel you want, click its cogwheel, and go to <strong>Integrations</strong>. Name it something you will recognise later, pick the channel, then <strong>Copy Webhook URL</strong> and paste it in here. Discord\u2019s own walkthrough is <a href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" target="_blank" rel="noopener noreferrer">Intro to Webhooks</a>.' },
-            { p: 'You need the <strong>Manage Webhooks</strong> permission on that server, or on that channel. Without it the Integrations panel will not open at all, which is the usual reason this step stalls.' },
-            { note: 'No Manage Webhooks? Ask whoever runs the Discord server to do one of two things: grant you Manage Webhooks, or create the webhook themselves and send you the URL. If they send it, ask for it in a direct message rather than a channel, because anyone who can read it can post as your club.' },
-            { table: { head: ['Webhook', 'What lands in the channel', 'When'], rows: [
-                ['<strong>Signup</strong>', 'Each player as they sign up, and anyone who drops out', 'All week'],
-                ['<strong>Pairings</strong>', "The week's matchups as an image", 'When you press Post to Discord'],
-                ['<strong>Call to arms</strong>', 'The message that opens signups', 'On the schedule you set later'],
-                ['<strong>Level-up</strong>', 'When somebody reaches level 10, 20, 30, 40, 50 or 60 in your system', 'As it happens'],
-                ['<strong>League result</strong>', 'Each result as it is submitted', 'Only if your league is on'],
-                ['<strong>League rankings</strong>', 'The standings image', 'Only if your league is on'],
-                ['<strong>Achievement</strong>', 'When a player unlocks one', 'Only if your league is on']
-            ] } },
-            { p: 'The first four are always there. The last three appear once you turn your league on, because until then there are no results to post.' },
-            { p: 'Point them at whichever channels suit your club. Many put signups and the call to arms in a busy general channel and pairings somewhere quieter, so the matchups are easy to find again on the night.' },
-            { warn: '<b>A webhook URL is a password.</b> Anyone holding it can post into that channel as your club, forever, with no login. Never paste one into a public channel or a screenshot. If one leaks, delete it in Discord and create a new one, because that is the only way to revoke it.' },
-            { note: 'All of these are per system, so a club running two game nights out of two different Discord servers can point each one wherever it belongs. The only club-level webhook is venue bookings, which your super-admin sets.' },
-            { proof: 'Sign yourself up for this week and watch the post appear in the channel you chose.' }
+            { p: 'You decide when your night meets, the kinds of game it offers, where it posts on Discord, how its pairings are made, what its call to arms says, and whether it runs a league.' },
+            { p: 'Club settings are not in your sidebar at all, so there is nothing here you can break for anyone else. If more than one system is yours, the logos at the top of the sidebar switch between them.' },
+            { note: 'If a setting you need is missing, it is a club one. Ask your club super-admin.' }
         ]
     },
     {
         id: 'schedule',
-        title: 'Set your schedule and game types',
-        lede: 'Start here. The schedule decides which week a signup lands in, so it has to be right before anyone signs up.',
+        title: 'Set your night and its kinds of game',
+        lede: 'Start here. The schedule decides which week a signup lands in.',
         blocks: [
             { where: 'Game System Config' },
-            { fig: 'fig-schedule', caption: 'Day, cadence and vibes for your system. The anchor date appears only for a fortnightly cadence.' },
-            { p: 'Pick your day and whether you run weekly or fortnightly. Fortnightly needs an <strong>anchor date</strong>, which is any date a session actually ran. Fortnights are counted from there, so it decides which of the two weeks is yours.' },
-            { p: 'Vibes are the game types players pick between, and the matcher tries to pair like with like.' },
-            { table: { head: ['Vibe', 'What a player is telling you'], rows: [
-                ['<strong>Casual</strong>', 'Here for a game and a chat, not counting points.'],
-                ['<strong>Competitive</strong>', 'Wants a sharp game against someone playing to win.'],
-                ['<strong>Standard</strong>', "The single middle option, for systems that don't split casual from competitive."],
-                ['<strong>Intro</strong>', 'New to the game and wants teaching.'],
-                ['<strong>Open</strong>', 'Happy with any of the above. The matcher treats them as a free agent.']
+            { fig: 'fig-schedule', caption: 'One setting per row. Switch a default group off to set your own.' },
+            { p: 'Pick your <strong>day</strong> and <strong>how often</strong>. Fortnightly needs an <strong>anchor date</strong>: any date a session really ran. The <strong>start time</strong> sets the arrival times players choose from.' },
+            { p: '<strong>Vibes</strong> are the kinds of game players choose between. Each has a way it pairs:' },
+            { table: { head: ['How it pairs', 'Means'], rows: [
+                ['<strong>Preference</strong>', 'Matched like with like where possible. Casual and Competitive work this way.'],
+                ['<strong>Matches anything</strong>', 'Happy with any game. Open works this way.'],
+                ['<strong>Own bracket</strong>', 'Only ever paired with itself, for a different game such as a smaller points Battle March.']
             ] } },
-            { note: 'Leaving the platform default ticked means you follow the catalogue, so if the default list changes yours changes with it. Untick it to set your own and it stays as you leave it.' },
-            { proof: 'The Signup page shows your game types, and its next session matches the night you meet.' }
+            { p: '<strong>Intro games</strong> need two things on your signup form: the Intro vibe, for players who want teaching, and the <strong>can lead an intro game</strong> option, for players who will teach. The matcher puts a teacher with a learner whenever one is free.' },
+            { p: '<strong>Standby</strong> lets a player offer to sit out when the numbers are odd. If anyone offers, they take the bye instead of someone who came to play.' },
+            { note: 'Leaving a group on Platform defaults means you follow the app’s list, and it changes if that list does. Switch it off to set your own, and it stays as you leave it.' },
+            { proof: 'Sign up shows your kinds of game, and the night’s tile shows the right day.' }
         ]
     },
     {
-        id: 'missions',
-        title: 'Build a mission pool',
-        lede: 'Optional, and the cheapest thing you can do to make people actually read your call to arms. A post that says signups are open gets skimmed. A post with this week\u2019s map and objectives gets opened.',
+        id: 'discord',
+        title: 'Point your night at Discord',
+        lede: 'Your system posts its own signups, pairings and call to arms. Until you set these, it posts nowhere.',
         blocks: [
-            { where: 'Call to Arms' },
-            { fig: 'fig-missions', caption: 'The pool, the upload form and the two toggles above it. Both toggles are off by default, so nothing changes until you turn them on.' },
-            { p: 'Tick <strong>Enable custom missions for this system</strong> to switch the pool on. Tick <strong>This system uses secondary objectives</strong> as well if your game has them, which is what adds the secondary objectives field to the upload form.' },
-            { p: 'Then add your missions one at a time. Each one takes a name, an image, and secondary objectives if you turned those on.' },
-            { table: { head: ['Field', 'What to put in it'], rows: [
-                ['<strong>Name</strong>', 'The scenario as your players say it. <em>King of the Hill</em>, not <em>mission 2b</em>.'],
-                ['<strong>Secondary objectives</strong>', 'A plain comma-separated list, exactly as it should read in the post. For example <em>Baggage Train, Strategic Locations (2), Special Features</em>.'],
-                ['<strong>Mission image</strong>', 'The map or deployment diagram. Landscape, roughly 16:9 or 4:3, around 1200px wide. PNG, JPG or WEBP, up to 5 MB.']
+            { where: 'Discord' },
+            { fig: 'fig-discord', caption: 'One webhook per kind of post. They are yours to set.' },
+            { p: 'A <strong>webhook</strong> is a link that lets the app post into one Discord channel. Make it in Discord: hover the channel, click its cog, go to <strong>Integrations</strong>, then <strong>Create Webhook</strong>. Copy its URL and paste it here.' },
+            { p: 'You need <strong>Manage Webhooks</strong> on that server. Without it, Integrations will not open. Ask whoever runs the server to grant it, or to send you the link in a direct message.' },
+            { table: { head: ['Webhook', 'Posts', 'When'], rows: [
+                ['<strong>Signup notifications</strong>', 'Each signup and drop-out', 'All week'],
+                ['<strong>Pairings post</strong>', 'The week’s games, as an image', 'When you press Post to Discord, or auto-pairings run'],
+                ['<strong>Call to Arms post</strong>', '“Signups are open”', 'On the schedule you set'],
+                ['<strong>Pick-up games</strong>', 'A request, a confirmed game, a game called off', 'As it happens'],
+                ['<strong>Level-up</strong>', 'A player reaching level 10, 20, 30 and so on', 'As it happens'],
+                ['<strong>League</strong>', 'Results, rankings and achievements', 'Once your league is on']
             ] } },
-            { warn: '<b>Photograph the map, not your screen.</b> A crop from the rulebook PDF or a clean diagram reads well in Discord. A phone photo of a laptop, or a screenshot with browser chrome around it, is the most common thing to get wrong here and it is what every player sees that week.' },
-            { p: 'Once the pool has something in it, each call to arms picks one active mission at random. Untick <strong>Active</strong> on a mission to keep it in the pool without it ever being posted, which is how you retire one without losing it.' },
-            { proof: 'Your pool lists the missions with thumbnails, and the toggle at the top of the card reads On.' }
-        ]
-    },
-    {
-        id: 'tokens',
-        title: 'Wire the mission into your post',
-        lede: 'The mission pool and the call to arms are joined by tokens. Get these right once and every week\u2019s post writes itself.',
-        blocks: [
-            { where: 'Call to Arms' },
-            { p: 'A <strong>token</strong> is a word in braces that gets swapped for real text at the moment the post goes out. You type the token; players see the value.' },
-            { table: { head: ['Token', 'Becomes', 'Needs'], rows: [
-                ['<code>{session_date}</code>', 'The date of the next session, like 02/09/2026', 'Nothing, always available'],
-                ['<code>{signup_url}</code>', 'A link straight to your signup page', 'Nothing, always available'],
-                ['<code>{scenario_name}</code>', "The randomly picked mission's name", 'A mission pool with at least one active mission'],
-                ['<code>{secondary_objectives}</code>', "That same mission's secondary objectives", 'The secondary objectives toggle, and text in that field']
-            ] } },
-            { fig: 'fig-cta', caption: 'The tokens available to you are listed under the message box. Only the ones your system can fill are shown.' },
-            { p: 'The mission image is attached automatically. There is no token for it, because it becomes the image on the Discord post rather than part of the text.' },
-            { warn: '<b>A token only fills if the thing behind it exists.</b> Put <code>{secondary_objectives}</code> in your message with the secondary objectives toggle off, or with that field left blank on the mission that gets picked, and the line comes out empty in the channel. If you are not using secondary objectives, take the token out of the message.' },
-            { p: 'Use <strong>Manual post</strong> to check your wording. It sends the real message immediately and changes nothing about the schedule, so the automatic post still goes out as normal. Post it to a quiet channel first if you would rather not test in front of everyone.' },
-            { proof: 'A manual post lands in Discord with a real date, a real mission name and its map attached, and no stray braces anywhere in the text.' }
+            { warn: '<b>A webhook link is a password.</b> Never paste one in a public channel or a screenshot. If one leaks, delete it in Discord and make a new one.' },
+            { proof: 'Sign yourself up and watch the post appear in your channel.' }
         ]
     },
     {
         id: 'week',
         title: 'Run a week',
-        lede: 'The job you will do most. Signups come in, you make the pairings, you publish them.',
+        lede: 'The job you do most: signups come in, you make the pairings, you publish them.',
         blocks: [
             { where: 'Pairings' },
-            { fig: 'fig-signups', caption: 'Signups as they arrive. You can edit anybody’s faction, points, arrival time or vibe if they told you something they did not put on the form.' },
-            { p: 'Generate once signups have settled. The evening before works well. You get a draft grid only you can see, which you can edit by hand before anyone else sees it.' },
-            { fig: 'fig-grid', caption: 'Read the summary line before publishing. Rematches, mirrors and vibe mismatches are the three things worth a second look.' },
-            { p: 'Publish when you are happy. That is the moment the pairings page goes live for players. Then use Post to Discord to push the image into your channel.' },
-            { warn: '<b>Regenerating after publishing does not republish.</b> Players keep seeing the old set until you press Publish again.' },
-            { p: 'A player who drops out does it themselves, and their opponent is given a bye automatically. Two players can swap opponents between themselves. Neither needs you to regenerate.' },
-            { proof: 'The grid shows a green <strong>Published</strong> badge, and your players can see the week on the Pairings page.' }
+            { fig: 'fig-grid', caption: 'Signups on the left, games on the right. Tap to edit either in place.' },
+            { p: 'Each <strong>signup</strong> is a row with its vibe colour, the player, their faction, arrival time and points. Tap it to change anything they told you but didn’t put on the form, or to drop them. <strong>+ ADD</strong> signs someone up for them.' },
+            { p: 'Press <strong>GENERATE</strong> once signups settle; the evening before works well. Read the line above the games for rematches, mirror matches and mismatched kinds of game. Tap ⋯ on a game to change who plays, factions, kinds of game, time or points, then <strong>SAVE PAIRING CHANGES</strong>.' },
+            { p: '<strong>PUBLISH</strong> shows the week to players and notifies them. <strong>POST TO DISCORD</strong> sends the image.' },
+            { warn: '<b>Generating again after publishing does not republish.</b> Players keep the old set until you press Publish again.' },
+            { p: 'Once published, drop-outs and late signups re-seat themselves, and two players can swap opponents. <strong>Re-arrange a game</strong>, below the games, pairs two players by hand.' },
+            { p: '<strong>Signup cap</strong>, at the foot of the tab, limits a night to a number of tables. Once it is full, new signups are turned away.' },
+            { proof: 'The header reads PUBLISHED, and your players can see the week.' }
+        ]
+    },
+    {
+        id: 'missions',
+        title: 'Build a mission pool',
+        lede: 'Optional, and the easiest way to get your call to arms read. A post with this week’s map gets opened.',
+        blocks: [
+            { where: 'Call to Arms' },
+            { fig: 'fig-missions', caption: 'The pool and its upload form. Both switches start off.' },
+            { p: 'Switch on <strong>custom missions</strong>, and <strong>secondary objectives</strong> too if your game has them. Then add missions one at a time: a name, an image, and the secondary objectives if you use them.' },
+            { table: { head: ['Field', 'What to put in it'], rows: [
+                ['<strong>Name</strong>', 'As your players say it: <em>King of the Hill</em>, not <em>mission 2b</em>.'],
+                ['<strong>Secondary objectives</strong>', 'A comma-separated list, exactly as it should read in the post.'],
+                ['<strong>Image</strong>', 'The map or deployment, landscape, about 1200px wide. PNG, JPG or WEBP, up to 5 MB.']
+            ] } },
+            { warn: '<b>Use a clean crop of the map,</b> not a phone photo of a screen. Every player sees it that week.' },
+            { p: 'Each call to arms picks one active mission at random. Untick <strong>Active</strong> to keep a mission without it being posted.' }
+        ]
+    },
+    {
+        id: 'tokens',
+        title: 'Write the call to arms',
+        lede: 'Write it once with tokens, and every week’s post fills itself in.',
+        blocks: [
+            { where: 'Call to Arms' },
+            { fig: 'fig-cta', caption: 'The tokens your system can fill are listed under the message box.' },
+            { p: 'Set how many days before the night it posts, and at what time. A <strong>token</strong> is a word in braces that is swapped for the real value as the post goes out.' },
+            { table: { head: ['Token', 'Becomes'], rows: [
+                ['<code>{session_date}</code>', 'The date of the next night'],
+                ['<code>{signup_url}</code>', 'A link straight to Sign up'],
+                ['<code>{scenario_name}</code>', 'The picked mission’s name'],
+                ['<code>{secondary_objectives}</code>', 'That mission’s secondary objectives']
+            ] } },
+            { p: 'The mission image is attached on its own. It needs no token.' },
+            { warn: '<b>A token only fills if there is something behind it.</b> <code>{secondary_objectives}</code> with that switch off comes out as an empty line. Take out tokens you don’t use.' },
+            { p: '<strong>Manual post</strong> sends the real message now, for checking your wording. It doesn’t change the schedule.' },
+            { proof: 'A manual post lands with a real date, a mission name and its map, and no stray braces.' }
         ]
     },
     {
         id: 'auto',
-        title: 'Stop doing it by hand',
+        title: 'Let the week run itself',
         lede: 'Once you trust the matcher, hand the weekly job over.',
         blocks: [
-            { where: 'Call to Arms' },
-            { fig: 'fig-cta', caption: 'Tokens in braces are filled in when the message posts, so it stays correct without editing.' },
-            { p: 'Set how many days before the session the call to arms goes out and at what time, then write the message. <strong>Manual post</strong> sends it immediately for testing a wording change. It does not touch the schedule, so the automatic post still goes out as normal.' },
             { where: 'Auto-pairings' },
-            { fig: 'fig-auto', caption: 'Generation and publishing on a schedule of your choosing.' },
-            { p: 'Turn this on and the week generates and publishes itself. Most people run it off for a month first, watch what the matcher produces, then switch it on.' },
-            { warn: '<b>Auto-pairings publish without asking.</b> That is the point, but it makes the deadline real. Pick a time late enough that stragglers have signed up and early enough that people can plan their evening.' }
+            { fig: 'fig-auto', caption: 'Generate and publish on a day and time you choose.' },
+            { p: 'Switch it on and the week generates and publishes itself at that time. Sign up then tells players when it happens, for example “Pairings go up Tuesday at 20:00”. With it off, that line isn’t shown.' },
+            { warn: '<b>Auto-pairings publish without asking.</b> Pick a time late enough for stragglers and early enough for people to plan their evening. Many run it off for a month first and watch what the matcher does.' }
         ]
     },
     {
         id: 'tuning',
         title: 'Tune the matchmaking',
-        lede: 'Leave this alone until you have run a few weeks. You cannot judge a change without knowing what it was doing before.',
+        lede: 'Leave this alone for a few weeks first. You can’t judge a change without knowing what it did before.',
         blocks: [
             { where: 'Weighting' },
-            { fig: 'fig-weights', caption: 'Higher means it matters more. Zero means ignore it. The percentages show how much of the total each factor is claiming.' },
+            { fig: 'fig-weights', caption: 'Higher matters more; zero ignores it.' },
             { table: { head: ['Factor', 'Turn it up when'], rows: [
                 ['<strong>Avoid same-faction rematch</strong>', 'People grumble about mirror matches.'],
-                ['<strong>Avoid recent repeat opponent</strong>', 'A small club keeps producing the same four games.'],
-                ['<strong>Match by vibe</strong>', 'Competitive players keep landing on casual ones.'],
-                ['<strong>Match by experience</strong>', 'Newcomers are getting flattened.'],
-                ['<strong>Match by arrival time</strong>', 'Games start late because one player arrives at eight.'],
-                ['<strong>Match by scenario</strong>', 'Players pick their own scenario and disagree.'],
-                ['<strong>Match by points</strong>', 'List sizes vary and the mismatches show.']
+                ['<strong>Avoid recent repeat opponent</strong>', 'A small club keeps producing the same games.'],
+                ['<strong>Vibe match</strong>', 'Competitive players keep landing on casual ones.'],
+                ['<strong>Experience match</strong>', 'Newcomers keep getting flattened.'],
+                ['<strong>Arrival time (ETA) match</strong>', 'Games start late because one player arrives late.'],
+                ['<strong>Scenario match</strong>', 'Players pick scenarios and disagree. Only shown if your system asks for one.'],
+                ['<strong>Points closeness</strong>', 'List sizes vary and it shows. Only shown if your system uses points.'],
+                ['<strong>Avoid same faction category</strong>', 'Too many games are, say, two undead armies. Only for systems with faction groups.']
             ] } },
-            { p: 'Two rules are always enforced first, whatever the sliders say: admin blocks, and not repeating last week’s opponent. You cannot weight your way past either.' },
-            { note: 'Change one thing at a time and give it a fortnight. Two sliders moved at once tell you nothing about which one did what.' }
+            { p: 'Some rules always come first, whatever the sliders say: blocks, not repeating last week’s opponent, and never pairing across an own-bracket vibe.' },
+            { note: 'Change one thing at a time and give it a fortnight.' }
+        ]
+    },
+    {
+        id: 'players',
+        title: 'Your players and their titles',
+        lede: 'The roster for your night.',
+        blocks: [
+            { where: 'Players' },
+            { p: 'Everyone who has played your system, with games, level and rating. <strong>Edit</strong> on a player opens their titles: give each one a name and a colour. Titles show on their profile across the whole club, so agree them with any other system admins.' },
+            { p: 'Blocks set here stop two players being paired in your system only.' }
         ]
     },
     {
         id: 'league',
         title: 'Run a league',
-        lede: 'Optional. A ladder for your system, with players reporting their own results.',
+        lede: 'Optional. A ladder for your night, with players reporting their own results.',
         blocks: [
             { where: 'League' },
-            { fig: 'fig-league', caption: 'Seasons, scoring and the standings, all per system.' },
-            { p: 'Turn the league on and players can report results from their own profile. Ratings update as results come in, and the standings post to Discord on the club-wide league webhooks.' },
-            { p: 'A season gives the ladder a start and an end. Closing one archives its table and crowns a champion, so the next season starts clean without losing the record of the last.' },
-            { note: 'Levels and experience tick along from played games whether or not you run a league. They come from published pairings, so you get them for free.' }
+            { fig: 'fig-league', caption: 'Seasons, scoring and standings, for your system alone.' },
+            { p: 'Turn the league on and players report results from the Leagues tab. Ratings update as results come in, and the standings post to Discord on your league webhooks.' },
+            { p: 'A season gives the ladder a start and an end. Starting a new one resets ratings and archives the old table with its champion.' },
+            { note: 'Levels and experience grow from played games whether or not you run a league.' }
         ]
     }
 ];

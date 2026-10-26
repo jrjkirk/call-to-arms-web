@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
     import { onMount } from 'svelte';
+    import Toggle from './Toggle.svelte';
     import {
         deviceStatus, friendlyPushError, isInstalled, isIos, pushApi as api, pushInfo,
         pushRegistration as registration, pushSupported, subscribeDevice, type PushKind as Kind
@@ -57,7 +58,6 @@
             const saved = await subscribeDevice(publicKey);
             muted = saved.muted ?? [];
             view = 'on';
-            message = 'Notifications are on for this device.';
         } catch (e) {
             message = friendlyPushError(e);
         } finally {
@@ -75,7 +75,6 @@
                 await sub.unsubscribe();
             }
             view = 'off';
-            message = 'Notifications are off for this device.';
         } catch (e) {
             message = e instanceof Error ? e.message : 'Could not turn notifications off.';
         } finally {
@@ -114,59 +113,61 @@
 </script>
 
 <section class="a-card push">
+    <!-- One switch for this device; the kinds below it each have their own. -->
     <div class="a-head">
         <h3 class="a-title">Notifications</h3>
-        {#if view === 'on'}<span class="a-state is-on a-head-end">On</span>{:else if view === 'off' || view === 'blocked'}<span class="a-state a-head-end">Off</span>{/if}
+        {#if view === 'on' || view === 'off'}
+            <span class="a-head-end">
+                <Toggle checked={view === 'on'} {busy} label="notifications on this device"
+                        onchange={(on) => (on ? turnOn() : turnOff())} />
+            </span>
+        {:else if view === 'blocked'}
+            <span class="a-state a-head-end">Blocked</span>
+        {/if}
     </div>
-    <p class="a-note">
-        A buzz on this device when pairings go up, your opponent drops out, or a late signup
-        finds you a game. The same news as the banners in the app.
-    </p>
 
-    {#if view === 'loading'}
-        <p class="a-note">Checking this device…</p>
-    {:else if view === 'ios-install'}
-        <p class="hint">
-            On an iPhone, notifications need the app on your home screen. In Safari, tap
-            <b>Share</b>, then <b>Add to Home Screen</b>, open Call to Arms from there, and come
-            back to this page.
-        </p>
+    {#if view === 'ios-install'}
+        <p class="hint">Add Call to Arms to your Home Screen first, then open it from there.</p>
     {:else if view === 'unsupported'}
-        <p class="hint">This browser can't receive notifications. Chrome, Edge, Firefox or Safari on a recent device can.</p>
+        <p class="hint">Not available in this browser.</p>
     {:else if view === 'off-server'}
-        <p class="hint">Notifications aren't switched on for Call to Arms yet. Check back soon.</p>
+        <p class="hint">Coming soon.</p>
     {:else if view === 'blocked'}
-        <p class="hint">
-            Notifications are blocked for this site. Allow them in your browser's site settings
-            (the icon beside the address), then reload this page.
-        </p>
-    {:else if view === 'off'}
-        <button class="primary-button" type="button" disabled={busy} onclick={turnOn}>
-            {busy ? 'Turning on…' : 'Turn on notifications on this device'}
-        </button>
-    {:else}
-        <div class="kinds">
+        <p class="hint">Allow notifications for this site in your browser's settings, then reload.</p>
+    {:else if view === 'on'}
+        <ul class="kinds">
             {#each kinds as k (k.kind)}
-                <label class="check-row">
-                    <input type="checkbox" checked={!muted.includes(k.kind)}
-                           onchange={(e) => toggleKind(k.kind, e.currentTarget.checked)} />
-                    <span>{k.label}</span>
-                </label>
+                <li class="kind">
+                    <span class="kind-name">{k.label}</span>
+                    <Toggle checked={!muted.includes(k.kind)} label={k.label}
+                            onchange={(on) => toggleKind(k.kind, on)} />
+                </li>
             {/each}
-        </div>
-        <div class="actions">
-            <button class="secondary-button" type="button" disabled={busy} onclick={sendTest}>Send a test</button>
-            <button class="danger-button" type="button" disabled={busy} onclick={turnOff}>Turn off on this device</button>
-        </div>
+        </ul>
+        <button class="secondary-button test" type="button" disabled={busy} onclick={sendTest}>Send a test</button>
     {/if}
 
     {#if message}<p class="message">{message}</p>{/if}
 </section>
 
 <style>
-    .hint { margin: 0; color: var(--color-text-muted); line-height: 1.5; }
-    .hint b { color: var(--color-text-bright); }
-    .kinds { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.9rem; }
-    .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .hint { margin: 0.4rem 0 0; color: var(--color-text-muted); line-height: 1.5; }
+    .kinds { list-style: none; margin: 0.6rem 0 0.9rem; padding: 0; }
+    .kind {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        min-height: 2.9rem;
+        border-top: 1px solid #1c2029;
+    }
+    .kind-name {
+        font-family: var(--font-heading);
+        font-size: 1.02rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-text-bright);
+    }
     .message { margin: 0.8rem 0 0; font-size: 0.9rem; color: var(--color-text-dim); }
 </style>

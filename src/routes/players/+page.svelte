@@ -20,6 +20,8 @@
         /** Their most-played (system, faction), for the icon. */
         usual_system?: string | null;
         usual_faction?: string | null;
+        /** Their most-played faction in each system they've played. */
+        faction_by_system?: Record<string, string>;
     };
 
     let players = $state<PlayerRow[]>([]);
@@ -128,17 +130,21 @@
 
 <ul class="player-list">
     {#each pageItems as p (p.id)}
-        {@const faction = p.usual_faction ?? p.default_faction}
+        <!-- A faction only means something within one system, so it shows
+             only once one is picked, and it's their faction in that system. -->
+        {@const faction = activeSystem ? (p.faction_by_system?.[activeSystem] ?? null) : null}
         <li>
             <a href="/players/{p.id}" class="player" class:me={p.id === myId}>
-                <span class="icon">
-                    {#if faction && p.usual_system}
-                        <FactionIcon {faction} folder={systemFolder(p.usual_system, systemsConfig)} class="player-icon" />
-                    {/if}
-                </span>
+                {#if activeSystem}
+                    <span class="icon">
+                        {#if faction}
+                            <FactionIcon {faction} folder={systemFolder(activeSystem, systemsConfig)} class="player-icon" />
+                        {/if}
+                    </span>
+                {/if}
                 <span class="who">
                     <span class="name">{p.name}{#if p.id === myId}<small>You</small>{/if}</span>
-                    <span class="faction">{faction ?? 'No faction yet'}</span>
+                    {#if activeSystem}<span class="faction">{faction ?? 'No faction yet'}</span>{/if}
                 </span>
                 <span class="meta">
                     <span class="logos">

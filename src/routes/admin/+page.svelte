@@ -257,6 +257,10 @@
     };
     /** Which signup / game on the Pairings tab has its editor open. */
     let openSignup = $state<number | null>(null);
+
+    /** The colours a title can be. The first, gold, is the default and is
+     *  stored as no colour at all. */
+    const TITLE_COLOURS = ['#c9a14a', '#ee6868', '#f97924', '#6fae72', '#5a9bd4', '#ae4ac9', '#cfcfcf'];
     let openGame = $state<number | null>(null);
 
     /** What a pairing card shows: names, factions, and the game's vibe, time
@@ -660,6 +664,7 @@
         linked?: boolean;
         account_name?: string | null;
         titles: string[];
+        title_colors?: Record<string, string>;
         active: boolean;
         league_visible: boolean;
         weeks_signed_up: number;
@@ -683,7 +688,7 @@
         addError: string | null;
         /** player_id whose titles are open for editing, if any. */
         editingTitles: number | null;
-        titlesValue: string;
+        titleRows: { name: string; color: string | null }[];
     };
     let systemPlayersState = $state<Record<string, SystemPlayersState>>({});
 
@@ -691,7 +696,7 @@
         return {
             players: [], blocks: [], loading: false, error: null, message: null,
             addP1: '', addP2: '', addNote: '', adding: false, addError: null,
-            editingTitles: null, titlesValue: '',
+            editingTitles: null, titleRows: [],
         };
     }
 
@@ -876,7 +881,7 @@
         signup: 'Signup notifications',
         pairings: 'Pairings post',
         call_to_arms: 'Call to Arms post',
-        call_outs: 'Call Outs',
+        call_outs: 'Pick-up games',
         league_result: 'League result',
         league_rankings: 'League rankings post',
         achievement: 'Achievement announcements',
@@ -885,10 +890,10 @@
     // What each webhook actually posts, so an admin can pick the right channel
     // instead of guessing from the label. Verified against the call sites.
     const WEBHOOK_TYPE_HELP: Record<string, string> = {
-        signup: 'Every signup and drop-out for this system. Also carries call-outs, until you give them a channel of their own below.',
+        signup: 'Every signup and drop-out for this system. Also carries pick-up games, until you give them a channel of their own below.',
         pairings: "The pairings image, each time a week's pairings are published.",
         call_to_arms: 'The weekly “signups are open” announcement.',
-        call_outs: 'Players posting for an ad-hoc game, plus when one is taken up, withdrawn, or still open a day later. Leave it unset and these go to the signup channel as before.',
+        call_outs: 'Pick-up games: when a player asks for one, when a game is confirmed, and when one is called off. Leave it unset and these go to the signup channel.',
         league_result: 'Each league result as it gets submitted.',
         league_rankings: 'The league standings image.',
         achievement: 'When a player unlocks an achievement.',
@@ -2575,17 +2580,22 @@
         const st = systemPlayersState[scope];
         st.error = null;
         st.message = null;
-        const titles = st.titlesValue.split('\n').map((t) => t.trim()).filter(Boolean);
+        const rows = st.titleRows.map((t) => ({ name: t.name.trim(), color: t.color })).filter((t) => t.name);
+        const titles = rows.map((t) => t.name);
+        const colors = Object.fromEntries(rows.filter((t) => t.color).map((t) => [t.name, t.color!]));
         const r = await fetch(`${PUBLIC_API_URL}/admin/system-players/titles`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ system: scope, player_id: playerId, titles }),
+            body: JSON.stringify({ system: scope, player_id: playerId, titles, colors }),
         });
         if (r.ok) {
             const body = await r.json();
             const row = st.players.find((p) => p.player_id === playerId);
-            if (row) row.titles = body.titles;
+            if (row) {
+                row.titles = body.titles;
+                row.title_colors = body.title_colors;
+            }
             st.editingTitles = null;
             st.message = 'Saved.';
         } else {
@@ -4741,7 +4751,8 @@
                                                         onclick={() => {
                                                             if (sp.editingTitles === p.player_id) { sp.editingTitles = null; return; }
                                                             sp.editingTitles = p.player_id;
-                                                            sp.titlesValue = p.titles.join('\n');
+                                                            sp.titleRows = p.titles.map((name) => ({ name, color: p.title_colors?.[name] ?? null }));
+                                                            if (!sp.titleRows.length) sp.titleRows = [{ name: '', color: null }];
                                                         }}
                                                     >{sp.editingTitles === p.player_id ? 'Close' : 'Edit'}</button>
                                                 </td>
@@ -4753,15 +4764,26 @@
                                                 <tr class="sp-edit-row">
                                                     <td colspan="6">
                                                         <div class="sp-edit">
-                                                            <label class="field-label" for="sp-titles-{p.player_id}">Titles for {p.name}
-                                                                <HelpTip label="titles" text={"Awards this player carries on their profile.\n\n\u2022 One per line\n\u2022 Shown club-wide, not only on this game night, so two systems editing them will overwrite each other"} /></label>
-                                                            <textarea
-                                                                id="sp-titles-{p.player_id}"
-                                                                class="field-input sp-titles-input"
-                                                                rows="3"
-                                                                placeholder="One per line…"
-                                                                bind:value={sp.titlesValue}
-                                                            ></textarea>
+                                                            <span class="field-label">Titles for {p.name}
+                                                                <HelpTip label="titles" text={"Awards this player carries on their profile, each in the colour you pick.\n\nShown club-wide, not only on this game night, so two systems editing them will overwrite each other."} /></span>
+                                                            <!-- One row per title: its name and its colour. -->
+                                                            {#each sp.titleRows as t, i}
+                                                                <div class="title-row">
+                                                                    <span class="title-preview" style={`--tc: ${t.color ?? 'var(--color-accent)'}`}></span>
+                                                                    <input class="field-input" type="text" maxlength="80" placeholder="Title" aria-label="Title" bind:value={t.name} />
+                                                                    <span class="title-swatches" role="group" aria-label="Colour">
+                                                                        {#each TITLE_COLOURS as c}
+                                                                            <button type="button" class="swatch" style={`background: ${c}`}
+                                                                                aria-pressed={(t.color ?? TITLE_COLOURS[0]) === c} aria-label={c}
+                                                                                onclick={() => (t.color = c === TITLE_COLOURS[0] ? null : c)}></button>
+                                                                        {/each}
+                                                                    </span>
+                                                                    <button type="button" class="remove-btn" aria-label="Remove title"
+                                                                        onclick={() => (sp.titleRows = sp.titleRows.filter((_, j) => j !== i))}>×</button>
+                                                                </div>
+                                                            {/each}
+                                                            <button type="button" class="secondary-button title-add"
+                                                                onclick={() => (sp.titleRows = [...sp.titleRows, { name: '', color: null }])}>+ Add title</button>
                                                             <div class="sp-edit-actions">
                                                                 <button class="primary-button" type="button"
                                                                     onclick={() => saveSystemTitles(scope, p.player_id)}>Save</button>
@@ -5110,9 +5132,11 @@
                                     <HelpTip label="the carousel card" text={"How this system looks on your Club page.\n\n\u2022 Blurb, photo and the accent colour that threads through its carousel card, calendar entries and pairing cards\n\u2022 Position isn't settable: the carousel is shuffled for every visitor, so no system is always first"} /></h4>
 
                                 <div class="field">
-                                    <label class="field-label" for="carousel-blurb-{scope}">Blurb</label>
-                                    <textarea id="carousel-blurb-{scope}" class="field-input" rows="2"
-                                        placeholder="A short line about how this system runs at your club…"
+                                    <label class="field-label blurb-label" for="carousel-blurb-{scope}">
+                                        Blurb <span class="blurb-count" class:full={(cs.blurb ?? '').length >= 250}>{(cs.blurb ?? '').length}/250</span>
+                                    </label>
+                                    <textarea id="carousel-blurb-{scope}" class="field-input" rows="3" maxlength="250"
+                                        placeholder="How this night runs at your club"
                                         bind:value={cs.blurb}></textarea>
                                 </div>
                                 <div class="field">
@@ -5623,7 +5647,21 @@
         gap: 0.35rem;
         max-width: 34rem;
     }
-    .sp-titles-input { width: 100%; }
+    /* Titles: a row each, a bar in its colour, the name, the swatches. */
+    .title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .title-row .field-input { flex: 1 1 12rem; min-width: 0; }
+    .title-preview { width: 4px; height: 28px; border-radius: 2px; background: var(--tc); flex: none; }
+    .title-swatches { display: flex; gap: 5px; }
+    .swatch {
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+    }
+    .swatch[aria-pressed='true'] { border-color: #f5edd7; }
+    .title-add { align-self: flex-start; }
     .sp-edit-actions { display: flex; gap: 0.5rem; }
 
     .nav-dot {
@@ -5817,6 +5855,11 @@
         }
         .nav-mobile { display: block; }
     }
+
+    /* The blurb box's counter, against the 250 the API allows. */
+    .blurb-label { display: flex; justify-content: space-between; align-items: baseline; }
+    .blurb-count { font-family: var(--font-body); font-weight: 600; letter-spacing: 0; color: var(--color-text-faint); }
+    .blurb-count.full { color: var(--color-accent); }
 
     /* ── Overview ───────────────────────────────────────────────────────────
        This week beside Set-up, then Trends. Colour is a standalone bar beside
