@@ -232,7 +232,8 @@
             label: 'You',
             links: [
                 ...(auth.player ? [{ href: `/players/${auth.player.id}`, label: 'Your player profile' }] : []),
-                { href: '/account', label: 'Account & notifications' }
+                { href: '/account', label: 'Account & notifications' },
+                { href: '/privacy', label: 'Privacy' }
             ]
         },
         {
@@ -573,6 +574,7 @@
                             <a class="user-menu-item" href="/platform-admin" onclick={closeDrawer}>Platform admin</a>
                         {/if}
                         <a class="user-menu-item" href="/find" onclick={closeDrawer}>Change club</a>
+                        <a class="user-menu-item" href="/privacy" onclick={closeDrawer}>Privacy</a>
                         <button class="user-menu-item" onclick={() => { closeDrawer(); logout(); }} type="button">Sign out</button>
                     </div>
                 </div>

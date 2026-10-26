@@ -31,18 +31,18 @@
     const pillars = [
         {
             glyph: 'sign-up',
-            title: 'Signup',
-            text: 'Select your game system, choose your faction, and you\'re in. All with Discord integrations to keep your club informed.'
+            title: 'Sign up',
+            text: 'Pick your night and your army. Your club’s Discord hears about it.'
         },
         {
             glyph: 'pairings',
-            title: 'Get Paired',
-            text: 'Smart pairings keep game nights moving, while organisers stay in complete control.'
+            title: 'Get paired',
+            text: 'A fair game every week, worked out for you. Organisers can still change anything.'
         },
         {
             glyph: 'rankings',
             title: 'Leagues',
-            text: "Record results, follow rankings, and watch your club's campaign unfold over the season."
+            text: 'Results, rankings, and a record of the whole season.'
         }
     ];
 </script>
@@ -75,39 +75,26 @@
             <!-- Each number guarded on its own. A brand-new deployment has
                  players before it has games, and "0 games paired" beside a real
                  player count reads as broken rather than as new. -->
-            <p class="hero-stat" in:fade={{ duration: 400, delay: 320 }}>
-                <span class="hero-stat-item">
-                    <strong>{stats.players.toLocaleString()}</strong>
-                    <!-- The space before `across` is written as an expression on
-                         purpose. Left as a newline-plus-indent inside the {#if},
-                         Svelte trims it away and the line renders
-                         "1,420 playersacross 7 clubs". -->
-                    {stats.players === 1 ? 'player' : 'players'}{#if stats.clubs > 1}{' '}across
-                        <strong>{stats.clubs}</strong> clubs{/if}
-                </span>
-                {#if stats.games > 0}
-                    <span class="hero-stat-sep" aria-hidden="true">·</span>
-                    <span class="hero-stat-item">
-                        <strong>{stats.games.toLocaleString()}</strong>
-                        {stats.games === 1 ? 'game' : 'games'} paired
-                    </span>
+            <!-- The numbers are the headline (design rule 5). -->
+            <div class="hero-stats" in:fade={{ duration: 400, delay: 320 }}>
+                <span class="hs"><b>{stats.players.toLocaleString()}</b><span>{stats.players === 1 ? 'Player' : 'Players'}</span></span>
+                {#if stats.clubs > 1}
+                    <span class="hs"><b>{stats.clubs}</b><span>Clubs</span></span>
                 {/if}
-            </p>
+                {#if stats.games > 0}
+                    <span class="hs"><b>{stats.games.toLocaleString()}</b><span>{stats.games === 1 ? 'Game' : 'Games'} paired</span></span>
+                {/if}
+            </div>
         {/if}
 
         <div class="hero-about" in:fade={{ duration: 500, delay: 400 }}>
             <div class="hero-about-heading">What is Call to Arms?</div>
-            <p class="hero-about-text">
-                A sign-up and pairing tool for tabletop wargaming clubs. It's
-                built for organisers who run weekly game nights, want fair
-                matchups without doing the maths themselves, and want a
-                season-long record of who's playing what.
-            </p>
+            <p class="hero-about-text">Sign-ups, fair pairings and leagues for tabletop wargaming clubs.</p>
         </div>
 
         <div class="hero-pillars" in:fade={{ duration: 500, delay: 480 }}>
             {#each pillars as p, i}
-                <div class="pillar" style={`transition-delay: ${540 + i * 90}ms`}>
+                <div class="pillar">
                     <span class="pillar-icon">
                         {#if p.glyph === 'sign-up'}
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
@@ -134,10 +121,10 @@
         </div>
 
         <ClubsMap />
-        <a class="find-club-cta" href="/find">See every club on the map →</a>
+        <a class="find-club-cta" href="/find">See every club</a>
         <ClubRequestForm />
 
-        <a class="hero-footer-link" href="/privacy">Privacy Policy</a>
+        <a class="hero-footer-link" href="/privacy">Privacy</a>
     </div>
 </div>
 
@@ -180,19 +167,20 @@
     }
 
     .hero-about-heading {
+        font-family: var(--font-heading);
         color: var(--color-accent);
-        font-size: 0.82rem;
-        font-weight: 700;
+        font-size: 1rem;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
-        margin-bottom: 0.7rem;
+        letter-spacing: 0.2em;
+        margin-bottom: 0.5rem;
     }
 
     .hero-about-text {
         margin: 0;
-        color: var(--color-text-dim);
-        font-size: 0.95rem;
-        line-height: 1.65;
+        color: var(--color-text-muted);
+        font-size: 1.05rem;
+        line-height: 1.5;
     }
 
     .hero-pillars {
@@ -203,54 +191,40 @@
         margin-top: clamp(2rem, 4.5vw, 2.8rem);
     }
 
+    /* A card each: the icon, a capitals title, one line. */
     .pillar {
-        background: var(--color-surface-dark);
-        border: 1px solid var(--color-steel-border);
-        border-radius: var(--radius);
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.34);
-        padding: 1.6rem 1.2rem 1.7rem;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
+        padding: 1.3rem 1.3rem 1.4rem;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        text-align: center;
-        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .pillar:hover {
-        border-color: var(--color-accent-border);
-        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.46);
-        transform: translateY(-3px);
+        align-items: flex-start;
+        text-align: left;
+        gap: 0.45rem;
     }
 
     .pillar-icon {
-        width: 44px;
-        height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        border: 1px solid var(--color-accent-border);
-        background: var(--color-surface-dark);
         color: var(--color-accent);
-        margin-bottom: 0.9rem;
-        flex: 0 0 auto;
+        line-height: 0;
     }
 
-    .pillar-icon svg { width: 19px; height: 19px; }
+    .pillar-icon svg { width: 28px; height: 28px; }
 
     .pillar-title {
+        font-family: var(--font-heading);
         color: var(--color-text-bright);
         font-weight: 700;
-        font-size: 0.98rem;
-        letter-spacing: 0.02em;
-        margin-bottom: 0.4rem;
+        font-size: 1.35rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
     }
 
     .pillar-text {
         margin: 0;
         color: var(--color-text-dim);
-        font-size: 0.83rem;
-        line-height: 1.55;
+        font-size: 0.95rem;
+        line-height: 1.5;
     }
 
     .hero-cta {
@@ -262,27 +236,30 @@
         justify-content: center;
     }
 
-    /* Sits under the two doors as a quiet line, not a badge. It is
-       reassurance for someone deciding whether this thing is used by anyone,
-       so it should read after the buttons rather than compete with them. */
-    .hero-stat {
-        margin: 0.85rem 0 0;
-        font-size: 0.9rem;
-        color: var(--color-text-dim);
-        letter-spacing: 0.01em;
+    /* Under the doors: big condensed numbers, each with a capitals label. */
+    .hero-stats {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.6rem 2.4rem;
+        margin-top: 1.6rem;
     }
-    .hero-stat strong {
-        color: var(--color-accent);
+    .hs { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+    .hs b {
+        font-family: var(--font-heading);
+        font-size: 2.6rem;
         font-weight: 700;
+        line-height: 1;
+        color: var(--color-text-bright);
+        font-variant-numeric: tabular-nums;
     }
-    /* Wraps as two whole phrases on a narrow screen rather than breaking
-       "281 games" away from "paired". */
-    .hero-stat-item {
-        display: inline-block;
-    }
-    .hero-stat-sep {
-        margin: 0 0.45rem;
-        opacity: 0.5;
+    .hs span {
+        font-family: var(--font-heading);
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--color-accent);
     }
 
     /* :global under .hero-cta so the Google link, rendered inside
@@ -294,10 +271,12 @@
         background: var(--color-accent);
         border: 1px solid var(--color-accent);
         color: #1b1206;
+        font-family: var(--font-heading);
         font-weight: 700;
-        font-size: 1.02rem;
-        letter-spacing: 0.01em;
-        padding: 0.85rem 2.2rem;
+        font-size: 1.15rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.8rem 2rem;
         border-radius: var(--radius);
         text-decoration: none;
         cursor: pointer;
@@ -327,10 +306,13 @@
         align-items: center;
         justify-content: center;
         gap: 0.4rem;
-        margin: 0.25rem auto 0;
+        margin: 0.9rem auto 0;
         padding: 0.7rem 1.6rem;
+        font-family: var(--font-heading);
         font-weight: 700;
-        font-size: 0.98rem;
+        font-size: 1.05rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         color: var(--color-accent);
         background: transparent;
         border: 1px solid var(--color-accent-border);
@@ -342,14 +324,17 @@
     .find-club-cta:hover {
         background: var(--color-surface-hover);
         border-color: var(--color-accent);
-        transform: translateY(-1px);
     }
 
     .hero-footer-link {
         margin-top: clamp(2rem, 4vw, 2.6rem);
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
         color: var(--color-text-faint);
-        font-size: 0.75rem;
-        text-decoration: underline;
+        font-size: 0.9rem;
+        text-decoration: none;
     }
 
     .hero-footer-link:hover {

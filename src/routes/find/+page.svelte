@@ -10,11 +10,6 @@
   first. Every club gets a pin: one whose admin hasn't placed it yet is put
   at its address.
 -->
-<script lang="ts" module>
-    /** Clubs placed from their address this visit (see placeUnpinned). */
-    const placedThisVisit: Record<string, { lat: number; lng: number }> = {};
-</script>
-
 <script lang="ts">
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -22,7 +17,7 @@
     import { FALLBACK_SYSTEMS_CONFIG, getSystemsConfig, systemLogoUrl, type SystemConfig } from '$lib/systemsConfig';
     import { getMe } from '$lib/session';
     import { peek, revalidate } from '$lib/swr';
-    import { findPlace } from '$lib/geocode';
+    import { placeOf, placeUnpinned } from '$lib/map/placeClubs';
 
     type FinderSystem = { slug: string; name: string; legacy_system_name: string };
     type FinderClub = {
@@ -54,23 +49,15 @@
         getMe().then((me) => (currentSlug = me?.active_club?.slug ?? null));
         await revalidate<FinderClub[]>('/clubs', (v) => (clubs = v));
         loaded = true;
-        placeUnpinned();
+        // Clubs with an address but no pin are placed at it ($lib/map/placeClubs).
+        placeUnpinned(clubs, () => (placedCount += 1));
     });
 
-    /* Clubs whose admin hasn't placed a pin yet still get one, from their
-       address ($lib/geocode, the same lookup as the admin's FIND). Kept for
-       the visit, so it's looked up once. */
-    let placed = $state<Record<string, { lat: number; lng: number }>>({ ...placedThisVisit });
-    async function placeUnpinned() {
-        for (const c of clubs) {
-            if (c.latitude != null || !c.address || placed[c.slug]) continue;
-            const at = await findPlace(c.address);
-            if (at) placed[c.slug] = placedThisVisit[c.slug] = { lat: at.lat, lng: at.lng };
-        }
-    }
+    // Bumped as each unpinned club is placed, so the pins recompute.
+    let placedCount = $state(0);
     function where(c: FinderClub): { lat: number; lng: number } | null {
-        if (c.latitude != null && c.longitude != null) return { lat: c.latitude, lng: c.longitude };
-        return placed[c.slug] ?? null;
+        placedCount;
+        return placeOf(c);
     }
 
     function nearMe() {

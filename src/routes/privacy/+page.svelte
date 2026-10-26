@@ -1,167 +1,112 @@
-<a class="back-link" href="/">&larr; Back</a>
-<h2 class="page-heading">Privacy Policy</h2>
-<p class="updated">Last updated: 15 September 2026</p>
+<!--
+  The privacy policy. Reviewed 2026-10-26 against what the app actually does
+  now: passwords, push notifications, pick-up games, titles, table bookings,
+  club requests, event tickets, the map and address lookups, and the
+  services it runs on had all arrived since it was last written. Reachable
+  from the Me menu and the account menu, not only the landing page.
+-->
+<h1 class="page-title">Privacy</h1>
+<p class="updated">Updated 26 October 2026</p>
 
 <div class="policy">
-    <p>
-        Call to Arms is a small, club-run tool for organising tabletop
-        wargaming sessions: sign-ups, pairings, and league standings. This
-        page explains what information the app collects, how it's used, and
-        who can see it. It's written in plain language for a small hobby
-        project, not as a substitute for legal advice.
+    <p class="lead">
+        Call to Arms runs sign-ups, pairings and leagues for tabletop wargaming clubs. This is
+        what it keeps about you, why, and who sees it, in plain words. It is a small hobby
+        project and this isn’t legal advice.
     </p>
 
-    <h3>What we collect</h3>
-    <ul>
-        <li>
-            <strong>Discord identity.</strong> When you sign in with Discord,
-            we store your Discord user ID, your Discord display name, and
-            your avatar image URL, so you can log back in and so other
-            members can see who signed up.
-        </li>
-        <li>
-            <strong>Google identity.</strong> If you sign in with Google or add
-            it to your account, we store your Google account ID, your name,
-            your email address and whether Google has verified it, and your
-            profile picture URL. The email is used to help you get back into
-            your account and to spot when you may already have one. It is
-            never shown to other members.
-        </li>
-        <li>
-            <strong>Email sign-in.</strong> If you sign in with an email link
-            or add an address to your account, we store the address, and for
-            each link we send: when it was sent and used, and a scrambled form
-            of your IP address that is only used to stop too many links being
-            requested. The link itself is kept only in a form that can't be
-            used to sign in, and it stops working after 15 minutes.
-        </li>
-        <li>
-            <strong>Account name.</strong> A name you can choose for your
-            account. Club admins can see it beside your Discord name.
-        </li>
-        <li>
-            <strong>Player profile.</strong> Your in-app name and default
-            faction, which you (or an admin, on your behalf) set when you
-            claim or create a profile.
-        </li>
-        <li>
-            <strong>Sign-ups and game activity.</strong> Which sessions
-            you've signed up for, your pairings, and league results
-            (opponent, faction, outcome, rating changes). This is the core
-            record-keeping the app exists to do.
-        </li>
-        <li>
-            <strong>Session cookie.</strong> A single cookie that keeps you
-            signed in. It contains no personal data itself, just a signed
-            token the server uses to recognise your session, and it expires
-            automatically.
-        </li>
-    </ul>
-    <p>We don't use any analytics, tracking, or advertising services.</p>
+    <section>
+        <h2>Signing in</h2>
+        <ul>
+            <li><b>Discord</b>: your Discord ID, name and picture.</li>
+            <li><b>Google</b>: your Google ID, name, email, whether Google has checked it, and picture. The email is never shown to other members.</li>
+            <li><b>Email link</b>: your address and when each link was sent and used, with a scrambled form of your IP address to stop too many links being sent. A link stops working after 15 minutes.</li>
+            <li><b>Password</b>, if you set one: only a scrambled form that can’t be turned back. To refuse passwords known from data breaches, the first five characters of another scrambled form are checked against a public list (Have I Been Pwned). Your password itself never leaves the app.</li>
+            <li><b>Your name</b>: the one you choose for your account. Club admins see it beside your sign-in name.</li>
+        </ul>
+        <p>One cookie keeps you signed in. It holds no personal details, lasts 30 days, and renews while you use the app. Signing out everywhere ends it on every device.</p>
+    </section>
 
-    <h3>How it's used</h3>
-    <p>
-        Your information is used to run the club's sign-up sheets, generate
-        weekly pairings, and keep league standings. Nothing else. Some of
-        this (your name, faction, results) is inherently visible to other
-        members of your club, since that's the point of the app.
-    </p>
+    <section>
+        <h2>Playing</h2>
+        <ul>
+            <li><b>Your player profile</b> at each club: name, faction, and any titles the club gives you.</li>
+            <li><b>Sign-ups and games</b>: the nights you sign up for, your army details, arrival time, your pairings, and league results with rating changes. This is the record the app exists to keep. Experience and levels are worked out from it.</li>
+            <li><b>Pick-up games</b>: when and where you’re free, and anything you add. Other members of your club see your request. If you decline a match, your reason goes to your club’s admins only, never to the other player.</li>
+            <li><b>Event entries</b>, if your club runs events: your entry and results. If tickets are paid for, Stripe takes the payment. We never see your card details.</li>
+            <li><b>Table bookings</b>, at clubs that take them: the name, email or phone and note you give, so the venue can reach you.</li>
+            <li><b>Club requests</b>: if you ask for your club to be added, your name, email, role and the club details you send.</li>
+        </ul>
+    </section>
 
-    <h3>Who can see it</h3>
-    <p>
-        Other members of your own club can see your name, sign-ups,
-        pairings, and league record: the same information they'd see on a
-        physical sign-up sheet. Club admins can additionally see and edit
-        signup/pairing details for their club. Your data is scoped to your
-        own club; members of other clubs on this platform cannot see it.
-    </p>
+    <section>
+        <h2>Notifications</h2>
+        <p>If you turn them on, we keep your device’s push address, the name of its browser, and which kinds you’ve turned off. Your browser’s maker (Google, Apple or Mozilla) delivers each one. Turning them off deletes the address.</p>
+    </section>
 
-    <h3>Discord posts</h3>
-    <p>
-        If your club has configured Discord webhooks, some activity (new
-        sign-ups, weekly pairings, league results, achievements) may be
-        posted to your club's own Discord channels automatically. These
-        posts only go to channels your club's admins have configured.
-    </p>
+    <section>
+        <h2>Maps and location</h2>
+        <p><b>Near me</b> on the Clubs page works out distances in your browser. Your location is never sent to us. Map tiles come from OpenFreeMap. Club addresses are looked up with postcodes.io and Photon (OpenStreetMap) to place pins. None of these receive anything about you beyond what any website sees when your browser asks it for something.</p>
+    </section>
 
-    <h3>Third parties</h3>
-    <p>
-        We don't sell or share your information with third parties for
-        marketing or advertising. The only external services involved are
-        Discord and Google (for sign-in, whichever you choose to use) and, if
-        your club uses them, Discord webhooks (to post activity to your club's
-        own server). These are things you or your club have chosen to use.
-    </p>
+    <section>
+        <h2>Who sees what</h2>
+        <p>Members of your club see what a paper sign-up sheet would show: names, sign-ups, pairings, league records, titles. Your club’s admins can also see and correct sign-ups and pairings, and admin actions are logged. Members of other clubs can’t see your club’s data.</p>
+        <p>If your club has connected Discord, sign-ups, pairings, pick-up games, results and achievements may be posted to your club’s own channels.</p>
+    </section>
 
-    <h3>Your data</h3>
-    <p>
-        If you'd like to see what's stored about you, have it corrected, or
-        have it removed, ask your club's admin or contact us. See below.
-    </p>
+    <section>
+        <h2>Where it lives</h2>
+        <p>The website is served by Vercel, the app by Fly.io, and the data and uploaded images are stored with Supabase. Emails are sent through Resend. We use no analytics, tracking or advertising, and never sell or share your information.</p>
+        <p>Your browser also stores a note of whether you’ve dismissed a banner or the notifications prompt. That never leaves your device.</p>
+    </section>
 
-    <h3>Questions</h3>
-    <p>
-        If you have questions about this policy or your data, please reach
-        out to your club's admin team.
-    </p>
+    <section>
+        <h2>Your data</h2>
+        <p>To see what’s kept about you, correct it, or have it removed, ask your club’s admins, who can pass it on to us.</p>
+    </section>
 </div>
 
 <style>
-    .back-link {
-        display: inline-block;
-        margin-bottom: 1rem;
-        color: var(--color-text-faint);
-        font-size: 0.85rem;
-        text-decoration: none;
-    }
-
-    .back-link:hover {
-        color: var(--color-text-muted);
-        text-decoration: underline;
-    }
-
-    .page-heading {
-        font-size: 1.6rem;
+    .page-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-transform: uppercase;
         margin: 0 0 0.4rem;
     }
+    @media (max-width: 560px) { .page-title { font-size: 2.1rem; } }
 
     .updated {
-        color: var(--color-text-faint);
-        font-size: 0.8rem;
-        margin: 0 0 1.5rem;
-    }
-
-    .policy {
-        max-width: 68ch;
-        color: var(--color-text-base);
-        line-height: 1.6;
-    }
-
-    .policy p {
-        margin: 0 0 1rem;
-    }
-
-    .policy h3 {
-        color: var(--color-accent);
-        font-size: 0.95rem;
+        margin: 0 0 1.4rem;
+        font-family: var(--font-heading);
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
-        margin: 1.75rem 0 0.6rem;
+        color: var(--color-text-faint);
     }
 
-    .policy ul {
-        margin: 0 0 1rem;
-        padding-left: 1.2rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
+    .policy { max-width: 68ch; line-height: 1.6; color: var(--color-text-muted); }
+    .lead { margin: 0 0 1.2rem; font-size: 1.05rem; color: var(--color-text-base); }
 
-    .policy li {
-        color: var(--color-text-dim);
+    section {
+        padding: 1.1rem 1.25rem 0.4rem;
+        margin-bottom: 12px;
+        background: #13161e;
+        border: 1px solid #232733;
+        border-radius: 6px;
     }
-
-    .policy strong {
-        color: var(--color-text-bright);
+    h2 {
+        margin: 0 0 0.6rem;
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--color-accent);
     }
+    p { margin: 0 0 0.8rem; }
+    ul { margin: 0 0 0.8rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.45rem; }
+    b { color: var(--color-text-bright); }
 </style>

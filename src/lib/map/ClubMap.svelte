@@ -159,6 +159,17 @@
             container.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
             if (picker) placePicker(picker.lat, picker.lng, false);
         });
+        /* Re-frame when the map's box changes size (it often settles after
+           the first frame on a phone, which left a pin off the edge), until
+           someone moves the map themselves. */
+        let moved = false;
+        map.on('dragstart', () => (moved = true));
+        map.on('zoomstart', (e: any) => { if (e.originalEvent) moved = true; });
+        map.on('resize', () => { if (ready && !moved && !picker) frame(); });
+        // MapLibre only follows the window; the box can change without it
+        // (fonts loading, the page settling), so watch the box itself.
+        sizeWatch = new ResizeObserver(() => map?.resize());
+        sizeWatch.observe(container);
         if (onbackground) map.on('click', () => onbackground?.());
         if (onpick) {
             map.on('click', (e: any) => {
@@ -168,7 +179,11 @@
         }
     });
 
-    onDestroy(() => map?.remove());
+    let sizeWatch: ResizeObserver | null = null;
+    onDestroy(() => {
+        sizeWatch?.disconnect();
+        map?.remove();
+    });
 
     // Pins or the viewer changed (a filter, "near me"): redraw, and reframe
     // only if which pins are shown changed; picking one out shouldn't move

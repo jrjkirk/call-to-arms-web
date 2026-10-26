@@ -124,15 +124,6 @@
         return d && m ? `${d} ${MONTHS_SHORT[m - 1]}` : week;
     }
 
-    const usual = $derived.by(() => {
-        let best: { system: string; faction: string; n: number } | null = null;
-        for (const [system, facs] of Object.entries(factionUsage as Record<string, Record<string, number>>)) {
-            for (const [faction, n] of Object.entries(facs)) {
-                if (faction && (!best || n > best.n)) best = { system, faction, n };
-            }
-        }
-        return best;
-    });
 
     let brokenLogos = $state<Record<string, boolean>>({});
 </script>
@@ -165,7 +156,6 @@
                 {/each}
             </div>
         {/if}
-        {#if usual}<div class="header-usual">{usual.faction}, usually</div>{/if}
         <div class="header-sub">
             {#if club}<span>{club.name}</span>{/if}{#if discord}<span>{discord.discord_name} on Discord</span>{/if}
         </div>
@@ -327,7 +317,6 @@
         padding: 18px;
     }
 
-    .header :global(.header-icon) { width: 68px; height: 68px; flex: none; }
     .header-avatar { width: 60px; height: 60px; border-radius: 50%; flex: none; }
 
     .header-text { flex: 1; min-width: 0; }
@@ -352,7 +341,6 @@
         background: var(--tc);
     }
 
-    .header-usual { color: var(--color-text-muted); }
     .header-sub { display: flex; flex-wrap: wrap; gap: 0 14px; margin-top: 2px; font-size: 0.85rem; color: var(--color-text-faint); }
 
 
@@ -499,7 +487,6 @@
     @media (max-width: 560px) {
         .page-title { font-size: 2.1rem; }
         .header { padding: 14px; gap: 12px; }
-        .header :global(.header-icon) { width: 54px; height: 54px; }
         .system-head, .block { padding-left: 14px; padding-right: 14px; }
         .game { padding: 11px 14px; gap: 10px; }
         .achievement-grid { grid-template-columns: 1fr 1fr; }

@@ -199,27 +199,18 @@
 
 <div class="container">
 	<div class="request-section">
-		<div class="request-heading">Add your club</div>
-		<p class="request-tagline">
-			Tell us about it and we'll get you set up, usually the same day.
-		</p>
+		<h1 class="page-title">Add your club</h1>
 
 		{#if !identityLoaded}
 			<div class="request-card request-success"><p>Loading…</p></div>
 		{:else if submitted}
 			<div class="request-card request-success">
-				<p>
-					Thanks, your request is in. We'll review it and be in touch at
-					<strong>{requesterEmail}</strong>. Once it's approved you'll be able to sign in and
-					you'll land straight in your club's admin.
-				</p>
+				<p class="state-word">Request sent</p>
+				<p class="request-lead">We’ll be in touch at <strong>{requesterEmail}</strong>. Once it’s approved, signing in takes you straight to your club’s admin.</p>
 			</div>
 		{:else if !signedIn}
 			<div class="request-card request-success">
-				<p>
-					Sign in to request your club. It tells us who's asking, and it
-					lets us make you the club's admin the moment we approve it.
-				</p>
+				<p class="request-lead">Sign in first, so we can make you the club’s admin when it’s approved.</p>
 				<div class="request-signin">
 					<a class="request-button" href={loginHrefTo('/request-club')}>Sign in with Discord</a>
 					<GoogleSignIn to="/request-club" class="request-button request-button-alt" />
@@ -230,26 +221,28 @@
 			</div>
 		{:else}
 			<form class="request-card" onsubmit={(e) => { e.preventDefault(); submit(); }}>
-				<p class="request-as">Requesting as <strong>{discordName}</strong></p>
+				<p class="request-as"><span class="field-label">Signed in as</span> <strong>{discordName}</strong></p>
 
+				<h2 class="group-title">You</h2>
 				<div class="request-grid">
 					<div class="field">
-						<label class="field-label" for="req-name">Your name</label>
+						<label class="field-label" for="req-name">Name</label>
 						<input id="req-name" class="field-input" type="text" bind:value={requesterName} required />
 					</div>
 					<div class="field">
-						<label class="field-label" for="req-email">Your email</label>
+						<label class="field-label" for="req-email">Email</label>
 						<input id="req-email" class="field-input" type="email" bind:value={requesterEmail} required />
 					</div>
 					<div class="field">
-						<label class="field-label" for="req-role">Your role at the club</label>
+						<label class="field-label" for="req-role">Role</label>
 						<select id="req-role" class="field-input" bind:value={requesterRole}>
-							<option value="">Select…</option>
+							<option value="">Select</option>
 							{#each ROLES as r (r)}<option>{r}</option>{/each}
 						</select>
 					</div>
 				</div>
 
+				<h2 class="group-title">Your club</h2>
 				<div class="request-grid">
 					<div class="field">
 						<label class="field-label" for="req-club-name">Club name</label>
@@ -262,12 +255,12 @@
 					<div class="field">
 						<label class="field-label" for="req-region">Region</label>
 						<select id="req-region" class="field-input" bind:value={region}>
-							<option value="">Select…</option>
+							<option value="">Select</option>
 							{#each regions as r (r)}<option>{r}</option>{/each}
 						</select>
 					</div>
 					<div class="field">
-						<label class="field-label" for="req-slug">Your web address</label>
+						<label class="field-label" for="req-slug">Web address</label>
 						<div class="slug-row">
 							<input
 								id="req-slug"
@@ -281,8 +274,9 @@
 					</div>
 				</div>
 
+				<h2 class="group-title">Your nights</h2>
 				<div class="field">
-					<span class="field-label">Which systems do you play?</span>
+					<span class="field-label">Systems you play</span>
 					<div class="chip-row">
 						{#each systemOptions as s (s.legacy_system_name)}
 							<button
@@ -306,7 +300,7 @@
 							<div class="field">
 								<label class="field-label" for="sys-day-{name}">Night</label>
 								<select id="sys-day-{name}" class="field-input" bind:value={systemDetails[name].day}>
-									<option value="">Select…</option>
+									<option value="">Select</option>
 									{#each DAYS as d (d)}<option>{d}</option>{/each}
 								</select>
 							</div>
@@ -323,7 +317,7 @@
 								</select>
 							</div>
 							<div class="field">
-								<label class="field-label" for="sys-players-{name}">Roughly how many players</label>
+								<label class="field-label" for="sys-players-{name}">Players</label>
 								<input id="sys-players-{name}" class="field-input" type="number" min="1"
 								       bind:value={systemDetails[name].players} />
 							</div>
@@ -333,7 +327,7 @@
 
 
 				<div class="field">
-					<label class="field-label" for="req-evidence">Where can we see your club?</label>
+					<label class="field-label" for="req-evidence">Where we can see your club</label>
 					<input
 						id="req-evidence"
 						class="field-input"
@@ -364,10 +358,38 @@
 		padding: 0 1rem 3rem;
 	}
 
-	.request-as {
+	.request-as { display: flex; align-items: baseline; gap: 0.6rem; margin: 0 0 0.4rem; }
+	.request-as .field-label { margin: 0; }
+	.request-as strong { color: var(--color-text-bright); }
+
+	.page-title {
+		font-size: 2.4rem;
+		font-weight: 700;
+		line-height: 1;
+		text-transform: uppercase;
 		margin: 0 0 1rem;
-		color: var(--color-text-muted);
-		font-size: 0.85rem;
+	}
+	@media (max-width: 560px) { .page-title { font-size: 2.1rem; } }
+
+	.group-title {
+		margin: 1.4rem 0 0.7rem;
+		font-family: var(--font-heading);
+		font-size: 1rem;
+		font-weight: 600;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: var(--color-accent);
+	}
+
+	.request-lead { margin: 0 0 0.4rem; color: var(--color-text-muted); line-height: 1.5; }
+	.state-word {
+		margin: 0 0 0.5rem;
+		font-family: var(--font-heading);
+		font-size: 1.2rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--color-win);
 	}
 
 	.slug-row {
@@ -388,14 +410,17 @@
 		gap: 0.45rem;
 	}
 
+	/* Tiles, like the rest of the app's choices, not pills. */
 	.chip {
-		background: var(--color-surface);
-		border: 1px solid var(--color-steel-border);
+		min-height: 44px;
+		background: #0f1218;
+		border: 1px solid #343a47;
 		color: var(--color-text-muted);
-		border-radius: 999px;
-		padding: 0.4rem 0.85rem;
+		border-radius: var(--radius);
+		padding: 0 0.9rem;
 		font-family: inherit;
-		font-size: 0.85rem;
+		font-size: 0.92rem;
+		font-weight: 600;
 		cursor: pointer;
 		transition:
 			border-color 0.15s ease,
@@ -408,43 +433,24 @@
 
 	.chip-on {
 		border-color: var(--color-accent);
-		color: var(--color-accent);
-		background: var(--color-accent-glow);
+		color: var(--color-text-bright);
+		background: rgba(201, 161, 74, 0.16);
 	}
 
 	.request-section {
 		width: 100%;
-		margin-top: clamp(2.2rem, 5vw, 3rem);
-		text-align: center;
-	}
-
-	.request-heading {
-		color: var(--color-accent);
-		font-size: 0.82rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 1.5px;
-		margin-bottom: 0.3rem;
-	}
-
-	.request-tagline {
-		margin: 0 0 1rem;
-		color: var(--color-text-dim);
-		font-size: 0.88rem;
+		margin-top: 1rem;
 	}
 
 	.request-card {
-		text-align: left;
-		background: var(--color-surface-dark);
-		border: 1px solid var(--color-steel-border);
-		border-radius: var(--radius);
-		padding: 1.1rem 1.2rem 1.3rem;
+		background: #13161e;
+		border: 1px solid #232733;
+		border-radius: 6px;
+		padding: 1.1rem 1.25rem 1.3rem;
 	}
 
 	.request-success {
-		text-align: center;
 		color: var(--color-text-muted);
-		font-size: 0.92rem;
 	}
 
 	.request-success p {
@@ -462,30 +468,8 @@
 		margin-bottom: 0.85rem;
 	}
 
-	.field-label {
-		display: block;
-		color: var(--color-text-muted);
-		font-size: 0.85rem;
-		margin-bottom: 0.32rem;
-	}
 
-	.field-input {
-		width: 100%;
-		background: var(--color-surface);
-		border: 1px solid var(--color-steel-border);
-		border-radius: var(--radius);
-		color: var(--color-text-base);
-		padding: 0.55rem 0.75rem;
-		font-family: inherit;
-		font-size: 0.92rem;
-		box-sizing: border-box;
-	}
 
-	.field-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
-		box-shadow: 0 0 0 3px var(--color-accent-glow);
-	}
 
 	.request-error {
 		color: var(--color-loss);
@@ -496,11 +480,23 @@
 	/* One system's schedule, set apart from the club-wide fields so four more
 	   inputs per system read as a group rather than as the form getting longer. */
 	.sys-block {
+		position: relative;
 		margin: 0.6rem 0 0;
-		padding: 0.7rem 0.8rem 0.8rem;
-		border: 1px solid var(--color-steel-border);
-		border-radius: var(--radius);
-		background: var(--color-bg-deep);
+		padding: 0.8rem 0.9rem 0.9rem calc(0.9rem + 16px);
+		border: 1px solid #232733;
+		border-radius: 6px;
+		background: #0f1218;
+	}
+	/* A gold bar beside each night (design rule 1). */
+	.sys-block::before {
+		content: '';
+		position: absolute;
+		left: 0.9rem;
+		top: 0.8rem;
+		bottom: 0.8rem;
+		width: 4px;
+		border-radius: 2px;
+		background: var(--color-accent);
 	}
 	/* The field that follows the last system block. Without this it sits flush
 	   against the block's border and reads as part of it, rather than as the
@@ -511,10 +507,13 @@
 	}
 
 	.sys-name {
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.6rem;
+		font-family: var(--font-heading);
 		font-weight: 700;
-		font-size: 0.85rem;
-		color: var(--color-accent);
+		font-size: 1.1rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--color-text-bright);
 	}
 	/* Two rows, and each field spans both via subgrid, so every label sits in
 	   the same band and every input starts on the same line. Without it the one
@@ -563,7 +562,7 @@
 	.request-signin {
 		display: flex;
 		gap: 0.6rem;
-		justify-content: center;
+		justify-content: flex-start;
 		flex-wrap: wrap;
 		margin-top: 1rem;
 	}
@@ -575,25 +574,31 @@
 		background: transparent;
 		border: 1px solid var(--color-accent-border);
 		color: var(--color-text-bright);
+		font-family: var(--font-heading);
 		font-weight: 700;
-		font-size: 0.9rem;
-		padding: 0.65rem 1.6rem;
+		font-size: 1rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		padding: 0.65rem 1.4rem;
 		border-radius: var(--radius);
 		text-decoration: none;
 	}
 	.request-signin .request-button { margin: 0; }
 
 	.request-button {
-		margin: 1rem auto 0;
+		margin: 1.2rem 0 0 auto;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		background: var(--color-accent);
 		border: 1px solid var(--color-accent);
 		color: #1b1206;
+		font-family: var(--font-heading);
 		font-weight: 700;
-		font-size: 0.9rem;
-		padding: 0.65rem 1.6rem;
+		font-size: 1.05rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		padding: 0.7rem 1.6rem;
 		border-radius: var(--radius);
 		cursor: pointer;
 		text-decoration: none;
