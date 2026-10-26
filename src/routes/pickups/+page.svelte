@@ -2,9 +2,10 @@
   Pick-up games: find a game outside club night (the API's pickups.py).
 
   Top to bottom, in the order a player needs them: a game waiting for your
-  answer, games that are on, your open requests, the form to ask for one, and
-  who else is looking. Declining asks why, and says plainly that only the
-  club's admins see the answer.
+  answer, games that are on, your open requests, open games from other
+  players (PLAY takes one up at once), and the form to ask for one yourself.
+  Declining asks why, and says plainly that only the club's admins see the
+  answer.
 -->
 <script lang="ts">
     import { onMount } from 'svelte';
@@ -16,12 +17,12 @@
     import { fetchMySystems } from '$lib/mySystems';
     import { getClubSlugFromHostname } from '$lib/clubSlug';
     import {
-        getSystemsConfig, vibeOptionsFor, usesPoints, defaultVibeFor, configFor,
+        getSystemsConfig, vibeOptionsFor, usesPoints, defaultVibeFor, configFor, systemLogoUrl,
         FALLBACK_SYSTEMS_CONFIG, type SystemConfig
     } from '$lib/systemsConfig';
     import { NONE_FACTION } from '$lib/signupOptions';
     import {
-        acceptGame, askForGame, cancelRequest, declineGame, fetchPickups, needsMyAnswer, peekPickups,
+        acceptGame, askForGame, cancelRequest, claimGame, declineGame, fetchPickups, needsMyAnswer, peekPickups,
         type PickupList, type PickupRequest
     } from '$lib/pickups';
 
@@ -48,6 +49,28 @@
     let points = $state(2000);
     let vibe = $state('');
     let notes = $state('');
+
+    // Playing someone's open request: which one is open for confirming, and
+    // what you'd bring.
+    let claiming = $state<number | null>(null);
+    let claimFaction = $state(NONE_FACTION);
+    let claimPoints = $state(2000);
+
+    function openClaim(o: PickupRequest) {
+        claiming = claiming === o.id ? null : o.id;
+        claimFaction = NONE_FACTION;
+        claimPoints = o.points ?? (configFor(systemsConfig, o.system).default_points || 2000);
+    }
+
+    function confirmClaim(o: PickupRequest) {
+        return act(() => claimGame(o.id, {
+            faction: claimFaction === NONE_FACTION ? null : claimFaction,
+            points: usesPoints(systemsConfig, o.system) ? claimPoints : null
+        }), () => {
+            claiming = null;
+            return `Sent. ${o.player_name} will accept or decline, and you'll be told.`;
+        });
+    }
 
     // Declining: which game, and the private reason.
     let declining = $state<number | null>(null);
@@ -87,7 +110,24 @@
     const waiting = $derived((list?.mine ?? []).filter(needsMyAnswer));
     const on = $derived((list?.mine ?? []).filter((r) => r.match?.status === 'confirmed'));
     const pending = $derived((list?.mine ?? []).filter((r) => !needsMyAnswer(r) && r.match?.status !== 'confirmed'));
-    const others = $derived((list?.others ?? []).filter((r) => !system || r.system === system));
+    /* Every open request at the club, whatever system the form below is set
+       to: these are games you can take, not a filter on your own request. */
+    const others = $derived(list?.others ?? []);
+    /** Systems you already have a live request in: you can't take a second. */
+    const busySystems = $derived(new Set((list?.mine ?? []).map((r) => r.system)));
+
+    /* Home links to /pickups#open-<id>: open that game ready to confirm. */
+    let jumped = false;
+    $effect(() => {
+        if (jumped || !ready || typeof window === 'undefined') return;
+        const m = /^#open-(\d+)$/.exec(window.location.hash);
+        if (!m) return;
+        const o = others.find((x) => x.id === Number(m[1]));
+        if (!o) return;
+        jumped = true;
+        openClaim(o);
+        requestAnimationFrame(() => document.getElementById(`open-${o.id}`)?.scrollIntoView({ block: 'center' }));
+    });
     const alreadyAsked = $derived((list?.mine ?? []).some((r) => r.system === system));
 
     async function act(fn: () => Promise<unknown>, done: string | ((result: any) => string)) {
@@ -219,6 +259,57 @@
         {/each}
     {/if}
 
+    <!-- Open games: anyone at the club looking, each one yours to take. -->
+    <h2 class="section-title">Open games</h2>
+    {#if others.length}
+        <ul class="panel others">
+            {#each others as o (o.id)}
+                {@const logo = systemLogoUrl(o.system, systemsConfig)}
+                <li id={`open-${o.id}`} class:open={claiming === o.id}>
+                    <div class="o-row">
+                        <div class="o-main">
+                            <span class="o-name">{o.player_name}</span>
+                            <span class="o-when">{o.when}</span>
+                            <span class="o-detail">{[o.where.charAt(0).toUpperCase() + o.where.slice(1), o.vibe, o.faction, o.points ? `${o.points.toLocaleString('en-GB')} pts` : null].filter(Boolean).join(' · ')}</span>
+                            {#if o.notes}<span class="o-notes">“{o.notes}”</span>{/if}
+                        </div>
+                        <div class="o-side">
+                            {#if logo}<img src={logo} alt={o.system} />{:else}<span class="o-sys">{o.system}</span>{/if}
+                            {#if busySystems.has(o.system)}
+                                <span class="o-busy">You’ve asked already</span>
+                            {:else}
+                                <button class="secondary-button" type="button" disabled={busy} aria-expanded={claiming === o.id}
+                                        onclick={() => openClaim(o)}>{claiming === o.id ? 'Close' : 'Play'}</button>
+                            {/if}
+                        </div>
+                    </div>
+                    {#if claiming === o.id}
+                        <div class="o-claim">
+                            <label class="field">
+                                <span class="field-label">Your faction</span>
+                                <select class="field-select" bind:value={claimFaction}>
+                                    <option value={NONE_FACTION}>Not sure yet</option>
+                                    <FactionOptions {systemsConfig} system={o.system} />
+                                </select>
+                            </label>
+                            {#if usesPoints(systemsConfig, o.system)}
+                                <label class="field">
+                                    <span class="field-label">Points</span>
+                                    <input class="field-input" type="number" min="0" step="50" bind:value={claimPoints} />
+                                </label>
+                            {/if}
+                            <button class="primary-button" type="button" disabled={busy} onclick={() => confirmClaim(o)}>
+                                {busy ? 'Sending…' : `Play ${o.player_name}`}
+                            </button>
+                        </div>
+                    {/if}
+                </li>
+            {/each}
+        </ul>
+    {:else}
+        <p class="note">Nobody else is looking right now.</p>
+    {/if}
+
     <h2 class="section-title">Find me a game</h2>
     {#if systems.length > 1}
         <SystemPicker {systems} {systemsConfig} isActive={(s) => s === system} onSelect={(s) => (system = s)} />
@@ -294,18 +385,6 @@
         </section>
     {/if}
 
-    {#if others.length}
-        <h2 class="section-title">Also looking</h2>
-        <ul class="panel others">
-            {#each others as o (o.id)}
-                <li>
-                    <span class="o-name">{o.player_name}</span>
-                    <span class="o-detail">{o.when} · {o.where}{o.vibe ? ` · ${o.vibe}` : ''}</span>
-                </li>
-            {/each}
-        </ul>
-        <p class="note">Add your own request and the app will match you if it fits.</p>
-    {/if}
 </div>
 {/if}
 
@@ -430,6 +509,25 @@
     .others { list-style: none; padding: 0; }
     .others li { padding: 12px 18px; border-top: 1px solid #1c2029; display: flex; flex-direction: column; }
     .others li:first-child { border-top: none; }
+    .others li.open { background: rgba(201, 161, 74, 0.05); }
+    .o-row { display: flex; align-items: center; gap: 12px; }
+    .o-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .o-when { font-weight: 600; color: var(--color-accent); }
+    .o-notes { font-size: 0.88rem; color: var(--color-text-muted); font-style: italic; }
+    .o-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .o-side img { height: 20px; max-width: 96px; object-fit: contain; }
+    .o-sys { font-size: 0.85rem; color: var(--color-text-muted); }
+    .o-busy { font-size: 0.8rem; color: var(--color-text-faint); text-align: right; max-width: 7rem; }
+    .o-claim {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 10px;
+        margin-top: 12px;
+    }
+    .o-claim .field { margin: 0; flex: 1 1 11rem; min-width: 0; }
+    .o-claim .field select, .o-claim .field input { width: 100%; }
+    .o-claim .primary-button { flex: 1 1 100%; min-height: 46px; }
     .o-name { font-weight: 700; color: var(--color-text-bright); }
     .o-detail { font-size: 0.88rem; color: var(--color-text-dim); }
 

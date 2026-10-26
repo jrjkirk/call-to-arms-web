@@ -246,7 +246,7 @@
                         {@const night = home.nights.find((x) => x.system === r.system)}
                         {@const logo = systemLogoUrl(r.system, systemsConfig)}
                         <li>
-                            <a class="pick-row" href="/pickups">
+                            <a class="pick-row" href={`/pickups#open-${r.id}`}>
                                 <span class="night-bar" style={`background: ${night?.accent_color ?? 'var(--color-accent)'}`}></span>
                                 <span class="pick-who">
                                     <b>{r.player_name}</b>

@@ -81,6 +81,10 @@ export const askForGame = (body: Record<string, unknown>) => call('/pickups', bo
 export const acceptGame = (matchId: number) => call(`/pickups/matches/${matchId}/accept`, {});
 export const declineGame = (matchId: number, reason: string) => call(`/pickups/matches/${matchId}/decline`, { reason });
 export const cancelRequest = (requestId: number) => call(`/pickups/${requestId}/cancel`, {});
+/** Take up someone's open request: a game is proposed at once, already
+ *  accepted on your side, and they're asked to accept. */
+export const claimGame = (requestId: number, body: { faction: string | null; points: number | null; notes?: string | null }) =>
+    call(`/pickups/${requestId}/claim`, body);
 
 /** A proposal still waiting on this player's answer. */
 export const needsMyAnswer = (r: PickupRequest) =>
