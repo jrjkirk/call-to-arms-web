@@ -31,18 +31,15 @@
     const pillars = [
         {
             glyph: 'sign-up',
-            title: 'Sign up',
-            text: 'Pick your night and your army. Your club’s Discord hears about it.'
+            title: 'Sign up'
         },
         {
             glyph: 'pairings',
-            title: 'Get paired',
-            text: 'A fair game every week, worked out for you. Organisers can still change anything.'
+            title: 'Get paired'
         },
         {
             glyph: 'rankings',
-            title: 'Leagues',
-            text: 'Results, rankings, and a record of the whole season.'
+            title: 'Leagues'
         }
     ];
 </script>
@@ -89,7 +86,7 @@
 
         <div class="hero-about" in:fade={{ duration: 500, delay: 400 }}>
             <div class="hero-about-heading">What is Call to Arms?</div>
-            <p class="hero-about-text">Sign-ups, fair pairings and leagues for tabletop wargaming clubs.</p>
+            <p class="hero-about-text">Sign up for your club’s game night in a tap, know who you’re playing before you arrive, and follow your season in the league.</p>
         </div>
 
         <div class="hero-pillars" in:fade={{ duration: 500, delay: 480 }}>
@@ -115,7 +112,6 @@
                         {/if}
                     </span>
                     <div class="pillar-title">{p.title}</div>
-                    <p class="pillar-text">{p.text}</p>
                 </div>
             {/each}
         </div>
@@ -191,17 +187,16 @@
         margin-top: clamp(2rem, 4.5vw, 2.8rem);
     }
 
-    /* A card each: the icon, a capitals title, one line. */
+    /* A card each: the icon and a capitals title. */
     .pillar {
         background: #13161e;
         border: 1px solid #232733;
         border-radius: 6px;
-        padding: 1.3rem 1.3rem 1.4rem;
+        padding: 1.1rem 1.2rem;
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        text-align: left;
-        gap: 0.45rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.8rem;
     }
 
     .pillar-icon {
@@ -220,12 +215,6 @@
         text-transform: uppercase;
     }
 
-    .pillar-text {
-        margin: 0;
-        color: var(--color-text-dim);
-        font-size: 0.95rem;
-        line-height: 1.5;
-    }
 
     .hero-cta {
         margin-top: clamp(1rem, 2.4vw, 1.5rem);

@@ -374,6 +374,8 @@
         discord_name: string | null; discord_id: string | null;
         region: string | null; preferred_slug: string | null;
         systems: string[];
+        /** Games not in the catalogue, from the form's "Other". Not set up on approval. */
+        other_systems: string | null;
         /* Per-system nights, keyed on legacy system name. Empty on requests
            submitted before 2026-09-09, which still carry the flat fields. */
         system_details: Record<string, { day?: string; time?: string; cadence?: string; players?: number }>;
@@ -1782,6 +1784,9 @@
                                     {/each}
                                 {:else if r.systems.length}
                                     <span class="block-note">⚔️ {r.systems.join(', ')}</span>
+                                {/if}
+                                {#if r.other_systems}
+                                    <span class="block-note req-duplicate">🆕 Not in the catalogue, add it first: {r.other_systems}</span>
                                 {/if}
                                 {#if r.club_night_day && !Object.keys(r.system_details ?? {}).length}
                                     <span class="block-note">🗓️ {r.club_night_day}{r.club_night_time ? ` ${r.club_night_time}` : ''}{r.player_count ? ` · ~${r.player_count} players` : ''}</span>

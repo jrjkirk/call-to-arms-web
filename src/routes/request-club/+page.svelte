@@ -57,6 +57,10 @@
 			: { day: '', time: '', cadence: 'weekly', players: null };
 	}
 	let evidenceUrl = $state('');
+	/* A game that isn't in the list. Nothing is set up for it on approval: the
+	   platform admin reads it from the request and adds it to the catalogue. */
+	let otherOn = $state(false);
+	let otherSystems = $state('');
 	let notes = $state('');
 
 	let submitting = $state(false);
@@ -180,6 +184,7 @@
 						0
 					) || null,
 					evidence_url: evidenceUrl.trim() || null,
+					other_systems: otherOn ? otherSystems.trim() || null : null,
 					notes: notes.trim() || null
 				})
 			});
@@ -286,7 +291,12 @@
 								onclick={() => toggleSystem(s.legacy_system_name)}
 							>{s.name}</button>
 						{/each}
+						<button type="button" class="chip" class:chip-on={otherOn} onclick={() => (otherOn = !otherOn)}>Other</button>
 					</div>
+					{#if otherOn}
+						<input class="field-input other-input" type="text" maxlength="200"
+						       placeholder="Which game?" aria-label="Other game" bind:value={otherSystems} />
+					{/if}
 				</div>
 
 				<!-- One block per system they picked, in the order they picked
@@ -430,6 +440,8 @@
 	.chip:hover {
 		border-color: var(--color-accent);
 	}
+
+	.other-input { margin-top: 0.5rem; }
 
 	.chip-on {
 		border-color: var(--color-accent);
