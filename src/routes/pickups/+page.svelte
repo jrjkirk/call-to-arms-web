@@ -39,7 +39,10 @@
     let date = $state(isoDay(1));
     let start = $state('18:00');
     let end = $state('22:00');
-    let venue = $state<'club' | 'tbc' | 'other'>('club');
+    /* Two choices: the club, or elsewhere. Elsewhere with a place typed in is
+       sent as that place ('other'); left blank it is "to be agreed" ('tbc').
+       There used to be a separate "We'll sort it", which meant the same. */
+    let venue = $state<'club' | 'elsewhere'>('club');
     let venueText = $state('');
     let faction = $state(NONE_FACTION);
     let points = $state(2000);
@@ -104,8 +107,9 @@
 
     function ask() {
         return act(() => askForGame({
-            system, date, start, end, venue,
-            venue_text: venue === 'other' ? venueText : null,
+            system, date, start, end,
+            venue: venue === 'club' ? 'club' : venueText.trim() ? 'other' : 'tbc',
+            venue_text: venue === 'elsewhere' && venueText.trim() ? venueText.trim() : null,
             faction: faction === NONE_FACTION ? null : faction,
             points: usesPoints(systemsConfig, system) ? points : null,
             vibe, notes
@@ -244,11 +248,10 @@
             <span class="field-label">Where</span>
             <div class="chips" role="radiogroup" aria-label="Where">
                 <button type="button" class="chip" role="radio" aria-checked={venue === 'club'} onclick={() => (venue = 'club')}>The club</button>
-                <button type="button" class="chip" role="radio" aria-checked={venue === 'tbc'} onclick={() => (venue = 'tbc')}>We'll sort it</button>
-                <button type="button" class="chip" role="radio" aria-checked={venue === 'other'} onclick={() => (venue = 'other')}>Elsewhere</button>
+                <button type="button" class="chip" role="radio" aria-checked={venue === 'elsewhere'} onclick={() => (venue = 'elsewhere')}>Elsewhere / to be agreed</button>
             </div>
-            {#if venue === 'other'}
-                <input class="field-input venue-text" type="text" maxlength="120" placeholder="Where? (a shop, a venue, a town)" bind:value={venueText} />
+            {#if venue === 'elsewhere'}
+                <input class="field-input venue-text" type="text" maxlength="120" placeholder="Where, if you know (optional)" aria-label="Where" bind:value={venueText} />
             {/if}
 
             {#if vibeOptionsFor(systemsConfig, system).length}

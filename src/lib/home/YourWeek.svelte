@@ -80,6 +80,23 @@
     const seat = $derived(myGame ? sides(myGame, home?.player_id) : null);
     const folder = $derived(gameNight ? systemFolder(gameNight.system, systemsConfig) : null);
 
+    /** "Wed 28 · 18:00–22:00": a pick-up is weeks away at most, so the day
+     *  and date say enough, and the row keeps room for where. */
+    function pickupWhen(r: { window_start: string; window_end: string }): string {
+        // Stored as the UK times the player gave, with no zone, so read them
+        // as written rather than converting.
+        const [date, from] = r.window_start.split('T');
+        const until = r.window_end.split('T')[1] ?? '';
+        const [y, m, d] = date.split('-').map(Number);
+        const day = new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
+        return `${day} · ${from.slice(0, 5)}–${until.slice(0, 5)}`;
+    }
+    /** "At the club", "To be agreed", or the place. */
+    function pickupWhere(r: { where: string; venue: string }): string {
+        if (r.venue === 'tbc') return 'To be agreed';
+        return r.where.charAt(0).toUpperCase() + r.where.slice(1);
+    }
+
     function logoFor(n: { system: string; logo_url: string | null }): string | null {
         return n.logo_url || systemLogoUrl(n.system, systemsConfig);
     }
@@ -212,7 +229,7 @@
                 <!-- No button: This week, beside or below, signs up for any night. -->
                 <div class="next-body next-plain">
                     <p class="next-big">No game yet this week</p>
-                    <p class="next-note">Pick a night and you'll be paired before it starts.</p>
+                    <a class="next-link" href="/signup">Sign up for a game ›</a>
                 </div>
             {/if}
         </section>
@@ -233,11 +250,11 @@
                                 <span class="night-bar" style={`background: ${night?.accent_color ?? 'var(--color-accent)'}`}></span>
                                 <span class="pick-who">
                                     <b>{r.player_name}</b>
-                                    <span>{r.when}</span>
+                                    <span>{pickupWhen(r)}</span>
                                 </span>
                                 <span class="pick-sys">
                                     {#if logo}<img src={logo} alt={r.system} />{:else}<b>{r.system}</b>{/if}
-                                    <span>{r.where}</span>
+                                    <span>{pickupWhere(r)}</span>
                                 </span>
                                 <span class="pick-go" aria-hidden="true">›</span>
                             </a>
@@ -377,7 +394,8 @@
     /* ── Open pick-ups ── */
     .pick-list { list-style: none; margin: 0; padding: 0; }
     .pick-row {
-        display: flex;
+        display: grid;
+        grid-template-columns: 4px minmax(0, 1fr) auto 12px;
         align-items: center;
         gap: 14px;
         padding: 12px 22px;
@@ -390,10 +408,11 @@
     .pick-row .night-bar { align-self: stretch; }
     .pick-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .pick-who b { color: var(--color-text-bright); font-size: 1.05rem; }
+    .pick-who b, .pick-who span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pick-who span { font-size: 0.9rem; font-weight: 600; color: var(--color-accent); }
     .pick-sys { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; text-align: right; }
     .pick-sys img { height: 22px; width: auto; max-width: 120px; object-fit: contain; }
-    .pick-sys span { font-size: 0.85rem; color: var(--color-text-dim); }
+    .pick-sys span { font-size: 0.85rem; color: var(--color-text-dim); white-space: nowrap; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; }
     .pick-go { color: var(--color-text-faint); font-size: 1.3rem; }
     .pick-empty, .pick-more {
         margin: 0;
@@ -565,6 +584,17 @@
     }
 
     .next-note { margin: 0; color: var(--color-text-muted); font-size: 1.05rem; }
+    .next-link {
+        align-self: flex-start;
+        font-family: var(--font-heading);
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        text-decoration: none;
+    }
+    .next-link:hover { color: var(--color-accent-bright); }
 
     .panel-actions {
         display: flex;
@@ -761,7 +791,9 @@
         .club-name { display: none; }
         .grid { gap: 14px; }
         .panel-head { padding: 12px 14px; }
-        .pick-row { padding: 12px 14px; }
+        .pick-row { padding: 12px 14px; gap: 10px; grid-template-columns: 4px minmax(0, 1fr) auto 8px; }
+        .pick-sys img { height: 18px; max-width: 78px; }
+        .pick-sys span { font-size: 0.8rem; max-width: 6.5rem; }
         .pick-empty, .pick-more { padding-left: 14px; padding-right: 14px; }
         .panel-head h2 { font-size: 0.92rem; letter-spacing: 0.18em; }
         .panel-logo { height: 20px; }
