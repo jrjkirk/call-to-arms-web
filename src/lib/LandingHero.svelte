@@ -86,7 +86,7 @@
 
         <div class="hero-about" in:fade={{ duration: 500, delay: 400 }}>
             <div class="hero-about-heading">What is Call to Arms?</div>
-            <p class="hero-about-text">Sign up for your club’s game night in a tap, know who you’re playing before you arrive, and follow your season in the league.</p>
+            <p class="hero-about-text">Game nights for tabletop wargaming clubs, for the people who run them and the people who play. Players sign up in a tap and know who they’re playing before they arrive. Organisers get the pairings made for them, and a league if they want one.</p>
         </div>
 
         <div class="hero-pillars" in:fade={{ duration: 500, delay: 480 }}>
